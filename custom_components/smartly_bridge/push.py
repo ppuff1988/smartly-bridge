@@ -1,4 +1,5 @@
 """Push state changes to Smartly Platform webhook."""
+
 from __future__ import annotations
 
 import asyncio
@@ -9,7 +10,7 @@ from typing import TYPE_CHECKING, Any
 
 import aiohttp
 
-from .acl import get_allowed_entities, is_entity_allowed
+from .acl import get_allowed_entities
 from .audit import log_push_fail, log_push_success
 from .auth import sign_outgoing_request
 from .const import (
@@ -18,7 +19,6 @@ from .const import (
     CONF_PUSH_BATCH_INTERVAL,
     CONF_WEBHOOK_URL,
     DEFAULT_PUSH_BATCH_INTERVAL,
-    DOMAIN,
     PUSH_RETRY_BACKOFF_BASE,
     PUSH_RETRY_MAX,
 )
@@ -71,9 +71,7 @@ class StatePushManager:
             new_state = event.data.get("new_state")
 
             if entity_id and new_state:
-                asyncio.create_task(
-                    self._queue_event(entity_id, old_state, new_state)
-                )
+                asyncio.create_task(self._queue_event(entity_id, old_state, new_state))
 
         # Track state changes for allowed entities
         self._unsub_state_changed = async_track_state_change_event(
@@ -244,7 +242,7 @@ class StatePushManager:
 
             # Exponential backoff
             if attempt < PUSH_RETRY_MAX - 1:
-                backoff = PUSH_RETRY_BACKOFF_BASE ** attempt
+                backoff = PUSH_RETRY_BACKOFF_BASE**attempt
                 await asyncio.sleep(backoff)
 
         # All retries failed
@@ -281,9 +279,7 @@ class StatePushManager:
             new_state = event.data.get("new_state")
 
             if entity_id and new_state:
-                asyncio.create_task(
-                    self._queue_event(entity_id, old_state, new_state)
-                )
+                asyncio.create_task(self._queue_event(entity_id, old_state, new_state))
 
         # Track state changes for allowed entities
         self._unsub_state_changed = async_track_state_change_event(

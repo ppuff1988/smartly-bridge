@@ -1,4 +1,5 @@
 """Smartly Bridge integration for Home Assistant."""
+
 from __future__ import annotations
 
 import logging
@@ -8,7 +9,6 @@ from .audit import log_integration_event
 from .auth import NonceCache, RateLimiter
 from .const import (
     CONF_CLIENT_ID,
-    CONF_CLIENT_SECRET,
     CONF_INSTANCE_ID,
     DOMAIN,
     RATE_LIMIT,
@@ -26,7 +26,7 @@ _LOGGER = logging.getLogger(__name__)
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     """Set up Platform Bridge from YAML configuration.
-    
+
     This integration only supports config flow, not YAML configuration.
     """
     return True
@@ -64,9 +64,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await push_manager.start()
 
     # Register update listener for config entry changes
-    entry.async_on_unload(
-        entry.add_update_listener(async_update_options)
-    )
+    entry.async_on_unload(entry.add_update_listener(async_update_options))
 
     log_integration_event(
         _LOGGER,
@@ -97,7 +95,9 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Clear domain data
     hass.data.pop(DOMAIN, None)
 
-    log_integration_event(_LOGGER, "unload_complete", f"instance={entry.data.get(CONF_INSTANCE_ID)}")
+    log_integration_event(
+        _LOGGER, "unload_complete", f"instance={entry.data.get(CONF_INSTANCE_ID)}"
+    )
 
     return True
 
