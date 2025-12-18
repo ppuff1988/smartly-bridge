@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smartly Bridge Setup",
+        "description": "Configure the Smartly Bridge integration. A unique client ID and secret will be automatically generated for secure communication with your Smartly Platform.",
+        "data": {
+          "instance_id": "Instance ID",
+          "webhook_url": "Platform Webhook URL",
+          "allowed_cidrs": "Allowed IP Ranges (CIDR)",
+          "push_batch_interval": "Push Batch Interval (seconds)"
+        },
+        "data_description": {
+          "instance_id": "A unique identifier for this Home Assistant instance (e.g., community_001)",
+          "webhook_url": "The URL where state changes will be pushed (e.g., https://platform.example.com/webhooks/ha-events)",
+          "allowed_cidrs": "Comma-separated list of allowed IP ranges in CIDR format (e.g., 10.0.0.0/8,192.168.1.0/24). Leave empty to allow all IPs.",
+          "push_batch_interval": "How often to batch and send state changes (default: 0.5 seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_cidr": "Invalid CIDR format. Please use format like 10.0.0.0/8",
+      "invalid_url": "Invalid URL. Must start with http:// or https://"
+    },
+    "abort": {
+      "already_configured": "This integration is already configured."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smartly Bridge Options",
+        "description": "Update Smartly Bridge settings.\n\n**Credentials (read-only)**:\n- Client ID: `{client_id}`\n- Client Secret: `{client_secret}`",
+        "data": {
+          "webhook_url": "Platform Webhook URL",
+          "allowed_cidrs": "Allowed IP Ranges (CIDR)",
+          "push_batch_interval": "Push Batch Interval (seconds)"
+        }
+      }
+    },
+    "error": {
+      "invalid_cidr": "Invalid CIDR format. Please use format like 10.0.0.0/8",
+      "invalid_url": "Invalid URL. Must start with http:// or https://"
+    }
+  }
+}

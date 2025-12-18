@@ -1,0 +1,46 @@
+{
+  "config": {
+    "step": {
+      "user": {
+        "title": "Smartly Bridge 設定",
+        "description": "設定 Smartly Bridge 整合。系統將自動產生唯一的 Client ID 與 Secret，用於與 Smartly Platform 的安全通訊。",
+        "data": {
+          "instance_id": "實例 ID",
+          "webhook_url": "Platform Webhook 網址",
+          "allowed_cidrs": "允許的 IP 範圍（CIDR）",
+          "push_batch_interval": "推送批次間隔（秒）"
+        },
+        "data_description": {
+          "instance_id": "此 Home Assistant 實例的唯一識別碼（例如：community_001）",
+          "webhook_url": "狀態變更推送目標網址（例如：https://platform.example.com/webhooks/ha-events）",
+          "allowed_cidrs": "以逗號分隔的 CIDR 格式 IP 範圍（例如：10.0.0.0/8,192.168.1.0/24）。留空則允許所有 IP。",
+          "push_batch_interval": "批次發送狀態變更的間隔時間（預設：0.5 秒）"
+        }
+      }
+    },
+    "error": {
+      "invalid_cidr": "CIDR 格式無效。請使用如 10.0.0.0/8 的格式",
+      "invalid_url": "網址無效。必須以 http:// 或 https:// 開頭"
+    },
+    "abort": {
+      "already_configured": "此整合已設定完成。"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Smartly Bridge 選項",
+        "description": "更新 Smartly Bridge 設定。\n\n**憑證（唯讀）**：\n- Client ID：`{client_id}`\n- Client Secret：`{client_secret}`",
+        "data": {
+          "webhook_url": "Platform Webhook 網址",
+          "allowed_cidrs": "允許的 IP 範圍（CIDR）",
+          "push_batch_interval": "推送批次間隔（秒）"
+        }
+      }
+    },
+    "error": {
+      "invalid_cidr": "CIDR 格式無效。請使用如 10.0.0.0/8 的格式",
+      "invalid_url": "網址無效。必須以 http:// 或 https:// 開頭"
+    }
+  }
+}

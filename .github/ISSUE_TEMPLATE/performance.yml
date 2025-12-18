@@ -1,0 +1,238 @@
+name: ⚡ 效能問題
+description: 報告效能相關的問題或瓶頸
+title: "[Performance]: "
+labels: ["performance", "需要分類"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝你報告效能問題！詳細的效能資訊將幫助我們快速定位並優化。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 確認事項
+      description: 在提交之前，請確認以下事項
+      options:
+        - label: 我已經搜尋過現有的效能相關 Issues
+          required: true
+        - label: 我已經排除了網路或硬體問題
+          required: true
+        - label: 我使用的是最新版本的 Smartly Bridge
+          required: true
+
+  - type: dropdown
+    id: performance_type
+    attributes:
+      label: 效能問題類型
+      description: 這是什麼類型的效能問題？
+      options:
+        - 回應時間過長
+        - CPU 使用率過高
+        - 記憶體使用過多
+        - 記憶體洩漏
+        - 網路延遲
+        - 資料庫查詢緩慢
+        - 檔案 I/O 緩慢
+        - 啟動時間過長
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: 影響元件
+      description: 哪個元件出現效能問題？
+      options:
+        - 認證 (auth)
+        - 裝置管理 (device)
+        - Home Assistant 整合 (ha-integration)
+        - MQTT 通訊 (mqtt)
+        - REST API
+        - 設定管理 (config)
+        - 使用者介面 (ui)
+        - 稽核日誌 (audit)
+        - 存取控制 (acl)
+        - 推播通知 (push)
+        - HTTP 服務
+        - 資料庫查詢
+        - 整體系統
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述
+      description: 請詳細描述效能問題
+      placeholder: |
+        當我...時，系統反應非常緩慢
+        操作需要花費...秒才能完成
+        正常應該在...秒內完成
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 重現步驟
+      description: 如何重現這個效能問題？
+      placeholder: |
+        1. 執行...
+        2. 等待...
+        3. 觀察到...
+    validations:
+      required: true
+
+  - type: textarea
+    id: metrics
+    attributes:
+      label: 效能指標
+      description: 請提供具體的效能數據
+      placeholder: |
+        - 回應時間：約 X 秒
+        - CPU 使用率：約 X%
+        - 記憶體使用：約 X MB
+        - 資料量：約 X 筆記錄
+        - 並發數：約 X 個請求
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected_performance
+    attributes:
+      label: 預期效能
+      description: 你預期的效能表現
+      placeholder: |
+        應該在...秒內完成
+        CPU 使用率應該低於...%
+        記憶體使用應該低於...MB
+    validations:
+      required: true
+
+  - type: dropdown
+    id: frequency
+    attributes:
+      label: 發生頻率
+      description: 這個效能問題多久發生一次？
+      options:
+        - 每次都會發生
+        - 經常發生（> 50%）
+        - 偶爾發生（< 50%）
+        - 僅在特定條件下發生
+        - 隨機發生
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 嚴重程度
+      description: 這個效能問題的影響程度？
+      options:
+        - 🔴 嚴重 - 系統幾乎無法使用
+        - 🟠 高 - 嚴重影響使用體驗
+        - 🟡 中 - 有明顯延遲但可接受
+        - 🟢 低 - 輕微延遲
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本資訊
+      description: Smartly Bridge 版本
+      placeholder: 例如：v1.0.0
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python 版本
+      description: Python 版本
+      placeholder: 例如：3.12.0
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境資訊
+      description: 請提供詳細的環境資訊
+      placeholder: |
+        作業系統：
+        CPU：
+        記憶體：
+        硬碟：
+        網路：
+        資料庫：
+        其他相依服務：
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: scale
+    attributes:
+      label: 規模資訊
+      description: 請提供系統規模相關資訊
+      placeholder: |
+        - 裝置數量：
+        - 使用者數量：
+        - 資料筆數：
+        - 並發連線：
+        - 日流量：
+      render: markdown
+    validations:
+      required: false
+
+  - type: textarea
+    id: profiling
+    attributes:
+      label: 效能分析資料
+      description: 如果有進行效能分析，請提供相關資料
+      placeholder: |
+        使用的分析工具：
+        分析結果：
+        瓶頸位置：
+      render: shell
+    validations:
+      required: false
+
+  - type: textarea
+    id: workaround
+    attributes:
+      label: 暫時解決方案
+      description: 是否有找到任何暫時的解決方案或變通方法？
+      placeholder: |
+        我發現...可以稍微改善
+        暫時透過...來緩解
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 額外資訊
+      description: 其他相關資訊、截圖、圖表或日誌
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 貢獻意願
+      description: 你是否願意協助改善這個效能問題？
+      options:
+        - label: 我願意協助進行效能分析
+          required: false
+        - label: 我願意測試效能優化方案
+          required: false
+        - label: 我願意提交 Pull Request 來改善效能
+          required: false

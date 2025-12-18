@@ -1,0 +1,153 @@
+name: 📖 文件改善
+description: 報告文件問題或建議改進
+title: "[Docs]: "
+labels: ["documentation", "需要分類"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝你協助改善我們的文件！清晰的文件對專案至關重要。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 確認事項
+      description: 在提交之前，請確認以下事項
+      options:
+        - label: 我已經搜尋過現有的文件相關 Issues
+          required: true
+        - label: 我確認這是文件問題，而非程式碼錯誤
+          required: true
+
+  - type: dropdown
+    id: doc_type
+    attributes:
+      label: 文件類型
+      description: 這個問題涉及哪種類型的文件？
+      options:
+        - README
+        - API 文件
+        - 安裝指南
+        - 設定說明
+        - 使用教學
+        - 開發者指南
+        - 貢獻指南
+        - CHANGELOG
+        - 程式碼註解
+        - Wiki
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: issue_type
+    attributes:
+      label: 問題類型
+      description: 這是什麼樣的文件問題？
+      options:
+        - 資訊錯誤或過時
+        - 資訊缺失
+        - 說明不清楚或令人困惑
+        - 拼寫或文法錯誤
+        - 格式或排版問題
+        - 範例程式碼錯誤
+        - 連結失效
+        - 翻譯問題
+        - 建議新增內容
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: location
+    attributes:
+      label: 文件位置
+      description: 請提供文件的檔案路徑或 URL
+      placeholder: 例如：docs/installation.md 或 https://github.com/...
+    validations:
+      required: true
+
+  - type: textarea
+    id: current_content
+    attributes:
+      label: 目前的內容
+      description: 請引用或描述目前有問題的文件內容
+      placeholder: |
+        目前文件中寫道：
+        "..."
+      render: markdown
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem_description
+    attributes:
+      label: 問題描述
+      description: 請詳細說明這個文件有什麼問題
+      placeholder: |
+        這段內容有問題，因為...
+        這讓使用者可能會誤解為...
+        實際上應該是...
+    validations:
+      required: true
+
+  - type: textarea
+    id: suggested_content
+    attributes:
+      label: 建議的內容
+      description: 請提供你建議的文件內容（如果適用）
+      placeholder: |
+        建議修改為：
+        "..."
+      render: markdown
+    validations:
+      required: false
+
+  - type: dropdown
+    id: affected_users
+    attributes:
+      label: 影響對象
+      description: 這個文件問題主要影響哪些使用者？
+      options:
+        - 新手使用者
+        - 一般使用者
+        - 進階使用者
+        - 開發者/貢獻者
+        - 所有使用者
+    validations:
+      required: true
+
+  - type: dropdown
+    id: severity
+    attributes:
+      label: 嚴重程度
+      description: 這個文件問題的嚴重程度？
+      options:
+        - 🔴 高 - 導致使用者無法正確使用功能
+        - 🟡 中 - 造成困惑但仍可使用
+        - 🟢 低 - 小問題或改進建議
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional_context
+    attributes:
+      label: 額外資訊
+      description: 其他相關資訊、截圖或參考連結
+      placeholder: |
+        相關討論：
+        參考文件：
+        截圖：
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 貢獻意願
+      description: 你是否願意協助改善這個文件？
+      options:
+        - label: 我願意提交 Pull Request 來修正這個文件問題
+          required: false

@@ -1,0 +1,177 @@
+name: ❓ 問題詢問
+description: 詢問使用上的問題或尋求協助
+title: "[Question]: "
+labels: ["question", "需要分類"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        有問題嗎？我們很樂意協助！請提供詳細資訊，讓我們能更好地幫助你。
+        
+        💡 **提示：** 對於一般討論或開放式問題，建議使用 [Discussions](https://github.com/ppuff1988/smartly_bridge/discussions) 功能。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 確認事項
+      description: 在提交問題之前，請確認以下事項
+      options:
+        - label: 我已經查閱過專案文件和 README
+          required: true
+        - label: 我已經搜尋過現有的 Issues 和 Discussions
+          required: true
+        - label: 我已經嘗試過常見的故障排除步驟
+          required: true
+
+  - type: dropdown
+    id: question_category
+    attributes:
+      label: 問題類別
+      description: 你的問題屬於哪個類別？
+      options:
+        - 安裝與設定
+        - 功能使用方法
+        - 整合與相容性
+        - 效能或效率
+        - 安全性相關
+        - 最佳實作
+        - 故障排除
+        - 概念理解
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: question
+    attributes:
+      label: 你的問題
+      description: 請清楚描述你的問題
+      placeholder: |
+        我想了解...
+        我不確定如何...
+        我遇到了...的情況
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: 相關元件
+      description: 這個問題主要涉及哪個元件？
+      options:
+        - 認證 (auth)
+        - 裝置管理 (device)
+        - Home Assistant 整合 (ha-integration)
+        - MQTT 通訊 (mqtt)
+        - REST API
+        - 設定管理 (config)
+        - 使用者介面 (ui)
+        - 稽核日誌 (audit)
+        - 存取控制 (acl)
+        - 推播通知 (push)
+        - HTTP 服務
+        - 安裝部署
+        - 一般概念
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: context
+    attributes:
+      label: 情境說明
+      description: 請提供更多背景資訊，幫助我們了解你的使用情境
+      placeholder: |
+        我正在嘗試...
+        我的目標是...
+        我的環境是...
+    validations:
+      required: true
+
+  - type: textarea
+    id: what_tried
+    attributes:
+      label: 已嘗試的方法
+      description: 你已經嘗試過哪些方法？
+      placeholder: |
+        我嘗試過：
+        1. ...
+        2. ...
+        3. ...
+        
+        結果：...
+    validations:
+      required: false
+
+  - type: textarea
+    id: current_config
+    attributes:
+      label: 目前的設定
+      description: 如果問題涉及設定，請提供相關的設定檔內容（請移除敏感資訊）
+      placeholder: |
+        ```yaml
+        # 你的設定檔內容
+        ```
+      render: yaml
+    validations:
+      required: false
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相關日誌
+      description: 如果有相關的日誌或錯誤訊息，請貼上
+      placeholder: |
+        請貼上相關的日誌內容
+      render: shell
+    validations:
+      required: false
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本資訊
+      description: 你使用的 Smartly Bridge 版本
+      placeholder: 例如：v1.0.0 或 latest
+    validations:
+      required: false
+
+  - type: dropdown
+    id: environment
+    attributes:
+      label: 執行環境
+      description: 你的執行環境
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Docker
+        - Home Assistant OS
+        - Home Assistant Container
+        - Home Assistant Supervised
+        - 其他
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 額外資訊
+      description: 其他任何可能有幫助的資訊、截圖或補充說明
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: urgency
+    attributes:
+      label: 急迫性
+      description: 這個問題對你來說有多急迫？
+      options:
+        - label: 這是阻礙我使用的關鍵問題
+          required: false
+        - label: 這影響我的正常使用但有變通方法
+          required: false
+        - label: 這只是好奇或想更了解
+          required: false

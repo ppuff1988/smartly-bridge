@@ -1,0 +1,181 @@
+name: ✨ 功能請求
+description: 建議新功能或改進現有功能
+title: "[Feature]: "
+labels: ["enhancement", "需要分類"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝你提出功能建議！請詳細描述你的想法，幫助我們了解你的需求。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 確認事項
+      description: 在提交之前，請確認以下事項
+      options:
+        - label: 我已經搜尋過現有的 Issues 和 Pull Requests，確認這不是重複的提議
+          required: true
+        - label: 我已經閱讀過專案文件，確認此功能尚未實作
+          required: true
+        - label: 這個功能符合 Smartly Bridge 的專案目標和範疇
+          required: true
+
+  - type: dropdown
+    id: feature_type
+    attributes:
+      label: 功能類型
+      description: 這是什麼類型的功能請求？
+      options:
+        - 全新功能
+        - 現有功能改進
+        - 效能優化
+        - 使用者體驗改善
+        - API 增強
+        - 文件改進
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: 問題或需求
+      description: 請描述你遇到的問題或需求。這個功能要解決什麼問題？
+      placeholder: |
+        目前在使用時，我遇到了...
+        這讓我無法...
+        如果有...功能，就可以...
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: 建議的解決方案
+      description: 請描述你希望如何實作這個功能
+      placeholder: |
+        我建議可以...
+        這個功能應該...
+        實作方式可能是...
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: 替代方案
+      description: 你是否考慮過其他解決方案或變通方法？
+      placeholder: |
+        我曾經嘗試過...
+        另一個可能的方案是...
+        目前的權宜之計是...
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: 相關元件
+      description: 這個功能主要影響哪個元件？
+      options:
+        - 認證 (auth)
+        - 裝置管理 (device)
+        - Home Assistant 整合 (ha-integration)
+        - MQTT 通訊 (mqtt)
+        - REST API
+        - 設定管理 (config)
+        - 使用者介面 (ui)
+        - 稽核日誌 (audit)
+        - 存取控制 (acl)
+        - 推播通知 (push)
+        - HTTP 服務
+        - 文件
+        - 其他
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: 優先級評估
+      description: 你認為這個功能的優先級為何？
+      options:
+        - 🔥 高 - 對使用體驗有重大影響
+        - 🟡 中 - 有用但非緊急
+        - 🟢 低 - 錦上添花的功能
+    validations:
+      required: true
+
+  - type: textarea
+    id: use_cases
+    attributes:
+      label: 使用情境
+      description: 請描述這個功能的實際使用情境和受益對象
+      placeholder: |
+        使用者可以透過這個功能...
+        這對於...類型的使用者特別有幫助
+        典型的使用流程是...
+    validations:
+      required: true
+
+  - type: textarea
+    id: technical_details
+    attributes:
+      label: 技術細節（選填）
+      description: 如果你有技術背景，可以提供實作建議或技術細節
+      placeholder: |
+        可能需要修改的檔案：
+        建議的 API 設計：
+        相依套件：
+        參考資料：
+    validations:
+      required: false
+
+  - type: textarea
+    id: examples
+    attributes:
+      label: 範例或參考
+      description: 其他專案或產品中類似功能的範例、截圖或連結
+      placeholder: |
+        參考專案 A 的實作：https://...
+        類似的功能範例：
+        mockup 或設計草圖：
+    validations:
+      required: false
+
+  - type: dropdown
+    id: breaking_change
+    attributes:
+      label: 破壞性變更
+      description: 這個功能是否可能引入破壞性變更？
+      options:
+        - 否，完全向後相容
+        - 可能需要小幅調整現有設定
+        - 是，會影響現有 API 或行為
+        - 不確定
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 額外資訊
+      description: 其他任何可能有幫助的資訊、想法或建議
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 貢獻意願
+      description: 你是否願意協助實作這個功能？
+      options:
+        - label: 我願意提交 Pull Request 來實作這個功能
+          required: false
+        - label: 我願意協助測試這個功能
+          required: false
+        - label: 我願意協助撰寫相關文件
+          required: false

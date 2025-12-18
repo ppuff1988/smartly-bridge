@@ -1,0 +1,13 @@
+{
+  "domain": "smartly_bridge",
+  "name": "Smartly Bridge",
+  "version": "1.0.0",
+  "documentation": "https://github.com/ppuff1988/platform-bridge",
+  "issue_tracker": "https://github.com/ppuff1988/platform-bridge/issues",
+  "requirements": [],
+  "dependencies": ["http"],
+  "codeowners": ["@your-org"],
+  "config_flow": true,
+  "iot_class": "cloud_push",
+  "integration_type": "hub"
+}

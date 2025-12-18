@@ -1,0 +1,173 @@
+name: 🐛 錯誤報告
+description: 回報 Smartly Bridge 的錯誤或異常行為
+title: "[Bug]: "
+labels: ["bug", "需要分類"]
+assignees: []
+
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感謝你花時間填寫這份錯誤報告！請提供詳細資訊以協助我們快速定位並修正問題。
+
+  - type: checkboxes
+    id: prerequisites
+    attributes:
+      label: 確認事項
+      description: 在提交之前，請確認以下事項
+      options:
+        - label: 我已經搜尋過現有的 Issues，確認這不是重複的問題
+          required: true
+        - label: 我已經閱讀過文件和常見問題
+          required: true
+        - label: 我使用的是最新版本的 Smartly Bridge
+          required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: 問題描述
+      description: 請清楚且簡潔地描述這個錯誤
+      placeholder: 當我嘗試...時，發生了...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: 預期行為
+      description: 請描述你預期應該發生什麼
+      placeholder: 我預期應該...
+    validations:
+      required: true
+
+  - type: textarea
+    id: actual
+    attributes:
+      label: 實際行為
+      description: 請描述實際發生了什麼
+      placeholder: 實際上卻...
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: 重現步驟
+      description: 請提供重現此問題的詳細步驟
+      placeholder: |
+        1. 前往 '...'
+        2. 點擊 '...'
+        3. 執行 '...'
+        4. 發生錯誤
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: 相關日誌
+      description: 請提供相關的錯誤訊息或日誌（如果有的話）
+      placeholder: |
+        請貼上錯誤訊息或日誌內容
+      render: shell
+    validations:
+      required: false
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: 影響元件
+      description: 這個問題影響哪個元件？
+      options:
+        - 認證 (auth)
+        - 裝置管理 (device)
+        - Home Assistant 整合 (ha-integration)
+        - MQTT 通訊 (mqtt)
+        - REST API
+        - 設定管理 (config)
+        - 使用者介面 (ui)
+        - 稽核日誌 (audit)
+        - 存取控制 (acl)
+        - 推播通知 (push)
+        - HTTP 服務
+        - 其他
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: 版本資訊
+      description: 你使用的 Smartly Bridge 版本
+      placeholder: 例如：v1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: ha_version
+    attributes:
+      label: Home Assistant 版本
+      description: 你使用的 Home Assistant 版本
+      options:
+        - 2024.12.x
+        - 2024.11.x
+        - 2024.10.x
+        - 2024.9.x
+        - 更舊的版本
+        - 不適用
+    validations:
+      required: true
+
+  - type: input
+    id: python_version
+    attributes:
+      label: Python 版本
+      description: 你使用的 Python 版本
+      placeholder: 例如：3.12.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: 作業系統
+      description: 你使用的作業系統
+      options:
+        - Linux
+        - macOS
+        - Windows
+        - Docker
+        - Home Assistant OS
+        - 其他
+    validations:
+      required: true
+
+  - type: textarea
+    id: environment
+    attributes:
+      label: 環境詳細資訊
+      description: 其他相關的環境資訊
+      placeholder: |
+        - Docker 版本：
+        - 網路設定：
+        - 其他相關資訊：
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: 額外資訊
+      description: 其他任何可能有幫助的資訊、截圖或補充說明
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: contribution
+    attributes:
+      label: 貢獻意願
+      description: 你是否願意協助修正這個問題？
+      options:
+        - label: 我願意提交 Pull Request 來修正這個問題
+          required: false

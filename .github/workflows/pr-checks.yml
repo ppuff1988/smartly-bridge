@@ -1,0 +1,131 @@
+name: PR Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+jobs:
+  pr-validation:
+    name: Validate PR
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Check PR title
+        uses: amannn/action-semantic-pull-request@v5
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          types: |
+            feat
+            fix
+            docs
+            style
+            refactor
+            perf
+            test
+            chore
+            ci
+          requireScope: false
+
+      - name: Check for CHANGELOG entry
+        run: |
+          # Skip this check for dependabot PRs
+          if [[ "${{ github.actor }}" == "dependabot[bot]" ]]; then
+            echo "Skipping CHANGELOG check for dependabot"
+            exit 0
+          fi
+          
+          # Check if CHANGELOG.md was modified
+          if git diff --name-only origin/${{ github.base_ref }}...HEAD | grep -q "CHANGELOG.md"; then
+            echo "✓ CHANGELOG.md was updated"
+          else
+            echo "⚠ Consider updating CHANGELOG.md with your changes"
+            # Don't fail, just warn
+          fi
+
+      - name: Check file size
+        run: |
+          # Check for large files (> 1MB)
+          large_files=$(find . -type f -size +1M -not -path "./.git/*" -not -path "./config/*" | head -5)
+          
+          if [ -n "$large_files" ]; then
+            echo "⚠ Warning: Large files detected:"
+            echo "$large_files"
+            echo "Consider using Git LFS for large files"
+          else
+            echo "✓ No large files detected"
+          fi
+
+  changes-detection:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      python: ${{ steps.filter.outputs.python }}
+      tests: ${{ steps.filter.outputs.tests }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            python:
+              - 'custom_components/**/*.py'
+              - 'requirements-dev.txt'
+            tests:
+              - 'tests/**/*.py'
+              - 'pytest.ini'
+            workflows:
+              - '.github/workflows/**'
+
+  conditional-tests:
+    name: Conditional Tests
+    needs: changes-detection
+    runs-on: ubuntu-latest
+    if: needs.changes-detection.outputs.python == 'true'
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run affected tests
+        run: |
+          pytest tests/ -v --maxfail=5
+
+  size-label:
+    name: PR Size Labeling
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    
+    steps:
+      - uses: codelytv/pr-size-labeler@v1
+        with:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          xs_label: 'size/xs'
+          xs_max_size: 10
+          s_label: 'size/s'
+          s_max_size: 100
+          m_label: 'size/m'
+          m_max_size: 500
+          l_label: 'size/l'
+          l_max_size: 1000
+          xl_label: 'size/xl'
+          fail_if_xl: 'false'

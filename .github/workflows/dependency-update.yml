@@ -1,0 +1,94 @@
+name: Dependency Update
+
+on:
+  schedule:
+    # Run weekly on Monday at 9:00 AM UTC
+    - cron: '0 9 * * 1'
+  workflow_dispatch:
+
+jobs:
+  update-dependencies:
+    name: Check for Dependency Updates
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install pip-tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install pip-tools
+
+      - name: Check for updates
+        id: check-updates
+        run: |
+          pip list --outdated > outdated.txt || true
+          
+          if [ -s outdated.txt ]; then
+            echo "has_updates=true" >> $GITHUB_OUTPUT
+            echo "Updates available:"
+            cat outdated.txt
+          else
+            echo "has_updates=false" >> $GITHUB_OUTPUT
+            echo "All dependencies are up to date"
+          fi
+
+      - name: Create update report
+        if: steps.check-updates.outputs.has_updates == 'true'
+        run: |
+          echo "# Dependency Update Report" > update-report.md
+          echo "" >> update-report.md
+          echo "The following dependencies have updates available:" >> update-report.md
+          echo "" >> update-report.md
+          echo "\`\`\`" >> update-report.md
+          cat outdated.txt >> update-report.md
+          echo "\`\`\`" >> update-report.md
+
+      - name: Create Pull Request
+        if: steps.check-updates.outputs.has_updates == 'true'
+        uses: peter-evans/create-pull-request@v6
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          commit-message: 'chore: update dependencies'
+          title: 'chore: Weekly dependency updates'
+          body-path: update-report.md
+          branch: dependency-updates
+          delete-branch: true
+          labels: dependencies
+
+  security-audit:
+    name: Security Audit
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install safety pip-audit
+
+      - name: Run pip-audit
+        run: |
+          pip install -r requirements-dev.txt
+          pip-audit --desc || true
+
+      - name: Run safety check
+        run: |
+          safety check --json || true
