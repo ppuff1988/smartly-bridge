@@ -190,7 +190,7 @@ def get_structure(
         )
 
     # Convert to list format
-    result = {"floors": []}
+    result: dict[str, list] = {"floors": []}
 
     for floor_key, floor_data in floors_dict.items():
         floor_output = {

@@ -6,7 +6,7 @@ import asyncio
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 import aiohttp
 
@@ -44,7 +44,7 @@ class StatePushManager:
         self._pending_events: list[dict[str, Any]] = []
         self._batch_task: asyncio.Task | None = None
         self._stop_event = asyncio.Event()
-        self._unsub_state_changed: callable | None = None
+        self._unsub_state_changed: Callable[[], None] | None = None
         self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
 
