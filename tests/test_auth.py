@@ -1,11 +1,8 @@
 """Tests for authentication module."""
+
 from __future__ import annotations
 
-import asyncio
-import hashlib
-import hmac
 import time
-import uuid
 
 import pytest
 
@@ -74,9 +71,7 @@ class TestVerifySignature:
 
         signature = compute_signature(secret, method, path, timestamp, nonce, body)
 
-        assert verify_signature(
-            secret, method, path, timestamp, nonce, body, signature
-        ) is True
+        assert verify_signature(secret, method, path, timestamp, nonce, body, signature) is True
 
     def test_verify_signature_invalid(self):
         """Test verification of invalid signature."""
@@ -87,9 +82,10 @@ class TestVerifySignature:
         nonce = "test-nonce"
         body = b'{"test": "data"}'
 
-        assert verify_signature(
-            secret, method, path, timestamp, nonce, body, "invalid_signature"
-        ) is False
+        assert (
+            verify_signature(secret, method, path, timestamp, nonce, body, "invalid_signature")
+            is False
+        )
 
     def test_verify_signature_wrong_secret(self):
         """Test verification fails with wrong secret."""
@@ -101,9 +97,7 @@ class TestVerifySignature:
 
         signature = compute_signature("secret1", method, path, timestamp, nonce, body)
 
-        assert verify_signature(
-            "secret2", method, path, timestamp, nonce, body, signature
-        ) is False
+        assert verify_signature("secret2", method, path, timestamp, nonce, body, signature) is False
 
 
 class TestCheckTimestamp:
@@ -164,7 +158,7 @@ class TestCheckIp:
     def test_check_ip_multiple_cidrs(self):
         """Test IP against multiple CIDRs."""
         cidrs = "10.0.0.0/8,192.168.0.0/16,172.16.0.0/12"
-        
+
         assert check_ip("10.1.2.3", cidrs) is True
         assert check_ip("192.168.100.1", cidrs) is True
         assert check_ip("172.20.1.1", cidrs) is True
@@ -188,7 +182,7 @@ class TestNonceCache:
     async def test_nonce_cache_add_new(self):
         """Test adding new nonce."""
         cache = NonceCache(ttl=60)
-        
+
         result = await cache.check_and_add("nonce1")
         assert result is True
 
@@ -196,17 +190,17 @@ class TestNonceCache:
     async def test_nonce_cache_reject_duplicate(self):
         """Test rejecting duplicate nonce."""
         cache = NonceCache(ttl=60)
-        
+
         await cache.check_and_add("nonce1")
         result = await cache.check_and_add("nonce1")
-        
+
         assert result is False
 
     @pytest.mark.asyncio
     async def test_nonce_cache_different_nonces(self):
         """Test different nonces are accepted."""
         cache = NonceCache(ttl=60)
-        
+
         assert await cache.check_and_add("nonce1") is True
         assert await cache.check_and_add("nonce2") is True
         assert await cache.check_and_add("nonce3") is True
@@ -215,10 +209,10 @@ class TestNonceCache:
     async def test_nonce_cache_start_stop(self):
         """Test starting and stopping cache cleanup."""
         cache = NonceCache(ttl=60)
-        
+
         await cache.start()
         assert cache._cleanup_task is not None
-        
+
         await cache.stop()
         assert cache._cleanup_task is None
 
@@ -230,7 +224,7 @@ class TestRateLimiter:
     async def test_rate_limiter_allows_within_limit(self):
         """Test requests within limit are allowed."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
-        
+
         for _ in range(5):
             assert await limiter.check("client1") is True
 
@@ -238,11 +232,11 @@ class TestRateLimiter:
     async def test_rate_limiter_blocks_over_limit(self):
         """Test requests over limit are blocked."""
         limiter = RateLimiter(max_requests=3, window_seconds=60)
-        
+
         # Use up the limit
         for _ in range(3):
             await limiter.check("client1")
-        
+
         # Should be blocked
         assert await limiter.check("client1") is False
 
@@ -250,12 +244,12 @@ class TestRateLimiter:
     async def test_rate_limiter_separate_clients(self):
         """Test rate limiting is per-client."""
         limiter = RateLimiter(max_requests=2, window_seconds=60)
-        
+
         # Client 1 uses up limit
         await limiter.check("client1")
         await limiter.check("client1")
         assert await limiter.check("client1") is False
-        
+
         # Client 2 should still have allowance
         assert await limiter.check("client2") is True
 
@@ -263,10 +257,10 @@ class TestRateLimiter:
     async def test_rate_limiter_get_remaining(self):
         """Test getting remaining requests."""
         limiter = RateLimiter(max_requests=5, window_seconds=60)
-        
+
         assert limiter.get_remaining("client1") == 5
-        
+
         await limiter.check("client1")
         await limiter.check("client1")
-        
+
         assert limiter.get_remaining("client1") == 3
