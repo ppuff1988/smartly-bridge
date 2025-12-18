@@ -176,7 +176,7 @@ jobs:
               
               print(f'\nChecking {trans_file}...')
               # Simple key comparison (you can make this more sophisticated)
-              if json.dumps(en_trans.keys()) != json.dumps(other_trans.keys()):
+              if set(en_trans.keys()) != set(other_trans.keys()):
                   print(f'  ⚠ Translation keys may differ from English')
               else:
                   print(f'  ✓ Translation structure matches English')
