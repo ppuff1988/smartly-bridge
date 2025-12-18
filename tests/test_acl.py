@@ -1,16 +1,15 @@
 """Tests for ACL (Access Control List) module."""
+
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-import pytest
-
 from custom_components.smartly_bridge.acl import (
+    filter_entities_by_area,
     get_allowed_entities,
     get_entity_domain,
     is_entity_allowed,
     is_service_allowed,
-    filter_entities_by_area,
 )
 from custom_components.smartly_bridge.const import ALLOWED_SERVICES
 
@@ -20,23 +19,17 @@ class TestIsEntityAllowed:
 
     def test_entity_with_smartly_control_label(self, mock_hass, mock_entity_registry):
         """Test entity with smartly_control label is allowed."""
-        result = is_entity_allowed(
-            mock_hass, "light.test_light", mock_entity_registry
-        )
+        result = is_entity_allowed(mock_hass, "light.test_light", mock_entity_registry)
         assert result is True
 
     def test_entity_without_label(self, mock_hass, mock_entity_registry):
         """Test entity without label is not allowed."""
-        result = is_entity_allowed(
-            mock_hass, "light.hidden_light", mock_entity_registry
-        )
+        result = is_entity_allowed(mock_hass, "light.hidden_light", mock_entity_registry)
         assert result is False
 
     def test_nonexistent_entity(self, mock_hass, mock_entity_registry):
         """Test nonexistent entity is not allowed."""
-        result = is_entity_allowed(
-            mock_hass, "light.does_not_exist", mock_entity_registry
-        )
+        result = is_entity_allowed(mock_hass, "light.does_not_exist", mock_entity_registry)
         assert result is False
 
 
@@ -109,7 +102,7 @@ class TestGetAllowedEntities:
     def test_get_allowed_entities(self, mock_hass, mock_entity_registry):
         """Test getting all allowed entities."""
         result = get_allowed_entities(mock_hass, mock_entity_registry)
-        
+
         assert "light.test_light" in result
         assert "switch.test_switch" in result
         assert "light.hidden_light" not in result
@@ -118,7 +111,7 @@ class TestGetAllowedEntities:
         """Test with empty registry."""
         empty_registry = MagicMock()
         empty_registry.entities = {}
-        
+
         result = get_allowed_entities(mock_hass, empty_registry)
         assert result == []
 
@@ -129,22 +122,18 @@ class TestFilterEntitiesByArea:
     def test_filter_no_restriction(self, mock_hass, mock_entity_registry):
         """Test no filtering when allowed_areas is None."""
         entities = ["light.test_light", "switch.test_switch"]
-        
-        result = filter_entities_by_area(
-            mock_hass, entities, None, mock_entity_registry
-        )
-        
+
+        result = filter_entities_by_area(mock_hass, entities, None, mock_entity_registry)
+
         assert result == entities
 
     def test_filter_by_allowed_area(self, mock_hass, mock_entity_registry):
         """Test filtering by allowed areas."""
         entities = ["light.test_light", "light.hidden_light"]
         allowed_areas = ["area_1"]
-        
-        result = filter_entities_by_area(
-            mock_hass, entities, allowed_areas, mock_entity_registry
-        )
-        
+
+        result = filter_entities_by_area(mock_hass, entities, allowed_areas, mock_entity_registry)
+
         assert "light.test_light" in result
         assert "light.hidden_light" not in result
 
@@ -160,21 +149,34 @@ class TestAllowedServicesConfig:
     def test_expected_domains_present(self):
         """Test expected domains are present."""
         expected_domains = [
-            "switch", "light", "cover", "climate",
-            "fan", "lock", "scene", "script", "automation"
+            "switch",
+            "light",
+            "cover",
+            "climate",
+            "fan",
+            "lock",
+            "scene",
+            "script",
+            "automation",
         ]
-        
+
         for domain in expected_domains:
             assert domain in ALLOWED_SERVICES, f"Domain {domain} missing"
 
     def test_no_dangerous_services(self):
         """Test no dangerous services are allowed."""
         dangerous_services = [
-            "reload", "restart", "shutdown", "reboot",
-            "delete", "remove", "uninstall"
+            "reload",
+            "restart",
+            "shutdown",
+            "reboot",
+            "delete",
+            "remove",
+            "uninstall",
         ]
-        
+
         for domain, services in ALLOWED_SERVICES.items():
             for service in services:
-                assert service not in dangerous_services, \
-                    f"Dangerous service {service} found in {domain}"
+                assert (
+                    service not in dangerous_services
+                ), f"Dangerous service {service} found in {domain}"

@@ -1,4 +1,5 @@
 """Tests for audit logging module."""
+
 from __future__ import annotations
 
 import logging
@@ -7,13 +8,13 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.smartly_bridge.audit import (
+    log_auth_fail,
     log_control,
     log_deny,
-    log_push_success,
-    log_push_fail,
-    log_auth_fail,
-    log_rate_limit,
     log_integration_event,
+    log_push_fail,
+    log_push_success,
+    log_rate_limit,
 )
 
 
@@ -35,7 +36,7 @@ class TestLogControl:
             service="turn_on",
             result="success",
         )
-        
+
         mock_logger.info.assert_called_once()
         call_args = mock_logger.info.call_args[0][0]
         assert "CONTROL" in call_args
@@ -51,7 +52,7 @@ class TestLogControl:
             result="success",
             actor={"user_id": "user_456", "role": "admin"},
         )
-        
+
         mock_logger.info.assert_called_once()
 
 
@@ -67,7 +68,7 @@ class TestLogDeny:
             service="turn_on",
             reason="entity_not_allowed",
         )
-        
+
         mock_logger.warning.assert_called_once()
         call_args = mock_logger.warning.call_args[0][0]
         assert "DENY" in call_args
@@ -82,7 +83,7 @@ class TestLogDeny:
             reason="service_not_allowed",
             actor={"user_id": "user_456", "role": "guest"},
         )
-        
+
         mock_logger.warning.assert_called_once()
 
 
@@ -96,7 +97,7 @@ class TestLogPush:
             instance_id="instance_123",
             event_count=5,
         )
-        
+
         mock_logger.debug.assert_called_once()
         call_args = mock_logger.debug.call_args[0][0]
         assert "PUSH_SUCCESS" in call_args
@@ -109,7 +110,7 @@ class TestLogPush:
             event_count=5,
             reason="connection_timeout",
         )
-        
+
         mock_logger.error.assert_called_once()
         call_args = mock_logger.error.call_args[0][0]
         assert "PUSH_FAIL" in call_args
@@ -126,7 +127,7 @@ class TestLogAuthFail:
             reason="invalid_signature",
             ip="192.168.1.100",
         )
-        
+
         mock_logger.warning.assert_called_once()
         call_args = mock_logger.warning.call_args[0][0]
         assert "AUTH_FAIL" in call_args
@@ -142,7 +143,7 @@ class TestLogRateLimit:
             client_id="client_123",
             endpoint="/api/smartly/control",
         )
-        
+
         mock_logger.warning.assert_called_once()
         call_args = mock_logger.warning.call_args[0][0]
         assert "RATE_LIMIT" in call_args
@@ -157,7 +158,7 @@ class TestLogIntegrationEvent:
             mock_logger,
             event="setup_complete",
         )
-        
+
         mock_logger.info.assert_called_once()
         call_args = mock_logger.info.call_args[0][0]
         assert "INTEGRATION" in call_args
@@ -169,5 +170,5 @@ class TestLogIntegrationEvent:
             event="setup_complete",
             details="instance=test_123",
         )
-        
+
         mock_logger.info.assert_called_once()
