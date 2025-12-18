@@ -1,11 +1,11 @@
 """Config flow for Smartly Bridge integration."""
+
 from __future__ import annotations
 
 import secrets
 from typing import Any
 
 import voluptuous as vol
-
 from homeassistant import config_entries
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
@@ -37,9 +37,7 @@ class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     VERSION = 1
 
-    async def async_step_user(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -119,9 +117,7 @@ class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class SmartlyBridgeOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow for Smartly Bridge."""
 
-    async def async_step_init(
-        self, user_input: dict[str, Any] | None = None
-    ) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Manage the options."""
         errors: dict[str, str] = {}
 
@@ -140,9 +136,7 @@ class SmartlyBridgeOptionsFlow(config_entries.OptionsFlow):
             if not errors:
                 # Update config entry data
                 new_data = {**self.config_entry.data, **user_input}
-                self.hass.config_entries.async_update_entry(
-                    self.config_entry, data=new_data
-                )
+                self.hass.config_entries.async_update_entry(self.config_entry, data=new_data)
                 return self.async_create_entry(title="", data={})
 
         # Current values
@@ -158,7 +152,9 @@ class SmartlyBridgeOptionsFlow(config_entries.OptionsFlow):
                 {
                     vol.Optional(CONF_WEBHOOK_URL, default=current_webhook): str,
                     vol.Optional(CONF_ALLOWED_CIDRS, default=current_cidrs): str,
-                    vol.Optional(CONF_PUSH_BATCH_INTERVAL, default=current_batch): vol.Coerce(float),
+                    vol.Optional(CONF_PUSH_BATCH_INTERVAL, default=current_batch): vol.Coerce(
+                        float
+                    ),
                 }
             ),
             errors=errors,
