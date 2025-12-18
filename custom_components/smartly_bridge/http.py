@@ -1,4 +1,5 @@
 """HTTP API endpoints for Smartly Bridge."""
+
 from __future__ import annotations
 
 import json
@@ -15,21 +16,18 @@ from .acl import (
     is_service_allowed,
 )
 from .audit import log_control, log_deny
-from .auth import AuthResult, RateLimiter, verify_request
+from .auth import RateLimiter, verify_request
 from .const import (
     API_PATH_CONTROL,
     API_PATH_SYNC,
     CONF_ALLOWED_CIDRS,
-    CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     DOMAIN,
-    RATE_LIMIT,
     RATE_WINDOW,
 )
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
-    from homeassistant.config_entries import ConfigEntry
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -265,12 +263,10 @@ class SmartlySyncView(web.View):
             )
 
         # Get registries
-        from homeassistant.helpers import (
-            area_registry as ar,
-            device_registry as dr,
-            entity_registry as er,
-            floor_registry as fr,
-        )
+        from homeassistant.helpers import area_registry as ar
+        from homeassistant.helpers import device_registry as dr
+        from homeassistant.helpers import entity_registry as er
+        from homeassistant.helpers import floor_registry as fr
 
         entity_registry = er.async_get(self.hass)
         device_registry = dr.async_get(self.hass)

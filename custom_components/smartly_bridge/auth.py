@@ -1,4 +1,5 @@
 """Authentication and HMAC signature handling for Smartly Bridge."""
+
 from __future__ import annotations
 
 import asyncio
@@ -7,8 +8,7 @@ import hmac
 import ipaddress
 import time
 import uuid
-from collections.abc import Callable
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from aiohttp import web
@@ -24,7 +24,7 @@ from .const import (
 )
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant
+    pass
 
 
 @dataclass
@@ -106,9 +106,7 @@ class RateLimiter:
                 self._requests[client_id] = []
 
             # Remove old requests outside the window
-            self._requests[client_id] = [
-                t for t in self._requests[client_id] if t > window_start
-            ]
+            self._requests[client_id] = [t for t in self._requests[client_id] if t > window_start]
 
             # Check if under limit
             if len(self._requests[client_id]) >= self._max_requests:
