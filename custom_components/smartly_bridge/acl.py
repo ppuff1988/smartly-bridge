@@ -1,4 +1,5 @@
 """Access Control List handling for Smartly Bridge."""
+
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
@@ -6,10 +7,10 @@ from typing import TYPE_CHECKING, Any
 from .const import ALLOWED_SERVICES, PLATFORM_CONTROL_LABEL
 
 if TYPE_CHECKING:
-    from homeassistant.core import HomeAssistant, State
-    from homeassistant.helpers.entity_registry import EntityRegistry
-    from homeassistant.helpers.device_registry import DeviceRegistry
+    from homeassistant.core import HomeAssistant
     from homeassistant.helpers.area_registry import AreaRegistry
+    from homeassistant.helpers.device_registry import DeviceRegistry
+    from homeassistant.helpers.entity_registry import EntityRegistry
     from homeassistant.helpers.floor_registry import FloorRegistry
 
 
@@ -19,7 +20,7 @@ def is_entity_allowed(
     entity_registry: EntityRegistry,
 ) -> bool:
     """Check if entity is allowed for platform control.
-    
+
     An entity is allowed if it has the 'platform_control' label.
     """
     entry = entity_registry.async_get(entity_id)
@@ -90,7 +91,7 @@ def get_structure(
     floor_registry: FloorRegistry,
 ) -> dict[str, Any]:
     """Get the hierarchical structure of floors/areas/devices/entities.
-    
+
     Returns only entities with platform_control label.
     Structure: floors -> areas -> devices -> entities
     """
@@ -184,7 +185,9 @@ def get_structure(
             "domain": get_entity_domain(entity_id),
             "name": entry.name or entry.original_name,
         }
-        floors_dict[floor_key]["areas"][area_key]["devices"][device_key]["entities"].append(entity_data)
+        floors_dict[floor_key]["areas"][area_key]["devices"][device_key]["entities"].append(
+            entity_data
+        )
 
     # Convert to list format
     result = {"floors": []}
