@@ -14,6 +14,14 @@ updates:
     commit-message:
       prefix: "chore"
       include: "scope"
+    # 將 GitHub Actions 更新分組，減少 PR 數量
+    groups:
+      github-actions:
+        patterns:
+          - "*"
+        update-types:
+          - "minor"
+          - "patch"
 
   # Python dependencies updates
   - package-ecosystem: "pip"
