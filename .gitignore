@@ -63,16 +63,8 @@ env/
 .DS_Store
 
 # Home Assistant specific
-config/home-assistant.log*
-config/.storage/
-config/deps/
-config/tts/
-config/*.db
-config/*.db-shm
-config/*.db-wal
-config/secrets.yaml
-config/.cloud/
-config/.google.token
+# Ignore entire config directory (test/development environment only)
+config/
 
 # Temporary files
 *.tmp
