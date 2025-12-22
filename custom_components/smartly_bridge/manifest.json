@@ -5,8 +5,12 @@
   "documentation": "https://github.com/ppuff1988/platform-bridge",
   "issue_tracker": "https://github.com/ppuff1988/platform-bridge/issues",
   "requirements": [],
-  "dependencies": ["http"],
-  "codeowners": ["@your-org"],
+  "dependencies": [
+    "http"
+  ],
+  "codeowners": [
+    "@your-org"
+  ],
   "config_flow": true,
   "iot_class": "cloud_push",
   "integration_type": "hub"

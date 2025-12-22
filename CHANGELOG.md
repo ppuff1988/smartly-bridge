@@ -8,17 +8,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- Initial CI/CD pipeline setup
-- GitHub Actions workflows for testing, linting, and deployment
+- 實體標籤（Entity Labels）存取控制機制，支援基於 Home Assistant 標籤過濾可存取的實體
+- 實體標籤診斷工具腳本，協助檢查和管理標籤配置
+- `run-ci-tests.sh` 和 `reset.sh` 測試輔助腳本
+- Git commit 規範中的 CHANGELOG 更新指南
+- 環境變數範本文件 `.env.example`
+- 憑證管理警告文檔 `CREDENTIALS_WARNING.md`
 
 ### Changed
-- Fixed config flow integration type in manifest.json
-- Fixed HTTP views to properly inherit from HomeAssistantView
-- Fixed OptionsFlow initialization
+- 優化 `get_structure` 函數，正確處理沒有 floor 或 area 的實體
+- 改善實體註冊表讀取與標籤檢查邏輯
+- 更新 ACL 警告訊息，明確區分實體標籤與 NFC 標籤
+- 強化 `.gitignore` 配置以保護敏感資訊
+- 改善 CI/CD workflows 和程式碼品質檢查配置
 
-### Fixed
-- AttributeError in HTTP view registration
-- Config entry property setter issue
+### Security
+- 移除測試腳本中的硬編碼憑證，改用環境變數
+- 新增安全檢查文檔和最佳實踐指南
 
 ## [1.0.0] - 2025-12-17
 
