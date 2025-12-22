@@ -9,21 +9,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - 實體標籤（Entity Labels）存取控制機制，支援基於 Home Assistant 標籤過濾可存取的實體
-- 實體標籤診斷工具腳本，協助檢查和管理標籤配置
+- 完全自動化的 Semantic Release 流程，根據 Conventional Commits 自動發布版本
+- 自動版本號決定機制（feat → minor, fix → patch, BREAKING → major）
+- 自動生成繁體中文 CHANGELOG 功能
+- 自動更新 manifest.json 版本的 Python 腳本 (`scripts/update_manifest_version.py`)
+- `docs/RELEASE.md` 完整的自動化 Release 流程說明文件
+- `.github/workflows/auto-release.yml` 自動發布 workflow
+- `.releaserc.json` Semantic Release 配置檔
 - `run-ci-tests.sh` 和 `reset.sh` 測試輔助腳本
 - Git commit 規範中的 CHANGELOG 更新指南
-- 環境變數範本文件 `.env.example`
-- 憑證管理警告文檔 `CREDENTIALS_WARNING.md`
 
 ### Changed
 - 優化 `get_structure` 函數，正確處理沒有 floor 或 area 的實體
 - 改善實體註冊表讀取與標籤檢查邏輯
 - 更新 ACL 警告訊息，明確區分實體標籤與 NFC 標籤
+- 停用手動 release.yml workflow，避免與自動化流程衝突
 - 強化 `.gitignore` 配置以保護敏感資訊
 - 改善 CI/CD workflows 和程式碼品質檢查配置
+- 更新 SECURITY.md 安全指南內容
 
 ### Security
-- 移除測試腳本中的硬編碼憑證，改用環境變數
 - 新增安全檢查文檔和最佳實踐指南
 
 ## [1.0.0] - 2025-12-17
