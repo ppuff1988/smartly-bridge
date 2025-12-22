@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.1.2...v1.1.3) (2025-12-22)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* 修正 sync 端點未正確呼叫 get_allowed_entities ([#17](https://github.com/ppuff1988/smartly-bridge/issues/17)) ([ffbed61](https://github.com/ppuff1988/smartly-bridge/commit/ffbed61a6279b6e0a7defbb96faf6cf07a06f327))
+
 ## [1.1.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.1.1...v1.1.2) (2025-12-22)
 
 ### 🐛 錯誤修正 (Bug Fixes)
