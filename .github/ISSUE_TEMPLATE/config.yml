@@ -1,11 +1,11 @@
 blank_issues_enabled: false
 contact_links:
   - name: 💬 討論區
-    url: https://github.com/yourusername/smartly_bridge/discussions
+    url: https://github.com/ppuff1988/smartly-bridge/discussions
     about: 一般問題、想法分享或討論，請使用討論區
   - name: 📖 文件
-    url: https://github.com/yourusername/smartly_bridge/wiki
+    url: https://github.com/ppuff1988/smartly-bridge/wiki
     about: 查看專案文件和使用指南
   - name: 🔒 安全性問題
-    url: https://github.com/yourusername/smartly_bridge/security/advisories/new
+    url: https://github.com/ppuff1988/smartly-bridge/security/advisories/new
     about: 報告安全漏洞，請使用私密安全建議
