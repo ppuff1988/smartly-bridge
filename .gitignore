@@ -75,6 +75,10 @@ config/
 # Environment variables
 .env
 .env.local
+.env.*.local
+
+# Test credentials (contains real secrets - DO NOT COMMIT)
+test_smartly_api.py.local
 
 # mypy
 .mypy_cache/
@@ -83,3 +87,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+# custom
+test_smartly_api.py
+test_results.xml

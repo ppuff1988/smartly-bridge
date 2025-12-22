@@ -60,7 +60,7 @@ class StatePushManager:
         allowed_entities = get_allowed_entities(self.hass, entity_registry)
 
         if not allowed_entities:
-            _LOGGER.warning("No entities with platform_control label found")
+            _LOGGER.warning("No entities with smartly label found")
             return
 
         @callback
@@ -214,10 +214,19 @@ class StatePushManager:
                     else:
                         response_text = await response.text()
                         _LOGGER.error(
-                            "Push failed with status %d: %s",
+                            "Push failed with status %d to %s: %s",
                             response.status,
+                            webhook_url,
                             response_text[:200],
                         )
+                        # For 404, stop retrying immediately
+                        if response.status == 404:
+                            _LOGGER.error(
+                                "Webhook URL not found (404). "
+                                "Please check the webhook URL configuration: %s",
+                                webhook_url,
+                            )
+                            return
 
             except asyncio.TimeoutError:
                 _LOGGER.warning(
@@ -250,7 +259,7 @@ class StatePushManager:
             _LOGGER,
             instance_id=instance_id,
             event_count=len(events),
-            reason="max_retries_exceeded",
+            reason=f"max_retries_exceeded, webhook_url={webhook_url}",
         )
 
     async def refresh_tracked_entities(self) -> None:
@@ -268,7 +277,7 @@ class StatePushManager:
         allowed_entities = get_allowed_entities(self.hass, entity_registry)
 
         if not allowed_entities:
-            _LOGGER.warning("No entities with platform_control label found")
+            _LOGGER.warning("No entities with smartly label found")
             return
 
         @callback

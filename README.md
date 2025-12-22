@@ -365,6 +365,15 @@ python -m pytest tests/ --cov=custom_components.smartly_bridge --cov-report=html
 
 ---
 
+## ⚠️ 安全提醒
+
+**請勿將真實的 Client ID 和 Secret 提交到版本控制系統！**
+
+測試腳本應使用環境變數。詳見：
+- [SECURITY.md](SECURITY.md) - 完整安全指南
+
+---
+
 ## 測試
 
 ### 測試結構

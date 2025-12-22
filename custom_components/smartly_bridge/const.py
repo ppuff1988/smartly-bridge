@@ -26,7 +26,7 @@ PUSH_RETRY_MAX = 3
 PUSH_RETRY_BACKOFF_BASE = 2  # exponential backoff base
 
 # Entity label for access control
-PLATFORM_CONTROL_LABEL = "smartly_control"
+PLATFORM_CONTROL_LABEL = "smartly"
 
 # Allowed services whitelist
 ALLOWED_SERVICES: dict[str, list[str]] = {

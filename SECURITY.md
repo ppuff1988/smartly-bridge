@@ -54,7 +54,7 @@ We prefer all communications to be in English.
 - Configure firewall rules to limit access to Home Assistant
 
 ### Access Control
-- Use entity labels (`platform_control`) to limit which entities can be controlled
+- Use entity labels (`smartly`) to limit which entities can be controlled
 - Regularly review and update ACL settings
 - Monitor audit logs for suspicious activity
 

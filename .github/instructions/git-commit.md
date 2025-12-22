@@ -348,6 +348,197 @@ Refs #189
 Co-authored-by: 開發者 <dev@example.com>
 ```
 
+## 更新 CHANGELOG.md
+
+### **1. CHANGELOG 格式規範**
+
+本專案遵循 [Keep a Changelog](https://keepachangelog.com/) 格式，基於語意化版本控制。
+
+### **2. 何時更新 CHANGELOG**
+
+在以下情況應更新 CHANGELOG.md：
+
+- **feat：** 新增功能 → 記錄在 `### Added` 區塊
+- **fix：** 修正錯誤 → 記錄在 `### Fixed` 區塊
+- **BREAKING CHANGE：** 不相容變更 → 記錄在 `### Changed` 並標註 **BREAKING**
+- **perf：** 效能優化 → 記錄在 `### Changed`
+- **refactor：** 重要的重構 → 記錄在 `### Changed`
+- **security：** 安全性修正 → 記錄在 `### Security`
+- **deprecated：** 標記即將移除的功能 → 記錄在 `### Deprecated`
+- **removed：** 移除功能 → 記錄在 `### Removed`
+
+### **3. CHANGELOG 更新流程**
+
+#### 步驟 1：在 `[Unreleased]` 區塊下新增變更
+
+```markdown
+## [Unreleased]
+
+### Added
+- 新增使用者批次匯入功能 (#234)
+- 支援裝置群組管理
+
+### Fixed
+- 修正 MQTT 連線逾時問題 (#456)
+```
+
+#### 步驟 2：發布版本時移動到新版本區塊
+
+```markdown
+## [Unreleased]
+
+## [1.2.0] - 2025-12-22
+
+### Added
+- 新增使用者批次匯入功能 (#234)
+- 支援裝置群組管理
+
+### Fixed
+- 修正 MQTT 連線逾時問題 (#456)
+```
+
+### **4. CHANGELOG 撰寫最佳實作**
+
+✅ **良好範例**
+```markdown
+### Added
+- 新增裝置批次控制 API 端點 (#234)
+- 支援 JWT Token 自動更新機制
+- 實作查詢結果快取提升效能
+
+### Fixed
+- 修正裝置狀態不同步問題 (#123)
+- 修正 WebSocket 重連時 subscription 遺失
+- 解決大量裝置查詢逾時問題
+
+### Changed
+- **BREAKING:** API 回傳格式改為物件結構（遷移指南見 docs/migration-v2.md）
+- 優化資料庫查詢效能，查詢時間降低 90%
+- 重構認證流程提升可維護性
+
+### Security
+- 修正 HMAC 簽章驗證繞過漏洞 (CVE-2025-XXXX)
+- 強化 CIDR IP 過濾邏輯
+```
+
+❌ **不良範例**
+```markdown
+### Changed
+- 更新一些東西                    # 不具體
+- 修正 bug                        # 沒有說明什麼 bug
+- 改進效能                        # 沒有量化
+- 更新文件 (#123)                 # 文件更新通常不需要記錄在 CHANGELOG
+```
+
+### **5. CHANGELOG 與 Commit 的對應**
+
+| Commit Type | CHANGELOG 區塊 | 是否必須記錄 |
+|-------------|---------------|-------------|
+| `feat` | Added | ✅ 是 |
+| `fix` | Fixed | ✅ 是（除非是微小的修正）|
+| `perf` | Changed | ✅ 是 |
+| `refactor` | Changed | ⚠️ 視影響範圍 |
+| `docs` | - | ❌ 否 |
+| `style` | - | ❌ 否 |
+| `test` | - | ❌ 否 |
+| `build` | - | ❌ 否（除非影響使用者）|
+| `ci` | - | ❌ 否 |
+| `chore` | - | ❌ 否 |
+| `security` | Security | ✅ 是 |
+| Breaking Change | Changed | ✅ 是（必須標註 BREAKING）|
+
+### **6. CHANGELOG 自動化工具**
+
+#### 使用 Semantic Release 自動生成
+```javascript
+// .releaserc.js
+module.exports = {
+  plugins: [
+    '@semantic-release/commit-analyzer',
+    '@semantic-release/release-notes-generator',
+    '@semantic-release/changelog',
+    '@semantic-release/github',
+    '@semantic-release/git'
+  ]
+};
+```
+
+#### 手動更新 CHANGELOG 的 Git Hook
+```bash
+# .husky/pre-commit
+#!/bin/sh
+if git diff --cached --name-only | grep -q "^(feat|fix|perf|security)"; then
+  if ! git diff --cached --name-only | grep -q "CHANGELOG.md"; then
+    echo "⚠️  警告：您的變更可能需要更新 CHANGELOG.md"
+    echo "請確認是否需要在 CHANGELOG.md 的 [Unreleased] 區塊中新增條目"
+  fi
+fi
+```
+
+### **7. CHANGELOG 更新範例完整流程**
+
+#### 場景：新增功能並修正錯誤
+
+**Commit 1:**
+```text
+feat(device): 新增裝置批次控制功能
+
+Closes #234
+```
+
+**Commit 2:**
+```text
+fix(mqtt): 修正連線逾時未重試問題
+
+Fixes #456
+```
+
+**對應 CHANGELOG 更新:**
+```markdown
+## [Unreleased]
+
+### Added
+- 新增裝置批次控制功能，支援最多 50 個裝置同時操作 (#234)
+
+### Fixed
+- 修正 MQTT 連線逾時未自動重試問題 (#456)
+```
+
+**發布新版本時:**
+```markdown
+## [Unreleased]
+
+## [1.2.0] - 2025-12-22
+
+### Added
+- 新增裝置批次控制功能，支援最多 50 個裝置同時操作 (#234)
+
+### Fixed
+- 修正 MQTT 連線逾時未自動重試問題 (#456)
+
+## [1.1.0] - 2025-12-15
+...
+```
+
+### **8. CHANGELOG 審查清單**
+
+在 Pull Request 審查時，檢查：
+
+- [ ] 所有 `feat` commit 是否已記錄在 CHANGELOG
+- [ ] 所有 `fix` commit 是否已記錄在 CHANGELOG
+- [ ] Breaking Changes 是否明確標註 **BREAKING**
+- [ ] 條目描述是否清晰具體，避免模糊詞彙
+- [ ] Issue 或 PR 編號是否正確引用
+- [ ] 變更是否放在正確的區塊（Added/Fixed/Changed/etc.）
+- [ ] 描述是否面向使用者而非開發者（除非是開發者工具）
+
+**Copilot 指引：**
+- CHANGELOG 是面向使用者的文件，使用他們能理解的語言
+- 避免過於技術性的描述，除非目標受眾是開發者
+- 每個條目應該回答「這個變更對我（使用者）有什麼影響？」
+- 建議團隊在 PR 模板中加入「CHANGELOG 已更新」的檢查項
+- 使用自動化工具輔助，但仍需人工審查確保品質
+
 ## 實務建議與最佳實作
 
 ### **1. 原子性 Commit（Atomic Commits）**

@@ -197,7 +197,17 @@ class TestSyncEndpoint:
 
             mock_verify.return_value = MagicMock(success=True, client_id="test_client")
             mock_structure.return_value = {
-                "floors": [{"id": "floor_1", "name": "First Floor", "areas": []}]
+                "floors": [
+                    {
+                        "floor_id": "floor_1",
+                        "name": "First Floor",
+                        "icon": None,
+                        "level": 1,
+                    }
+                ],
+                "areas": [],
+                "devices": [],
+                "entities": [],
             }
 
             # Also mock the registry imports inside the get method
@@ -214,6 +224,9 @@ class TestSyncEndpoint:
         assert response.status == 200
         body = json.loads(response.body)
         assert "floors" in body
+        assert "areas" in body
+        assert "devices" in body
+        assert "entities" in body
 
 
 class TestApiPaths:
