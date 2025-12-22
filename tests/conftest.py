@@ -44,7 +44,7 @@ def mock_entity_registry():
 
     # Create mock entity entries
     mock_entry_allowed = MagicMock()
-    mock_entry_allowed.labels = {"smartly_control"}
+    mock_entry_allowed.labels = {"smartly"}
     mock_entry_allowed.device_id = "device_1"
     mock_entry_allowed.area_id = "area_1"
     mock_entry_allowed.name = "Test Light"

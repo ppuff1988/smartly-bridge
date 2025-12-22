@@ -32,11 +32,10 @@ def generate_client_secret() -> str:
     return secrets.token_urlsafe(32)
 
 
-class SmartlyBridgeConfigFlow(config_entries.ConfigFlow):
+class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for Smartly Bridge."""
 
     VERSION = 1
-    DOMAIN = DOMAIN
 
     async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
         """Handle the initial step."""
