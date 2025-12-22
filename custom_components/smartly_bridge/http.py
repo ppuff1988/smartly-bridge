@@ -10,6 +10,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from .acl import (
+    get_allowed_entities,
     get_entity_domain,
     get_structure,
     is_entity_allowed,
@@ -273,9 +274,13 @@ class SmartlySyncView(web.View):
         area_registry = ar.async_get(self.hass)
         floor_registry = fr.async_get(self.hass)
 
+        # Get allowed entities
+        allowed_entities = get_allowed_entities(self.hass, entity_registry)
+
         # Build structure
         structure = get_structure(
             self.hass,
+            allowed_entities,
             entity_registry,
             device_registry,
             area_registry,
