@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## 1.0.0 (2025-12-22)
+
+### ✨ 新增功能 (Features)
+
+* 初始化 Smartly Bridge Home Assistant 整合專案 ([a4e5c92](https://github.com/ppuff1988/smartly-bridge/commit/a4e5c92d433dbd7cacf0f24d3119622909151007))
+* 實體標籤存取控制與自動化發布流程 ([#11](https://github.com/ppuff1988/smartly-bridge/issues/11)) ([b5bc9a5](https://github.com/ppuff1988/smartly-bridge/commit/b5bc9a5055c6e425fc6e5511c1f0878cca51d160))
+
 ## [Unreleased]
 
 ### Added
