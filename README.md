@@ -2,7 +2,7 @@
 
 > **多社區 Home Assistant × 中央管理 Platform 架構的安全橋接器**
 
-[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fppuff1988%2Fsmartifly_bridge)
+[![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
 
 Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區級 Home Assistant 與中央管理平台（Smartly Platform）。設計原則：**Platform 永遠不持有 HA Token、HA 為社區安全邊界、Platform 為業務 RBAC 中樞**。
 
@@ -99,13 +99,17 @@ Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區�
 3. 前往 **設定 → 裝置與服務 → 新增整合**
 4. 搜尋 **Smartly Bridge**
 
-### HACS 安裝（未來支援）
+### HACS 安裝
 
-```yaml
-# 透過 HACS 自訂儲存庫
-Repository: https://github.com/ppuff1988/smartly-bridge
-Category: Integration
-```
+1. 在 HACS 中點選右上角三個點 → **自訂儲存庫**
+2. 新增此儲存庫：
+   - **Repository**: `https://github.com/ppuff1988/smartly-bridge`
+   - **Category**: `Integration`
+3. 點選 **ADD**，然後搜尋 **Smartly Bridge**
+4. 點選 **DOWNLOAD** 安裝
+5. 重新啟動 Home Assistant
+6. 前往 **設定 → 裝置與服務 → 新增整合**
+7. 搜尋 **Smartly Bridge**
 
 ---
 
