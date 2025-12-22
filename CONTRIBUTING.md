@@ -6,8 +6,8 @@ Thank you for your interest in contributing to Smartly Bridge! This document pro
 
 1. **Fork and clone the repository**
    ```bash
-   git clone https://github.com/your-username/platform-bridge.git
-   cd platform-bridge
+   git clone https://github.com/your-username/smartly-bridge.git
+   cd smartly-bridge
    ```
 
 2. **Set up development environment**
