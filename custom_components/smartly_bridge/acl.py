@@ -232,9 +232,7 @@ def _build_floors_dict(
         # Initialize floor, area, device
         floor_key = _initialize_floor(floor_id, floors_dict, floor_registry)
         area_key = _initialize_area(area_id, floor_key, floors_dict, area_registry)
-        _initialize_device(
-            device_id, floor_key, area_key, floors_dict, device_registry
-        )
+        _initialize_device(device_id, floor_key, area_key, floors_dict, device_registry)
 
         # Add entity
         entity_data = {
@@ -242,16 +240,14 @@ def _build_floors_dict(
             "domain": get_entity_domain(entity_id),
             "name": entry.name or entry.original_name,
         }
-        floors_dict[floor_key]["areas"][area_key]["devices"][device_id][
-            "entities"
-        ].append(entity_data)
+        floors_dict[floor_key]["areas"][area_key]["devices"][device_id]["entities"].append(
+            entity_data
+        )
 
     return floors_dict
 
 
-def _convert_to_result_format(
-    floors_dict: dict[str, dict[str, Any]]
-) -> dict[str, list]:
+def _convert_to_result_format(floors_dict: dict[str, dict[str, Any]]) -> dict[str, list]:
     """Convert floors_dict to flat result format with all items."""
     result: dict[str, list] = {
         "floors": [],
@@ -283,11 +279,13 @@ def _convert_to_result_format(
             # Add to top-level areas list if not already added (skip null areas)
             if area_key not in seen_areas and area_key != "_no_area":
                 seen_areas.add(area_key)
-                result["areas"].append({
-                    "id": area_data["id"],
-                    "name": area_data["name"],
-                    "floor_id": floor_data["id"],
-                })
+                result["areas"].append(
+                    {
+                        "id": area_data["id"],
+                        "name": area_data["name"],
+                        "floor_id": floor_data["id"],
+                    }
+                )
 
             for device_key, device_data in area_data["devices"].items():
                 device_output = {
@@ -300,21 +298,25 @@ def _convert_to_result_format(
                 # Add to top-level devices list if not already added
                 if device_key not in seen_devices:
                     seen_devices.add(device_key)
-                    result["devices"].append({
-                        "id": device_data["id"],
-                        "name": device_data["name"],
-                        # Only include area_id if it's not a null area
-                        "area_id": area_data["id"] if area_key != "_no_area" else None,
-                    })
+                    result["devices"].append(
+                        {
+                            "id": device_data["id"],
+                            "name": device_data["name"],
+                            # Only include area_id if it's not a null area
+                            "area_id": area_data["id"] if area_key != "_no_area" else None,
+                        }
+                    )
 
                 # Add all entities to top-level entities list
                 for entity in device_data["entities"]:
-                    result["entities"].append({
-                        "entity_id": entity["entity_id"],
-                        "domain": entity["domain"],
-                        "name": entity["name"],
-                        "device_id": device_data["id"],
-                    })
+                    result["entities"].append(
+                        {
+                            "entity_id": entity["entity_id"],
+                            "domain": entity["domain"],
+                            "name": entity["name"],
+                            "device_id": device_data["id"],
+                        }
+                    )
 
             # Only add area to floor output if it's not a null area
             if area_key != "_no_area":
