@@ -70,7 +70,7 @@ def get_allowed_entities(
         PLATFORM_CONTROL_LABEL,
         total_entities,
     )
-    
+
     if len(allowed) == 0:
         _LOGGER.warning(
             "No entities found with entity label '%s'. "
@@ -81,7 +81,7 @@ def get_allowed_entities(
             PLATFORM_CONTROL_LABEL,
             total_entities,
         )
-    
+
     return allowed
 
 
@@ -112,35 +112,13 @@ def filter_entities_by_area(
     return filtered
 
 
-def get_structure(
-    hass: HomeAssistant,
+def _build_mappings(
+    allowed_entities: list[str],
     entity_registry: EntityRegistry,
     device_registry: DeviceRegistry,
     area_registry: AreaRegistry,
-    floor_registry: FloorRegistry,
-) -> dict[str, Any]:
-    """Get the hierarchical structure of floors/areas/devices/entities.
-
-    Returns only entities with smartly label.
-    Structure: floors -> areas -> devices -> entities
-    """
-    # Get allowed entities
-    allowed_entities = get_allowed_entities(hass, entity_registry)
-
-    if not allowed_entities:
-        _LOGGER.warning(
-            "No entities found with '%s' entity label. "
-            "Note: Entity Labels (for organizing entities) are different from NFC Tags. "
-            "This feature may not be available in all Home Assistant versions.",
-            PLATFORM_CONTROL_LABEL,
-        )
-        return {
-            "floors": [],
-            "areas": [],
-            "devices": [],
-            "entities": [],
-        }
-
+) -> tuple[dict[str, str | None], dict[str, str | None], dict[str, str | None]]:
+    """Build entity->device, device->area, and area->floor mappings."""
     # Build entity -> device mapping
     entity_to_device: dict[str, str | None] = {}
     for entity_id in allowed_entities:
@@ -164,74 +142,99 @@ def get_structure(
             if area:
                 area_to_floor[area_id] = area.floor_id
 
-    # Build structure
+    return entity_to_device, device_to_area, area_to_floor
+
+
+def _initialize_floor(
+    floor_id: str | None,
+    floors_dict: dict[str, dict[str, Any]],
+    floor_registry: FloorRegistry,
+) -> str:
+    """Initialize floor in floors_dict and return floor_key."""
+    floor_key = floor_id or "_no_floor"
+    if floor_key not in floors_dict:
+        floor_name = None
+        if floor_id:
+            floor = floor_registry.async_get_floor(floor_id)
+            floor_name = floor.name if floor else None
+        floors_dict[floor_key] = {
+            "id": floor_id,
+            "name": floor_name,
+            "areas": {},
+        }
+    return floor_key
+
+
+def _initialize_area(
+    area_id: str | None,
+    floor_key: str,
+    floors_dict: dict[str, dict[str, Any]],
+    area_registry: AreaRegistry,
+) -> str:
+    """Initialize area in floors_dict and return area_key."""
+    area_key = area_id or "_no_area"
+    if area_key not in floors_dict[floor_key]["areas"]:
+        area_name = None
+        if area_id:
+            area = area_registry.async_get_area(area_id)
+            area_name = area.name if area else None
+        floors_dict[floor_key]["areas"][area_key] = {
+            "id": area_id,
+            "name": area_name,
+            "devices": {},
+        }
+    return area_key
+
+
+def _initialize_device(
+    device_id: str,
+    floor_key: str,
+    area_key: str,
+    floors_dict: dict[str, dict[str, Any]],
+    device_registry: DeviceRegistry,
+) -> None:
+    """Initialize device in floors_dict."""
+    if device_id not in floors_dict[floor_key]["areas"][area_key]["devices"]:
+        device = device_registry.async_get(device_id)
+        device_name = device.name if device else None
+        floors_dict[floor_key]["areas"][area_key]["devices"][device_id] = {
+            "id": device_id,
+            "name": device_name,
+            "entities": [],
+        }
+
+
+def _build_floors_dict(
+    allowed_entities: list[str],
+    entity_registry: EntityRegistry,
+    device_registry: DeviceRegistry,
+    area_registry: AreaRegistry,
+    floor_registry: FloorRegistry,
+    entity_to_device: dict[str, str | None],
+    device_to_area: dict[str, str | None],
+    area_to_floor: dict[str, str | None],
+) -> dict[str, dict[str, Any]]:
+    """Build hierarchical floors dictionary."""
     floors_dict: dict[str, dict[str, Any]] = {}
 
     for entity_id in allowed_entities:
         entry = entity_registry.async_get(entity_id)
-        if not entry:
+        if not entry or not entry.device_id:
+            if not entry:
+                continue
+            _LOGGER.debug("Skipping entity %s: no device assigned", entity_id)
             continue
 
         device_id = entry.device_id
-        # First check entity's direct area_id, then fall back to device's area
-        area_id = entry.area_id
-        if area_id is None and device_id:
-            area_id = device_to_area.get(device_id)
+        area_id = entry.area_id or device_to_area.get(device_id)
+        floor_id = area_to_floor.get(area_id) if area_id else None
 
-        # Get floor_id from area
-        floor_id = None
-        if area_id:
-            floor_id = area_to_floor.get(area_id)
-
-        # Skip entities without proper organization (no device or area)
-        # to avoid creating null structures
-        if not device_id:
-            _LOGGER.debug(
-                "Skipping entity %s: no device assigned",
-                entity_id,
-            )
-            continue
-
-        # Handle entities without device/area/floor
-        floor_key = floor_id or "_no_floor"
-        area_key = area_id or "_no_area"
-        device_key = device_id
-
-        # Initialize floor
-        if floor_key not in floors_dict:
-            floor_name = None
-            if floor_id:
-                floor = floor_registry.async_get_floor(floor_id)
-                floor_name = floor.name if floor else None
-            floors_dict[floor_key] = {
-                "id": floor_id,
-                "name": floor_name,
-                "areas": {},
-            }
-
-        # Initialize area
-        if area_key not in floors_dict[floor_key]["areas"]:
-            area_name = None
-            if area_id:
-                area = area_registry.async_get_area(area_id)
-                area_name = area.name if area else None
-            floors_dict[floor_key]["areas"][area_key] = {
-                "id": area_id,
-                "name": area_name,
-                "devices": {},
-            }
-
-        # Initialize device
-        if device_key not in floors_dict[floor_key]["areas"][area_key]["devices"]:
-            device_name = None
-            if device_id:
-                device = device_registry.async_get(device_id)
-                device_name = device.name if device else None
-            floors_dict[floor_key]["areas"][area_key]["devices"][device_key] = {
-                "id": device_id,
-                "name": device_name,
-                "entities": [],
-            }
+        # Initialize floor, area, device
+        floor_key = _initialize_floor(floor_id, floors_dict, floor_registry)
+        area_key = _initialize_area(area_id, floor_key, floors_dict, area_registry)
+        _initialize_device(
+            device_id, floor_key, area_key, floors_dict, device_registry
+        )
 
         # Add entity
         entity_data = {
@@ -239,11 +242,17 @@ def get_structure(
             "domain": get_entity_domain(entity_id),
             "name": entry.name or entry.original_name,
         }
-        floors_dict[floor_key]["areas"][area_key]["devices"][device_key]["entities"].append(
-            entity_data
-        )
+        floors_dict[floor_key]["areas"][area_key]["devices"][device_id][
+            "entities"
+        ].append(entity_data)
 
-    # Convert to list format and collect all items
+    return floors_dict
+
+
+def _convert_to_result_format(
+    floors_dict: dict[str, dict[str, Any]]
+) -> dict[str, list]:
+    """Convert floors_dict to flat result format with all items."""
     result: dict[str, list] = {
         "floors": [],
         "areas": [],
@@ -251,7 +260,6 @@ def get_structure(
         "entities": [],
     }
 
-    # Track unique areas and devices to avoid duplicates
     seen_areas: set[str] = set()
     seen_devices: set[str] = set()
 
@@ -317,3 +325,41 @@ def get_structure(
             result["floors"].append(floor_output)
 
     return result
+
+
+def get_structure(
+    hass: HomeAssistant,
+    allowed_entities: list[str],
+    entity_registry: EntityRegistry,
+    device_registry: DeviceRegistry,
+    area_registry: AreaRegistry,
+    floor_registry: FloorRegistry,
+) -> dict[str, list]:
+    """Get hierarchical structure of allowed entities organized by floors/areas/devices.
+
+    Returns a dictionary with lists of floors, areas, devices, and entities.
+    Each entity is grouped within its device, area, and floor.
+    Complexity reduced by extracting helper functions.
+    """
+    # Build all mappings
+    _, device_to_area, area_to_floor = _build_mappings(
+        allowed_entities,
+        entity_registry,
+        device_registry,
+        area_registry,
+    )
+
+    # Build hierarchical dictionary
+    floors_dict = _build_floors_dict(
+        allowed_entities,
+        entity_registry,
+        device_registry,
+        area_registry,
+        floor_registry,
+        {},  # entity_to_device not needed
+        device_to_area,
+        area_to_floor,
+    )
+
+    # Convert to result format
+    return _convert_to_result_format(floors_dict)

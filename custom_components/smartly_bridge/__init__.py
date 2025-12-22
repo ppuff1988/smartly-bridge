@@ -107,7 +107,9 @@ async def async_reload_entry(hass: HomeAssistant, entry: ConfigEntry) -> None:
     log_integration_event(_LOGGER, "reload_start", f"instance={entry.data.get(CONF_INSTANCE_ID)}")
     await async_unload_entry(hass, entry)
     await async_setup_entry(hass, entry)
-    log_integration_event(_LOGGER, "reload_complete", f"instance={entry.data.get(CONF_INSTANCE_ID)}")
+    log_integration_event(
+        _LOGGER, "reload_complete", f"instance={entry.data.get(CONF_INSTANCE_ID)}"
+    )
 
 
 async def async_update_options(hass: HomeAssistant, entry: ConfigEntry) -> None:
