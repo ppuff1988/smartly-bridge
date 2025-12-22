@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.1.1...v1.1.2) (2025-12-22)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* 移除錯誤的 Add-on badge 並更新 HACS 安裝指引 ([#15](https://github.com/ppuff1988/smartly-bridge/issues/15)) ([3771bcc](https://github.com/ppuff1988/smartly-bridge/commit/3771bccbde1db7791b7d48c41d519baa5a283b16))
+
 ## [1.1.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.1.0...v1.1.1) (2025-12-22)
 
 ### 🐛 錯誤修正 (Bug Fixes)
