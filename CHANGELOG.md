@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.1.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.0.0...v1.1.0) (2025-12-22)
+
+### ✨ 新增功能 (Features)
+
+* **acl:** 實作實體標籤存取控制與結構優化 ([efa133b](https://github.com/ppuff1988/smartly-bridge/commit/efa133b6820a238b29a7b85139103d2642ac1f23))
+* **ci:** 啟用完全自動化 Semantic Release 並停用手動發布 ([1d22c69](https://github.com/ppuff1988/smartly-bridge/commit/1d22c69e0a6102b2c32bb9423c239302c50907f8))
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **acl:** 降低 get_structure 函數複雜度並修正 Flake8 錯誤 ([df8f7ac](https://github.com/ppuff1988/smartly-bridge/commit/df8f7acbce43dfba3ff526c4dffcca4e7a6ebb2c))
+
+### ♻️ 程式碼重構 (Refactoring)
+
+* 改善程式碼品質和 CI/CD 流程 ([7f15eae](https://github.com/ppuff1988/smartly-bridge/commit/7f15eaeb2cf584a98128059f323a7eab50da7874))
+
 ## 1.0.0 (2025-12-22)
 
 ### ✨ 新增功能 (Features)
