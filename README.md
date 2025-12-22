@@ -2,7 +2,7 @@
 
 > **多社區 Home Assistant × 中央管理 Platform 架構的安全橋接器**
 
-[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fyourusername%2Fsmartifly_bridge)
+[![Open your Home Assistant instance and show the add add-on repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fppuff1988%2Fsmartifly_bridge)
 
 Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區級 Home Assistant 與中央管理平台（Smartly Platform）。設計原則：**Platform 永遠不持有 HA Token、HA 為社區安全邊界、Platform 為業務 RBAC 中樞**。
 
