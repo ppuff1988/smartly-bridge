@@ -385,13 +385,19 @@ class SmartlySyncStatesView(web.View):
         for entity_id in allowed_entities:
             state = self.hass.states.get(entity_id)
             if state:
-                states.append({
-                    "entity_id": entity_id,
-                    "state": state.state,
-                    "attributes": dict(state.attributes),
-                    "last_changed": state.last_changed.isoformat() if state.last_changed else None,
-                    "last_updated": state.last_updated.isoformat() if state.last_updated else None,
-                })
+                states.append(
+                    {
+                        "entity_id": entity_id,
+                        "state": state.state,
+                        "attributes": dict(state.attributes),
+                        "last_changed": (
+                            state.last_changed.isoformat() if state.last_changed else None
+                        ),
+                        "last_updated": (
+                            state.last_updated.isoformat() if state.last_updated else None
+                        ),
+                    }
+                )
 
         return web.json_response(
             {"states": states, "count": len(states)},

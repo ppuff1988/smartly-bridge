@@ -224,7 +224,7 @@ def _build_floors_dict(
             continue
 
         device_id = entry.device_id
-        
+
         # Handle entities without device (e.g., input_boolean, input_button)
         if not device_id:
             _LOGGER.debug("Entity %s has no device, using virtual device", entity_id)
@@ -239,7 +239,7 @@ def _build_floors_dict(
         # Initialize floor, area, device
         floor_key = _initialize_floor(floor_id, floors_dict, floor_registry)
         area_key = _initialize_area(area_id, floor_key, floors_dict, area_registry)
-        
+
         # For virtual devices, use a simplified initialization
         if device_id.startswith("_virtual_"):
             if device_id not in floors_dict[floor_key]["areas"][area_key]["devices"]:

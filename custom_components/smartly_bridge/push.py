@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable
 
 import aiohttp
@@ -144,7 +143,7 @@ class StatePushManager:
                     "entity_id": entity_id,
                     "old_state": self._state_to_dict(old_state) if old_state else None,
                     "new_state": self._state_to_dict(new_state),
-                }
+                },
             }
             self._pending_events.append(event_data)
 
@@ -207,9 +206,7 @@ class StatePushManager:
         path = parsed_url.path.rstrip("/")
 
         try:
-            headers = sign_outgoing_request(
-                client_secret, instance_id, body, client_id, path
-            )
+            headers = sign_outgoing_request(client_secret, instance_id, body, client_id, path)
 
             if self._session is None:
                 self._session = aiohttp.ClientSession()
@@ -259,7 +256,7 @@ class StatePushManager:
     ) -> None:
         """Send events with exponential backoff retry."""
         from urllib.parse import urlparse
-        
+
         client_secret = self.config_entry.data.get(CONF_CLIENT_SECRET, "")
         instance_id = self.config_entry.data.get(CONF_INSTANCE_ID, "")
         client_id = self.config_entry.data.get(CONF_CLIENT_ID, "")
@@ -267,14 +264,14 @@ class StatePushManager:
         # Batch events in events array
         payload = {"events": events}
         body = json.dumps(payload).encode("utf-8")
-        
+
         # Log request body for debugging
         _LOGGER.debug(
             "Push request body (%d bytes): %s",
             len(body),
             json.dumps(payload, indent=2, ensure_ascii=False)[:1000],
         )
-        
+
         # Extract path from webhook URL for HMAC signature
         # Per platform spec: PATH without query string and without trailing slash
         parsed_url = urlparse(webhook_url)
@@ -282,18 +279,13 @@ class StatePushManager:
 
         for attempt in range(PUSH_RETRY_MAX):
             try:
-                headers = sign_outgoing_request(
-                    client_secret, instance_id, body, client_id, path
-                )
-                
+                headers = sign_outgoing_request(client_secret, instance_id, body, client_id, path)
+
                 # Log headers for debugging (mask signature)
                 headers_log = headers.copy()
                 if HEADER_SIGNATURE in headers_log:
                     headers_log[HEADER_SIGNATURE] = f"{headers_log[HEADER_SIGNATURE][:16]}..."
-                _LOGGER.debug(
-                    "Push request headers: %s",
-                    json.dumps(headers_log, indent=2)
-                )
+                _LOGGER.debug("Push request headers: %s", json.dumps(headers_log, indent=2))
 
                 async with self._session.post(
                     webhook_url,
@@ -396,9 +388,7 @@ class StatePushManager:
             new_state = event.data.get("new_state")
 
             if entity_id and new_state:
-                asyncio.create_task(
-                    self._queue_event(entity_id, old_state, new_state)
-                )
+                asyncio.create_task(self._queue_event(entity_id, old_state, new_state))
 
         # Track state changes for allowed entities
         self._unsub_state_changed = async_track_state_change_event(

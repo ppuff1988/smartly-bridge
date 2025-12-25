@@ -268,7 +268,7 @@ def sign_outgoing_request(
     path: str = "/webhook/ha-event",
 ) -> dict[str, str]:
     """Generate headers for outgoing request to Platform.
-    
+
     Args:
         secret: Client secret for HMAC signature
         instance_id: Home Assistant instance ID
@@ -295,9 +295,9 @@ def sign_outgoing_request(
         HEADER_HA_INSTANCE_ID: instance_id,
         "Content-Type": "application/json",
     }
-    
+
     # Add X-Client-Id if provided
     if client_id:
         headers[HEADER_CLIENT_ID] = client_id
-    
+
     return headers
