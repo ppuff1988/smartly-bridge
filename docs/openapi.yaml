@@ -1,0 +1,666 @@
+openapi: 3.1.0
+info:
+  title: Smartly Bridge API
+  description: |
+    Home Assistant Custom Integration API for connecting community-level Home Assistant 
+    with central management platform (Smartly Platform).
+    
+    ## Security
+    All requests must be authenticated using HMAC-SHA256 signature.
+    
+    ## Signature Calculation
+    ```
+    Signature Payload = METHOD + "\n" + PATH + "\n" + TIMESTAMP + "\n" + NONCE + "\n" + SHA256(BODY)
+    Signature = HMAC-SHA256(client_secret, payload)
+    ```
+  version: 1.0.0
+  contact:
+    name: Smartly Bridge
+    url: https://github.com/ppuff1988/smartly-bridge
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://{host}:{port}
+    description: Home Assistant instance
+    variables:
+      host:
+        default: localhost
+        description: Home Assistant host
+      port:
+        default: "8123"
+        description: Home Assistant port
+
+security:
+  - hmacAuth: []
+
+tags:
+  - name: Control
+    description: Device control operations
+  - name: Sync
+    description: Structure and state synchronization
+
+paths:
+  /api/smartly/control:
+    post:
+      tags:
+        - Control
+      summary: Control a device
+      description: |
+        Execute a service call on an entity. The entity must have the `smartly` label 
+        and the service must be in the allowed services whitelist.
+      operationId: controlDevice
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - $ref: '#/components/parameters/X-Timestamp'
+        - $ref: '#/components/parameters/X-Nonce'
+        - $ref: '#/components/parameters/X-Signature'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ControlRequest'
+            examples:
+              turnOnLight:
+                summary: Turn on a light
+                value:
+                  entity_id: switch.room_101_light
+                  action: turn_on
+                  service_data:
+                    brightness: 255
+                  actor:
+                    user_id: u_123
+                    role: room_admin
+              setClimateTemperature:
+                summary: Set climate temperature
+                value:
+                  entity_id: climate.living_room
+                  action: set_temperature
+                  service_data:
+                    temperature: 24
+                  actor:
+                    user_id: u_456
+                    role: tenant
+      responses:
+        '200':
+          description: Control action executed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ControlResponse'
+              example:
+                success: true
+                entity_id: switch.room_101_light
+                action: turn_on
+                new_state: "on"
+                new_attributes:
+                  brightness: 255
+        '400':
+          description: Bad request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidJson:
+                  value:
+                    error: invalid_json
+                missingFields:
+                  value:
+                    error: missing_required_fields
+        '401':
+          description: Authentication failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                missingHeaders:
+                  value:
+                    error: missing_headers
+                invalidTimestamp:
+                  value:
+                    error: invalid_timestamp
+                nonceReused:
+                  value:
+                    error: nonce_reused
+                invalidSignature:
+                  value:
+                    error: invalid_signature
+                ipNotAllowed:
+                  value:
+                    error: ip_not_allowed
+        '403':
+          description: Forbidden
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                entityNotAllowed:
+                  value:
+                    error: entity_not_allowed
+                serviceNotAllowed:
+                  value:
+                    error: service_not_allowed
+        '429':
+          description: Rate limited
+          headers:
+            Retry-After:
+              schema:
+                type: integer
+              description: Seconds to wait before retrying
+            X-RateLimit-Remaining:
+              schema:
+                type: integer
+              description: Number of requests remaining
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error: rate_limited
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                integrationNotConfigured:
+                  value:
+                    error: integration_not_configured
+                serviceCallFailed:
+                  value:
+                    error: service_call_failed
+
+  /api/smartly/sync/structure:
+    get:
+      tags:
+        - Sync
+      summary: Get structure hierarchy
+      description: |
+        Returns the complete structure hierarchy including floors, areas, devices, 
+        and entities that have the `smartly` label. Does not include state information.
+      operationId: syncStructure
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - $ref: '#/components/parameters/X-Timestamp'
+        - $ref: '#/components/parameters/X-Nonce'
+        - $ref: '#/components/parameters/X-Signature'
+      responses:
+        '200':
+          description: Structure retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StructureResponse'
+              example:
+                floors:
+                  - id: floor_1
+                    name: 1F
+                    areas:
+                      - id: area_101
+                        name: Room 101
+                        devices:
+                          - id: device_abc123
+                            name: Smart Switch
+                            entities:
+                              - entity_id: switch.room_101_light
+                                domain: switch
+                                name: Light
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/sync/states:
+    get:
+      tags:
+        - Sync
+      summary: Get all entity states
+      description: |
+        Returns the current state of all entities that have the `smartly` label.
+        Useful for initial sync or state reconciliation.
+      operationId: syncStates
+      parameters:
+        - $ref: '#/components/parameters/X-Client-Id'
+        - $ref: '#/components/parameters/X-Timestamp'
+        - $ref: '#/components/parameters/X-Nonce'
+        - $ref: '#/components/parameters/X-Signature'
+      responses:
+        '200':
+          description: States retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatesResponse'
+              example:
+                states:
+                  - entity_id: switch.room_101_light
+                    state: "on"
+                    attributes:
+                      friendly_name: Room 101 Light
+                      brightness: 255
+                    last_changed: "2025-12-17T10:30:00+00:00"
+                    last_updated: "2025-12-17T10:30:00+00:00"
+                count: 1
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+components:
+  securitySchemes:
+    hmacAuth:
+      type: apiKey
+      in: header
+      name: X-Signature
+      description: |
+        HMAC-SHA256 signature of the request. The signature is calculated as:
+        ```
+        payload = METHOD + "\n" + PATH + "\n" + TIMESTAMP + "\n" + NONCE + "\n" + SHA256(BODY)
+        signature = HMAC-SHA256(client_secret, payload)
+        ```
+
+  parameters:
+    X-Client-Id:
+      name: X-Client-Id
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^ha_[a-f0-9]{12}$'
+        example: ha_abc123def456
+      description: Client ID generated during integration setup
+
+    X-Timestamp:
+      name: X-Timestamp
+      in: header
+      required: true
+      schema:
+        type: integer
+        format: int64
+        example: 1702800000
+      description: Unix timestamp (seconds). Must be within ±30 seconds of server time.
+
+    X-Nonce:
+      name: X-Nonce
+      in: header
+      required: true
+      schema:
+        type: string
+        format: uuid
+        example: 550e8400-e29b-41d4-a716-446655440000
+      description: Unique identifier for request. Cannot be reused within 5 minutes.
+
+    X-Signature:
+      name: X-Signature
+      in: header
+      required: true
+      schema:
+        type: string
+        pattern: '^[a-f0-9]{64}$'
+        example: a1b2c3d4e5f6...
+      description: HMAC-SHA256 signature of the request
+
+  schemas:
+    ControlRequest:
+      type: object
+      required:
+        - entity_id
+        - action
+      properties:
+        entity_id:
+          type: string
+          description: The entity ID to control
+          example: switch.room_101_light
+        action:
+          type: string
+          description: The service action to call
+          example: turn_on
+          enum:
+            - turn_on
+            - turn_off
+            - toggle
+            - open_cover
+            - close_cover
+            - stop_cover
+            - set_cover_position
+            - set_temperature
+            - set_hvac_mode
+            - set_fan_mode
+            - set_percentage
+            - set_preset_mode
+            - lock
+            - unlock
+            - trigger
+        service_data:
+          type: object
+          description: Additional data to pass to the service
+          additionalProperties: true
+          example:
+            brightness: 255
+        actor:
+          $ref: '#/components/schemas/Actor'
+
+    Actor:
+      type: object
+      description: Information about who initiated the action (for audit logging)
+      properties:
+        user_id:
+          type: string
+          description: Platform user ID
+          example: u_123
+        role:
+          type: string
+          description: User's role
+          example: room_admin
+
+    ControlResponse:
+      type: object
+      properties:
+        success:
+          type: boolean
+          description: Whether the action was successful
+          example: true
+        entity_id:
+          type: string
+          description: The entity ID that was controlled
+          example: switch.room_101_light
+        action:
+          type: string
+          description: The action that was executed
+          example: turn_on
+        new_state:
+          type: string
+          nullable: true
+          description: The new state of the entity after the action
+          example: "on"
+        new_attributes:
+          type: object
+          nullable: true
+          description: The new attributes of the entity after the action
+          additionalProperties: true
+          example:
+            brightness: 255
+
+    StructureResponse:
+      type: object
+      properties:
+        floors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Floor'
+
+    Floor:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Floor ID
+          example: floor_1
+        name:
+          type: string
+          description: Floor name
+          example: 1F
+        areas:
+          type: array
+          items:
+            $ref: '#/components/schemas/Area'
+
+    Area:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Area ID
+          example: area_101
+        name:
+          type: string
+          description: Area name
+          example: Room 101
+        devices:
+          type: array
+          items:
+            $ref: '#/components/schemas/Device'
+
+    Device:
+      type: object
+      properties:
+        id:
+          type: string
+          description: Device ID
+          example: device_abc123
+        name:
+          type: string
+          description: Device name
+          example: Smart Switch
+        entities:
+          type: array
+          items:
+            $ref: '#/components/schemas/Entity'
+
+    Entity:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          description: Entity ID
+          example: switch.room_101_light
+        domain:
+          type: string
+          description: Entity domain
+          example: switch
+          enum:
+            - switch
+            - light
+            - cover
+            - climate
+            - fan
+            - lock
+            - scene
+            - script
+            - automation
+        name:
+          type: string
+          description: Entity friendly name
+          example: Light
+
+    StatesResponse:
+      type: object
+      properties:
+        states:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntityState'
+        count:
+          type: integer
+          description: Number of entities returned
+          example: 1
+
+    EntityState:
+      type: object
+      properties:
+        entity_id:
+          type: string
+          description: Entity ID
+          example: switch.room_101_light
+        state:
+          type: string
+          description: Current state value
+          example: "on"
+        attributes:
+          type: object
+          description: Entity attributes
+          additionalProperties: true
+          example:
+            friendly_name: Room 101 Light
+            brightness: 255
+        last_changed:
+          type: string
+          format: date-time
+          description: When the state last changed
+          example: "2025-12-17T10:30:00+00:00"
+        last_updated:
+          type: string
+          format: date-time
+          description: When the state was last updated
+          example: "2025-12-17T10:30:00+00:00"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: invalid_signature
+
+  responses:
+    UnauthorizedError:
+      description: Authentication failed
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          examples:
+            missingHeaders:
+              value:
+                error: missing_headers
+            invalidSignature:
+              value:
+                error: invalid_signature
+
+    RateLimitError:
+      description: Rate limited
+      headers:
+        Retry-After:
+          schema:
+            type: integer
+          description: Seconds to wait before retrying
+        X-RateLimit-Remaining:
+          schema:
+            type: integer
+          description: Number of requests remaining
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: rate_limited
+
+    InternalError:
+      description: Internal server error
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ErrorResponse'
+          example:
+            error: integration_not_configured
+
+webhooks:
+  stateChanged:
+    post:
+      summary: State change notification
+      description: |
+        Sent from Bridge to Platform when entity states change.
+        Events are batched and sent at 500ms intervals.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookEventsPayload'
+            example:
+              events:
+                - event_type: state_changed
+                  data:
+                    entity_id: switch.room_101_light
+                    old_state:
+                      state: "off"
+                      attributes: {}
+                      last_changed: "2025-12-17T09:00:00+00:00"
+                      last_updated: "2025-12-17T09:00:00+00:00"
+                    new_state:
+                      state: "on"
+                      attributes:
+                        brightness: 255
+                      last_changed: "2025-12-17T10:30:00+00:00"
+                      last_updated: "2025-12-17T10:30:00+00:00"
+      responses:
+        '200':
+          description: Events received successfully
+
+  heartbeat:
+    post:
+      summary: Heartbeat notification
+      description: |
+        Sent from Bridge to Platform every 60 seconds to indicate the bridge is online.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HeartbeatPayload'
+            example:
+              event_type: heartbeat
+              timestamp: "2025-12-17T10:30:00.000000+00:00"
+      responses:
+        '200':
+          description: Heartbeat received successfully
+
+  schemas:
+    WebhookEventsPayload:
+      type: object
+      properties:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChangedEvent'
+
+    StateChangedEvent:
+      type: object
+      properties:
+        event_type:
+          type: string
+          const: state_changed
+        data:
+          type: object
+          properties:
+            entity_id:
+              type: string
+            old_state:
+              $ref: '#/components/schemas/StateData'
+            new_state:
+              $ref: '#/components/schemas/StateData'
+
+    StateData:
+      type: object
+      properties:
+        state:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        last_changed:
+          type: string
+          format: date-time
+        last_updated:
+          type: string
+          format: date-time
+
+    HeartbeatPayload:
+      type: object
+      properties:
+        event_type:
+          type: string
+          const: heartbeat
+        timestamp:
+          type: string
+          format: date-time

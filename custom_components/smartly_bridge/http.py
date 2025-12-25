@@ -21,6 +21,7 @@ from .auth import RateLimiter, verify_request
 from .const import (
     API_PATH_CONTROL,
     API_PATH_SYNC,
+    API_PATH_SYNC_STATES,
     CONF_ALLOWED_CIDRS,
     CONF_CLIENT_SECRET,
     DOMAIN,
@@ -158,6 +159,7 @@ class SmartlyControlView(web.View):
                 action,
                 {"entity_id": entity_id, **service_data},
                 blocking=True,
+                limit=10,  # 10 second timeout
             )
 
             log_control(
@@ -169,8 +171,17 @@ class SmartlyControlView(web.View):
                 actor=actor,
             )
 
+            # Get new state after service call
+            new_state = self.hass.states.get(entity_id)
+
             return web.json_response(
-                {"success": True, "entity_id": entity_id, "action": action},
+                {
+                    "success": True,
+                    "entity_id": entity_id,
+                    "action": action,
+                    "new_state": new_state.state if new_state else None,
+                    "new_attributes": dict(new_state.attributes) if new_state else None,
+                },
                 status=200,
             )
 
@@ -301,10 +312,115 @@ class SmartlySyncView(web.View):
         return None
 
 
+class SmartlySyncStatesView(web.View):
+    """Handle GET /api/smartly/sync/states requests."""
+
+    def __init__(self, request: web.Request) -> None:
+        """Initialize the view."""
+        super().__init__(request)
+        self.hass: HomeAssistant = request.app["hass"]
+
+    async def get(self) -> web.Response:
+        """Handle sync states request from Platform."""
+        # Get integration data
+        data = self._get_integration_data()
+        if data is None:
+            return web.json_response(
+                {"error": "integration_not_configured"},
+                status=500,
+            )
+
+        client_secret = data.get(CONF_CLIENT_SECRET)
+        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
+        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
+        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
+
+        # Verify authentication
+        auth_result = await verify_request(
+            self.request,
+            client_secret,
+            nonce_cache,
+            allowed_cidrs,
+        )
+
+        if not auth_result.success:
+            log_deny(
+                _LOGGER,
+                client_id=self.request.headers.get("X-Client-Id", "unknown"),
+                entity_id="",
+                service="sync_states",
+                reason=auth_result.error or "auth_failed",
+            )
+            return web.json_response(
+                {"error": auth_result.error},
+                status=401,
+            )
+
+        # Check rate limit
+        if not await rate_limiter.check(auth_result.client_id or ""):
+            log_deny(
+                _LOGGER,
+                client_id=auth_result.client_id or "unknown",
+                entity_id="",
+                service="sync_states",
+                reason="rate_limited",
+            )
+            return web.json_response(
+                {"error": "rate_limited"},
+                status=429,
+                headers={
+                    "Retry-After": str(RATE_WINDOW),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        # Get entity registry
+        from homeassistant.helpers import entity_registry as er
+
+        entity_registry = er.async_get(self.hass)
+        allowed_entities = get_allowed_entities(self.hass, entity_registry)
+
+        # Build states list
+        states = []
+        for entity_id in allowed_entities:
+            state = self.hass.states.get(entity_id)
+            if state:
+                states.append(
+                    {
+                        "entity_id": entity_id,
+                        "state": state.state,
+                        "attributes": dict(state.attributes),
+                        "last_changed": (
+                            state.last_changed.isoformat() if state.last_changed else None
+                        ),
+                        "last_updated": (
+                            state.last_updated.isoformat() if state.last_updated else None
+                        ),
+                    }
+                )
+
+        return web.json_response(
+            {"states": states, "count": len(states)},
+            status=200,
+        )
+
+    def _get_integration_data(self) -> dict[str, Any] | None:
+        """Get integration config entry data."""
+        if DOMAIN not in self.hass.data:
+            return None
+
+        config_entry = self.hass.data[DOMAIN].get("config_entry")
+        if config_entry:
+            return config_entry.data
+
+        return None
+
+
 def register_views(hass: HomeAssistant) -> None:
     """Register HTTP views."""
     hass.http.register_view(SmartlyControlViewWrapper)
     hass.http.register_view(SmartlySyncViewWrapper)
+    hass.http.register_view(SmartlySyncStatesViewWrapper)
 
 
 class SmartlyControlViewWrapper(HomeAssistantView):
@@ -330,4 +446,17 @@ class SmartlySyncViewWrapper(HomeAssistantView):
     async def get(self, request: web.Request) -> web.Response:
         """Handle GET request."""
         view = SmartlySyncView(request)
+        return await view.get()
+
+
+class SmartlySyncStatesViewWrapper(HomeAssistantView):
+    """Wrapper for SmartlySyncStatesView to work with HA's view registration."""
+
+    url = API_PATH_SYNC_STATES
+    name = "api:smartly:sync:states"
+    requires_auth = False  # We handle auth ourselves via HMAC
+
+    async def get(self, request: web.Request) -> web.Response:
+        """Handle GET request."""
+        view = SmartlySyncStatesView(request)
         return await view.get()

@@ -75,16 +75,22 @@ Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區�
 - **Rate Limiting** - 60 requests/minute sliding window
 
 ### 📡 API 端點
-- `POST /api/smartly/control` - 裝置控制
+- `POST /api/smartly/control` - 裝置控制（含執行後狀態回傳）
 - `GET /api/smartly/sync/structure` - 結構同步（Floors/Areas/Devices/Entities）
+- `GET /api/smartly/sync/states` - 狀態批次同步（所有實體當前狀態）
 
 ### 📤 狀態推送
 - 主動推送狀態變化至 Platform Webhook
 - 500ms 批次彙整
 - 指數退避重試（最多 3 次）
 
+### 💓 心跳機制
+- 每 60 秒發送心跳至 Platform
+- 讓 Platform 可以偵測 Bridge 是否在線
+- 心跳失敗不中斷服務
+
 ### 🏷️ 存取控制
-- Entity 需標記 `smartly_control` label 才可控制
+- Entity 需標記 `smartly` label 才可控制
 - Service 白名單（switch/light/cover/climate/fan/lock/scene/script/automation）
 - Area 過濾支援
 
@@ -139,7 +145,7 @@ Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區�
 在 HA 中為需要開放給 Platform 控制的 Entity 添加 Label：
 
 ```
-smartly_control
+smartly
 ```
 
 只有帶有此 Label 的 Entity 才會被 Smartly Bridge 授權控制。
@@ -180,7 +186,11 @@ X-Signature: <HMAC-SHA256 signature>
 {
   "success": true,
   "entity_id": "switch.room_101_light",
-  "action": "turn_on"
+  "action": "turn_on",
+  "new_state": "on",
+  "new_attributes": {
+    "brightness": 255
+  }
 }
 ```
 
@@ -193,7 +203,7 @@ X-Signature: <HMAC-SHA256 signature>
 | 401 | `nonce_reused` | Nonce 重複使用（重放攻擊） |
 | 401 | `invalid_signature` | 簽名驗證失敗 |
 | 401 | `ip_not_allowed` | IP 不在白名單 |
-| 403 | `entity_not_allowed` | Entity 未標記 `smartly_control` |
+| 403 | `entity_not_allowed` | Entity 未標記 `smartly` |
 | 403 | `service_not_allowed` | Service 不在白名單 |
 | 429 | `rate_limited` | 超過速率限制 |
 
@@ -236,7 +246,36 @@ X-Signature: <HMAC-SHA256 signature>
 }
 ```
 
-> **注意**：Sync API 僅回傳結構 metadata，不含 state。狀態透過 Push 機制取得。
+> **注意**：Sync API 僅回傳結構 metadata，不含 state。狀態透過 Push 機制或 States API 取得。
+
+---
+
+### States Sync API
+
+**Endpoint:** `GET /api/smartly/sync/states`
+
+**Request Headers:** 同 Control API
+
+**Response (200 OK):**
+```json
+{
+  "states": [
+    {
+      "entity_id": "switch.room_101_light",
+      "state": "on",
+      "attributes": {
+        "friendly_name": "Room 101 Light",
+        "brightness": 255
+      },
+      "last_changed": "2025-12-17T10:30:00+00:00",
+      "last_updated": "2025-12-17T10:30:00+00:00"
+    }
+  ],
+  "count": 1
+}
+```
+
+> 此端點回傳所有帶有 `smartly` label 的實體當前狀態，適合用於初始化或狀態同步。
 
 ---
 
@@ -254,10 +293,11 @@ Content-Type: application/json
 ```
 
 **Request Body:**
-```json
+```json 
 {
   "events": [
     {
+      "event_type": "state_changed",
       "entity_id": "switch.room_101_light",
       "old_state": {
         "state": "off",
@@ -284,6 +324,22 @@ Content-Type: application/json
 | 200 OK | 接收成功 |
 | 401 Unauthorized | 簽名驗證失敗 |
 | 429 Too Many Requests | 限流（HA 將 backoff） |
+
+---
+
+### Heartbeat Webhook（Platform 端需實作）
+
+Bridge 每 60 秒發送心跳：
+
+**Request Body:**
+```json
+{
+  "event_type": "heartbeat",
+  "timestamp": "2025-12-17T10:30:00.000000+00:00"
+}
+```
+
+Platform 可透過心跳偵測 Bridge 是否在線。如果超過一定時間未收到心跳，可認定 Bridge 離線。
 
 ---
 
@@ -319,7 +375,7 @@ def compute_signature(secret, method, path, timestamp, nonce, body):
 4. **驗證 Nonce** - 未曾使用過（5 分鐘內）
 5. **驗證簽名** - HMAC-SHA256 constant-time 比對
 6. **檢查 Rate Limit** - 60 requests/minute
-7. **驗證 Entity** - 需有 `smartly_control` label
+7. **驗證 Entity** - 需有 `smartly` label
 8. **驗證 Service** - 需在 ALLOWED_SERVICES 白名單
 
 ### 允許的 Services
@@ -470,7 +526,6 @@ custom_components/smartly_bridge/
 
 ## Phase 2 規劃
 
-- [ ] Key Rotation API (`POST /api/smartly/rotate-key`)
 - [ ] WebSocket Proxy（關鍵實體即時推送）
 - [ ] Entity 動態白名單 API
 - [ ] 更多 Domain 支援（media_player、vacuum 等）

@@ -5,7 +5,6 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
-from datetime import datetime
 from typing import TYPE_CHECKING, Any, Callable
 
 import aiohttp
@@ -14,11 +13,14 @@ from .acl import get_allowed_entities
 from .audit import log_push_fail, log_push_success
 from .auth import sign_outgoing_request
 from .const import (
+    CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_INSTANCE_ID,
     CONF_PUSH_BATCH_INTERVAL,
     CONF_WEBHOOK_URL,
     DEFAULT_PUSH_BATCH_INTERVAL,
+    HEADER_SIGNATURE,
+    HEARTBEAT_INTERVAL,
     PUSH_RETRY_BACKOFF_BASE,
     PUSH_RETRY_MAX,
 )
@@ -43,6 +45,7 @@ class StatePushManager:
         self.config_entry = config_entry
         self._pending_events: list[dict[str, Any]] = []
         self._batch_task: asyncio.Task | None = None
+        self._heartbeat_task: asyncio.Task | None = None
         self._stop_event = asyncio.Event()
         self._unsub_state_changed: Callable[[], None] | None = None
         self._session: aiohttp.ClientSession | None = None
@@ -83,6 +86,9 @@ class StatePushManager:
         # Start batch processing task
         self._batch_task = asyncio.create_task(self._batch_loop())
 
+        # Start heartbeat task
+        self._heartbeat_task = asyncio.create_task(self._heartbeat_loop())
+
         _LOGGER.info(
             "StatePushManager started, tracking %d entities",
             len(allowed_entities),
@@ -104,6 +110,15 @@ class StatePushManager:
                 pass
             self._batch_task = None
 
+        # Cancel heartbeat task
+        if self._heartbeat_task:
+            self._heartbeat_task.cancel()
+            try:
+                await self._heartbeat_task
+            except asyncio.CancelledError:
+                pass
+            self._heartbeat_task = None
+
         # Flush remaining events
         if self._pending_events:
             await self._flush_events()
@@ -123,10 +138,12 @@ class StatePushManager:
         """Queue a state change event for batch processing."""
         async with self._lock:
             event_data = {
-                "entity_id": entity_id,
-                "old_state": self._state_to_dict(old_state) if old_state else None,
-                "new_state": self._state_to_dict(new_state),
-                "timestamp": datetime.utcnow().isoformat() + "Z",
+                "event_type": "state_changed",
+                "data": {
+                    "entity_id": entity_id,
+                    "old_state": self._state_to_dict(old_state) if old_state else None,
+                    "new_state": self._state_to_dict(new_state),
+                },
             }
             self._pending_events.append(event_data)
 
@@ -151,6 +168,71 @@ class StatePushManager:
             if self._pending_events:
                 await self._flush_events()
 
+    async def _heartbeat_loop(self) -> None:
+        """Send periodic heartbeat to Platform."""
+        while not self._stop_event.is_set():
+            try:
+                await asyncio.sleep(HEARTBEAT_INTERVAL)
+                if self._stop_event.is_set():
+                    break
+                await self._send_heartbeat()
+            except asyncio.CancelledError:
+                break
+            except Exception as ex:
+                _LOGGER.warning("Heartbeat failed: %s", ex)
+
+    async def _send_heartbeat(self) -> None:
+        """Send heartbeat request to Platform."""
+        from datetime import datetime, timezone
+        from urllib.parse import urlparse
+
+        webhook_url = self.config_entry.data.get(CONF_WEBHOOK_URL)
+        if not webhook_url:
+            _LOGGER.debug("No webhook URL configured, skipping heartbeat")
+            return
+
+        client_secret = self.config_entry.data.get(CONF_CLIENT_SECRET, "")
+        instance_id = self.config_entry.data.get(CONF_INSTANCE_ID, "")
+        client_id = self.config_entry.data.get(CONF_CLIENT_ID, "")
+
+        payload = {
+            "event_type": "heartbeat",
+            "timestamp": datetime.now(timezone.utc).isoformat(),
+        }
+        body = json.dumps(payload).encode("utf-8")
+
+        # Extract path from webhook URL for HMAC signature
+        parsed_url = urlparse(webhook_url)
+        path = parsed_url.path.rstrip("/")
+
+        try:
+            headers = sign_outgoing_request(client_secret, instance_id, body, client_id, path)
+
+            if self._session is None:
+                self._session = aiohttp.ClientSession()
+
+            async with self._session.post(
+                webhook_url,
+                data=body,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=10),
+            ) as response:
+                if response.status == 200:
+                    _LOGGER.debug("Heartbeat sent successfully")
+                else:
+                    response_text = await response.text()
+                    _LOGGER.warning(
+                        "Heartbeat failed with status %d: %s",
+                        response.status,
+                        response_text[:200],
+                    )
+        except asyncio.TimeoutError:
+            _LOGGER.warning("Heartbeat timeout")
+        except aiohttp.ClientError as err:
+            _LOGGER.warning("Heartbeat client error: %s", err)
+        except Exception as ex:
+            _LOGGER.warning("Failed to send heartbeat: %s", ex)
+
     async def _flush_events(self) -> None:
         """Send pending events to Platform."""
         async with self._lock:
@@ -165,10 +247,6 @@ class StatePushManager:
             _LOGGER.debug("No webhook URL configured, skipping push")
             return
 
-        # Ensure URL ends with /events
-        if not webhook_url.endswith("/events"):
-            webhook_url = webhook_url.rstrip("/") + "/events"
-
         await self._send_with_retry(webhook_url, events_to_send)
 
     async def _send_with_retry(
@@ -177,15 +255,37 @@ class StatePushManager:
         events: list[dict[str, Any]],
     ) -> None:
         """Send events with exponential backoff retry."""
+        from urllib.parse import urlparse
+
         client_secret = self.config_entry.data.get(CONF_CLIENT_SECRET, "")
         instance_id = self.config_entry.data.get(CONF_INSTANCE_ID, "")
+        client_id = self.config_entry.data.get(CONF_CLIENT_ID, "")
 
+        # Batch events in events array
         payload = {"events": events}
         body = json.dumps(payload).encode("utf-8")
 
+        # Log request body for debugging
+        _LOGGER.debug(
+            "Push request body (%d bytes): %s",
+            len(body),
+            json.dumps(payload, indent=2, ensure_ascii=False)[:1000],
+        )
+
+        # Extract path from webhook URL for HMAC signature
+        # Per platform spec: PATH without query string and without trailing slash
+        parsed_url = urlparse(webhook_url)
+        path = parsed_url.path.rstrip("/")
+
         for attempt in range(PUSH_RETRY_MAX):
             try:
-                headers = sign_outgoing_request(client_secret, instance_id, body)
+                headers = sign_outgoing_request(client_secret, instance_id, body, client_id, path)
+
+                # Log headers for debugging (mask signature)
+                headers_log = headers.copy()
+                if HEADER_SIGNATURE in headers_log:
+                    headers_log[HEADER_SIGNATURE] = f"{headers_log[HEADER_SIGNATURE][:16]}..."
+                _LOGGER.debug("Push request headers: %s", json.dumps(headers_log, indent=2))
 
                 async with self._session.post(
                     webhook_url,

@@ -51,3 +51,7 @@ HEADER_HA_INSTANCE_ID = "X-HA-Instance-Id"
 # API paths
 API_PATH_CONTROL = "/api/smartly/control"
 API_PATH_SYNC = "/api/smartly/sync/structure"
+API_PATH_SYNC_STATES = "/api/smartly/sync/states"
+
+# Heartbeat
+HEARTBEAT_INTERVAL = 60  # seconds

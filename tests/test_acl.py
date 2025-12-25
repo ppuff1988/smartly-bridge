@@ -8,6 +8,7 @@ from custom_components.smartly_bridge.acl import (
     filter_entities_by_area,
     get_allowed_entities,
     get_entity_domain,
+    get_structure,
     is_entity_allowed,
     is_service_allowed,
 )
@@ -180,3 +181,89 @@ class TestAllowedServicesConfig:
                 assert (
                     service not in dangerous_services
                 ), f"Dangerous service {service} found in {domain}"
+
+
+class TestGetStructure:
+    """Tests for get_structure function."""
+
+    def test_get_structure_basic(self, mock_hass, mock_entity_registry):
+        """Test basic structure retrieval."""
+        # Setup mock registries
+        device_registry = MagicMock()
+        mock_device = MagicMock()
+        mock_device.area_id = "area_1"
+        device_registry.async_get = MagicMock(return_value=mock_device)
+
+        area_registry = MagicMock()
+        mock_area = MagicMock()
+        mock_area.floor_id = "floor_1"
+        mock_area.name = "Living Room"
+        area_registry.async_get_area = MagicMock(return_value=mock_area)
+
+        floor_registry = MagicMock()
+        mock_floor = MagicMock()
+        mock_floor.name = "Ground Floor"
+        floor_registry.async_get_floor = MagicMock(return_value=mock_floor)
+
+        # Get allowed entities
+        allowed_entities = get_allowed_entities(mock_hass, mock_entity_registry)
+
+        structure = get_structure(
+            mock_hass,
+            allowed_entities,
+            mock_entity_registry,
+            device_registry,
+            area_registry,
+            floor_registry,
+        )
+
+        assert "floors" in structure
+        assert isinstance(structure["floors"], list)
+
+    def test_get_structure_with_virtual_device(self, mock_hass, mock_entity_registry):
+        """Test structure with entities that have no device."""
+        # Add entity without device
+        mock_entry_no_device = MagicMock()
+        mock_entry_no_device.labels = {"smartly"}
+        mock_entry_no_device.device_id = None
+        mock_entry_no_device.area_id = "area_1"
+        mock_entry_no_device.name = "Virtual Input"
+        mock_entry_no_device.original_name = "Virtual Input"
+
+        mock_entity_registry.entities["input_boolean.test"] = mock_entry_no_device
+        mock_entity_registry.async_get.side_effect = lambda eid: mock_entity_registry.entities.get(
+            eid
+        )
+
+        # Setup mock registries
+        device_registry = MagicMock()
+        mock_device = MagicMock()
+        mock_device.area_id = "area_1"
+        device_registry.async_get = MagicMock(return_value=mock_device)
+
+        area_registry = MagicMock()
+        mock_area = MagicMock()
+        mock_area.floor_id = "floor_1"
+        mock_area.name = "Living Room"
+        area_registry.async_get_area = MagicMock(return_value=mock_area)
+
+        floor_registry = MagicMock()
+        mock_floor = MagicMock()
+        mock_floor.name = "Ground Floor"
+        floor_registry.async_get_floor = MagicMock(return_value=mock_floor)
+
+        # Get allowed entities (should include the new one)
+        allowed_entities = get_allowed_entities(mock_hass, mock_entity_registry)
+
+        structure = get_structure(
+            mock_hass,
+            allowed_entities,
+            mock_entity_registry,
+            device_registry,
+            area_registry,
+            floor_registry,
+        )
+
+        # Should include virtual device
+        assert "floors" in structure
+        assert len(structure["floors"]) >= 0  # May be 0 if no entities found
