@@ -219,20 +219,38 @@ def _build_floors_dict(
 
     for entity_id in allowed_entities:
         entry = entity_registry.async_get(entity_id)
-        if not entry or not entry.device_id:
-            if not entry:
-                continue
-            _LOGGER.debug("Skipping entity %s: no device assigned", entity_id)
+        if not entry:
+            _LOGGER.debug("Skipping entity %s: not found in registry", entity_id)
             continue
 
         device_id = entry.device_id
-        area_id = entry.area_id or device_to_area.get(device_id)
-        floor_id = area_to_floor.get(area_id) if area_id else None
+        
+        # Handle entities without device (e.g., input_boolean, input_button)
+        if not device_id:
+            _LOGGER.debug("Entity %s has no device, using virtual device", entity_id)
+            # Use a virtual device ID for entities without devices
+            device_id = f"_virtual_{get_entity_domain(entity_id)}"
+            area_id = entry.area_id
+            floor_id = area_to_floor.get(area_id) if area_id else None
+        else:
+            area_id = entry.area_id or device_to_area.get(device_id)
+            floor_id = area_to_floor.get(area_id) if area_id else None
 
         # Initialize floor, area, device
         floor_key = _initialize_floor(floor_id, floors_dict, floor_registry)
         area_key = _initialize_area(area_id, floor_key, floors_dict, area_registry)
-        _initialize_device(device_id, floor_key, area_key, floors_dict, device_registry)
+        
+        # For virtual devices, use a simplified initialization
+        if device_id.startswith("_virtual_"):
+            if device_id not in floors_dict[floor_key]["areas"][area_key]["devices"]:
+                domain = get_entity_domain(entity_id)
+                floors_dict[floor_key]["areas"][area_key]["devices"][device_id] = {
+                    "id": device_id,
+                    "name": f"Virtual {domain.replace('_', ' ').title()} Device",
+                    "entities": [],
+                }
+        else:
+            _initialize_device(device_id, floor_key, area_key, floors_dict, device_registry)
 
         # Add entity
         entity_data = {

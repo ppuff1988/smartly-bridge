@@ -264,24 +264,40 @@ def sign_outgoing_request(
     secret: str,
     instance_id: str,
     body: bytes,
+    client_id: str = "",
+    path: str = "/webhook/ha-event",
 ) -> dict[str, str]:
-    """Generate headers for outgoing request to Platform."""
+    """Generate headers for outgoing request to Platform.
+    
+    Args:
+        secret: Client secret for HMAC signature
+        instance_id: Home Assistant instance ID
+        body: Request body bytes
+        client_id: Client ID for authentication
+        path: URL path without query string and without trailing slash
+    """
     timestamp = str(int(time.time()))
     nonce = str(uuid.uuid4())
 
     signature = compute_signature(
         secret,
         "POST",
-        "/events",  # Platform webhook path
+        path,
         timestamp,
         nonce,
         body,
     )
 
-    return {
-        HEADER_HA_INSTANCE_ID: instance_id,
+    headers = {
         HEADER_TIMESTAMP: timestamp,
         HEADER_NONCE: nonce,
         HEADER_SIGNATURE: signature,
+        HEADER_HA_INSTANCE_ID: instance_id,
         "Content-Type": "application/json",
     }
+    
+    # Add X-Client-Id if provided
+    if client_id:
+        headers[HEADER_CLIENT_ID] = client_id
+    
+    return headers
