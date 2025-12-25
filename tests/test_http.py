@@ -262,11 +262,11 @@ class TestStatesEndpoint:
     @pytest.mark.asyncio
     async def test_states_returns_all_states(self, mock_hass, mock_config_entry):
         """Test states endpoint returns all entity states."""
-        from custom_components.smartly_bridge.http import SmartlySyncStatesView
+        from unittest.mock import AsyncMock, MagicMock
+
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
-        from unittest.mock import MagicMock, AsyncMock
-        from aiohttp import web
+        from custom_components.smartly_bridge.http import SmartlySyncStatesView
 
         # Setup integration data
         nonce_cache = NonceCache()
@@ -322,9 +322,10 @@ class TestStatesEndpoint:
     @pytest.mark.asyncio
     async def test_states_auth_required(self, mock_hass):
         """Test states endpoint requires authentication."""
-        from custom_components.smartly_bridge.http import SmartlySyncStatesView
+        from unittest.mock import MagicMock
+
         from custom_components.smartly_bridge.const import DOMAIN
-        from unittest.mock import MagicMock, AsyncMock
+        from custom_components.smartly_bridge.http import SmartlySyncStatesView
 
         # Setup without proper auth
         mock_hass.data[DOMAIN] = {}
@@ -346,8 +347,8 @@ class TestControlEndpointFullFlow:
     async def test_control_invalid_json(self, mock_hass, mock_config_entry):
         """Test control endpoint with invalid JSON."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.http import SmartlyControlView
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.http import SmartlyControlView
 
         nonce_cache = NonceCache()
         await nonce_cache.start()
@@ -402,8 +403,8 @@ class TestControlEndpointFullFlow:
     async def test_control_missing_entity_id(self, mock_hass, mock_config_entry):
         """Test control endpoint with missing entity_id."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.http import SmartlyControlView
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.http import SmartlyControlView
 
         nonce_cache = NonceCache()
         await nonce_cache.start()
@@ -460,8 +461,8 @@ class TestControlEndpointFullFlow:
     async def test_control_entity_not_allowed(self, mock_hass, mock_config_entry):
         """Test control endpoint with entity not in allowed list."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.http import SmartlyControlView
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.http import SmartlyControlView
 
         nonce_cache = NonceCache()
         await nonce_cache.start()
@@ -532,8 +533,8 @@ class TestControlEndpointFullFlow:
     async def test_control_service_not_allowed(self, mock_hass, mock_config_entry):
         """Test control endpoint with service not in allowed list."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.http import SmartlyControlView
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.http import SmartlyControlView
 
         nonce_cache = NonceCache()
         await nonce_cache.start()
@@ -604,8 +605,8 @@ class TestControlEndpointFullFlow:
     async def test_control_service_call_failure(self, mock_hass, mock_config_entry):
         """Test control endpoint when service call fails."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.http import SmartlyControlView
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.http import SmartlyControlView
 
         nonce_cache = NonceCache()
         await nonce_cache.start()

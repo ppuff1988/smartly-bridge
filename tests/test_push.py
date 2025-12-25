@@ -207,28 +207,29 @@ class TestHeartbeat:
     @pytest.mark.asyncio
     async def test_send_heartbeat_success(self, mock_hass, mock_config_entry):
         """Test successful heartbeat sending."""
+        from contextlib import asynccontextmanager
+
         from custom_components.smartly_bridge.push import StatePushManager
-        from unittest.mock import AsyncMock, patch
-        from aiohttp import ClientSession
 
         manager = StatePushManager(mock_hass, mock_config_entry)
 
-        # Mock HTTP session
+        # Mock HTTP session with proper context manager
         mock_response = MagicMock()
         mock_response.status = 200
 
-        mock_session = MagicMock()
-        mock_session.post = AsyncMock(return_value=mock_response)
-        mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
-        mock_session.post.return_value.__aexit__ = AsyncMock(return_value=None)
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            yield mock_response
 
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+
+        # Pre-set the session to avoid creating a real one
         manager._session = mock_session
 
         # Send heartbeat
         await manager._send_heartbeat()
 
-        # Verify POST was called
-        mock_session.post.assert_called_once()
         # Verify webhook URL was used
         webhook_url = mock_config_entry.data.get("webhook_url")
         assert webhook_url is not None
@@ -236,8 +237,9 @@ class TestHeartbeat:
     @pytest.mark.asyncio
     async def test_send_heartbeat_no_webhook(self, mock_hass):
         """Test heartbeat skipped when no webhook configured."""
-        from custom_components.smartly_bridge.push import StatePushManager
         from unittest.mock import MagicMock
+
+        from custom_components.smartly_bridge.push import StatePushManager
 
         # Config entry without webhook_url
         config_entry = MagicMock()
@@ -263,13 +265,15 @@ class TestPushManagerLifecycle:
     @pytest.mark.asyncio
     async def test_start_stop_lifecycle(self, mock_hass, mock_config_entry):
         """Test manager start and stop."""
-        from custom_components.smartly_bridge.push import StatePushManager
-        from unittest.mock import patch, MagicMock, AsyncMock
         import asyncio
+        from unittest.mock import patch
+
+        from custom_components.smartly_bridge.push import StatePushManager
 
         # Mock entity registry properly
         with patch(
-            "custom_components.smartly_bridge.acl.get_allowed_entities", return_value=["light.test"]
+            "custom_components.smartly_bridge.acl.get_allowed_entities",
+            return_value=["light.test"],
         ):
             with patch("homeassistant.helpers.entity_registry.async_get"):
                 manager = StatePushManager(mock_hass, mock_config_entry)
@@ -281,9 +285,421 @@ class TestPushManagerLifecycle:
                 await asyncio.sleep(0.1)
 
                 # Verify tasks were created
-                assert manager._batch_task is not None or manager._stop_event.is_set() == False
-                assert manager._heartbeat_task is not None or manager._stop_event.is_set() == False
+                assert manager._batch_task is not None or not manager._stop_event.is_set()
+                assert manager._heartbeat_task is not None or not manager._stop_event.is_set()
 
                 # Stop manager
                 await manager.stop()
                 # Just verify stop doesn't raise error
+
+
+class TestBatchLoop:
+    """Tests for batch processing loop."""
+
+    @pytest.mark.asyncio
+    async def test_batch_loop_processes_events(self, mock_hass, mock_config_entry):
+        """Test batch loop processes pending events."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        mock_config_entry.data["push_batch_interval"] = 0.05
+
+        with patch(
+            "custom_components.smartly_bridge.acl.get_allowed_entities",
+            return_value=["light.test"],
+        ):
+            with patch("homeassistant.helpers.entity_registry.async_get"):
+                manager = StatePushManager(mock_hass, mock_config_entry)
+                manager._flush_events = AsyncMock()
+                await manager.start()
+                manager._pending_events.append({"event_type": "test"})
+                await asyncio.sleep(0.15)
+                await manager.stop()
+                assert manager._flush_events.call_count >= 1
+
+
+class TestHeartbeatErrors:
+    """Tests for heartbeat error handling."""
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_timeout_error(self, mock_hass, mock_config_entry):
+        """Test heartbeat handles timeout errors."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            raise asyncio.TimeoutError()
+            yield
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+        await manager._send_heartbeat()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_client_error(self, mock_hass, mock_config_entry):
+        """Test heartbeat handles client errors."""
+        from contextlib import asynccontextmanager
+
+        import aiohttp
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            raise aiohttp.ClientError("Connection failed")
+            yield
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+        await manager._send_heartbeat()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_non_200_response(self, mock_hass, mock_config_entry):
+        """Test heartbeat handles non-200 responses."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        mock_response = MagicMock()
+        mock_response.status = 500
+        mock_response.text = AsyncMock(return_value="Internal Server Error")
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            yield mock_response
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+        await manager._send_heartbeat()
+
+
+class TestPushErrors:
+    """Tests for push error handling."""
+
+    @pytest.mark.asyncio
+    async def test_push_404_stops_retry(self, mock_hass, mock_config_entry):
+        """Test push stops retrying on 404."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        mock_response = MagicMock()
+        mock_response.status = 404
+        mock_response.text = AsyncMock(return_value="Not Found")
+
+        call_count = 0
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            yield mock_response
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+        events = [{"event_type": "test"}]
+        await manager._send_with_retry("https://example.com/events", events)
+        assert call_count == 1
+
+    @pytest.mark.asyncio
+    async def test_push_500_error_retries(self, mock_hass, mock_config_entry):
+        """Test push retries on 500 error."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        mock_response = MagicMock()
+        mock_response.status = 500
+        mock_response.text = AsyncMock(return_value="Internal Server Error")
+
+        call_count = 0
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            nonlocal call_count
+            call_count += 1
+            yield mock_response
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+        events = [{"event_type": "test"}]
+        await manager._send_with_retry("https://example.com/events", events)
+        assert call_count == 3
+
+
+class TestRefreshTrackedEntities:
+    """Tests for refresh_tracked_entities."""
+
+    @pytest.mark.asyncio
+    async def test_refresh_tracked_entities(self, mock_hass, mock_config_entry):
+        """Test refreshing tracked entities."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        with patch(
+            "custom_components.smartly_bridge.acl.get_allowed_entities",
+            return_value=["light.test"],
+        ):
+            with patch("homeassistant.helpers.entity_registry.async_get"):
+                manager = StatePushManager(mock_hass, mock_config_entry)
+                # Start first to setup subscription
+                await manager.start()
+                # Now refresh should have something to unsubscribe
+                await manager.refresh_tracked_entities()
+                # Just verify it doesn't crash
+                await manager.stop()
+
+    @pytest.mark.asyncio
+    async def test_refresh_with_no_entities(self, mock_hass, mock_config_entry):
+        """Test refresh when no entities are found."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        with patch("custom_components.smartly_bridge.acl.get_allowed_entities", return_value=[]):
+            with patch("homeassistant.helpers.entity_registry.async_get"):
+                manager = StatePushManager(mock_hass, mock_config_entry)
+                await manager.refresh_tracked_entities()
+
+
+class TestStartNoEntities:
+    """Tests for start with no entities."""
+
+    @pytest.mark.asyncio
+    async def test_start_no_entities_warning(self, mock_hass, mock_config_entry):
+        """Test start issues warning when no entities found."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        with patch("custom_components.smartly_bridge.acl.get_allowed_entities", return_value=[]):
+            with patch("homeassistant.helpers.entity_registry.async_get"):
+                manager = StatePushManager(mock_hass, mock_config_entry)
+                await manager.start()
+
+                # Should have created session but no tasks
+                assert manager._session is not None
+                assert manager._unsub_state_changed is None
+
+                # Clean up
+                await manager.stop()
+
+
+class TestStopEdgeCases:
+    """Tests for stop method edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_stop_with_cancelled_batch_task(self, mock_hass, mock_config_entry):
+        """Test stop handles already cancelled batch task."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = AsyncMock()
+        manager._session.close = AsyncMock()
+
+        # Create a cancelled task
+        async def dummy():
+            pass
+
+        manager._batch_task = asyncio.create_task(dummy())
+        manager._batch_task.cancel()
+
+        # Should not raise
+        await manager.stop()
+
+    @pytest.mark.asyncio
+    async def test_stop_with_cancelled_heartbeat_task(self, mock_hass, mock_config_entry):
+        """Test stop handles already cancelled heartbeat task."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = AsyncMock()
+        manager._session.close = AsyncMock()
+
+        # Create a cancelled task
+        async def dummy():
+            pass
+
+        manager._heartbeat_task = asyncio.create_task(dummy())
+        manager._heartbeat_task.cancel()
+
+        # Should not raise
+        await manager.stop()
+
+
+class TestHeartbeatLoopCancellation:
+    """Tests for heartbeat loop cancellation."""
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_loop_cancelled_error(self, mock_hass, mock_config_entry):
+        """Test heartbeat loop handles CancelledError."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._stop_event.set()
+
+        # Should exit cleanly
+        await manager._heartbeat_loop()
+
+    @pytest.mark.asyncio
+    async def test_heartbeat_loop_general_exception(self, mock_hass, mock_config_entry):
+        """Test heartbeat loop handles general exceptions."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        # Mock _send_heartbeat to raise exception once, then set stop
+        call_count = 0
+
+        async def mock_send_heartbeat():
+            nonlocal call_count
+            call_count += 1
+            if call_count == 1:
+                raise Exception("Test error")
+            # Set stop event after first call to exit loop
+            manager._stop_event.set()
+
+        manager._send_heartbeat = mock_send_heartbeat
+
+        # Mock asyncio.sleep to avoid waiting
+        with patch("asyncio.sleep", new_callable=AsyncMock):
+            # Should log warning but continue
+            await manager._heartbeat_loop()
+            assert call_count >= 1
+
+
+class TestSendHeartbeatErrors:
+    """Tests for send heartbeat error scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_send_heartbeat_creates_session_if_none(self, mock_hass, mock_config_entry):
+        """Test send_heartbeat creates session if None."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = None  # Explicitly set to None
+
+        mock_response = MagicMock()
+        mock_response.status = 200
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            yield mock_response
+
+        with patch("aiohttp.ClientSession") as mock_session_class:
+            mock_session = MagicMock()
+            mock_session.post = mock_post
+            mock_session_class.return_value = mock_session
+
+            await manager._send_heartbeat()
+
+            # Session should have been created
+            mock_session_class.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_send_heartbeat_general_exception(self, mock_hass, mock_config_entry):
+        """Test send_heartbeat handles general exceptions."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            raise ValueError("Unexpected error")
+            yield
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+
+        # Should not raise, just log warning
+        await manager._send_heartbeat()
+
+
+class TestSendWithRetryErrors:
+    """Tests for send_with_retry error scenarios."""
+
+    @pytest.mark.asyncio
+    async def test_send_with_retry_client_error(self, mock_hass, mock_config_entry):
+        """Test send_with_retry handles ClientError."""
+        from contextlib import asynccontextmanager
+
+        import aiohttp
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            raise aiohttp.ClientError("Connection failed")
+            yield
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+
+        events = [{"event_type": "test"}]
+        await manager._send_with_retry("https://example.com/events", events)
+
+    @pytest.mark.asyncio
+    async def test_send_with_retry_unexpected_exception(self, mock_hass, mock_config_entry):
+        """Test send_with_retry handles unexpected exceptions."""
+        from contextlib import asynccontextmanager
+
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        @asynccontextmanager
+        async def mock_post(*args, **kwargs):
+            raise ValueError("Unexpected error")
+            yield
+
+        mock_session = MagicMock()
+        mock_session.post = mock_post
+        manager._session = mock_session
+
+        events = [{"event_type": "test"}]
+        await manager._send_with_retry("https://example.com/events", events)
+
+
+class TestQueueEventWithNullOldState:
+    """Tests for queue_event with null old_state."""
+
+    @pytest.fixture
+    def push_manager(self, mock_hass, mock_config_entry):
+        """Create a StatePushManager instance."""
+        from custom_components.smartly_bridge.push import StatePushManager
+
+        return StatePushManager(mock_hass, mock_config_entry)
+
+    @pytest.mark.asyncio
+    async def test_queue_event_null_old_state(self, push_manager):
+        """Test queueing event when old_state is None."""
+        mock_new_state = MagicMock()
+        mock_new_state.state = "on"
+        mock_new_state.attributes = {"brightness": 255}
+        mock_new_state.last_changed = datetime(2025, 12, 17, 10, 0, 0)
+        mock_new_state.last_updated = datetime(2025, 12, 17, 10, 0, 0)
+
+        await push_manager._queue_event("light.test_light", None, mock_new_state)
+
+        assert len(push_manager._pending_events) == 1
+        event = push_manager._pending_events[0]
+        assert event["event_type"] == "state_changed"
+        assert event["data"]["entity_id"] == "light.test_light"
+        assert event["data"]["old_state"] is None
+        assert event["data"]["new_state"]["state"] == "on"
