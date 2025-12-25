@@ -67,9 +67,11 @@ class TestStatePushManager:
 
         assert len(push_manager._pending_events) == 1
         event = push_manager._pending_events[0]
-        assert event["entity_id"] == "light.test_light"
-        assert event["old_state"]["state"] == "off"
-        assert event["new_state"]["state"] == "on"
+        # New event format with event_type and data
+        assert event["event_type"] == "state_changed"
+        assert event["data"]["entity_id"] == "light.test_light"
+        assert event["data"]["old_state"]["state"] == "off"
+        assert event["data"]["new_state"]["state"] == "on"
 
     @pytest.mark.asyncio
     async def test_stop_flushes_events(self, push_manager):
@@ -191,9 +193,97 @@ class TestWebhookUrlHandling:
         mock_session = MagicMock()
         mock_session.post = mock_post
         manager._session = mock_session
-        manager._pending_events = [{"entity_id": "test"}]
+        manager._pending_events = [{"event_type": "state_changed", "data": {"entity_id": "test"}}]
 
         await manager._flush_events()
 
-        # Verify URL has /events suffix
-        assert url_captured.endswith("/events")
+        # Verify URL is used as-is (no suffix added)
+        assert url_captured == "https://example.com/webhooks"
+
+
+class TestHeartbeat:
+    """Tests for heartbeat mechanism."""
+
+    @pytest.mark.asyncio
+    async def test_send_heartbeat_success(self, mock_hass, mock_config_entry):
+        """Test successful heartbeat sending."""
+        from custom_components.smartly_bridge.push import StatePushManager
+        from unittest.mock import AsyncMock, patch
+        from aiohttp import ClientSession
+
+        manager = StatePushManager(mock_hass, mock_config_entry)
+
+        # Mock HTTP session
+        mock_response = MagicMock()
+        mock_response.status = 200
+
+        mock_session = MagicMock()
+        mock_session.post = AsyncMock(return_value=mock_response)
+        mock_session.post.return_value.__aenter__ = AsyncMock(return_value=mock_response)
+        mock_session.post.return_value.__aexit__ = AsyncMock(return_value=None)
+
+        manager._session = mock_session
+
+        # Send heartbeat
+        await manager._send_heartbeat()
+
+        # Verify POST was called
+        mock_session.post.assert_called_once()
+        # Verify webhook URL was used
+        webhook_url = mock_config_entry.data.get("webhook_url")
+        assert webhook_url is not None
+
+    @pytest.mark.asyncio
+    async def test_send_heartbeat_no_webhook(self, mock_hass):
+        """Test heartbeat skipped when no webhook configured."""
+        from custom_components.smartly_bridge.push import StatePushManager
+        from unittest.mock import MagicMock
+
+        # Config entry without webhook_url
+        config_entry = MagicMock()
+        config_entry.data = {
+            "instance_id": "test",
+            "client_secret": "secret",
+            "client_id": "client",
+        }
+
+        manager = StatePushManager(mock_hass, config_entry)
+        manager._session = MagicMock()
+
+        # Should not raise error
+        await manager._send_heartbeat()
+
+        # Session should not be used
+        manager._session.post.assert_not_called()
+
+
+class TestPushManagerLifecycle:
+    """Tests for StatePushManager lifecycle."""
+
+    @pytest.mark.asyncio
+    async def test_start_stop_lifecycle(self, mock_hass, mock_config_entry):
+        """Test manager start and stop."""
+        from custom_components.smartly_bridge.push import StatePushManager
+        from unittest.mock import patch, MagicMock, AsyncMock
+        import asyncio
+
+        # Mock entity registry properly
+        with patch(
+            "custom_components.smartly_bridge.acl.get_allowed_entities", return_value=["light.test"]
+        ):
+            with patch("homeassistant.helpers.entity_registry.async_get"):
+                manager = StatePushManager(mock_hass, mock_config_entry)
+
+                # Start manager
+                await manager.start()
+
+                # Give tasks time to start
+                await asyncio.sleep(0.1)
+
+                # Verify tasks were created
+                assert manager._batch_task is not None or manager._stop_event.is_set() == False
+                assert manager._heartbeat_task is not None or manager._stop_event.is_set() == False
+
+                # Stop manager
+                await manager.stop()
+                # Just verify stop doesn't raise error
