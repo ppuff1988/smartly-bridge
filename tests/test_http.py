@@ -310,7 +310,9 @@ class TestStatesEndpoint:
             )
 
             with patch("homeassistant.helpers.entity_registry.async_get"):
-                with patch("custom_components.smartly_bridge.http.get_allowed_entities") as mock_get:
+                with patch(
+                    "custom_components.smartly_bridge.http.get_allowed_entities"
+                ) as mock_get:
                     mock_get.return_value = ["light.test"]
 
                     view = SmartlySyncStatesView(mock_request)
