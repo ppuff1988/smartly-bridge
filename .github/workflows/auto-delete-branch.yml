@@ -14,24 +14,46 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: write
+      issues: write
+      pull-requests: write
     
     steps:
-      - name: Delete merged branch
-        run: |
-          echo "PR #${{ github.event.pull_request.number }} 已被合併"
-          echo "來源分支: ${{ github.event.pull_request.head.ref }}"
-          echo "目標分支: ${{ github.event.pull_request.base.ref }}"
-          
-          # 刪除遠端分支
-          git push origin --delete ${{ github.event.pull_request.head.ref }} || echo "分支已被刪除或不存在"
-          
-      - name: Comment on PR
+      - name: Delete merged branch and comment
         uses: actions/github-script@v7
         with:
           script: |
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: '🎉 分支 `${{ github.event.pull_request.head.ref }}` 已自動刪除'
-            })
+            const branchName = context.payload.pull_request.head.ref;
+            const prNumber = context.payload.pull_request.number;
+            
+            console.log(`PR #${prNumber} 已被合併`);
+            console.log(`來源分支: ${branchName}`);
+            console.log(`目標分支: ${context.payload.pull_request.base.ref}`);
+            
+            try {
+              // 刪除遠端分支
+              await github.rest.git.deleteRef({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                ref: `heads/${branchName}`
+              });
+              
+              console.log(`✅ 成功刪除分支: ${branchName}`);
+              
+              // 在 PR 留言
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `🎉 分支 \`${branchName}\` 已自動刪除`
+              });
+            } catch (error) {
+              console.log(`⚠️ 刪除分支失敗或分支已不存在: ${error.message}`);
+              
+              // 即使刪除失敗也留言
+              await github.rest.issues.createComment({
+                issue_number: prNumber,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `ℹ️ 分支 \`${branchName}\` 已被處理（可能已被手動刪除）`
+              });
+            }
