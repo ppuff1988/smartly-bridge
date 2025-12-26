@@ -6,15 +6,37 @@
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "source=${localWorkspaceFolder}/config,target=/config,type=bind"
   ],
-  "extensions": [
-    "ms-python.python",
-    "ms-python.vscode-pylance",
-    "bungle.vscode-home-assistant",
-    "ms-python.black-formatter",
-    "ms-python.isort",
-    "github.copilot-chat"
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-python.python",
+        "ms-python.vscode-pylance",
+        "bungle.vscode-home-assistant",
+        "ms-python.black-formatter",
+        "ms-python.isort",
+        "github.copilot-chat"
+      ],
+      "settings": {
+        "terminal.integrated.defaultProfile.linux": "bash",
+        "python.defaultInterpreterPath": "/usr/local/bin/python"
+      }
+    }
+  },
+  "forwardPorts": [
+    8123
   ],
-  "forwardPorts": [8123],
+  "portsAttributes": {
+    "8123": {
+      "label": "Home Assistant",
+      "onAutoForward": "notify"
+    }
+  },
   "postCreateCommand": "pip install --upgrade pip && pip install pytest black isort",
-  "remoteUser": "root"
+  "remoteUser": "root",
+  "features": {
+    "ghcr.io/devcontainers/features/common-utils:2": {
+      "installZsh": true,
+      "username": "root"
+    }
+  }
 }
