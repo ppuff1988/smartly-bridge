@@ -31,7 +31,7 @@
       "onAutoForward": "notify"
     }
   },
-  "postCreateCommand": "pip install --upgrade pip && pip install pytest black isort",
+  "postCreateCommand": "apk add --no-cache github-cli && pip install --upgrade pip && pip install pytest black isort",
   "remoteUser": "root",
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
