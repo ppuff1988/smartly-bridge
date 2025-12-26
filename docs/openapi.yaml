@@ -5,14 +5,80 @@ info:
     Home Assistant Custom Integration API for connecting community-level Home Assistant 
     with central management platform (Smartly Platform).
     
-    ## Security
-    All requests must be authenticated using HMAC-SHA256 signature.
+    ## Overview
     
-    ## Signature Calculation
+    Smartly Bridge provides secure REST APIs for controlling Home Assistant entities and 
+    synchronizing device states with external platforms. All entities must be tagged with 
+    the `smartly` label to be accessible through this API.
+    
+    ## Features
+    
+    - **Device Control**: Execute service calls on labeled entities
+    - **Structure Sync**: Get floor/area/device hierarchy
+    - **State Sync**: Query current state of all labeled entities
+    - **Webhook Push**: Real-time state change notifications (batched)
+    - **Heartbeat**: Periodic health check notifications
+    
+    ## Security
+    
+    All requests must be authenticated using HMAC-SHA256 signature with the following headers:
+    - `X-Client-Id`: Client identifier (format: `ha_[12 hex chars]`)
+    - `X-Timestamp`: Unix timestamp in seconds (must be within ±30s of server time)
+    - `X-Nonce`: UUID v4 (cannot be reused within 5 minutes)
+    - `X-Signature`: HMAC-SHA256 hex digest
+    
+    ### Signature Calculation
+    
+    ```python
+    import hashlib
+    import hmac
+    
+    # 1. Calculate body hash
+    body_json = json.dumps(request_body)
+    body_hash = hashlib.sha256(body_json.encode()).hexdigest()
+    
+    # 2. Build signature payload
+    payload = f"{method}\n{path}\n{timestamp}\n{nonce}\n{body_hash}"
+    # Example: "POST\n/api/smartly/control\n1735228800\nuuid-here\nbody-hash-here"
+    
+    # 3. Calculate HMAC signature
+    signature = hmac.new(
+        client_secret.encode(),
+        payload.encode(),
+        hashlib.sha256
+    ).hexdigest()
     ```
-    Signature Payload = METHOD + "\n" + PATH + "\n" + TIMESTAMP + "\n" + NONCE + "\n" + SHA256(BODY)
-    Signature = HMAC-SHA256(client_secret, payload)
-    ```
+    
+    ## Rate Limiting
+    
+    - **Limit**: 60 requests per minute per client
+    - **Response Headers**: `X-RateLimit-Remaining`, `Retry-After`
+    - **Status Code**: 429 when exceeded
+    
+    ## Supported Domains
+    
+    The following Home Assistant domains are supported:
+    
+    | Domain | Actions | Description |
+    |--------|---------|-------------|
+    | `switch` | turn_on, turn_off, toggle | Smart switches |
+    | `light` | turn_on, turn_off, toggle | Smart lights |
+    | `cover` | open_cover, close_cover, stop_cover, set_cover_position | Curtains, blinds |
+    | `climate` | set_temperature, set_hvac_mode, set_fan_mode | AC, heaters |
+    | `fan` | turn_on, turn_off, set_percentage, set_preset_mode | Fans |
+    | `lock` | lock, unlock | Smart locks |
+    | `scene` | turn_on | Scenes |
+    | `script` | turn_on, turn_off | Scripts |
+    | `automation` | trigger, turn_on, turn_off | Automations |
+    
+    ## Entity Labeling
+    
+    Entities must have the `smartly` label to be accessible:
+    
+    1. Go to Settings → Entities in Home Assistant
+    2. Select the entity
+    3. Add label: `smartly`
+    
   version: 1.0.0
   contact:
     name: Smartly Bridge
@@ -63,26 +129,103 @@ paths:
             schema:
               $ref: '#/components/schemas/ControlRequest'
             examples:
-              turnOnLight:
-                summary: Turn on a light
+              switchOn:
+                summary: Turn on a switch
                 value:
-                  entity_id: switch.room_101_light
+                  entity_id: switch.living_room_light
                   action: turn_on
-                  service_data:
-                    brightness: 255
+                  service_data: {}
                   actor:
                     user_id: u_123
-                    role: room_admin
-              setClimateTemperature:
+                    role: tenant
+              
+              lightWithBrightness:
+                summary: Turn on light with brightness
+                value:
+                  entity_id: light.bedroom
+                  action: turn_on
+                  service_data:
+                    brightness: 200
+                  actor:
+                    user_id: u_123
+                    role: tenant
+              
+              lightWithColor:
+                summary: Turn on light with RGB color
+                value:
+                  entity_id: light.bedroom
+                  action: turn_on
+                  service_data:
+                    brightness: 200
+                    rgb_color: [255, 0, 0]
+                  actor:
+                    user_id: u_123
+                    role: tenant
+              
+              coverSetPosition:
+                summary: Set cover position
+                value:
+                  entity_id: cover.living_room_curtain
+                  action: set_cover_position
+                  service_data:
+                    position: 50
+                  actor:
+                    user_id: u_456
+                    role: tenant
+              
+              climateSetTemperature:
                 summary: Set climate temperature
                 value:
-                  entity_id: climate.living_room
+                  entity_id: climate.living_room_ac
                   action: set_temperature
                   service_data:
                     temperature: 24
                   actor:
                     user_id: u_456
                     role: tenant
+              
+              climateSetMode:
+                summary: Set HVAC mode
+                value:
+                  entity_id: climate.living_room_ac
+                  action: set_hvac_mode
+                  service_data:
+                    hvac_mode: cool
+                  actor:
+                    user_id: u_456
+                    role: tenant
+              
+              fanSetPercentage:
+                summary: Set fan speed percentage
+                value:
+                  entity_id: fan.bedroom_fan
+                  action: set_percentage
+                  service_data:
+                    percentage: 75
+                  actor:
+                    user_id: u_789
+                    role: tenant
+              
+              lockDoor:
+                summary: Lock a door
+                value:
+                  entity_id: lock.front_door
+                  action: lock
+                  service_data: {}
+                  actor:
+                    user_id: u_789
+                    role: tenant
+              
+              triggerAutomation:
+                summary: Trigger an automation
+                value:
+                  entity_id: automation.motion_light
+                  action: trigger
+                  service_data:
+                    skip_condition: true
+                  actor:
+                    user_id: u_admin
+                    role: admin
       responses:
         '200':
           description: Control action executed successfully
@@ -343,10 +486,23 @@ components:
             - trigger
         service_data:
           type: object
-          description: Additional data to pass to the service
+          description: |
+            Additional data to pass to the service. The structure depends on the action and domain.
+            
+            **Common parameters by domain:**
+            
+            - **light**: brightness (0-255), rgb_color ([R, G, B]), color_temp (mireds), transition (seconds)
+            - **cover**: position (0-100)
+            - **climate**: temperature (float), hvac_mode (string), fan_mode (string)
+            - **fan**: percentage (0-100), preset_mode (string)
+            - **lock**: code (string)
+            - **automation**: skip_condition (boolean)
           additionalProperties: true
-          example:
-            brightness: 255
+          examples:
+            - brightness: 255
+            - rgb_color: [255, 0, 0]
+            - position: 50
+            - temperature: 24
         actor:
           $ref: '#/components/schemas/Actor'
 
@@ -513,6 +669,160 @@ components:
           format: date-time
           description: When the state was last updated
           example: "2025-12-17T10:30:00+00:00"
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+          description: Error code
+          example: invalid_signature
+          enum:
+            - invalid_json
+            - missing_required_fields
+            - missing_headers
+            - invalid_timestamp
+            - nonce_reused
+            - invalid_signature
+            - ip_not_allowed
+            - entity_not_allowed
+            - service_not_allowed
+            - rate_limited
+            - integration_not_configured
+            - service_call_failed
+
+    # Service Data Schemas for different domains
+    LightServiceData:
+      type: object
+      description: Service data for light domain
+      properties:
+        brightness:
+          type: integer
+          minimum: 0
+          maximum: 255
+          description: Brightness level (0-255)
+        rgb_color:
+          type: array
+          items:
+            type: integer
+            minimum: 0
+            maximum: 255
+          minItems: 3
+          maxItems: 3
+          description: RGB color array [R, G, B]
+          example: [255, 0, 0]
+        color_temp:
+          type: integer
+          minimum: 153
+          maximum: 500
+          description: Color temperature in mireds
+        kelvin:
+          type: integer
+          minimum: 2000
+          maximum: 6500
+          description: Color temperature in Kelvin
+        hs_color:
+          type: array
+          items:
+            type: number
+          minItems: 2
+          maxItems: 2
+          description: Hue and saturation [0-360, 0-100]
+        transition:
+          type: integer
+          minimum: 0
+          description: Transition time in seconds
+
+    CoverServiceData:
+      type: object
+      description: Service data for cover domain
+      properties:
+        position:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Position percentage (0=closed, 100=open)
+        tilt_position:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Tilt position for blinds
+
+    ClimateServiceData:
+      type: object
+      description: Service data for climate domain
+      properties:
+        temperature:
+          type: number
+          description: Target temperature
+        target_temp_high:
+          type: number
+          description: Target high temperature (for heat_cool mode)
+        target_temp_low:
+          type: number
+          description: Target low temperature (for heat_cool mode)
+        hvac_mode:
+          type: string
+          enum: [off, heat, cool, heat_cool, auto, dry, fan_only]
+          description: HVAC mode
+        fan_mode:
+          type: string
+          enum: [auto, low, medium, high, middle, focus, diffuse]
+          description: Fan mode
+        preset_mode:
+          type: string
+          enum: [eco, away, boost, comfort, home, sleep]
+          description: Preset mode
+        swing_mode:
+          type: string
+          enum: [off, vertical, horizontal, both]
+          description: Swing mode
+
+    FanServiceData:
+      type: object
+      description: Service data for fan domain
+      properties:
+        percentage:
+          type: integer
+          minimum: 0
+          maximum: 100
+          description: Fan speed percentage
+        preset_mode:
+          type: string
+          enum: [sleep, normal, turbo, natural]
+          description: Preset mode
+        direction:
+          type: string
+          enum: [forward, reverse]
+          description: Fan rotation direction
+        oscillating:
+          type: boolean
+          description: Enable oscillation
+
+    LockServiceData:
+      type: object
+      description: Service data for lock domain
+      properties:
+        code:
+          type: string
+          description: Unlock code (optional)
+
+    AutomationServiceData:
+      type: object
+      description: Service data for automation domain
+      properties:
+        skip_condition:
+          type: boolean
+          description: Skip condition check and execute actions directly
+
+    ScriptServiceData:
+      type: object
+      description: Service data for script domain
+      properties:
+        variables:
+          type: object
+          additionalProperties: true
+          description: Variables to pass to the script
 
     ErrorResponse:
       type: object
