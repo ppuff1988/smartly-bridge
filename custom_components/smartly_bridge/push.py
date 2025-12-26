@@ -139,11 +139,10 @@ class StatePushManager:
         async with self._lock:
             event_data = {
                 "event_type": "state_changed",
-                "data": {
-                    "entity_id": entity_id,
-                    "old_state": self._state_to_dict(old_state) if old_state else None,
-                    "new_state": self._state_to_dict(new_state),
-                },
+                "entity_id": entity_id,
+                "old_state": self._state_to_dict(old_state) if old_state else None,
+                "new_state": self._state_to_dict(new_state),
+                "timestamp": new_state.last_changed.isoformat() if new_state.last_changed else None,
             }
             self._pending_events.append(event_data)
 
@@ -184,52 +183,29 @@ class StatePushManager:
     async def _send_heartbeat(self) -> None:
         """Send heartbeat request to Platform."""
         from datetime import datetime, timezone
-        from urllib.parse import urlparse
 
         webhook_url = self.config_entry.data.get(CONF_WEBHOOK_URL)
         if not webhook_url:
             _LOGGER.debug("No webhook URL configured, skipping heartbeat")
             return
 
-        client_secret = self.config_entry.data.get(CONF_CLIENT_SECRET, "")
-        instance_id = self.config_entry.data.get(CONF_INSTANCE_ID, "")
-        client_id = self.config_entry.data.get(CONF_CLIENT_ID, "")
-
-        payload = {
+        # Create heartbeat event with same structure as state events
+        heartbeat_event = {
             "event_type": "heartbeat",
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
-        body = json.dumps(payload).encode("utf-8")
 
-        # Extract path from webhook URL for HMAC signature
-        parsed_url = urlparse(webhook_url)
-        path = parsed_url.path.rstrip("/")
+        # Log heartbeat
+        _LOGGER.info("準備發送 heartbeat 到 webhook: %s", webhook_url)
+        _LOGGER.debug(
+            "Heartbeat 資料:\n%s",
+            json.dumps(heartbeat_event, indent=2, ensure_ascii=False),
+        )
 
+        # Send heartbeat immediately using the same retry logic as state events
         try:
-            headers = sign_outgoing_request(client_secret, instance_id, body, client_id, path)
-
-            if self._session is None:
-                self._session = aiohttp.ClientSession()
-
-            async with self._session.post(
-                webhook_url,
-                data=body,
-                headers=headers,
-                timeout=aiohttp.ClientTimeout(total=10),
-            ) as response:
-                if response.status == 200:
-                    _LOGGER.debug("Heartbeat sent successfully")
-                else:
-                    response_text = await response.text()
-                    _LOGGER.warning(
-                        "Heartbeat failed with status %d: %s",
-                        response.status,
-                        response_text[:200],
-                    )
-        except asyncio.TimeoutError:
-            _LOGGER.warning("Heartbeat timeout")
-        except aiohttp.ClientError as err:
-            _LOGGER.warning("Heartbeat client error: %s", err)
+            await self._send_with_retry(webhook_url, [heartbeat_event])
+            _LOGGER.debug("Heartbeat sent successfully")
         except Exception as ex:
             _LOGGER.warning("Failed to send heartbeat: %s", ex)
 
@@ -246,6 +222,17 @@ class StatePushManager:
         if not webhook_url:
             _LOGGER.debug("No webhook URL configured, skipping push")
             return
+
+        # Log events before sending
+        _LOGGER.info(
+            "準備發送 %d 個事件到 webhook: %s",
+            len(events_to_send),
+            webhook_url,
+        )
+        _LOGGER.debug(
+            "發送的事件資料:\n%s",
+            json.dumps(events_to_send, indent=2, ensure_ascii=False),
+        )
 
         await self._send_with_retry(webhook_url, events_to_send)
 

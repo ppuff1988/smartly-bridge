@@ -67,11 +67,12 @@ class TestStatePushManager:
 
         assert len(push_manager._pending_events) == 1
         event = push_manager._pending_events[0]
-        # New event format with event_type and data
+        # Updated event format - flat structure with event_type at top level
         assert event["event_type"] == "state_changed"
-        assert event["data"]["entity_id"] == "light.test_light"
-        assert event["data"]["old_state"]["state"] == "off"
-        assert event["data"]["new_state"]["state"] == "on"
+        assert event["entity_id"] == "light.test_light"
+        assert event["old_state"]["state"] == "off"
+        assert event["new_state"]["state"] == "on"
+        assert event["timestamp"] is not None
 
     @pytest.mark.asyncio
     async def test_stop_flushes_events(self, push_manager):
@@ -207,37 +208,32 @@ class TestHeartbeat:
     @pytest.mark.asyncio
     async def test_send_heartbeat_success(self, mock_hass, mock_config_entry):
         """Test successful heartbeat sending."""
-        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, patch
 
         from custom_components.smartly_bridge.push import StatePushManager
 
         manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = MagicMock()
 
-        # Mock HTTP session with proper context manager
-        mock_response = MagicMock()
-        mock_response.status = 200
+        # Mock _send_with_retry to verify it's called correctly
+        with patch.object(manager, "_send_with_retry", new=AsyncMock()) as mock_send:
+            await manager._send_heartbeat()
 
-        @asynccontextmanager
-        async def mock_post(*args, **kwargs):
-            yield mock_response
+            # Verify _send_with_retry was called with heartbeat event in events array
+            assert mock_send.called
+            call_args = mock_send.call_args
+            webhook_url = call_args[0][0]
+            events = call_args[0][1]
 
-        mock_session = MagicMock()
-        mock_session.post = mock_post
-
-        # Pre-set the session to avoid creating a real one
-        manager._session = mock_session
-
-        # Send heartbeat
-        await manager._send_heartbeat()
-
-        # Verify webhook URL was used
-        webhook_url = mock_config_entry.data.get("webhook_url")
-        assert webhook_url is not None
+            assert webhook_url == mock_config_entry.data.get("webhook_url")
+            assert len(events) == 1
+            assert events[0]["event_type"] == "heartbeat"
+            assert "timestamp" in events[0]
 
     @pytest.mark.asyncio
     async def test_send_heartbeat_no_webhook(self, mock_hass):
         """Test heartbeat skipped when no webhook configured."""
-        from unittest.mock import MagicMock
+        from unittest.mock import AsyncMock, MagicMock, patch
 
         from custom_components.smartly_bridge.push import StatePushManager
 
@@ -252,11 +248,13 @@ class TestHeartbeat:
         manager = StatePushManager(mock_hass, config_entry)
         manager._session = MagicMock()
 
-        # Should not raise error
-        await manager._send_heartbeat()
+        # Mock _send_with_retry
+        with patch.object(manager, "_send_with_retry", new=AsyncMock()) as mock_send:
+            # Should not raise error
+            await manager._send_heartbeat()
 
-        # Session should not be used
-        manager._session.post.assert_not_called()
+            # _send_with_retry should not be called when no webhook URL
+            mock_send.assert_not_called()
 
 
 class TestPushManagerLifecycle:
@@ -323,63 +321,57 @@ class TestHeartbeatErrors:
     @pytest.mark.asyncio
     async def test_heartbeat_timeout_error(self, mock_hass, mock_config_entry):
         """Test heartbeat handles timeout errors."""
-        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, patch
 
         from custom_components.smartly_bridge.push import StatePushManager
 
         manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = MagicMock()
 
-        @asynccontextmanager
-        async def mock_post(*args, **kwargs):
-            raise asyncio.TimeoutError()
-            yield
-
-        mock_session = MagicMock()
-        mock_session.post = mock_post
-        manager._session = mock_session
-        await manager._send_heartbeat()
+        # Mock _send_with_retry to raise TimeoutError
+        with patch.object(
+            manager, "_send_with_retry", new=AsyncMock(side_effect=asyncio.TimeoutError())
+        ):
+            # Should not raise error, just log warning
+            await manager._send_heartbeat()
 
     @pytest.mark.asyncio
     async def test_heartbeat_client_error(self, mock_hass, mock_config_entry):
         """Test heartbeat handles client errors."""
-        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, patch
 
         import aiohttp
 
         from custom_components.smartly_bridge.push import StatePushManager
 
         manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = MagicMock()
 
-        @asynccontextmanager
-        async def mock_post(*args, **kwargs):
-            raise aiohttp.ClientError("Connection failed")
-            yield
-
-        mock_session = MagicMock()
-        mock_session.post = mock_post
-        manager._session = mock_session
-        await manager._send_heartbeat()
+        # Mock _send_with_retry to raise ClientError
+        with patch.object(
+            manager,
+            "_send_with_retry",
+            new=AsyncMock(side_effect=aiohttp.ClientError("Connection failed")),
+        ):
+            # Should not raise error, just log warning
+            await manager._send_heartbeat()
 
     @pytest.mark.asyncio
     async def test_heartbeat_non_200_response(self, mock_hass, mock_config_entry):
         """Test heartbeat handles non-200 responses."""
-        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, patch
 
         from custom_components.smartly_bridge.push import StatePushManager
 
         manager = StatePushManager(mock_hass, mock_config_entry)
-        mock_response = MagicMock()
-        mock_response.status = 500
-        mock_response.text = AsyncMock(return_value="Internal Server Error")
+        manager._session = MagicMock()
 
-        @asynccontextmanager
-        async def mock_post(*args, **kwargs):
-            yield mock_response
-
-        mock_session = MagicMock()
-        mock_session.post = mock_post
-        manager._session = mock_session
-        await manager._send_heartbeat()
+        # Mock _send_with_retry to raise a generic exception (simulating non-200)
+        with patch.object(
+            manager, "_send_with_retry", new=AsyncMock(side_effect=Exception("Server error"))
+        ):
+            # Should not raise error, just log warning
+            await manager._send_heartbeat()
 
 
 class TestPushErrors:
@@ -580,52 +572,41 @@ class TestSendHeartbeatErrors:
     """Tests for send heartbeat error scenarios."""
 
     @pytest.mark.asyncio
-    async def test_send_heartbeat_creates_session_if_none(self, mock_hass, mock_config_entry):
-        """Test send_heartbeat creates session if None."""
-        from contextlib import asynccontextmanager
+    async def test_send_heartbeat_success_without_session(self, mock_hass, mock_config_entry):
+        """Test send_heartbeat works even when session is None (relies on _send_with_retry)."""
+        from unittest.mock import AsyncMock, patch
 
         from custom_components.smartly_bridge.push import StatePushManager
 
         manager = StatePushManager(mock_hass, mock_config_entry)
-        manager._session = None  # Explicitly set to None
+        manager._session = None  # Session will be created by _send_with_retry if needed
 
-        mock_response = MagicMock()
-        mock_response.status = 200
-
-        @asynccontextmanager
-        async def mock_post(*args, **kwargs):
-            yield mock_response
-
-        with patch("aiohttp.ClientSession") as mock_session_class:
-            mock_session = MagicMock()
-            mock_session.post = mock_post
-            mock_session_class.return_value = mock_session
-
+        # Mock _send_with_retry to simulate successful heartbeat
+        with patch.object(manager, "_send_with_retry", new=AsyncMock()) as mock_send:
             await manager._send_heartbeat()
 
-            # Session should have been created
-            mock_session_class.assert_called_once()
+            # Verify heartbeat was sent
+            assert mock_send.called
+            events = mock_send.call_args[0][1]
+            assert len(events) == 1
+            assert events[0]["event_type"] == "heartbeat"
 
     @pytest.mark.asyncio
     async def test_send_heartbeat_general_exception(self, mock_hass, mock_config_entry):
         """Test send_heartbeat handles general exceptions."""
-        from contextlib import asynccontextmanager
+        from unittest.mock import AsyncMock, patch
 
         from custom_components.smartly_bridge.push import StatePushManager
 
         manager = StatePushManager(mock_hass, mock_config_entry)
+        manager._session = MagicMock()
 
-        @asynccontextmanager
-        async def mock_post(*args, **kwargs):
-            raise ValueError("Unexpected error")
-            yield
-
-        mock_session = MagicMock()
-        mock_session.post = mock_post
-        manager._session = mock_session
-
-        # Should not raise, just log warning
-        await manager._send_heartbeat()
+        # Mock _send_with_retry to raise a general exception
+        with patch.object(
+            manager, "_send_with_retry", new=AsyncMock(side_effect=ValueError("Unexpected error"))
+        ):
+            # Should handle exception gracefully
+            await manager._send_heartbeat()
 
 
 class TestSendWithRetryErrors:
@@ -700,6 +681,6 @@ class TestQueueEventWithNullOldState:
         assert len(push_manager._pending_events) == 1
         event = push_manager._pending_events[0]
         assert event["event_type"] == "state_changed"
-        assert event["data"]["entity_id"] == "light.test_light"
-        assert event["data"]["old_state"] is None
-        assert event["data"]["new_state"]["state"] == "on"
+        assert event["entity_id"] == "light.test_light"
+        assert event["old_state"] is None
+        assert event["new_state"]["state"] == "on"
