@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.3.1...v1.3.2) (2025-12-26)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **ci:** 修正 auto-delete-branch workflow 權限問題 ([#24](https://github.com/ppuff1988/smartly-bridge/issues/24)) ([9a4d60a](https://github.com/ppuff1988/smartly-bridge/commit/9a4d60a6a4227d3e8a9a0181f32e288de73dc466))
+* **ci:** 修正 workflow 權限與自動化問題 ([#25](https://github.com/ppuff1988/smartly-bridge/issues/25)) ([c10980e](https://github.com/ppuff1988/smartly-bridge/commit/c10980e95a60e889eca7951ecd35fd6a367e487f))
+
 ## [1.3.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.3.0...v1.3.1) (2025-12-26)
 
 ### 🐛 錯誤修正 (Bug Fixes)
