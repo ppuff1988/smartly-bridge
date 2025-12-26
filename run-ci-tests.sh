@@ -255,7 +255,7 @@ run_security() {
     
     # Safety - Dependency security check
     echo -e "\n${YELLOW}2. Safety (Dependency Security)${NC}"
-    safety check --json
+    safety scan --json
     if [ $? -ne 0 ]; then
         echo -e "  ${DARK_YELLOW}WARNING: Safety found known vulnerabilities${NC}"
     else
