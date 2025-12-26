@@ -4,7 +4,8 @@
   "workspaceFolder": "/workspace",
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
-    "source=${localWorkspaceFolder}/config,target=/config,type=bind"
+    "source=${localWorkspaceFolder}/config,target=/config,type=bind",
+    "source=gh-config,target=/root/.config/gh,type=volume"
   ],
   "customizations": {
     "vscode": {
@@ -33,6 +34,9 @@
   },
   "postCreateCommand": "apk add --no-cache github-cli && pip install --upgrade pip && pip install pytest black isort",
   "remoteUser": "root",
+  "remoteEnv": {
+    "GH_TOKEN": "${localEnv:GH_TOKEN}"
+  },
   "features": {
     "ghcr.io/devcontainers/features/common-utils:2": {
       "installZsh": true,
