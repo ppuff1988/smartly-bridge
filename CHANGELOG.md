@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.3.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.3.2...v1.3.3) (2025-12-27)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **http:** 修正服務調用時無效參數錯誤並拆分文檔 ([#26](https://github.com/ppuff1988/smartly-bridge/issues/26)) ([ce9dd9d](https://github.com/ppuff1988/smartly-bridge/commit/ce9dd9d32d0448d5aaae214d3a0493827535cce6))
+
 ## [1.3.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.3.1...v1.3.2) (2025-12-26)
 
 ### 🐛 錯誤修正 (Bug Fixes)
