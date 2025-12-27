@@ -116,6 +116,18 @@ paths:
       description: |
         Execute a service call on an entity. The entity must have the `smartly` label 
         and the service must be in the allowed services whitelist.
+        
+        **Request Format:**
+        - Content-Type: `application/json`
+        - Body: JSON object containing `entity_id`, `action`, optional `service_data`, and `actor` information
+        
+        **Required Fields:**
+        - `entity_id` (string): The entity ID to control (e.g., `switch.living_room_light`)
+        - `action` (string): The service action to execute (e.g., `turn_on`, `turn_off`)
+        
+        **Optional Fields:**
+        - `service_data` (object): Additional parameters for the service (e.g., brightness, temperature)
+        - `actor` (object): Information about who initiated the action for audit logging
       operationId: controlDevice
       parameters:
         - $ref: '#/components/parameters/X-Client-Id'
@@ -123,6 +135,9 @@ paths:
         - $ref: '#/components/parameters/X-Nonce'
         - $ref: '#/components/parameters/X-Signature'
       requestBody:
+        description: |
+          JSON payload containing the control command. Must include entity_id and action.
+          The service_data field structure depends on the entity domain and action being performed.
         required: true
         content:
           application/json:
@@ -456,17 +471,47 @@ components:
   schemas:
     ControlRequest:
       type: object
+      description: |
+        Request body for controlling a Home Assistant entity.
+        
+        **Example JSON:**
+        ```json
+        {
+          "entity_id": "light.bedroom",
+          "action": "turn_on",
+          "service_data": {
+            "brightness": 200,
+            "rgb_color": [255, 0, 0]
+          },
+          "actor": {
+            "user_id": "u_123",
+            "role": "tenant"
+          }
+        }
+        ```
       required:
         - entity_id
         - action
       properties:
         entity_id:
           type: string
-          description: The entity ID to control
+          description: |
+            The entity ID to control. Must have the `smartly` label in Home Assistant.
+            Format: `domain.entity_name` (e.g., `switch.living_room_light`, `light.bedroom`)
           example: switch.room_101_light
+          pattern: '^[a-z_]+\.[a-z0-9_]+$'
         action:
           type: string
-          description: The service action to call
+          description: |
+            The service action to execute. Available actions depend on the entity domain.
+            
+            **Common actions by domain:**
+            - switch/light: turn_on, turn_off, toggle
+            - cover: open_cover, close_cover, stop_cover, set_cover_position
+            - climate: set_temperature, set_hvac_mode, set_fan_mode
+            - fan: turn_on, turn_off, set_percentage, set_preset_mode
+            - lock: lock, unlock
+            - automation: trigger, turn_on, turn_off
           example: turn_on
           enum:
             - turn_on
@@ -487,7 +532,41 @@ components:
         service_data:
           type: object
           description: |
-            Additional data to pass to the service. The structure depends on the action and domain.
+            Optional parameters for the service call. The structure varies by domain and action.
+            Can be an empty object `{}` if no additional parameters are needed.
+            
+            **Examples by domain:**
+            
+            **Light:**
+            ```json
+            {
+              "brightness": 255,
+              "rgb_color": [255, 0, 0],
+              "transition": 2
+            }
+            ```
+            
+            **Cover:**
+            ```json
+            {
+              "position": 50
+            }
+            ```
+            
+            **Climate:**
+            ```json
+            {
+              "temperature": 24,
+              "hvac_mode": "cool"
+            }
+            ```
+            
+            **Fan:**
+            ```json
+            {
+              "percentage": 75
+            }
+            ```
             
             **Common parameters by domain:**
             
@@ -824,13 +903,55 @@ components:
           additionalProperties: true
           description: Variables to pass to the script
 
-    ErrorResponse:
+    # Webhook Schemas
+    WebhookEventsPayload:
       type: object
       properties:
-        error:
+        events:
+          type: array
+          items:
+            $ref: '#/components/schemas/StateChangedEvent'
+
+    StateChangedEvent:
+      type: object
+      properties:
+        event_type:
           type: string
-          description: Error code
-          example: invalid_signature
+          const: state_changed
+        data:
+          type: object
+          properties:
+            entity_id:
+              type: string
+            old_state:
+              $ref: '#/components/schemas/StateData'
+            new_state:
+              $ref: '#/components/schemas/StateData'
+
+    StateData:
+      type: object
+      properties:
+        state:
+          type: string
+        attributes:
+          type: object
+          additionalProperties: true
+        last_changed:
+          type: string
+          format: date-time
+        last_updated:
+          type: string
+          format: date-time
+
+    HeartbeatPayload:
+      type: object
+      properties:
+        event_type:
+          type: string
+          const: heartbeat
+        timestamp:
+          type: string
+          format: date-time
 
   responses:
     UnauthorizedError:
@@ -906,6 +1027,14 @@ webhooks:
       responses:
         '200':
           description: Events received successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
 
   heartbeat:
     post:
@@ -924,53 +1053,13 @@ webhooks:
       responses:
         '200':
           description: Heartbeat received successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                    example: true
 
-  schemas:
-    WebhookEventsPayload:
-      type: object
-      properties:
-        events:
-          type: array
-          items:
-            $ref: '#/components/schemas/StateChangedEvent'
 
-    StateChangedEvent:
-      type: object
-      properties:
-        event_type:
-          type: string
-          const: state_changed
-        data:
-          type: object
-          properties:
-            entity_id:
-              type: string
-            old_state:
-              $ref: '#/components/schemas/StateData'
-            new_state:
-              $ref: '#/components/schemas/StateData'
-
-    StateData:
-      type: object
-      properties:
-        state:
-          type: string
-        attributes:
-          type: object
-          additionalProperties: true
-        last_changed:
-          type: string
-          format: date-time
-        last_updated:
-          type: string
-          format: date-time
-
-    HeartbeatPayload:
-      type: object
-      properties:
-        event_type:
-          type: string
-          const: heartbeat
-        timestamp:
-          type: string
-          format: date-time
