@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Smartly Bridge API Documentation</title>
+  <meta name="description" content="Smartly Bridge API 完整互動式文件 - 使用 Scalar">
+</head>
+<body>
+  <script
+    id="api-reference"
+    data-url="./openapi.yaml"></script>
+  
+  <!-- 從 CDN 載入 Scalar -->
+  <script>
+    var configuration = {
+      theme: 'purple',
+      spec: {
+        url: './openapi.yaml',
+      },
+      authentication: {
+        preferredSecurityScheme: 'hmacAuth',
+      },
+      showSidebar: true,
+      searchHotKey: 'k',
+      darkMode: false,
+      layout: 'modern',
+      hideDarkModeToggle: false,
+      hideModels: false,
+      hideDownloadButton: false,
+      defaultHttpClient: {
+        targetKey: 'javascript',
+        clientKey: 'fetch',
+      },
+      customCss: `
+        :root {
+          --scalar-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Noto Sans TC', Roboto, sans-serif;
+          --scalar-radius: 6px;
+        }
+        
+        .scalar-api-reference {
+          font-family: var(--scalar-font);
+        }
+        
+        /* 支援繁體中文字體 */
+        body {
+          font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 
+                       'Noto Sans TC', 'Microsoft JhengHei', Roboto, sans-serif;
+        }
+      `,
+    };
+
+    document.getElementById('api-reference').dataset.configuration =
+      JSON.stringify(configuration);
+  </script>
+  
+  <script src="https://cdn.jsdelivr.net/npm/@scalar/api-reference"></script>
+</body>
+</html>

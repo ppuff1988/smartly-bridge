@@ -154,12 +154,15 @@ class SmartlyControlView(web.View):
 
         # Call the service
         try:
+            # Prepare service data, excluding parameters that are not for the service itself
+            # Remove any parameters that might be passed to async_call incorrectly
+            service_call_data = {"entity_id": entity_id, **service_data}
+
             await self.hass.services.async_call(
                 domain,
                 action,
-                {"entity_id": entity_id, **service_data},
+                service_call_data,
                 blocking=True,
-                limit=10,  # 10 second timeout
             )
 
             log_control(
