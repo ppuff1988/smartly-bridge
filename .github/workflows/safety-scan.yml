@@ -46,8 +46,9 @@ jobs:
       - name: Run Safety CLI to check for vulnerabilities
         id: safety-check
         run: |
-          # Install safety CLI
-          pip install safety==3.3.1
+          # Install safety CLI with compatible dependencies
+          # typer 0.21.0 removed rich_utils, need older version
+          pip install 'typer<0.21.0' safety==3.3.1
           
           # Determine scan mode
           if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
