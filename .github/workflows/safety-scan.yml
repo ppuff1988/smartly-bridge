@@ -47,9 +47,9 @@ jobs:
         id: safety-check
         run: |
           # Install safety CLI with compatible dependencies
-          # Use typer 0.9.0 which is stable and compatible with safety
-          pip install typer==0.9.0
+          # Install safety first, then force typer 0.9.0 to prevent compatibility issues
           pip install 'safety>=3.2.0,<3.3.0'
+          pip install --force-reinstall --no-deps typer==0.9.0
           
           # Determine scan mode
           if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
