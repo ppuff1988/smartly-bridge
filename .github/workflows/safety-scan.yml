@@ -47,9 +47,11 @@ jobs:
         id: safety-check
         run: |
           # Install safety CLI with compatible dependencies
-          # Safety 3.3.1 has compatibility issues with typer
-          # Use Safety 3.2.x which is more stable
-          pip install 'safety>=3.2.0,<3.3.0'
+          # Must install typer first to prevent safety from installing incompatible version
+          # typer 0.13.0+ has rich_utils, but 0.21.0 removed it
+          pip install 'typer>=0.12.0,<0.13.0'
+          pip install 'safety>=3.2.0,<3.3.0' --no-deps
+          pip install click dparse ruamel.yaml packaging requests certifi
           
           # Determine scan mode
           if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
