@@ -53,16 +53,6 @@ jobs:
           echo "📋 Current version in manifest.json:"
           python -c "import json; print(json.load(open('custom_components/smartly_bridge/manifest.json'))['version'])"
 
-      - name: Create release package
-        run: |
-          echo "📦 Creating release package..."
-          mkdir -p dist
-          cp -r custom_components/smartly_bridge dist/
-          cd dist
-          zip -r ../smartly_bridge-package.zip smartly_bridge/
-          cd ..
-          echo "✓ Package created: smartly_bridge-package.zip"
-
       - name: Run Semantic Release
         env:
           GITHUB_TOKEN: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
