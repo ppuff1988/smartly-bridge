@@ -47,8 +47,9 @@ jobs:
         id: safety-check
         run: |
           # Install safety CLI with compatible dependencies
-          # typer 0.21.0 removed rich_utils, need older version
-          pip install 'typer<0.21.0' safety==3.3.1
+          # Safety 3.3.1 has compatibility issues with typer
+          # Use Safety 3.2.x which is more stable
+          pip install 'safety>=3.2.0,<3.3.0'
           
           # Determine scan mode
           if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
