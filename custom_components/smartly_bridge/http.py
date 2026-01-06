@@ -34,6 +34,62 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+# 基礎配置：attribute/device_class -> decimal places
+NUMERIC_PRECISION_CONFIG = {
+    "voltage": 2,  # 電壓：220.12V
+    "current": 3,  # 電流：0.456A (預設安培)
+    "power": 2,  # 功率：100.99W
+    "energy": 2,  # 能量：1.23kWh
+    "active_power": 2,  # 有效功率：100.99W
+    "reactive_power": 2,  # 無效功率：50.12VAR
+    "apparent_power": 2,  # 視在功率：111.80VA
+    "power_factor": 3,  # 功率因數：0.905
+    "frequency": 2,  # 頻率：50.00Hz
+    "temperature": 1,  # 溫度：25.5°C
+    "humidity": 1,  # 濕度：65.5%
+    "battery": 0,  # 電池：85%
+    "illuminance": 0,  # 照度：500lx
+    "pressure": 1,  # 氣壓：1013.2hPa
+    "co2": 0,  # CO2：450ppm
+    "pm25": 1,  # PM2.5：12.5
+    "pm10": 1,  # PM10：25.5
+}
+
+# 根據單位調整小數點位數：(attribute/device_class, unit) -> decimal places
+UNIT_SPECIFIC_PRECISION_CONFIG = {
+    ("current", "mA"): 1,  # 毫安培：456.5mA
+    ("current", "A"): 3,  # 安培：0.456A
+    ("voltage", "mV"): 0,  # 毫伏特：1234mV
+    ("voltage", "V"): 2,  # 伏特：220.12V
+    ("power", "mW"): 0,  # 毫瓦：1234mW
+    ("power", "W"): 2,  # 瓦特：100.99W
+    ("power", "kW"): 3,  # 千瓦：1.234kW
+    ("energy", "Wh"): 1,  # 瓦時：123.4Wh
+    ("energy", "kWh"): 3,  # 千瓦時：1.234kWh
+}
+
+
+def get_decimal_places(key: str, unit: str = "") -> int | None:
+    """Get decimal places for formatting based on attribute/device_class and unit.
+
+    Args:
+        key: Attribute name or device_class (e.g., 'voltage', 'current', 'power')
+        unit: Unit of measurement (e.g., 'V', 'mA', 'W', 'kW')
+
+    Returns:
+        Number of decimal places, or None if no configuration found
+    """
+    # Check unit-specific config first
+    if key and unit:
+        if (key, unit) in UNIT_SPECIFIC_PRECISION_CONFIG:
+            return UNIT_SPECIFIC_PRECISION_CONFIG[(key, unit)]
+
+    # Fall back to base config
+    if key in NUMERIC_PRECISION_CONFIG:
+        return NUMERIC_PRECISION_CONFIG[key]
+
+    return None
+
 
 def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     """Format numeric attributes with configurable decimal places.
@@ -41,49 +97,16 @@ def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     Formats common electrical measurements (voltage, current, power, etc.)
     with appropriate decimal places based on units for cleaner API responses.
     """
-    # 基礎配置：attribute -> decimal places
-    numeric_attrs_config = {
-        "voltage": 2,  # 電壓：220.12V
-        "current": 3,  # 電流：0.456A (預設安培)
-        "power": 2,  # 功率：100.99W
-        "energy": 2,  # 能量：1.23kWh
-        "active_power": 2,  # 有效功率：100.99W
-        "reactive_power": 2,  # 無效功率：50.12VAR
-        "apparent_power": 2,  # 視在功率：111.80VA
-        "power_factor": 3,  # 功率因數：0.905
-        "frequency": 2,  # 頻率：50.00Hz
-        "temperature": 1,  # 溫度：25.5°C
-        "humidity": 1,  # 濕度：65.5%
-        "battery": 0,  # 電池：85%
-        "illuminance": 0,  # 照度：500lx
-        "pressure": 1,  # 氣壓：1013.2hPa
-        "co2": 0,  # CO2：450ppm
-        "pm25": 1,  # PM2.5：12.5
-        "pm10": 1,  # PM10：25.5
-    }
-
-    # 根據單位調整小數點位數：(attribute, unit) -> decimal places
-    unit_specific_config = {
-        ("current", "mA"): 1,  # 毫安培：456.5mA
-        ("current", "A"): 3,  # 安培：0.456A
-        ("voltage", "mV"): 0,  # 毫伏特：1234mV
-        ("voltage", "V"): 2,  # 伏特：220.12V
-        ("power", "mW"): 0,  # 毫瓦：1234mW
-        ("power", "W"): 2,  # 瓦特：100.99W
-        ("power", "kW"): 3,  # 千瓦：1.234kW
-        ("energy", "Wh"): 1,  # 瓦時：123.4Wh
-        ("energy", "kWh"): 3,  # 千瓦時：1.234kWh
-    }
+    unit = attributes.get("unit_of_measurement", "")
 
     formatted = attributes.copy()
-    unit = formatted.get("unit_of_measurement", "")
 
-    for attr, default_decimals in numeric_attrs_config.items():
+    for attr in NUMERIC_PRECISION_CONFIG:
         if attr in formatted and isinstance(formatted[attr], (int, float)):
             try:
-                # 檢查是否有針對特定單位的配置
-                decimal_places = unit_specific_config.get((attr, unit), default_decimals)
-                formatted[attr] = round(float(formatted[attr]), decimal_places)
+                decimal_places = get_decimal_places(attr, unit)
+                if decimal_places is not None:
+                    formatted[attr] = round(float(formatted[attr]), decimal_places)
             except (ValueError, TypeError):
                 pass  # Keep original value if conversion fails
 
