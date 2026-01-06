@@ -44,12 +44,53 @@ jobs:
           pip install -r requirements-dev.txt
 
       - name: Run Safety CLI to check for vulnerabilities
-        uses: pyupio/safety-action@v1
-        with:
-          api-key: ${{ secrets.SAFETY_API_KEY }}
-          # Scan both production and development dependencies
-          args: '--continue-on-error'
+        id: safety-check
+        run: |
+          # Install safety CLI
+          pip install safety==3.3.1
+          
+          # Determine scan mode
+          if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
+            echo "Running Safety with API key (authenticated mode)"
+            SAFETY_CMD="safety check"
+          else
+            echo "Running Safety without API key (free tier mode)"
+            echo "⚠️ Note: Free tier has limited vulnerability database"
+            SAFETY_CMD="safety check --key=''"
+          fi
+          
+          # Run safety check and capture exit code
+          set +e
+          $SAFETY_CMD \
+            --output json \
+            --save-json safety-report.json
+          SAFETY_EXIT_CODE=$?
+          set -e
+          
+          # Display results in readable format
+          echo "## Safety Scan Results" >> $GITHUB_STEP_SUMMARY
+          if [ $SAFETY_EXIT_CODE -eq 0 ]; then
+            echo "✅ No vulnerabilities found!" >> $GITHUB_STEP_SUMMARY
+            $SAFETY_CMD --output text >> $GITHUB_STEP_SUMMARY || true
+          else
+            echo "⚠️ Vulnerabilities detected!" >> $GITHUB_STEP_SUMMARY
+            $SAFETY_CMD --output text >> $GITHUB_STEP_SUMMARY || true
+            echo "vulnerability_found=true" >> $GITHUB_OUTPUT
+          fi
+          
+          # Exit with proper code
+          exit $SAFETY_EXIT_CODE
         continue-on-error: false
+        env:
+          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
+
+      - name: Upload Safety report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: safety-report
+          path: safety-report.json
+          retention-days: 30
 
       - name: Create issue if vulnerabilities found
         if: failure() && github.event_name == 'schedule'

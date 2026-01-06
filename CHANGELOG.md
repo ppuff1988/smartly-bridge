@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🔧 維護 (Chore)
+
+- **ci:** 優化 Safety 依賴掃描工作流程，支援免費和付費模式
+
 ## [1.4.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.4.0...v1.4.1) (2026-01-06)
 
 ### 🐛 錯誤修正 (Bug Fixes)
