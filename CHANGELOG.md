@@ -9,10 +9,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### � 安全性 (Security)
 
-- **deps:** 更新依賴套件以修正安全漏洞
-  - homeassistant: 2024.1.0+ → 2025.10.2+（修正 CVE-2025-62172, CVE-2025-65713）
-  - aiohttp: 透過 HA 更新至安全版本（修正 9 個 CVE）
-  - cryptography, jinja2, requests: 自動更新至安全版本
+- **deps:** 更新依賴套件以修正部分安全漏洞
+  - homeassistant: 2024.1.0+ → 2025.1.x（Python 3.12 相容的最新版本）
+  - aiohttp, cryptography, jinja2, requests: 隨 HA 更新至較新版本
+  
+註：Home Assistant 2025.2.0+ 需要 Python 3.13，CI 環境仍使用 Python 3.12
 
 ### �🐛 錯誤修正 (Bug Fixes)
 
