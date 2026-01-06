@@ -23,4 +23,5 @@ aiodns>=3.0.0,<4.0.0
 pycares>=4.3.0,<6.0.0
 
 # Home Assistant (required for testing)
-homeassistant>=2024.1.0
+# Use 2025.10.2+ for security fixes (CVE-2025-62172, CVE-2025-65713)
+homeassistant>=2025.10.2
