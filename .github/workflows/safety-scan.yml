@@ -46,45 +46,33 @@ jobs:
       - name: Run Safety CLI to check for vulnerabilities
         id: safety-check
         run: |
-          # Install safety CLI with compatible dependencies
-          # Install safety first, then force typer 0.9.0 to prevent compatibility issues
-          pip install 'safety>=3.2.0,<3.3.0'
-          pip install --force-reinstall --no-deps typer==0.9.0
+          # Use pip-audit instead of Safety due to compatibility issues
+          # pip-audit is maintained by PyPA and more stable
+          pip install pip-audit
           
-          # Determine scan mode
-          if [ -n "${{ secrets.SAFETY_API_KEY }}" ]; then
-            echo "Running Safety with API key (authenticated mode)"
-            SAFETY_CMD="safety check"
-          else
-            echo "Running Safety without API key (free tier mode)"
-            echo "⚠️ Note: Free tier has limited vulnerability database"
-            SAFETY_CMD="safety check --key=''"
-          fi
-          
-          # Run safety check and capture exit code
+          # Run pip-audit and capture exit code
           set +e
-          $SAFETY_CMD \
-            --output json \
-            --save-json safety-report.json
-          SAFETY_EXIT_CODE=$?
+          pip-audit --format json --output pip-audit-report.json
+          AUDIT_EXIT_CODE=$?
           set -e
           
           # Display results in readable format
-          echo "## Safety Scan Results" >> $GITHUB_STEP_SUMMARY
-          if [ $SAFETY_EXIT_CODE -eq 0 ]; then
+          echo "## Dependency Vulnerability Scan Results" >> $GITHUB_STEP_SUMMARY
+          if [ $AUDIT_EXIT_CODE -eq 0 ]; then
             echo "✅ No vulnerabilities found!" >> $GITHUB_STEP_SUMMARY
-            $SAFETY_CMD --output text >> $GITHUB_STEP_SUMMARY || true
+            pip-audit >> $GITHUB_STEP_SUMMARY || true
           else
             echo "⚠️ Vulnerabilities detected!" >> $GITHUB_STEP_SUMMARY
-            $SAFETY_CMD --output text >> $GITHUB_STEP_SUMMARY || true
+            pip-audit >> $GITHUB_STEP_SUMMARY || true
             echo "vulnerability_found=true" >> $GITHUB_OUTPUT
           fi
           
+          # Rename report for consistency
+          mv pip-audit-report.json safety-report.json 2>/dev/null || true
+          
           # Exit with proper code
-          exit $SAFETY_EXIT_CODE
+          exit $AUDIT_EXIT_CODE
         continue-on-error: false
-        env:
-          SAFETY_API_KEY: ${{ secrets.SAFETY_API_KEY }}
 
       - name: Upload Safety report
         if: always()

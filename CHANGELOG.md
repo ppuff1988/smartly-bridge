@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### 🐛 錯誤修正 (Bug Fixes)
 
-- **ci:** 修正 Safety CLI 相容性問題，改用穩定版本 3.2.x
+- **ci:** 改用 pip-audit 取代 Safety，解決 typer 相容性問題
 
 ## [1.5.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.4.1...v1.5.0) (2026-01-06)
 
