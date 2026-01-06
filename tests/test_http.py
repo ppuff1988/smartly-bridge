@@ -678,3 +678,262 @@ class TestControlEndpointFullFlow:
                 assert response.status == 500
 
         await nonce_cache.stop()
+
+
+class TestFormatNumericAttributes:
+    """Tests for format_numeric_attributes function."""
+
+    def test_current_with_ma_unit(self):
+        """Test current formatting with mA unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "device_class": "current",
+            "friendly_name": "小燈電流",
+            "state_class": "measurement",
+            "unit_of_measurement": "mA",
+            "current": 456.789123,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["current"] == 456.8  # 1 decimal place for mA
+        assert result["unit_of_measurement"] == "mA"
+
+    def test_current_with_a_unit(self):
+        """Test current formatting with A unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "device_class": "current",
+            "friendly_name": "主電流",
+            "state_class": "measurement",
+            "unit_of_measurement": "A",
+            "current": 0.456789123,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["current"] == 0.457  # 3 decimal places for A
+        assert result["unit_of_measurement"] == "A"
+
+    def test_voltage_power_energy(self):
+        """Test voltage, power, and energy formatting."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "voltage": 220.123456,
+            "power": 100.987654,
+            "energy": 1.23456789,
+            "temperature": 25.56789,
+            "humidity": 65.789,
+            "unit_of_measurement": "W",
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["voltage"] == 220.12  # 2 decimal places
+        assert result["power"] == 100.99  # 2 decimal places
+        assert result["energy"] == 1.23  # 2 decimal places
+        assert result["temperature"] == 25.6  # 1 decimal place
+        assert result["humidity"] == 65.8  # 1 decimal place
+
+    def test_power_with_kw_unit(self):
+        """Test power formatting with kW unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "device_class": "power",
+            "friendly_name": "總功率",
+            "state_class": "measurement",
+            "unit_of_measurement": "kW",
+            "power": 1.23456789,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["power"] == 1.235  # 3 decimal places for kW
+        assert result["unit_of_measurement"] == "kW"
+
+    def test_power_with_mw_unit(self):
+        """Test power formatting with mW unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "unit_of_measurement": "mW",
+            "power": 1234.56789,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["power"] == 1235  # 0 decimal places for mW (integer)
+
+    def test_power_factor_and_related(self):
+        """Test power factor and related power measurements."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "power_factor": 0.905678123,
+            "active_power": 100.987654,
+            "reactive_power": 50.123456,
+            "apparent_power": 111.789123,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["power_factor"] == 0.906  # 3 decimal places
+        assert result["active_power"] == 100.99  # 2 decimal places
+        assert result["reactive_power"] == 50.12  # 2 decimal places
+        assert result["apparent_power"] == 111.79  # 2 decimal places
+
+    def test_frequency(self):
+        """Test frequency formatting."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "frequency": 50.123456,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["frequency"] == 50.12  # 2 decimal places
+
+    def test_voltage_with_mv_unit(self):
+        """Test voltage formatting with mV unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "unit_of_measurement": "mV",
+            "voltage": 1234.56789,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["voltage"] == 1235  # 0 decimal places for mV (integer)
+
+    def test_energy_with_wh_unit(self):
+        """Test energy formatting with Wh unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "unit_of_measurement": "Wh",
+            "energy": 123.456789,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["energy"] == 123.5  # 1 decimal place for Wh
+
+    def test_energy_with_kwh_unit(self):
+        """Test energy formatting with kWh unit."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "unit_of_measurement": "kWh",
+            "energy": 1.23456789,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["energy"] == 1.235  # 3 decimal places for kWh
+
+    def test_battery_and_illuminance(self):
+        """Test battery and illuminance formatting (no decimals)."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "battery": 85.6789,
+            "illuminance": 499.789,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["battery"] == 86  # 0 decimal places (integer)
+        assert result["illuminance"] == 500  # 0 decimal places (integer)
+
+    def test_air_quality_sensors(self):
+        """Test air quality sensor formatting."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "co2": 449.789,
+            "pm25": 12.456,
+            "pm10": 25.678,
+            "pressure": 1013.25678,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["co2"] == 450  # 0 decimal places (integer)
+        assert result["pm25"] == 12.5  # 1 decimal place
+        assert result["pm10"] == 25.7  # 1 decimal place
+        assert result["pressure"] == 1013.3  # 1 decimal place
+
+    def test_non_numeric_values_preserved(self):
+        """Test that non-numeric values are preserved."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "device_class": "current",
+            "friendly_name": "Test Sensor",
+            "state_class": "measurement",
+            "current": 1.234567,
+            "some_string": "text",
+            "some_none": None,
+            "some_bool": True,
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["current"] == 1.235  # Formatted
+        assert result["some_string"] == "text"  # Preserved
+        assert result["some_none"] is None  # Preserved
+        assert result["some_bool"] is True  # Preserved
+
+    def test_missing_attributes(self):
+        """Test that missing numeric attributes don't cause errors."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "device_class": "current",
+            "friendly_name": "Test",
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert "current" not in result  # Not added if not present
+        assert result["device_class"] == "current"
+
+    def test_invalid_numeric_values(self):
+        """Test handling of invalid numeric values."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        attrs = {
+            "current": "not_a_number",
+            "voltage": float("inf"),
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        # Invalid values should be preserved
+        assert result["current"] == "not_a_number"
+        # Inf should still be handled by round() but kept as inf
+        assert result["voltage"] == float("inf")
+
+    def test_original_attributes_not_modified(self):
+        """Test that original attributes dict is not modified."""
+        from custom_components.smartly_bridge.http import format_numeric_attributes
+
+        original = {
+            "current": 1.23456789,
+            "voltage": 220.123456,
+        }
+
+        result = format_numeric_attributes(original)
+
+        # Original should not be modified
+        assert original["current"] == 1.23456789
+        assert original["voltage"] == 220.123456
+        # Result should be formatted
+        assert result["current"] == 1.235
+        assert result["voltage"] == 220.12
