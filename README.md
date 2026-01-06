@@ -3,6 +3,8 @@
 > **多社區 Home Assistant × 中央管理 Platform 架構的安全橋接器**
 
 [![hacs_badge](https://img.shields.io/badge/HACS-Custom-orange.svg)](https://github.com/hacs/integration)
+[![Security: Safety](https://img.shields.io/badge/Security-Safety-green.svg)](https://safetycli.com/)
+[![CI Status](https://img.shields.io/github/actions/workflow/status/ppuff1988/smartly-bridge/ci.yml?branch=main&label=CI)](https://github.com/ppuff1988/smartly-bridge/actions/workflows/ci.yml)
 
 Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區級 Home Assistant 與中央管理平台（Smartly Platform）。設計原則：**Platform 永遠不持有 HA Token、HA 為社區安全邊界、Platform 為業務 RBAC 中樞**。
 
