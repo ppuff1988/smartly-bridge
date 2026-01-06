@@ -47,7 +47,7 @@
     [
       "@semantic-release/exec",
       {
-        "prepareCmd": "python scripts/update_manifest_version.py ${nextRelease.version}"
+        "prepareCmd": "python scripts/update_manifest_version.py ${nextRelease.version} && mkdir -p dist && cp -r custom_components/smartly_bridge dist/ && cd dist && zip -r ../smartly_bridge-package.zip smartly_bridge/ && cd .. && echo '✓ Package created with version ${nextRelease.version}'"
       }
     ],
     [
