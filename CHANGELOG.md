@@ -7,7 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### 🐛 錯誤修正 (Bug Fixes)
+### � 安全性 (Security)
+
+- **deps:** 更新依賴套件以修正安全漏洞
+  - aiohttp: 3.11.11 → 3.13.3（修正 9 個 CVE）
+  - cryptography: 自動更新至 44.0.1+（修正 CVE-2024-12797）
+  - jinja2: 自動更新至 3.1.6+（修正 CVE-2025-27516）
+  - requests: 自動更新至 2.32.4+（修正 CVE-2024-47081）
+
+### �🐛 錯誤修正 (Bug Fixes)
 
 - **ci:** 改用 pip-audit 取代 Safety，解決 typer 相容性問題
 
