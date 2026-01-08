@@ -34,7 +34,11 @@
         "data": {
           "webhook_url": "Platform Webhook URL",
           "allowed_cidrs": "Allowed IP Ranges (CIDR)",
-          "push_batch_interval": "Push Batch Interval (seconds)"
+          "push_batch_interval": "Push Batch Interval (seconds)",
+          "trust_proxy": "Proxy Trust Mode"
+        },
+        "data_description": {
+          "trust_proxy": "Whether to trust X-Forwarded-For header. Auto-detect (Recommended): Automatically determines if behind a proxy. Always trust: Use when behind trusted reverse proxy like Nginx/Caddy. Never trust: Use when directly exposed to internet."
         }
       }
     },

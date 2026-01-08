@@ -98,3 +98,12 @@ def sample_hmac_headers():
         "X-Nonce": nonce,
         "X-Signature": signature,
     }
+
+
+@pytest.fixture
+def mock_options_flow_init():
+    """Mock OptionsFlowWithConfigEntry.__init__ to bypass report_usage."""
+    from unittest.mock import patch
+
+    with patch("homeassistant.helpers.frame.report_usage"):
+        yield
