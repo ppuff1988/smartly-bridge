@@ -7,6 +7,26 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ 新增功能 (Features)
+
+- **camera:** 新增 IP Camera 支援，包含快取截圖和串流代理功能
+  - 新增 `CameraManager` 管理器，提供快取機制的截圖功能
+  - 支援 MJPEG 串流代理
+  - 支援 ETag 條件請求 (304 Not Modified)
+  - 可配置快取 TTL、串流逾時等參數
+  - 新增 Camera API 端點：
+    - `GET /api/smartly/camera/{entity_id}/snapshot` - 取得攝影機截圖
+    - `GET /api/smartly/camera/{entity_id}/stream` - 取得攝影機串流
+    - `GET /api/smartly/camera/list` - 列出所有可用攝影機
+    - `POST /api/smartly/camera/config` - 管理攝影機設定
+
+### ♻️ 程式碼重構 (Refactoring)
+
+- **utils:** 將數值格式化工具函式重構到 `utils.py` 模組
+  - 將 `NUMERIC_PRECISION_CONFIG` 和 `UNIT_SPECIFIC_PRECISION_CONFIG` 移至 `const.py`
+  - 建立 `utils.py` 存放 `format_numeric_attributes` 和 `get_decimal_places` 函式
+  - 改善程式碼組織性和可維護性
+
 ### 🐛 錯誤修正 (Bug Fixes)
 
 - **ci:** 改用 pip-audit 取代 Safety，解決 typer 相容性問題

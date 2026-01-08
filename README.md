@@ -21,6 +21,77 @@ Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區�
 - [開發指南](#開發指南)
 - [測試](#測試)
 - [檔案結構](#檔案結構)
+- [📚 文檔導覽](#-文檔導覽)
+
+---
+
+## 📚 文檔導覽
+
+本專案包含完整的文檔資源，依照不同需求分類：
+
+### 📖 主要文檔
+
+| 文檔 | 說明 |
+|------|------|
+| **[README.md](README.md)** | 專案概覽、快速開始、API 基礎 |
+| **[CHANGELOG.md](CHANGELOG.md)** | 版本變更記錄 |
+| **[CONTRIBUTING.md](CONTRIBUTING.md)** | 貢獻指南 |
+| **[SECURITY.md](SECURITY.md)** | 安全政策與漏洞回報 |
+
+### 🔒 安全文檔
+
+| 文檔 | 說明 |
+|------|------|
+| **[docs/security-audit.md](docs/security-audit.md)** | 完整的安全性審查報告 |
+| **[docs/control/security.md](docs/control/security.md)** | API 安全最佳實踐 |
+
+### 🔌 API 文檔
+
+| 文檔 | 說明 |
+|------|------|
+| **[docs/README.md](docs/README.md)** | API 文檔總覽 |
+| **[docs/openapi.yaml](docs/openapi.yaml)** | OpenAPI 3.1.0 規格檔案 |
+| **[docs/api-docs.html](docs/api-docs.html)** | 互動式 API 文檔（Scalar） |
+| **[docs/control-examples.md](docs/control-examples.md)** | 控制 API 範例索引 |
+
+### 📚 控制 API 詳細指南
+
+| 文檔 | 說明 |
+|------|------|
+| **[docs/control/README.md](docs/control/README.md)** | 控制 API 主頁與快速開始 |
+| **[docs/control/api-basics.md](docs/control/api-basics.md)** | API 端點、認證、HMAC 簽名計算 |
+| **[docs/control/device-types.md](docs/control/device-types.md)** | 9 種設備類型控制說明 |
+| **[docs/control/code-examples.md](docs/control/code-examples.md)** | Python、JavaScript、cURL 完整範例 |
+| **[docs/control/responses.md](docs/control/responses.md)** | HTTP 狀態碼與錯誤處理 |
+| **[docs/control/security.md](docs/control/security.md)** | 安全最佳實踐、IP 白名單、ACL |
+| **[docs/control/troubleshooting.md](docs/control/troubleshooting.md)** | 常見問題與故障排除 |
+
+### 🛠️ 開發者文檔
+
+| 文檔 | 說明 |
+|------|------|
+| **[docs/ci-cd-guide.md](docs/ci-cd-guide.md)** | CI/CD 流程與工具配置 |
+| **[docs/development/trust-proxy.md](docs/development/trust-proxy.md)** | Trust Proxy 配置指南 |
+| **[.github/copilot-instructions.md](.github/copilot-instructions.md)** | GitHub Copilot 開發指引 |
+
+### 📝 指引文檔（.github/instructions/）
+
+| 文檔 | 說明 |
+|------|------|
+| **[markdown-documentation.instructions.md](.github/instructions/markdown-documentation.instructions.md)** | Markdown 文檔命名、規範與位置指南 |
+| **[git-commit.instructions.md](.github/instructions/git-commit.instructions.md)** | Git Commit 規範（Conventional Commits） |
+| **[home-assistant-integration.instructions.md](.github/instructions/home-assistant-integration.instructions.md)** | Home Assistant 整合開發指南 |
+| **[python-code-quality.instructions.md](.github/instructions/python-code-quality.instructions.md)** | Python 程式碼品質指南 |
+| **[python-testing.instructions.md](.github/instructions/python-testing.instructions.md)** | Python 測試最佳實作 |
+| **[github-actions-ci-cd-best-practices.instructions.md](.github/instructions/github-actions-ci-cd-best-practices.instructions.md)** | GitHub Actions CI/CD 最佳實作 |
+
+### 🚀 快速連結
+
+- **首次使用？** → 閱讀 [README.md](README.md) 的[安裝方式](#安裝方式)和[設定流程](#設定流程)
+- **開發 API 整合？** → 前往 [docs/control/](docs/control/) 查看完整範例
+- **查看 API 規格？** → 開啟 [docs/api-docs.html](docs/api-docs.html)（需使用 HTTP 伺服器）
+- **遇到問題？** → 查閱 [docs/control/troubleshooting.md](docs/control/troubleshooting.md)
+- **參與貢獻？** → 閱讀 [CONTRIBUTING.md](CONTRIBUTING.md)
 
 ---
 

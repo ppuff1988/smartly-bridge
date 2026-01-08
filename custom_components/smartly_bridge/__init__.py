@@ -7,13 +7,8 @@ from typing import TYPE_CHECKING
 
 from .audit import log_integration_event
 from .auth import NonceCache, RateLimiter
-from .const import (
-    CONF_CLIENT_ID,
-    CONF_INSTANCE_ID,
-    DOMAIN,
-    RATE_LIMIT,
-    RATE_WINDOW,
-)
+from .camera import CameraManager
+from .const import CONF_CLIENT_ID, CONF_INSTANCE_ID, DOMAIN, RATE_LIMIT, RATE_WINDOW
 from .http import register_views
 from .push import StatePushManager
 
@@ -49,12 +44,17 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     # Create push manager
     push_manager = StatePushManager(hass, entry)
 
+    # Create camera manager
+    camera_manager = CameraManager(hass)
+    await camera_manager.start()
+
     # Store in hass.data
     hass.data[DOMAIN] = {
         "config_entry": entry,
         "nonce_cache": nonce_cache,
         "rate_limiter": rate_limiter,
         "push_manager": push_manager,
+        "camera_manager": camera_manager,
     }
 
     # Register HTTP views
@@ -86,6 +86,11 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     push_manager: StatePushManager | None = hass.data[DOMAIN].get("push_manager")
     if push_manager:
         await push_manager.stop()
+
+    # Stop camera manager
+    camera_manager: CameraManager | None = hass.data[DOMAIN].get("camera_manager")
+    if camera_manager:
+        await camera_manager.stop()
 
     # Stop nonce cache cleanup
     nonce_cache: NonceCache | None = hass.data[DOMAIN].get("nonce_cache")

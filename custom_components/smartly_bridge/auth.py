@@ -20,7 +20,11 @@ from .const import (
     HEADER_SIGNATURE,
     HEADER_TIMESTAMP,
     NONCE_TTL,
+    PRIVATE_IP_RANGES,
     TIMESTAMP_TOLERANCE,
+    TRUST_PROXY_ALWAYS,
+    TRUST_PROXY_AUTO,
+    TRUST_PROXY_NEVER,
 )
 
 if TYPE_CHECKING:
@@ -171,6 +175,74 @@ def check_timestamp(timestamp_str: str, tolerance: int = TIMESTAMP_TOLERANCE) ->
         return False
 
 
+def _is_private_ip(ip_str: str) -> bool:
+    """Check if IP is private/internal.
+
+    Args:
+        ip_str: IP address string
+
+    Returns:
+        True if IP is in private ranges
+    """
+    try:
+        ip = ipaddress.ip_address(ip_str)
+        for cidr in PRIVATE_IP_RANGES:
+            try:
+                network = ipaddress.ip_network(cidr)
+                if ip in network:
+                    return True
+            except ValueError:
+                continue
+        return False
+    except ValueError:
+        return False
+
+
+def _should_trust_proxy(request: web.Request, allowed_cidrs: str) -> bool:
+    """Smart detection: should we trust X-Forwarded-For?
+
+    Auto-detects if behind a reverse proxy by checking:
+    1. Direct connection IP is private/localhost
+    2. CIDR whitelist contains external IPs
+
+    Args:
+        request: HTTP request object
+        allowed_cidrs: CIDR whitelist string
+
+    Returns:
+        True if likely behind trusted proxy
+    """
+    # Get direct connection IP
+    direct_ip = ""
+    if request.transport:
+        peername = request.transport.get_extra_info("peername")
+        if peername:
+            direct_ip = peername[0]
+
+    if not direct_ip:
+        return False
+
+    # If direct IP is private/localhost
+    if not _is_private_ip(direct_ip):
+        return False
+
+    # Check if CIDR whitelist contains external IPs
+    if not allowed_cidrs or not allowed_cidrs.strip():
+        return False
+
+    cidrs = [c.strip() for c in allowed_cidrs.split(",") if c.strip()]
+    for cidr in cidrs:
+        try:
+            network = ipaddress.ip_network(cidr, strict=False)
+            # If whitelist contains non-private IPs, assume proxy is used
+            if not network.is_private:
+                return True
+        except ValueError:
+            continue
+
+    return False
+
+
 def check_ip(
     client_ip: str,
     allowed_cidrs: str,
@@ -196,21 +268,45 @@ def check_ip(
         return False
 
 
-def get_client_ip(request: web.Request) -> str:
-    """Get client IP from request, considering X-Forwarded-For."""
-    # Check X-Forwarded-For header first (for reverse proxy)
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        # Take the first IP in the chain
-        return forwarded.split(",")[0].strip()
+def get_client_ip(
+    request: web.Request,
+    trust_proxy_mode: str = TRUST_PROXY_AUTO,
+    allowed_cidrs: str = "",
+) -> str:
+    """Get client IP from request with configurable proxy trust.
 
-    # Fall back to direct connection
+    Args:
+        request: HTTP request object
+        trust_proxy_mode: One of 'auto', 'always', 'never'
+        allowed_cidrs: CIDR whitelist for auto-detection
+
+    Returns:
+        Client IP address string
+    """
+    # Determine whether to trust X-Forwarded-For
+    if trust_proxy_mode == TRUST_PROXY_ALWAYS:
+        trust_proxy = True
+    elif trust_proxy_mode == TRUST_PROXY_NEVER:
+        trust_proxy = False
+    else:  # TRUST_PROXY_AUTO
+        trust_proxy = _should_trust_proxy(request, allowed_cidrs)
+
+    # Get direct connection IP
+    direct_ip = ""
     if request.transport:
         peername = request.transport.get_extra_info("peername")
         if peername:
-            return peername[0]
+            direct_ip = peername[0]
 
-    return ""
+    # If trusting proxy, use X-Forwarded-For
+    if trust_proxy:
+        forwarded = request.headers.get("X-Forwarded-For")
+        if forwarded:
+            # Take the first IP in the chain
+            return forwarded.split(",")[0].strip()
+
+    # Fall back to direct connection IP
+    return direct_ip
 
 
 async def verify_request(
@@ -218,10 +314,22 @@ async def verify_request(
     client_secret: str,
     nonce_cache: NonceCache,
     allowed_cidrs: str,
+    trust_proxy_mode: str = TRUST_PROXY_AUTO,
 ) -> AuthResult:
-    """Verify incoming request authentication."""
-    # Check IP
-    client_ip = get_client_ip(request)
+    """Verify incoming request authentication.
+
+    Args:
+        request: HTTP request object
+        client_secret: Client secret for HMAC verification
+        nonce_cache: Nonce cache for replay attack prevention
+        allowed_cidrs: CIDR whitelist string
+        trust_proxy_mode: How to handle X-Forwarded-For ('auto', 'always', 'never')
+
+    Returns:
+        AuthResult with success status and error details
+    """
+    # Check IP with trust_proxy_mode
+    client_ip = get_client_ip(request, trust_proxy_mode, allowed_cidrs)
     if not check_ip(client_ip, allowed_cidrs):
         return AuthResult(success=False, error="ip_not_allowed")
 

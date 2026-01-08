@@ -7,6 +7,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigFlowResult, OptionsFlowWithConfigEntry
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult
 
@@ -16,9 +17,14 @@ from .const import (
     CONF_CLIENT_SECRET,
     CONF_INSTANCE_ID,
     CONF_PUSH_BATCH_INTERVAL,
+    CONF_TRUST_PROXY,
     CONF_WEBHOOK_URL,
     DEFAULT_PUSH_BATCH_INTERVAL,
+    DEFAULT_TRUST_PROXY,
     DOMAIN,
+    TRUST_PROXY_ALWAYS,
+    TRUST_PROXY_AUTO,
+    TRUST_PROXY_NEVER,
 )
 
 
@@ -32,12 +38,12 @@ def generate_client_secret() -> str:
     return secrets.token_urlsafe(32)
 
 
-class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
+class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle a config flow for Smartly Bridge."""
 
     VERSION = 1
 
-    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_user(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Handle the initial step."""
         errors: dict[str, str] = {}
 
@@ -70,6 +76,7 @@ class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type
                         CONF_PUSH_BATCH_INTERVAL: user_input.get(
                             CONF_PUSH_BATCH_INTERVAL, DEFAULT_PUSH_BATCH_INTERVAL
                         ),
+                        CONF_TRUST_PROXY: DEFAULT_TRUST_PROXY,
                     },
                 )
 
@@ -111,13 +118,13 @@ class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type
         config_entry: config_entries.ConfigEntry,
     ) -> SmartlyBridgeOptionsFlow:
         """Get the options flow for this handler."""
-        return SmartlyBridgeOptionsFlow()
+        return SmartlyBridgeOptionsFlow(config_entry)
 
 
-class SmartlyBridgeOptionsFlow(config_entries.OptionsFlow):
+class SmartlyBridgeOptionsFlow(OptionsFlowWithConfigEntry):
     """Handle options flow for Smartly Bridge."""
 
-    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> FlowResult:
+    async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         """Manage the options."""
         errors: dict[str, str] = {}
 
@@ -145,6 +152,7 @@ class SmartlyBridgeOptionsFlow(config_entries.OptionsFlow):
         current_batch = self.config_entry.data.get(
             CONF_PUSH_BATCH_INTERVAL, DEFAULT_PUSH_BATCH_INTERVAL
         )
+        current_trust_proxy = self.config_entry.data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
 
         return self.async_show_form(
             step_id="init",
@@ -154,6 +162,13 @@ class SmartlyBridgeOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(CONF_ALLOWED_CIDRS, default=current_cidrs): str,
                     vol.Optional(CONF_PUSH_BATCH_INTERVAL, default=current_batch): vol.Coerce(
                         float
+                    ),
+                    vol.Optional(CONF_TRUST_PROXY, default=current_trust_proxy): vol.In(
+                        {
+                            TRUST_PROXY_AUTO: "Auto-detect (Recommended)",
+                            TRUST_PROXY_ALWAYS: "Always trust (Behind proxy)",
+                            TRUST_PROXY_NEVER: "Never trust (Direct connection)",
+                        }
                     ),
                 }
             ),

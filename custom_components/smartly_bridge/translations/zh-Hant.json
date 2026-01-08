@@ -34,13 +34,16 @@
         "data": {
           "webhook_url": "Platform Webhook 網址",
           "allowed_cidrs": "允許的 IP 範圍（CIDR）",
-          "push_batch_interval": "推送批次間隔（秒）"
+          "push_batch_interval": "推送批次間隔（秒）",
+          "trust_proxy": "Proxy 信任模式"
+        },
+        "data_description": {
+          "trust_proxy": "決定是否信任 X-Forwarded-For 標頭。自動檢測（推薦）：自動判斷是否在 Proxy 後方。總是信任：當位於 Nginx/Caddy 等可信的反向代理後方時使用。永不信任：直連到公網時使用。"
         }
+      },
+      "error": {
+        "invalid_cidr": "CIDR 格式無效。請使用如 10.0.0.0/8 的格式",
+        "invalid_url": "網址無效。必須以 http:// 或 https:// 開頭"
       }
-    },
-    "error": {
-      "invalid_cidr": "CIDR 格式無效。請使用如 10.0.0.0/8 的格式",
-      "invalid_url": "網址無效。必須以 http:// 或 https:// 開頭"
     }
   }
-}

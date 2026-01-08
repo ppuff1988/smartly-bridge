@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -188,9 +188,10 @@ class TestOptionsFlow:
         assert isinstance(options_flow, SmartlyBridgeOptionsFlow)
 
     @pytest.mark.asyncio
-    async def test_options_step_init_show_form(self):
+    @patch("homeassistant.helpers.frame.report_usage")
+    async def test_options_step_init_show_form(self, mock_report):
         """Test options flow initial step shows form."""
-        from unittest.mock import PropertyMock
+        from unittest.mock import PropertyMock, patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -204,9 +205,8 @@ class TestOptionsFlow:
             CONF_CLIENT_SECRET: "test_secret",
         }
 
-        options_flow = SmartlyBridgeOptionsFlow()
+        options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
         options_flow.hass = mock_hass
-        type(options_flow).config_entry = PropertyMock(return_value=mock_config_entry)
 
         result = await options_flow.async_step_init(user_input=None)
 
@@ -218,7 +218,7 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_invalid_cidr(self):
         """Test options flow error on invalid CIDR."""
-        from unittest.mock import PropertyMock
+        from unittest.mock import PropertyMock, patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -230,25 +230,25 @@ class TestOptionsFlow:
             CONF_PUSH_BATCH_INTERVAL: 1.0,
         }
 
-        options_flow = SmartlyBridgeOptionsFlow()
-        options_flow.hass = mock_hass
-        type(options_flow).config_entry = PropertyMock(return_value=mock_config_entry)
+        with patch("homeassistant.helpers.frame.report_usage"):
+            options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
+            options_flow.hass = mock_hass
 
-        user_input = {
-            CONF_WEBHOOK_URL: "https://example.com/webhook",
-            CONF_ALLOWED_CIDRS: "invalid_cidr",
-            CONF_PUSH_BATCH_INTERVAL: 1.0,
-        }
+            user_input = {
+                CONF_WEBHOOK_URL: "https://example.com/webhook",
+                CONF_ALLOWED_CIDRS: "invalid_cidr",
+                CONF_PUSH_BATCH_INTERVAL: 1.0,
+            }
 
-        result = await options_flow.async_step_init(user_input=user_input)
+            result = await options_flow.async_step_init(user_input=user_input)
 
-        assert result["type"] == "form"
-        assert CONF_ALLOWED_CIDRS in result["errors"]
+            assert result["type"] == "form"
+            assert CONF_ALLOWED_CIDRS in result["errors"]
 
     @pytest.mark.asyncio
     async def test_options_step_init_invalid_url(self):
         """Test options flow error on invalid URL."""
-        from unittest.mock import PropertyMock
+        from unittest.mock import PropertyMock, patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -260,25 +260,25 @@ class TestOptionsFlow:
             CONF_PUSH_BATCH_INTERVAL: 1.0,
         }
 
-        options_flow = SmartlyBridgeOptionsFlow()
-        options_flow.hass = mock_hass
-        type(options_flow).config_entry = PropertyMock(return_value=mock_config_entry)
+        with patch("homeassistant.helpers.frame.report_usage"):
+            options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
+            options_flow.hass = mock_hass
 
-        user_input = {
-            CONF_WEBHOOK_URL: "not_a_url",
-            CONF_ALLOWED_CIDRS: "10.0.0.0/8",
-            CONF_PUSH_BATCH_INTERVAL: 1.0,
-        }
+            user_input = {
+                CONF_WEBHOOK_URL: "not_a_url",
+                CONF_ALLOWED_CIDRS: "10.0.0.0/8",
+                CONF_PUSH_BATCH_INTERVAL: 1.0,
+            }
 
-        result = await options_flow.async_step_init(user_input=user_input)
+            result = await options_flow.async_step_init(user_input=user_input)
 
-        assert result["type"] == "form"
-        assert CONF_WEBHOOK_URL in result["errors"]
+            assert result["type"] == "form"
+            assert CONF_WEBHOOK_URL in result["errors"]
 
     @pytest.mark.asyncio
     async def test_options_step_init_success(self):
         """Test successful options update."""
-        from unittest.mock import PropertyMock
+        from unittest.mock import PropertyMock, patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -293,33 +293,39 @@ class TestOptionsFlow:
             CONF_PUSH_BATCH_INTERVAL: 1.0,
         }
 
-        options_flow = SmartlyBridgeOptionsFlow()
-        options_flow.hass = mock_hass
-        type(options_flow).config_entry = PropertyMock(return_value=mock_config_entry)
+        with patch("homeassistant.helpers.frame.report_usage"):
+            options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
+            options_flow.hass = mock_hass
 
-        user_input = {
-            CONF_WEBHOOK_URL: "https://example.com/new",
-            CONF_ALLOWED_CIDRS: "192.168.0.0/16",
-            CONF_PUSH_BATCH_INTERVAL: 2.0,
-        }
+            user_input = {
+                CONF_WEBHOOK_URL: "https://example.com/new",
+                CONF_ALLOWED_CIDRS: "192.168.0.0/16",
+                CONF_PUSH_BATCH_INTERVAL: 2.0,
+            }
 
-        result = await options_flow.async_step_init(user_input=user_input)
+            result = await options_flow.async_step_init(user_input=user_input)
 
-        assert result["type"] == "create_entry"
-        mock_hass.config_entries.async_update_entry.assert_called_once()
+            assert result["type"] == "create_entry"
+            mock_hass.config_entries.async_update_entry.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_options_validate_cidrs(self):
         """Test options flow CIDR validation."""
+        from unittest.mock import patch
+
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
-        options_flow = SmartlyBridgeOptionsFlow()
+        mock_config_entry = MagicMock()
+        mock_config_entry.data = {}
 
-        # Valid cases
-        assert options_flow._validate_cidrs("") is True
-        assert options_flow._validate_cidrs("10.0.0.0/8") is True
-        assert options_flow._validate_cidrs("10.0.0.0/8,192.168.0.0/16") is True
+        with patch("homeassistant.helpers.frame.report_usage"):
+            options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
 
-        # Invalid cases
-        assert options_flow._validate_cidrs("invalid") is False
-        assert options_flow._validate_cidrs("256.0.0.0/8") is False
+            # Valid cases
+            assert options_flow._validate_cidrs("") is True
+            assert options_flow._validate_cidrs("10.0.0.0/8") is True
+            assert options_flow._validate_cidrs("10.0.0.0/8,192.168.0.0/16") is True
+
+            # Invalid cases
+            assert options_flow._validate_cidrs("invalid") is False
+            assert options_flow._validate_cidrs("256.0.0.0/8") is False

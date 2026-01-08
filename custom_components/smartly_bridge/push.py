@@ -24,7 +24,7 @@ from .const import (
     PUSH_RETRY_BACKOFF_BASE,
     PUSH_RETRY_MAX,
 )
-from .http import format_numeric_attributes, get_decimal_places
+from .utils import format_numeric_attributes, get_decimal_places
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -81,7 +81,7 @@ class StatePushManager:
         self._unsub_state_changed = async_track_state_change_event(
             self.hass,
             allowed_entities,
-            state_changed_listener,
+            state_changed_listener,  # type: ignore[arg-type]
         )
 
         # Start batch processing task
@@ -400,7 +400,7 @@ class StatePushManager:
         self._unsub_state_changed = async_track_state_change_event(
             self.hass,
             allowed_entities,
-            state_changed_listener,
+            state_changed_listener,  # type: ignore[arg-type]
         )
 
         _LOGGER.info(
