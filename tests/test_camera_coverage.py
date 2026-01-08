@@ -160,16 +160,17 @@ class TestStreamProxy:
     async def test_stream_proxy_uses_ha_when_no_stream_url(self, camera_manager):
         """Test stream_proxy uses HA stream when no direct URL configured."""
         # Arrange
+        request = MagicMock()
         response = MagicMock()
 
         with patch.object(
             camera_manager, "_stream_from_ha", new_callable=AsyncMock
         ) as mock_stream_ha:
             # Act
-            await camera_manager.stream_proxy("camera.test", response)
+            await camera_manager.stream_proxy("camera.test", request, response)
 
             # Assert
-            mock_stream_ha.assert_called_once_with("camera.test", response)
+            mock_stream_ha.assert_called_once_with("camera.test", request, response)
 
     async def test_stream_proxy_uses_direct_url_when_configured(self, camera_manager):
         """Test stream_proxy uses direct URL when configured."""
@@ -180,13 +181,14 @@ class TestStreamProxy:
             stream_url="http://camera.local/stream",
         )
         camera_manager._camera_configs["camera.test"] = config
+        request = MagicMock()
         response = MagicMock()
 
         with patch.object(
             camera_manager, "_stream_from_url", new_callable=AsyncMock
         ) as mock_stream_url:
             # Act
-            await camera_manager.stream_proxy("camera.test", response)
+            await camera_manager.stream_proxy("camera.test", request, response)
 
             # Assert
             mock_stream_url.assert_called_once_with(config, response)
