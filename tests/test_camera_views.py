@@ -6,7 +6,6 @@ import json
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
-from aiohttp import web
 
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot

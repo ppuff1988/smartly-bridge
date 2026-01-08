@@ -384,9 +384,11 @@ class SmartlyCameraListView(BaseView):
                         camera_info["endpoints"] = {
                             "snapshot": f"/api/smartly/camera/{entity_id}/snapshot",
                             "mjpeg": f"/api/smartly/camera/{entity_id}/stream",
-                            "hls": f"/api/smartly/camera/{entity_id}/stream/hls"
-                            if stream_info.supports_hls
-                            else None,
+                            "hls": (
+                                f"/api/smartly/camera/{entity_id}/stream/hls"
+                                if stream_info.supports_hls
+                                else None
+                            ),
                         }
 
                 cameras.append(camera_info)

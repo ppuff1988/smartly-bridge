@@ -191,7 +191,6 @@ class TestOptionsFlow:
     @patch("homeassistant.helpers.frame.report_usage")
     async def test_options_step_init_show_form(self, mock_report):
         """Test options flow initial step shows form."""
-        from unittest.mock import PropertyMock, patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -218,7 +217,7 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_invalid_cidr(self):
         """Test options flow error on invalid CIDR."""
-        from unittest.mock import PropertyMock, patch
+        from unittest.mock import patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -248,7 +247,7 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_invalid_url(self):
         """Test options flow error on invalid URL."""
-        from unittest.mock import PropertyMock, patch
+        from unittest.mock import patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
@@ -278,7 +277,7 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_success(self):
         """Test successful options update."""
-        from unittest.mock import PropertyMock, patch
+        from unittest.mock import patch
 
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 

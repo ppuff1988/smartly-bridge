@@ -232,9 +232,7 @@ class TestCameraManagerHLS:
         camera_manager.hass.states.get.return_value = mock_state
 
         # Mock stream support check
-        with patch.object(
-            camera_manager, "_check_stream_support", return_value=True
-        ):
+        with patch.object(camera_manager, "_check_stream_support", return_value=True):
             result = await camera_manager.get_stream_info("camera.front_door")
 
         assert result is not None
@@ -262,7 +260,7 @@ class TestCameraManagerHLS:
             mock_check.return_value = True
 
             # Re-create manager to use patched method
-            result = await camera_manager._check_stream_support("camera.test")
+            await camera_manager._check_stream_support("camera.test")
 
     @pytest.mark.asyncio
     async def test_start_hls_stream_no_source(self, camera_manager):
@@ -271,9 +269,7 @@ class TestCameraManagerHLS:
             "homeassistant.components.camera.async_get_stream_source",
             return_value=None,
         ):
-            with patch(
-                "homeassistant.components.stream.create_stream"
-            ):
+            with patch("homeassistant.components.stream.create_stream"):
                 result = await camera_manager.start_hls_stream("camera.test")
 
         assert result is None
@@ -491,9 +487,7 @@ class TestCameraManagerHLS:
         mock_state.attributes = {"friendly_name": "Test Camera"}
         camera_manager.hass.states.get.return_value = mock_state
 
-        with patch.object(
-            camera_manager, "_check_stream_support", return_value=True
-        ):
+        with patch.object(camera_manager, "_check_stream_support", return_value=True):
             result = await camera_manager.get_camera_with_capabilities("camera.test")
 
         assert result is not None
@@ -519,9 +513,7 @@ class TestCameraManagerHLS:
 
         camera_manager.hass.states.get = get_state
 
-        with patch.object(
-            camera_manager, "_check_stream_support", return_value=True
-        ):
+        with patch.object(camera_manager, "_check_stream_support", return_value=True):
             result = await camera_manager.list_cameras_with_capabilities(
                 ["camera.one", "camera.two"]
             )

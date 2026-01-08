@@ -26,7 +26,6 @@ from .const import (
     HLS_IDLE_TIMEOUT,
     HLS_STREAM_START_TIMEOUT,
     STREAM_TYPE_HLS,
-    STREAM_TYPE_MJPEG,
 )
 
 if TYPE_CHECKING:
@@ -100,15 +99,19 @@ class CameraStreamInfo:
                 "webrtc": self.supports_webrtc,
             },
             "endpoints": {
-                "snapshot": f"/api/smartly/camera/{self.entity_id}/snapshot"
-                if self.supports_snapshot
-                else None,
-                "mjpeg": f"/api/smartly/camera/{self.entity_id}/stream"
-                if self.supports_mjpeg
-                else None,
-                "hls": f"/api/smartly/camera/{self.entity_id}/stream/hls"
-                if self.supports_hls
-                else None,
+                "snapshot": (
+                    f"/api/smartly/camera/{self.entity_id}/snapshot"
+                    if self.supports_snapshot
+                    else None
+                ),
+                "mjpeg": (
+                    f"/api/smartly/camera/{self.entity_id}/stream" if self.supports_mjpeg else None
+                ),
+                "hls": (
+                    f"/api/smartly/camera/{self.entity_id}/stream/hls"
+                    if self.supports_hls
+                    else None
+                ),
             },
             "is_streaming": self.is_streaming,
         }
@@ -672,9 +675,7 @@ class CameraManager:
                             timeout=HLS_STREAM_START_TIMEOUT,
                         )
                     except asyncio.TimeoutError:
-                        _LOGGER.warning(
-                            "Timeout waiting for HLS stream to start: %s", entity_id
-                        )
+                        _LOGGER.warning("Timeout waiting for HLS stream to start: %s", entity_id)
                         # Continue anyway, stream might still work
 
                 # Get stream token
@@ -791,9 +792,7 @@ class CameraManager:
         cleaned = 0
         async with self._hls_lock:
             idle_sessions = [
-                entity_id
-                for entity_id, session in self._hls_sessions.items()
-                if session.is_idle()
+                entity_id for entity_id, session in self._hls_sessions.items() if session.is_idle()
             ]
             for entity_id in idle_sessions:
                 session = self._hls_sessions.pop(entity_id)
@@ -806,9 +805,7 @@ class CameraManager:
                     cleaned += 1
         return cleaned
 
-    async def get_camera_with_capabilities(
-        self, entity_id: str
-    ) -> dict[str, Any] | None:
+    async def get_camera_with_capabilities(self, entity_id: str) -> dict[str, Any] | None:
         """Get camera info with full capabilities.
 
         Args:
@@ -822,9 +819,7 @@ class CameraManager:
             return None
         return stream_info.to_dict()
 
-    async def list_cameras_with_capabilities(
-        self, entity_ids: list[str]
-    ) -> list[dict[str, Any]]:
+    async def list_cameras_with_capabilities(self, entity_ids: list[str]) -> list[dict[str, Any]]:
         """List cameras with their streaming capabilities.
 
         Args:
