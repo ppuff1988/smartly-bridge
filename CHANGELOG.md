@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.6.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.5.1...v1.6.0) (2026-01-08)
+
+### ✨ 新增功能 (Features)
+
+* **camera:** 新增 IP Camera 支援與 MJPEG 串流修正 ([#35](https://github.com/ppuff1988/smartly-bridge/issues/35)) ([43b628f](https://github.com/ppuff1988/smartly-bridge/commit/43b628fd30ffac1e3bbc6ab9f072ab73416e776a)), closes [#MJPEG-001](https://github.com/ppuff1988/smartly-bridge/issues/MJPEG-001)
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### ✨ 新增功能 (Features)
