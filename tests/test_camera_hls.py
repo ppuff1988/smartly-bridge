@@ -265,9 +265,13 @@ class TestCameraManagerHLS:
     @pytest.mark.asyncio
     async def test_start_hls_stream_no_source(self, camera_manager):
         """Test starting HLS stream when no stream source available."""
-        with patch(
-            "homeassistant.components.camera.async_get_stream_source",
-            return_value=None,
+        # Mock the camera component with no stream source
+        mock_camera_component = MagicMock()
+        mock_camera_component.async_get_stream_source = AsyncMock(return_value=None)
+
+        with patch.dict(
+            "sys.modules",
+            {"homeassistant.components.camera": mock_camera_component},
         ):
             with patch("homeassistant.components.stream.create_stream"):
                 result = await camera_manager.start_hls_stream("camera.test")

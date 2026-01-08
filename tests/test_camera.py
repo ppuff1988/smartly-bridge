@@ -430,19 +430,23 @@ class TestCameraManager:
         mock_image.content = b"ha_camera_image"
         mock_image.content_type = "image/png"
 
-        with patch(
-            "homeassistant.components.camera.async_get_image",
-            new_callable=AsyncMock,
-        ) as mock_get_image:
-            mock_get_image.return_value = mock_image
+        # Mock the camera component
+        mock_camera_component = MagicMock()
+        mock_camera_component.async_get_image = AsyncMock(return_value=mock_image)
 
+        with patch.dict(
+            "sys.modules",
+            {"homeassistant.components.camera": mock_camera_component},
+        ):
             snapshot = await camera_manager._fetch_from_ha_camera("camera.test")
 
             assert snapshot is not None
             assert snapshot.image_data == b"ha_camera_image"
             assert snapshot.content_type == "image/png"
             assert snapshot.entity_id == "camera.test"
-            mock_get_image.assert_called_once_with(camera_manager.hass, "camera.test")
+            mock_camera_component.async_get_image.assert_called_once_with(
+                camera_manager.hass, "camera.test"
+            )
 
         await camera_manager.stop()
 
@@ -451,12 +455,16 @@ class TestCameraManager:
         """Test handling failure when fetching from HA camera."""
         await camera_manager.start()
 
-        with patch(
-            "homeassistant.components.camera.async_get_image",
-            new_callable=AsyncMock,
-        ) as mock_get_image:
-            mock_get_image.side_effect = Exception("Camera unavailable")
+        # Mock the camera component to raise an exception
+        mock_camera_component = MagicMock()
+        mock_camera_component.async_get_image = AsyncMock(
+            side_effect=Exception("Camera unavailable")
+        )
 
+        with patch.dict(
+            "sys.modules",
+            {"homeassistant.components.camera": mock_camera_component},
+        ):
             snapshot = await camera_manager._fetch_from_ha_camera("camera.test")
 
             assert snapshot is None
