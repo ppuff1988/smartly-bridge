@@ -214,17 +214,9 @@ class StatePushManager:
             "timestamp": datetime.now(timezone.utc).isoformat(),
         }
 
-        # Log heartbeat
-        _LOGGER.info("準備發送 heartbeat 到 webhook: %s", webhook_url)
-        _LOGGER.debug(
-            "Heartbeat 資料:\n%s",
-            json.dumps(heartbeat_event, indent=2, ensure_ascii=False),
-        )
-
         # Send heartbeat immediately using the same retry logic as state events
         try:
             await self._send_with_retry(webhook_url, [heartbeat_event])
-            _LOGGER.debug("Heartbeat sent successfully")
         except Exception as ex:
             _LOGGER.warning("Failed to send heartbeat: %s", ex)
 

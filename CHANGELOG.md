@@ -20,6 +20,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
     - `GET /api/smartly/camera/list` - 列出所有可用攝影機
     - `POST /api/smartly/camera/config` - 管理攝影機設定
 
+### 🐛 錯誤修正 (Bug Fixes)
+
+- **camera:** 修正 MJPEG 串流雙層 HTTP 響應和 chunked encoding 問題 (#MJPEG-001)
+  - **關鍵修正**：正確使用 `stream_response.content.iter_chunked()` 獲取純 MJPEG 數據
+  - 修正雙層 HTTP 響應問題（body 中包含 `HTTP/1.1 200 OK` 導致解析失敗）
+  - 禁用 MJPEG 串流的 `Transfer-Encoding: chunked`
+  - 使用 `Connection: close` 和 `enable_compression(False)` 強制禁用 chunked encoding
+  - 修正 Go HTTP 客戶端解析失敗問題（`invalid byte in chunk length`）
+  - 確保 `multipart/x-mixed-replace` 格式正確傳輸
+  - 新增詳細的調試日誌追蹤串流狀態
+  - 解決串流數據無法正常傳輸的問題（bytes_written: 0）
+
 ### ♻️ 程式碼重構 (Refactoring)
 
 - **utils:** 將數值格式化工具函式重構到 `utils.py` 模組
@@ -27,7 +39,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - 建立 `utils.py` 存放 `format_numeric_attributes` 和 `get_decimal_places` 函式
   - 改善程式碼組織性和可維護性
 
-### 🐛 錯誤修正 (Bug Fixes)
+### 🔒 安全性修正 (Security)
 
 - **ci:** 改用 pip-audit 取代 Safety，解決 typer 相容性問題
 - **ci:** 調整安全掃描為資訊性質，不因已知依賴限制而阻塞 CI

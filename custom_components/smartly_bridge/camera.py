@@ -396,6 +396,7 @@ class CameraManager:
     async def stream_proxy(
         self,
         entity_id: str,
+        request: web.Request,
         response: web.StreamResponse,
     ) -> None:
         """Proxy camera stream to client.
@@ -405,13 +406,14 @@ class CameraManager:
 
         Args:
             entity_id: The camera entity ID
+            request: The aiohttp Request object
             response: The aiohttp StreamResponse to write to
         """
         config = self._camera_configs.get(entity_id)
 
         # Try Home Assistant stream first
         if not config or not config.stream_url:
-            await self._stream_from_ha(entity_id, response)
+            await self._stream_from_ha(entity_id, request, response)
             return
 
         # Use direct stream URL if configured
@@ -420,40 +422,60 @@ class CameraManager:
     async def _stream_from_ha(
         self,
         entity_id: str,
+        request: web.Request,
         response: web.StreamResponse,
     ) -> None:
         """Stream from Home Assistant camera entity."""
         try:
             from homeassistant.components.camera import async_get_mjpeg_stream
 
-            # Set up MJPEG response headers
-            response.content_type = "multipart/x-mixed-replace;boundary=frame"
-            if response._req is not None:  # noqa: SLF001
-                await response.prepare(response._req)  # noqa: SLF001
+            _LOGGER.info("Attempting to get MJPEG stream for camera: %s", entity_id)
 
             # Get MJPEG stream from HA camera
-            # Note: BaseRequest is compatible with Request for this use case
-            stream = await async_get_mjpeg_stream(
+            # Note: async_get_mjpeg_stream returns an aiohttp Response object
+            # which contains the raw MJPEG stream in its content
+            stream_response = await async_get_mjpeg_stream(
                 self.hass,
-                response._req,  # type: ignore[arg-type]  # noqa: SLF001
+                request,  # type: ignore[arg-type]
                 entity_id,
             )
-            if stream is None:
-                _LOGGER.error("Failed to get MJPEG stream for camera: %s", entity_id)
+            if stream_response is None:
+                _LOGGER.error(
+                    "Failed to get MJPEG stream for camera: %s (stream is None)", entity_id
+                )
                 return
 
-            # Proxy the stream
-            async for chunk in stream.iter_chunked(  # type: ignore[attr-defined]
-                CAMERA_STREAM_CHUNK_SIZE
-            ):
+            _LOGGER.info("MJPEG stream obtained, starting to proxy data for camera: %s", entity_id)
+
+            # Stream the content directly without wrapping in HTTP response
+            # The stream_response.content is already MJPEG formatted data
+            chunk_count = 0
+            bytes_written = 0
+            async for chunk in stream_response.content.iter_chunked(CAMERA_STREAM_CHUNK_SIZE):
                 await response.write(chunk)
+                chunk_count += 1
+                bytes_written += len(chunk)
+                if chunk_count % 10 == 0:
+                    _LOGGER.debug(
+                        "Streamed %d chunks (%d bytes) for camera: %s",
+                        chunk_count,
+                        bytes_written,
+                        entity_id,
+                    )
+
+            _LOGGER.info(
+                "Stream completed for camera %s (sent %d chunks, %d bytes)",
+                entity_id,
+                chunk_count,
+                bytes_written,
+            )
 
         except ImportError:
             _LOGGER.error("Camera streaming component not available")
         except asyncio.CancelledError:
-            _LOGGER.debug("Stream cancelled for camera: %s", entity_id)
+            _LOGGER.info("Stream cancelled by client for camera: %s", entity_id)
         except Exception as ex:
-            _LOGGER.error("Error streaming from HA camera %s: %s", entity_id, ex)
+            _LOGGER.error("Error streaming from HA camera %s: %s", entity_id, ex, exc_info=True)
 
     async def _stream_from_url(
         self,
