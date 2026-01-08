@@ -23,6 +23,5 @@ aiodns>=3.0.0,<4.0.0
 pycares>=4.3.0,<6.0.0
 
 # Home Assistant (required for testing)
-# Using 2024.x for Python 3.12 compatibility
-# Note: Upgrading to Python 3.13 + HA 2025.2+ will resolve security vulnerabilities
-homeassistant>=2024.1.0,<2025.0.0
+# Using 2025.x for Python 3.13 compatibility
+homeassistant>=2025.1.0
