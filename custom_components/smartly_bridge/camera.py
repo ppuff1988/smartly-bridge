@@ -451,7 +451,9 @@ class CameraManager:
             # The stream_response.content is already MJPEG formatted data
             chunk_count = 0
             bytes_written = 0
-            async for chunk in stream_response.content.iter_chunked(CAMERA_STREAM_CHUNK_SIZE):  # type: ignore[attr-defined]
+            async for chunk in stream_response.content.iter_chunked(
+                CAMERA_STREAM_CHUNK_SIZE
+            ):  # type: ignore[attr-defined]
                 await response.write(chunk)
                 chunk_count += 1
                 bytes_written += len(chunk)

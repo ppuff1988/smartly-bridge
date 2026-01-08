@@ -6,14 +6,9 @@ This test verifies that:
 3. Cache control headers are appropriate for streaming
 """
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
 import pytest
 from aiohttp import web
 from aiohttp.test_utils import AioHTTPTestCase
-
-from custom_components.smartly_bridge.const import DOMAIN
-from custom_components.smartly_bridge.views.camera import SmartlyCameraStreamView
 
 
 class TestMJPEGStreamResponse(AioHTTPTestCase):
