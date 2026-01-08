@@ -654,7 +654,7 @@ class CameraManager:
                     self.hass,
                     stream_source,
                     {},
-                    dynamic_settings,  # type: ignore[arg-type]
+                    dynamic_settings,
                 )
 
                 # Add HLS provider

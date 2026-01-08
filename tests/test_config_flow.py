@@ -179,21 +179,34 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_async_get_options_flow(self):
         """Test getting options flow."""
+        from homeassistant.config_entries import OptionsFlowWithConfigEntry
+
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
         config_entry = MagicMock()
+        config_entry.entry_id = "test_entry_id"
 
-        options_flow = SmartlyBridgeConfigFlow.async_get_options_flow(config_entry)
+        # Patch OptionsFlowWithConfigEntry.__init__ to bypass report_usage
+        def mock_init(self, config_entry):
+            self.__dict__["_config_entry"] = config_entry
 
-        assert isinstance(options_flow, SmartlyBridgeOptionsFlow)
+        with patch.object(OptionsFlowWithConfigEntry, "__init__", mock_init):
+            options_flow = SmartlyBridgeConfigFlow.async_get_options_flow(config_entry)
+
+            assert isinstance(options_flow, SmartlyBridgeOptionsFlow)
 
     @pytest.mark.asyncio
     async def test_options_step_init_show_form(self):
         """Test options flow initial step shows form."""
+        from unittest.mock import PropertyMock
+
+        from homeassistant.config_entries import OptionsFlowWithConfigEntry
+
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
         mock_hass = MagicMock()
         mock_config_entry = MagicMock()
+        mock_config_entry.entry_id = "test_entry_id"
         mock_config_entry.data = {
             CONF_WEBHOOK_URL: "https://example.com/webhook",
             CONF_ALLOWED_CIDRS: "10.0.0.0/8",
@@ -202,9 +215,18 @@ class TestOptionsFlow:
             CONF_CLIENT_SECRET: "test_secret",
         }
 
+        # Patch OptionsFlowWithConfigEntry.__init__ to bypass report_usage
+        def mock_init(self, config_entry):
+            self.__dict__["_config_entry"] = config_entry
+
         with (
-            patch("homeassistant.helpers.frame.report_usage"),
-            patch("homeassistant.helpers.frame.get_integration_frame"),
+            patch.object(OptionsFlowWithConfigEntry, "__init__", mock_init),
+            patch.object(
+                SmartlyBridgeOptionsFlow,
+                "config_entry",
+                new_callable=PropertyMock,
+                return_value=mock_config_entry,
+            ),
         ):
             options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
             options_flow.hass = mock_hass
@@ -219,19 +241,33 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_invalid_cidr(self):
         """Test options flow error on invalid CIDR."""
+        from unittest.mock import PropertyMock
+
+        from homeassistant.config_entries import OptionsFlowWithConfigEntry
+
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
         mock_hass = MagicMock()
         mock_config_entry = MagicMock()
+        mock_config_entry.entry_id = "test_entry_id"
         mock_config_entry.data = {
             CONF_WEBHOOK_URL: "https://example.com/webhook",
             CONF_ALLOWED_CIDRS: "10.0.0.0/8",
             CONF_PUSH_BATCH_INTERVAL: 1.0,
         }
 
+        # Patch OptionsFlowWithConfigEntry.__init__ to bypass report_usage
+        def mock_init(self, config_entry):
+            self.__dict__["_config_entry"] = config_entry
+
         with (
-            patch("homeassistant.helpers.frame.report_usage"),
-            patch("homeassistant.helpers.frame.get_integration_frame"),
+            patch.object(OptionsFlowWithConfigEntry, "__init__", mock_init),
+            patch.object(
+                SmartlyBridgeOptionsFlow,
+                "config_entry",
+                new_callable=PropertyMock,
+                return_value=mock_config_entry,
+            ),
         ):
             options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
             options_flow.hass = mock_hass
@@ -250,19 +286,33 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_invalid_url(self):
         """Test options flow error on invalid URL."""
+        from unittest.mock import PropertyMock
+
+        from homeassistant.config_entries import OptionsFlowWithConfigEntry
+
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
         mock_hass = MagicMock()
         mock_config_entry = MagicMock()
+        mock_config_entry.entry_id = "test_entry_id"
         mock_config_entry.data = {
             CONF_WEBHOOK_URL: "https://example.com/webhook",
             CONF_ALLOWED_CIDRS: "10.0.0.0/8",
             CONF_PUSH_BATCH_INTERVAL: 1.0,
         }
 
+        # Patch OptionsFlowWithConfigEntry.__init__ to bypass report_usage
+        def mock_init(self, config_entry):
+            self.__dict__["_config_entry"] = config_entry
+
         with (
-            patch("homeassistant.helpers.frame.report_usage"),
-            patch("homeassistant.helpers.frame.get_integration_frame"),
+            patch.object(OptionsFlowWithConfigEntry, "__init__", mock_init),
+            patch.object(
+                SmartlyBridgeOptionsFlow,
+                "config_entry",
+                new_callable=PropertyMock,
+                return_value=mock_config_entry,
+            ),
         ):
             options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
             options_flow.hass = mock_hass
@@ -281,10 +331,15 @@ class TestOptionsFlow:
     @pytest.mark.asyncio
     async def test_options_step_init_success(self):
         """Test successful options update."""
+        from unittest.mock import PropertyMock
+
+        from homeassistant.config_entries import OptionsFlowWithConfigEntry
+
         from custom_components.smartly_bridge.config_flow import SmartlyBridgeOptionsFlow
 
         mock_hass = MagicMock()
         mock_config_entry = MagicMock()
+        mock_config_entry.entry_id = "test_entry_id"
         mock_config_entry.data = {
             CONF_INSTANCE_ID: "test_instance",
             CONF_CLIENT_ID: "test_client",
@@ -294,9 +349,18 @@ class TestOptionsFlow:
             CONF_PUSH_BATCH_INTERVAL: 1.0,
         }
 
+        # Patch OptionsFlowWithConfigEntry.__init__ to bypass report_usage
+        def mock_init(self, config_entry):
+            self.__dict__["_config_entry"] = config_entry
+
         with (
-            patch("homeassistant.helpers.frame.report_usage"),
-            patch("homeassistant.helpers.frame.get_integration_frame"),
+            patch.object(OptionsFlowWithConfigEntry, "__init__", mock_init),
+            patch.object(
+                SmartlyBridgeOptionsFlow,
+                "config_entry",
+                new_callable=PropertyMock,
+                return_value=mock_config_entry,
+            ),
         ):
             options_flow = SmartlyBridgeOptionsFlow(mock_config_entry)
             options_flow.hass = mock_hass

@@ -252,7 +252,8 @@ class TestViewRegistration:
 
         register_views(mock_hass)
 
-        # Control, Sync Structure, Sync States + 5 Camera views (Snapshot, Stream, List, Config, HLS)
+        # Control, Sync Structure, Sync States + 5 Camera views
+        # (Snapshot, Stream, List, Config, HLS)
         assert mock_hass.http.register_view.call_count == 8
 
 
