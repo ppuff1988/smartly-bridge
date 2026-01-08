@@ -193,7 +193,7 @@ class TestSyncEndpoint:
 
         # Mock verify_request and get_structure
         with (
-            patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify,
+            patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify,
             patch("custom_components.smartly_bridge.acl.get_structure") as mock_structure,
         ):
 
@@ -304,7 +304,7 @@ class TestStatesEndpoint:
         mock_request.read = AsyncMock(return_value=b"")
 
         # Mock auth verification
-        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+        with patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify:
             mock_verify.return_value = MagicMock(
                 success=True, client_id=mock_config_entry.data["client_id"], error=None
             )

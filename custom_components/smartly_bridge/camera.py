@@ -643,9 +643,7 @@ class CameraManager:
                 dynamic_settings: Any = None
                 try:
                     # HA 2024.x+ location
-                    from homeassistant.components.camera.prefs import (
-                        DynamicStreamSettings,
-                    )
+                    from homeassistant.components.camera.prefs import DynamicStreamSettings
 
                     dynamic_settings = DynamicStreamSettings()
                 except ImportError:
