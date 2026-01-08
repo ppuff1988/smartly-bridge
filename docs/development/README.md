@@ -21,6 +21,21 @@
 - 配置反向代理環境
 - 排查 IP 白名單問題
 
+### [mjpeg-chunked-encoding-fix.md](mjpeg-chunked-encoding-fix.md)
+**MJPEG 串流 Chunked Encoding 修正**
+
+說明 MJPEG 串流與 HTTP Chunked Encoding 的衝突問題及解決方案：
+- 問題診斷與技術原因分析
+- MJPEG 與 Chunked Encoding 格式說明
+- 解決方案實作細節
+- 驗證測試方法
+- 未來優化方向
+
+**適用場景：**
+- 理解 MJPEG 串流實作
+- 排查串流傳輸問題
+- HTTP 協議相容性問題
+
 ## 🔗 相關文檔
 
 - **[CI/CD 指南](../CI_CD_GUIDE.md)** - 持續整合與部署配置

@@ -174,6 +174,33 @@ class SmartlyCameraStreamView(BaseView):
         """Handle camera stream request."""
         entity_id = self.request.match_info.get("entity_id", "")
 
+        # Log detailed request information
+        _LOGGER.info(
+            "Camera stream request received:\n"
+            "  Entity ID: %s\n"
+            "  Method: %s\n"
+            "  Path: %s\n"
+            "  Query String: %s\n"
+            "  Query Params: %s\n"
+            "  Headers: %s\n"
+            "  Remote: %s\n"
+            "  Client IP: %s\n"
+            "  X-Forwarded-For: %s\n"
+            "  X-Real-IP: %s\n"
+            "  X-Stream-Token: %s",
+            entity_id,
+            self.request.method,
+            self.request.path,
+            self.request.query_string,
+            dict(self.request.query),
+            dict(self.request.headers),
+            self.request.remote,
+            self.request.headers.get("X-Client-IP", "N/A"),
+            self.request.headers.get("X-Forwarded-For", "N/A"),
+            self.request.headers.get("X-Real-IP", "N/A"),
+            self.request.headers.get("X-Stream-Token", "N/A"),
+        )
+
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
             return web.json_response(
@@ -271,11 +298,31 @@ class SmartlyCameraStreamView(BaseView):
         )
 
         # Create stream response
-        response = web.StreamResponse()
-        response.content_type = "multipart/x-mixed-replace;boundary=frame"
+        # IMPORTANT: For MJPEG streams, we must avoid chunked encoding
+        # MJPEG uses multipart/x-mixed-replace format which is incompatible with
+        # Transfer-Encoding: chunked. The chunked wrapper breaks the multipart
+        # boundaries and causes parsing errors in clients (e.g., Go HTTP client).
+        #
+        # Solution: Use HTTP/1.0-style response (no chunked encoding)
+        # by explicitly disabling compression and using Connection: close
+        response = web.StreamResponse(
+            status=200,
+            headers={
+                "Content-Type": "multipart/x-mixed-replace;boundary=frame",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "Connection": "close",  # Critical: prevents chunked encoding
+            },
+        )
+
+        # Explicitly disable compression to avoid any encoding
+        response.enable_compression(False)
+
+        await response.prepare(self.request)
 
         # Stream the camera feed
-        await camera_manager.stream_proxy(entity_id, response)
+        await camera_manager.stream_proxy(entity_id, self.request, response)
 
         return response
 
