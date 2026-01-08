@@ -269,12 +269,18 @@ class TestCameraManagerHLS:
         mock_camera_component = MagicMock()
         mock_camera_component.async_get_stream_source = AsyncMock(return_value=None)
 
+        # Mock the stream component
+        mock_stream_component = MagicMock()
+        mock_stream_component.create_stream = MagicMock()
+
         with patch.dict(
             "sys.modules",
-            {"homeassistant.components.camera": mock_camera_component},
+            {
+                "homeassistant.components.camera": mock_camera_component,
+                "homeassistant.components.stream": mock_stream_component,
+            },
         ):
-            with patch("homeassistant.components.stream.create_stream"):
-                result = await camera_manager.start_hls_stream("camera.test")
+            result = await camera_manager.start_hls_stream("camera.test")
 
         assert result is None
 
