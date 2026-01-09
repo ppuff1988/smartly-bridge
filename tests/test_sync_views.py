@@ -206,6 +206,15 @@ class TestSmartlySyncStatesView:
                 "custom_components.smartly_bridge.views.sync.get_allowed_entities",
                 return_value=["light.kitchen", "switch.bedroom"],
             ):
+                # Mock entity registry entries with icon info
+                mock_entry1 = MagicMock()
+                mock_entry1.icon = "mdi:lightbulb"  # Has custom icon
+                mock_entry1.original_icon = "mdi:light"
+
+                mock_entry2 = MagicMock()
+                mock_entry2.icon = None  # No custom icon, should fallback
+                mock_entry2.original_icon = "mdi:toggle-switch"
+
                 # Mock states
                 mock_state1 = MagicMock()
                 mock_state1.state = "on"
@@ -226,24 +235,43 @@ class TestSmartlySyncStatesView:
                         return mock_state2
                     return None
 
+                def async_get_entry(entity_id):
+                    if entity_id == "light.kitchen":
+                        return mock_entry1
+                    elif entity_id == "switch.bedroom":
+                        return mock_entry2
+                    return None
+
                 mock_hass.states.get = get_state
 
-                view = SmartlySyncStatesView(mock_request)
-                response = await view.get()
+                # Mock entity registry
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = async_get_entry
+                    mock_er_get.return_value = mock_registry
 
-                assert response.status == 200
-                import json
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
 
-                data = json.loads(response.body)
-                assert "states" in data
-                assert data["count"] == 2
-                assert len(data["states"]) == 2
+                    assert response.status == 200
+                    import json
 
-                # Verify first state
-                state1 = next(s for s in data["states"] if s["entity_id"] == "light.kitchen")
-                assert state1["state"] == "on"
-                assert state1["attributes"]["brightness"] == 255
-                assert state1["last_changed"] is not None
+                    data = json.loads(response.body)
+                    assert "states" in data
+                    assert data["count"] == 2
+                    assert len(data["states"]) == 2
+
+                    # Verify first state with custom icon
+                    state1 = next(s for s in data["states"] if s["entity_id"] == "light.kitchen")
+                    assert state1["state"] == "on"
+                    assert state1["attributes"]["brightness"] == 255
+                    assert state1["last_changed"] is not None
+                    assert state1["icon"] == "mdi:lightbulb"  # Custom icon is returned
+
+                    # Verify second state with fallback to original_icon
+                    state2 = next(s for s in data["states"] if s["entity_id"] == "switch.bedroom")
+                    assert state2["state"] == "off"
+                    assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
 
     @pytest.mark.asyncio
     async def test_states_sync_with_missing_entity(self, mock_request, mock_hass):
@@ -258,6 +286,15 @@ class TestSmartlySyncStatesView:
                 "custom_components.smartly_bridge.views.sync.get_allowed_entities",
                 return_value=["light.kitchen", "light.missing", "switch.bedroom"],
             ):
+                # Mock entity registry entries
+                mock_entry1 = MagicMock()
+                mock_entry1.icon = None
+                mock_entry1.original_icon = "mdi:lightbulb"
+
+                mock_entry2 = MagicMock()
+                mock_entry2.icon = None
+                mock_entry2.original_icon = "mdi:toggle-switch"
+
                 # Mock states - light.missing will return None
                 mock_state1 = MagicMock()
                 mock_state1.state = "on"
@@ -278,18 +315,31 @@ class TestSmartlySyncStatesView:
                         return mock_state2
                     return None  # light.missing returns None
 
+                def async_get_entry(entity_id):
+                    if entity_id == "light.kitchen":
+                        return mock_entry1
+                    elif entity_id == "switch.bedroom":
+                        return mock_entry2
+                    return None
+
                 mock_hass.states.get = get_state
 
-                view = SmartlySyncStatesView(mock_request)
-                response = await view.get()
+                # Mock entity registry
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = async_get_entry
+                    mock_er_get.return_value = mock_registry
 
-                assert response.status == 200
-                import json
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
 
-                data = json.loads(response.body)
-                # Should only include entities with states
-                assert data["count"] == 2
-                assert len(data["states"]) == 2
+                    assert response.status == 200
+                    import json
+
+                    data = json.loads(response.body)
+                    # Should only include entities with states
+                    assert data["count"] == 2
+                    assert len(data["states"]) == 2
 
     @pytest.mark.asyncio
     async def test_states_sync_empty_allowed_entities(self, mock_request, mock_hass):
