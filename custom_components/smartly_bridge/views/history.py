@@ -555,6 +555,117 @@ class SmartlyHistoryBatchView(web.View):
 
         return None
 
+    def _filter_allowed_entities(
+        self,
+        entity_ids: list[str],
+        entity_registry,
+        client_id: str,
+    ) -> tuple[list[str], list[str]]:
+        """Filter entity IDs by access permissions.
+
+        Returns:
+            Tuple of (allowed_entity_ids, denied_entity_ids)
+        """
+        allowed_entity_ids = []
+        denied_entity_ids = []
+
+        for eid in entity_ids:
+            if is_entity_allowed(self.hass, eid, entity_registry):
+                allowed_entity_ids.append(eid)
+            else:
+                denied_entity_ids.append(eid)
+                log_deny(
+                    _LOGGER,
+                    client_id=client_id,
+                    entity_id=eid,
+                    service="history_batch",
+                    reason="entity_not_allowed",
+                )
+
+        return allowed_entity_ids, denied_entity_ids
+
+    def _parse_time_range(self, body: dict[str, Any]) -> tuple[datetime, datetime] | web.Response:
+        """Parse and validate time range from request body.
+
+        Returns:
+            Tuple of (start_time, end_time) or error response
+        """
+        now = dt_util.utcnow()
+
+        end_time = _parse_datetime(body.get("end_time"))
+        if end_time is None:
+            end_time = now
+
+        start_time = _parse_datetime(body.get("start_time"))
+        if start_time is None:
+            start_time = end_time - timedelta(hours=HISTORY_DEFAULT_HOURS)
+
+        # Validate time range
+        max_duration = timedelta(days=HISTORY_MAX_DURATION_DAYS)
+        if end_time - start_time > max_duration:
+            return web.json_response(
+                {
+                    "error": "time_range_too_large",
+                    "max_days": HISTORY_MAX_DURATION_DAYS,
+                },
+                status=400,
+            )
+
+        if start_time > end_time:
+            return web.json_response(
+                {"error": "invalid_time_range"},
+                status=400,
+            )
+
+        return start_time, end_time
+
+    def _format_entity_history(
+        self,
+        entity_id: str,
+        entity_states: list,
+        limit: int,
+        start_time: datetime,
+        end_time: datetime,
+    ) -> tuple[list[dict[str, Any]], dict[str, Any] | None]:
+        """Format history data for a single entity.
+
+        Returns:
+            Tuple of (formatted_states, metadata)
+        """
+        # Generate metadata for entity
+        metadata = None
+        if entity_states:
+            # Find first state with attributes
+            for state in entity_states:
+                # Check if it's a State object (not dict)
+                if not isinstance(state, dict):
+                    if hasattr(state, "attributes") and state.attributes:
+                        metadata = _get_entity_metadata(
+                            entity_id, _format_state(state, include_attributes=True)
+                        )
+                        break
+                elif state.get("a"):  # Compressed format with attributes
+                    metadata = _get_entity_metadata(entity_id, _format_state(state))
+                    break
+
+            if not metadata:
+                metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
+
+        # Get decimal places and is_numeric for formatting and boundary filling
+        decimal_places = metadata.get("decimal_places") if metadata else None
+        is_numeric = metadata.get("is_numeric", False) if metadata else False
+
+        # Format history data
+        formatted_states = [
+            _format_state(s, decimal_places, include_attributes=(i == 0))
+            for i, s in enumerate(entity_states[:limit])
+        ]
+
+        # 確保時間範圍完整，填補邊界點
+        formatted_states = _ensure_time_bounds(formatted_states, start_time, end_time, is_numeric)
+
+        return formatted_states, metadata
+
     async def post(self) -> web.Response:
         """Handle batch history query request."""
         # Get integration data
@@ -646,21 +757,9 @@ class SmartlyHistoryBatchView(web.View):
         from homeassistant.helpers import entity_registry as er
 
         entity_registry = er.async_get(self.hass)
-        allowed_entity_ids = []
-        denied_entity_ids = []
-
-        for eid in entity_ids:
-            if is_entity_allowed(self.hass, eid, entity_registry):
-                allowed_entity_ids.append(eid)
-            else:
-                denied_entity_ids.append(eid)
-                log_deny(
-                    _LOGGER,
-                    client_id=auth_result.client_id or "unknown",
-                    entity_id=eid,
-                    service="history_batch",
-                    reason="entity_not_allowed",
-                )
+        allowed_entity_ids, denied_entity_ids = self._filter_allowed_entities(
+            entity_ids, entity_registry, auth_result.client_id or "unknown"
+        )
 
         if not allowed_entity_ids:
             return web.json_response(
@@ -669,32 +768,10 @@ class SmartlyHistoryBatchView(web.View):
             )
 
         # Parse time parameters
-        now = dt_util.utcnow()
-
-        end_time = _parse_datetime(body.get("end_time"))
-        if end_time is None:
-            end_time = now
-
-        start_time = _parse_datetime(body.get("start_time"))
-        if start_time is None:
-            start_time = end_time - timedelta(hours=HISTORY_DEFAULT_HOURS)
-
-        # Validate time range
-        max_duration = timedelta(days=HISTORY_MAX_DURATION_DAYS)
-        if end_time - start_time > max_duration:
-            return web.json_response(
-                {
-                    "error": "time_range_too_large",
-                    "max_days": HISTORY_MAX_DURATION_DAYS,
-                },
-                status=400,
-            )
-
-        if start_time > end_time:
-            return web.json_response(
-                {"error": "invalid_time_range"},
-                status=400,
-            )
+        time_result = self._parse_time_range(body)
+        if isinstance(time_result, web.Response):
+            return time_result
+        start_time, end_time = time_result
 
         # Parse limit parameter
         # 對於 24 小時內的查詢，不限制筆數；超過 24 小時則使用預設限制
@@ -742,38 +819,8 @@ class SmartlyHistoryBatchView(web.View):
             entity_states = states.get(eid, [])
             truncated_data[eid] = len(entity_states) > limit
 
-            # Generate metadata for entity
-            metadata = None
-            if entity_states:
-                # Find first state with attributes
-                for state in entity_states:
-                    # Check if it's a State object (not dict)
-                    if not isinstance(state, dict):
-                        if hasattr(state, "attributes") and state.attributes:
-                            metadata = _get_entity_metadata(
-                                eid, _format_state(state, include_attributes=True)
-                            )
-                            break
-                    elif state.get("a"):  # Compressed format with attributes
-                        metadata = _get_entity_metadata(eid, _format_state(state))
-                        break
-
-                if not metadata:
-                    metadata = _get_entity_metadata(eid, _format_state(entity_states[0]))
-
-            # Get decimal places and is_numeric for formatting and boundary filling
-            decimal_places = metadata.get("decimal_places") if metadata else None
-            is_numeric = metadata.get("is_numeric", False) if metadata else False
-
-            # Format history data
-            formatted_states = [
-                _format_state(s, decimal_places, include_attributes=(i == 0))
-                for i, s in enumerate(entity_states[:limit])
-            ]
-
-            # 確保時間範圍完整，填補邊界點
-            formatted_states = _ensure_time_bounds(
-                formatted_states, start_time, end_time, is_numeric
+            formatted_states, metadata = self._format_entity_history(
+                eid, entity_states, limit, start_time, end_time
             )
 
             history_data[eid] = formatted_states
