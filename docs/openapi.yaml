@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Smartly Bridge API
-  version: 1.1.0
+  version: 1.2.0
   description: |
     Home Assistant Custom Integration API for connecting community-level Home Assistant 
     with central management platform (Smartly Platform).
@@ -22,6 +22,7 @@ info:
     
     ## Version History
     
+    - **v1.2.0** (2026-01-10): Added History API for querying entity history and statistics
     - **v1.1.0** (2026-01-09): Added `icon` and `original_icon` fields to sync APIs
     - **v1.0.0**: Initial release
     
@@ -154,6 +155,8 @@ tags:
     description: Device control operations
   - name: Sync
     description: Structure and state synchronization
+  - name: History
+    description: Query entity history and statistics
 
 paths:
   /api/smartly/control:
@@ -458,6 +461,234 @@ paths:
                 count: 1
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/history/{entity_id}:
+    get:
+      tags:
+        - History
+      summary: Get entity history
+      description: |
+        Query historical states for a single entity. Returns state changes over the specified
+        time range. Useful for charting, analysis, and auditing.
+        
+        **Time Range:**
+        - Maximum duration: 30 days
+        - Default duration: 24 hours (if start_time not specified)
+        
+        **Response Limit:**
+        - Maximum 1000 records per request
+        - Use `truncated` field to detect if more records exist
+      operationId: getEntityHistory
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: The entity ID to query history for
+          schema:
+            type: string
+            example: sensor.temperature
+        - name: start_time
+          in: query
+          required: false
+          description: ISO 8601 start time (default: 24 hours ago)
+          schema:
+            type: string
+            format: date-time
+            example: "2026-01-09T00:00:00Z"
+        - name: end_time
+          in: query
+          required: false
+          description: ISO 8601 end time (default: now)
+          schema:
+            type: string
+            format: date-time
+            example: "2026-01-10T00:00:00Z"
+        - name: limit
+          in: query
+          required: false
+          description: Maximum number of records to return (max 1000)
+          schema:
+            type: integer
+            default: 1000
+            maximum: 1000
+        - name: significant_changes_only
+          in: query
+          required: false
+          description: Only return significant state changes
+          schema:
+            type: boolean
+            default: true
+      responses:
+        '200':
+          description: History retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryResponse'
+              example:
+                entity_id: sensor.temperature
+                history:
+                  - state: "22.5"
+                    attributes:
+                      unit_of_measurement: "°C"
+                    last_changed: "2026-01-10T10:00:00+00:00"
+                    last_updated: "2026-01-10T10:00:00+00:00"
+                count: 1
+                truncated: false
+                start_time: "2026-01-09T00:00:00+00:00"
+                end_time: "2026-01-10T00:00:00+00:00"
+        '400':
+          description: Bad request (invalid time range, missing entity_id)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Entity not allowed (missing smartly label)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/history/batch:
+    post:
+      tags:
+        - History
+      summary: Batch query entity history
+      description: |
+        Query historical states for multiple entities at once. More efficient than
+        making multiple individual requests.
+        
+        **Limits:**
+        - Maximum 50 entities per request
+        - Maximum 30 days time range
+        - Maximum 1000 records per entity
+      operationId: getEntityHistoryBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/HistoryBatchRequest'
+            example:
+              entity_ids:
+                - sensor.temp1
+                - sensor.temp2
+              start_time: "2026-01-09T00:00:00Z"
+              end_time: "2026-01-10T00:00:00Z"
+              limit: 500
+      responses:
+        '200':
+          description: Batch history retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HistoryBatchResponse'
+        '400':
+          description: Bad request (too many entities, invalid time range)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/statistics/{entity_id}:
+    get:
+      tags:
+        - History
+      summary: Get entity statistics
+      description: |
+        Query statistical aggregations (mean, min, max, sum) for a sensor entity.
+        Useful for energy consumption reports, temperature trends, etc.
+        
+        **Period Options:**
+        - `hour`: Hourly statistics
+        - `day`: Daily statistics
+        - `week`: Weekly statistics
+        - `month`: Monthly statistics
+        
+        **Note:** Statistics are only available for entities that have been configured
+        to record long-term statistics in Home Assistant.
+      operationId: getEntityStatistics
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: The entity ID to query statistics for
+          schema:
+            type: string
+            example: sensor.power_consumption
+        - name: period
+          in: query
+          required: false
+          description: Aggregation period
+          schema:
+            type: string
+            enum: [hour, day, week, month]
+            default: hour
+        - name: start_time
+          in: query
+          required: false
+          description: ISO 8601 start time (default: 24 hours ago)
+          schema:
+            type: string
+            format: date-time
+        - name: end_time
+          in: query
+          required: false
+          description: ISO 8601 end time (default: now)
+          schema:
+            type: string
+            format: date-time
+      responses:
+        '200':
+          description: Statistics retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatisticsResponse'
+              example:
+                entity_id: sensor.power_consumption
+                period: hour
+                statistics:
+                  - start: "2026-01-10T09:00:00+00:00"
+                    end: "2026-01-10T10:00:00+00:00"
+                    mean: 150.5
+                    min: 50.0
+                    max: 300.0
+                    sum: 3612.0
+                count: 1
+                start_time: "2026-01-09T00:00:00+00:00"
+                end_time: "2026-01-10T00:00:00+00:00"
+        '400':
+          description: Bad request (invalid period, time range)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Entity not allowed (missing smartly label)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -903,6 +1134,221 @@ components:
             MDI format icon (e.g., mdi:lightbulb). Automatically uses custom icon if set,
             otherwise falls back to original default icon. Null if no icon available.
           example: mdi:lightbulb
+
+    # History API Schemas
+    HistoryResponse:
+      type: object
+      description: Response for single entity history query
+      required:
+        - entity_id
+        - history
+        - count
+        - truncated
+        - start_time
+        - end_time
+      properties:
+        entity_id:
+          type: string
+          description: The entity ID queried
+          example: sensor.temperature
+        history:
+          type: array
+          description: List of historical states
+          items:
+            $ref: '#/components/schemas/HistoryState'
+        count:
+          type: integer
+          description: Number of records returned
+          example: 24
+        truncated:
+          type: boolean
+          description: Whether more records exist beyond the limit
+          example: false
+        start_time:
+          type: string
+          format: date-time
+          description: Query start time
+          example: "2026-01-09T00:00:00+00:00"
+        end_time:
+          type: string
+          format: date-time
+          description: Query end time
+          example: "2026-01-10T00:00:00+00:00"
+
+    HistoryState:
+      type: object
+      description: A single historical state record
+      required:
+        - state
+        - last_changed
+        - last_updated
+      properties:
+        state:
+          type: string
+          description: The state value
+          example: "22.5"
+        attributes:
+          type: object
+          description: Entity attributes at this point in time
+          additionalProperties: true
+          example:
+            unit_of_measurement: "°C"
+            friendly_name: "Temperature Sensor"
+        last_changed:
+          type: string
+          format: date-time
+          description: When the state last changed
+          example: "2026-01-10T10:00:00+00:00"
+        last_updated:
+          type: string
+          format: date-time
+          description: When the state was last updated
+          example: "2026-01-10T10:00:00+00:00"
+
+    HistoryBatchRequest:
+      type: object
+      description: Request for batch history query
+      required:
+        - entity_ids
+      properties:
+        entity_ids:
+          type: array
+          description: List of entity IDs to query (max 50)
+          maxItems: 50
+          items:
+            type: string
+          example:
+            - sensor.temp1
+            - sensor.temp2
+        start_time:
+          type: string
+          format: date-time
+          description: ISO 8601 start time (default: 24 hours ago)
+          example: "2026-01-09T00:00:00Z"
+        end_time:
+          type: string
+          format: date-time
+          description: ISO 8601 end time (default: now)
+          example: "2026-01-10T00:00:00Z"
+        limit:
+          type: integer
+          description: Maximum records per entity (max 1000)
+          default: 1000
+          maximum: 1000
+
+    HistoryBatchResponse:
+      type: object
+      description: Response for batch history query
+      required:
+        - history
+        - count
+        - truncated
+        - start_time
+        - end_time
+      properties:
+        history:
+          type: object
+          description: History data keyed by entity_id
+          additionalProperties:
+            type: array
+            items:
+              $ref: '#/components/schemas/HistoryState'
+        count:
+          type: object
+          description: Record count per entity
+          additionalProperties:
+            type: integer
+        truncated:
+          type: object
+          description: Truncation status per entity
+          additionalProperties:
+            type: boolean
+        denied_entities:
+          type: array
+          description: Entity IDs that were denied access
+          items:
+            type: string
+        start_time:
+          type: string
+          format: date-time
+          description: Query start time
+        end_time:
+          type: string
+          format: date-time
+          description: Query end time
+
+    StatisticsResponse:
+      type: object
+      description: Response for statistics query
+      required:
+        - entity_id
+        - period
+        - statistics
+        - count
+        - start_time
+        - end_time
+      properties:
+        entity_id:
+          type: string
+          description: The entity ID queried
+          example: sensor.power_consumption
+        period:
+          type: string
+          description: Aggregation period
+          enum: [hour, day, week, month]
+          example: hour
+        statistics:
+          type: array
+          description: List of statistical records
+          items:
+            $ref: '#/components/schemas/StatisticsRecord'
+        count:
+          type: integer
+          description: Number of records returned
+          example: 24
+        start_time:
+          type: string
+          format: date-time
+          description: Query start time
+        end_time:
+          type: string
+          format: date-time
+          description: Query end time
+
+    StatisticsRecord:
+      type: object
+      description: A single statistics record for a time period
+      properties:
+        start:
+          type: string
+          format: date-time
+          description: Period start time
+          example: "2026-01-10T09:00:00+00:00"
+        end:
+          type: string
+          format: date-time
+          description: Period end time
+          example: "2026-01-10T10:00:00+00:00"
+        mean:
+          type: number
+          description: Average value during period
+          example: 150.5
+        min:
+          type: number
+          description: Minimum value during period
+          example: 50.0
+        max:
+          type: number
+          description: Maximum value during period
+          example: 300.0
+        sum:
+          type: number
+          description: Sum of values during period
+          example: 3612.0
+        state:
+          type: number
+          description: Last state value in period
+          example: 155.0
 
     ErrorResponse:
       type: object
