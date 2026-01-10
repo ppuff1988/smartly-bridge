@@ -52,6 +52,9 @@ Smartly Bridge 是一個 Home Assistant Custom Integration，用於連接社區�
 | **[docs/README.md](docs/README.md)** | API 文檔總覽 |
 | **[docs/openapi.yaml](docs/openapi.yaml)** | OpenAPI 3.1.0 規格檔案 |
 | **[docs/api-docs.html](docs/api-docs.html)** | 互動式 API 文檔（Scalar） |
+| **[docs/sync-api.md](docs/sync-api.md)** | Sync API 詳細說明 |
+| **[docs/history-api.md](docs/history-api.md)** | History API 詳細說明 ⭐ NEW |
+| **[docs/camera-api.md](docs/camera-api.md)** | Camera API 詳細說明 |
 | **[docs/control-examples.md](docs/control-examples.md)** | 控制 API 範例索引 |
 
 ### 📚 控制 API 詳細指南

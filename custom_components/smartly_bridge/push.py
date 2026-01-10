@@ -234,17 +234,6 @@ class StatePushManager:
             _LOGGER.debug("No webhook URL configured, skipping push")
             return
 
-        # Log events before sending
-        _LOGGER.info(
-            "準備發送 %d 個事件到 webhook: %s",
-            len(events_to_send),
-            webhook_url,
-        )
-        _LOGGER.debug(
-            "發送的事件資料:\n%s",
-            json.dumps(events_to_send, indent=2, ensure_ascii=False),
-        )
-
         await self._send_with_retry(webhook_url, events_to_send)
 
     async def _send_with_retry(

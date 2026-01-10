@@ -49,7 +49,25 @@ def _parse_datetime(value: str | None) -> datetime | None:
 
 
 def _format_state(state) -> dict[str, Any]:
-    """Format a State object to a dictionary."""
+    """Format a State object or compressed state dict to a dictionary."""
+    # Handle compressed state format (dict)
+    if isinstance(state, dict):
+        return {
+            "state": state.get("s", "unknown"),
+            "attributes": state.get("a", {}),
+            "last_changed": (
+                datetime.fromtimestamp(state.get("lc", 0), tz=dt_util.UTC).isoformat()
+                if state.get("lc")
+                else None
+            ),
+            "last_updated": (
+                datetime.fromtimestamp(state.get("lu", 0), tz=dt_util.UTC).isoformat()
+                if state.get("lu")
+                else None
+            ),
+        }
+
+    # Handle State object
     return {
         "state": state.state,
         "attributes": dict(state.attributes),
@@ -637,9 +655,7 @@ class SmartlyStatisticsView(web.View):
         try:
             from typing import Literal
 
-            from homeassistant.components.recorder.statistics import (
-                statistics_during_period,
-            )
+            from homeassistant.components.recorder.statistics import statistics_during_period
 
             # Get statistic_id (usually same as entity_id for sensors)
             statistic_id = entity_id
