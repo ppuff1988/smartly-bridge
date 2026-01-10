@@ -1,5 +1,7 @@
 """Constants for Smartly Bridge integration."""
 
+from typing import Any
+
 DOMAIN = "smartly_bridge"
 
 # Configuration keys
@@ -155,6 +157,144 @@ UNIT_SPECIFIC_PRECISION_CONFIG = {
 
 # Heartbeat
 HEARTBEAT_INTERVAL = 60  # seconds
+
+# Visualization types for history data
+VIZ_TYPE_CHART = "chart"  # 折線圖或面積圖
+VIZ_TYPE_GAUGE = "gauge"  # 儀表板
+VIZ_TYPE_TIMELINE = "timeline"  # 時間軸（開關狀態）
+VIZ_TYPE_BAR = "bar"  # 柱狀圖
+VIZ_TYPE_TEXT = "text"  # 純文字
+
+# Visualization configuration by device_class
+# 定義不同 device_class 的視覺化呈現方式
+VIZUALIZATION_CONFIG: dict[str, dict[str, Any]] = {
+    "current": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "line",  # line, area, spline
+        "color": "#FFA726",  # 橘色
+        "show_points": True,
+        "interpolation": "linear",
+    },
+    "voltage": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "line",
+        "color": "#42A5F5",  # 藍色
+        "show_points": True,
+        "interpolation": "linear",
+    },
+    "power": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#66BB6A",  # 綠色
+        "show_points": False,
+        "interpolation": "monotone",
+    },
+    "energy": {
+        "type": VIZ_TYPE_BAR,
+        "chart_type": "bar",
+        "color": "#AB47BC",  # 紫色
+    },
+    "temperature": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "spline",
+        "color": "#EF5350",  # 紅色
+        "show_points": False,
+        "interpolation": "natural",
+    },
+    "humidity": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#26C6DA",  # 青色
+        "show_points": False,
+        "interpolation": "monotone",
+    },
+    "battery": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "line",
+        "color": "#9CCC65",  # 淺綠色
+        "show_points": False,
+        "interpolation": "step-after",
+    },
+    "illuminance": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#FFEE58",  # 黃色
+        "show_points": False,
+        "interpolation": "linear",
+    },
+    "pressure": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "line",
+        "color": "#8D6E63",  # 棕色
+        "show_points": True,
+        "interpolation": "natural",
+    },
+    "co2": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#78909C",  # 灰藍色
+        "show_points": False,
+        "interpolation": "linear",
+    },
+    "pm25": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#FF7043",  # 深橘色
+        "show_points": False,
+        "interpolation": "linear",
+    },
+    "pm10": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#BF360C",  # 深紅橘色
+        "show_points": False,
+        "interpolation": "linear",
+    },
+    "power_factor": {
+        "type": VIZ_TYPE_GAUGE,
+        "min": 0,
+        "max": 1,
+        "color": "#7E57C2",  # 深紫色
+    },
+    "frequency": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "line",
+        "color": "#5C6BC0",  # 靛藍色
+        "show_points": True,
+        "interpolation": "linear",
+    },
+}
+
+# Visualization for domains (when no device_class available)
+DOMAIN_VISUALIZATION_CONFIG: dict[str, dict[str, Any]] = {
+    "switch": {
+        "type": VIZ_TYPE_TIMELINE,
+        "on_color": "#66BB6A",  # 綠色（開）
+        "off_color": "#BDBDBD",  # 灰色（關）
+    },
+    "light": {
+        "type": VIZ_TYPE_TIMELINE,
+        "on_color": "#FFEB3B",  # 黃色（開）
+        "off_color": "#757575",  # 深灰色（關）
+    },
+    "binary_sensor": {
+        "type": VIZ_TYPE_TIMELINE,
+        "on_color": "#EF5350",  # 紅色（觸發）
+        "off_color": "#E0E0E0",  # 淺灰色（正常）
+    },
+    "lock": {
+        "type": VIZ_TYPE_TIMELINE,
+        "on_color": "#F44336",  # 紅色（鎖定）
+        "off_color": "#4CAF50",  # 綠色（解鎖）
+    },
+    "cover": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "line",
+        "color": "#9E9E9E",  # 灰色
+        "show_points": True,
+        "interpolation": "step-after",
+    },
+}
 
 # Default icons by domain
 # 當實體沒有自定義圖標時使用的默認圖標

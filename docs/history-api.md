@@ -4,8 +4,14 @@
 
 History API 提供查詢 Home Assistant 實體歷史狀態的功能，支援單一實體查詢、批量查詢和統計數據查詢。所有請求都需要通過 HMAC-SHA256 簽名驗證。
 
-**版本：** 1.2.0  
+**版本：** 1.3.0  
 **基礎 URL：** `http://your-home-assistant:8123`
+
+## ✨ 新功能（v1.3.0）
+
+- **視覺化元數據**：API 回傳包含視覺化建議（圖表類型、顏色、插值方式）
+- **智能數值格式化**：自動根據 device_class 和單位格式化數值精度
+- **精簡屬性回傳**：僅首個狀態包含完整屬性，減少資料傳輸量
 
 ---
 
@@ -206,33 +212,182 @@ X-Signature: computed-hmac-signature
 
 ```json
 {
-  "entity_id": "camera.test",
+  "entity_id": "sensor.micro_wake_word_pzem_004t_v3_current",
   "history": [
     {
-      "state": "idle",
+      "state": 0.0,
       "attributes": {
-        "friendly_name": "Test Camera",
-        "supported_features": 1
+        "device_class": "current",
+        "friendly_name": "小燈電流",
+        "state_class": "measurement",
+        "unit_of_measurement": "mA"
       },
-      "last_changed": "2026-01-09T10:30:00+00:00",
-      "last_updated": "2026-01-09T10:30:00+00:00"
+      "last_changed": "2026-01-09T05:25:48Z",
+      "last_updated": "2026-01-09T05:25:48Z"
     },
     {
-      "state": "recording",
-      "attributes": {
-        "friendly_name": "Test Camera",
-        "supported_features": 1
-      },
-      "last_changed": "2026-01-09T12:15:30+00:00",
-      "last_updated": "2026-01-09T12:15:30+00:00"
+      "state": "unavailable",
+      "last_changed": "2026-01-09T09:46:03.070703Z",
+      "last_updated": "2026-01-09T09:46:03.070703Z"
+    },
+    {
+      "state": 0.0,
+      "last_changed": "2026-01-09T09:46:03.269271Z",
+      "last_updated": "2026-01-09T09:46:03.269271Z"
+    },
+    {
+      "state": 34.0,
+      "last_changed": "2026-01-09T22:33:52.909742Z",
+      "last_updated": "2026-01-09T22:33:52.909742Z"
+    },
+    {
+      "state": 21.0,
+      "last_changed": "2026-01-09T22:34:59.00267Z",
+      "last_updated": "2026-01-09T22:34:59.00267Z"
+    },
+    {
+      "state": 35.0,
+      "last_changed": "2026-01-09T22:35:17.002829Z",
+      "last_updated": "2026-01-09T22:35:17.002829Z"
     }
   ],
-  "count": 2,
+  "count": 6,
   "truncated": false,
-  "start_time": "2026-01-09T00:00:00+00:00",
-  "end_time": "2026-01-10T00:00:00+00:00"
+  "start_time": "2026-01-09T05:25:48Z",
+  "end_time": "2026-01-10T05:25:48Z",
+  "metadata": {
+    "domain": "sensor",
+    "device_class": "current",
+    "unit_of_measurement": "mA",
+    "friendly_name": "小燈電流",
+    "is_numeric": true,
+    "decimal_places": 1,
+    "visualization": {
+      "type": "chart",
+      "chart_type": "line",
+      "color": "#FFA726",
+      "show_points": true,
+      "interpolation": "linear"
+    }
+  }
 }
 ```
+
+#### 響應欄位說明
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `entity_id` | string | 實體 ID |
+| `history` | array | 歷史狀態陣列 |
+| `history[].state` | string/number | 狀態值（數值型會自動格式化精度） |
+| `history[].attributes` | object | 屬性（僅首筆包含，後續省略以減少資料量） |
+| `history[].last_changed` | string | 狀態變更時間（ISO 8601） |
+| `history[].last_updated` | string | 最後更新時間（ISO 8601） |
+| `count` | integer | 返回的記錄數 |
+| `truncated` | boolean | 是否因超過 limit 而截斷 |
+| `start_time` | string | 查詢開始時間 |
+| `end_time` | string | 查詢結束時間 |
+| `metadata` | object | **[v1.3.0]** 實體元數據與視覺化建議 |
+
+#### 元數據（metadata）欄位說明
+
+`metadata` 物件提供前端呈現時所需的完整資訊：
+
+| 欄位 | 類型 | 說明 |
+|------|------|------|
+| `domain` | string | 實體域（sensor, switch, light 等） |
+| `device_class` | string | 設備類別（current, voltage, temperature 等） |
+| `unit_of_measurement` | string | 測量單位（mA, V, °C 等） |
+| `friendly_name` | string | 友善名稱 |
+| `is_numeric` | boolean | 是否為數值型數據 |
+| `decimal_places` | integer | 建議的小數位數 |
+| `visualization` | object | 視覺化配置 |
+
+#### 視覺化配置（visualization）
+
+根據 `device_class` 或 `domain`，API 會提供最佳的視覺化建議：
+
+**圖表類型（chart）** - 適用於連續數值數據：
+```json
+{
+  "type": "chart",
+  "chart_type": "line",       // line, area, spline
+  "color": "#FFA726",          // 建議顏色（Hex）
+  "show_points": true,         // 是否顯示數據點
+  "interpolation": "linear"    // 插值方式：linear, monotone, natural, step-after
+}
+```
+
+**時間軸（timeline）** - 適用於開關狀態：
+```json
+{
+  "type": "timeline",
+  "on_color": "#66BB6A",       // 開啟狀態顏色
+  "off_color": "#BDBDBD"       // 關閉狀態顏色
+}
+```
+
+**儀表板（gauge）** - 適用於範圍數值：
+```json
+{
+  "type": "gauge",
+  "min": 0,                    // 最小值
+  "max": 1,                    // 最大值
+  "color": "#7E57C2"           // 顏色
+}
+```
+
+**柱狀圖（bar）** - 適用於累積數據：
+```json
+{
+  "type": "bar",
+  "chart_type": "bar",
+  "color": "#AB47BC"
+}
+```
+
+#### 視覺化配置對照表
+
+| device_class | 建議類型 | 圖表類型 | 顏色 | 說明 |
+|-------------|---------|---------|------|------|
+| `current` | chart | line | #FFA726（橘） | 電流折線圖 |
+| `voltage` | chart | line | #42A5F5（藍） | 電壓折線圖 |
+| `power` | chart | area | #66BB6A（綠） | 功率面積圖 |
+| `energy` | bar | bar | #AB47BC（紫） | 能量柱狀圖 |
+| `temperature` | chart | spline | #EF5350（紅） | 溫度曲線圖 |
+| `humidity` | chart | area | #26C6DA（青） | 濕度面積圖 |
+| `battery` | chart | line | #9CCC65（淺綠） | 電池折線圖 |
+| `illuminance` | chart | area | #FFEE58（黃） | 照度面積圖 |
+| `pressure` | chart | line | #8D6E63（棕） | 氣壓折線圖 |
+| `co2` | chart | area | #78909C（灰藍） | CO2 面積圖 |
+| `pm25` | chart | area | #FF7043（深橘） | PM2.5 面積圖 |
+| `pm10` | chart | area | #BF360C（深紅橘） | PM10 面積圖 |
+| `power_factor` | gauge | - | #7E57C2（深紫） | 功率因數儀表 |
+| `frequency` | chart | line | #5C6BC0（靛藍） | 頻率折線圖 |
+
+| domain | 建議類型 | on_color | off_color | 說明 |
+|--------|---------|----------|-----------|------|
+| `switch` | timeline | #66BB6A（綠） | #BDBDBD（灰） | 開關時間軸 |
+| `light` | timeline | #FFEB3B（黃） | #757575（深灰） | 燈光時間軸 |
+| `binary_sensor` | timeline | #EF5350（紅） | #E0E0E0（淺灰） | 二元感測器 |
+| `lock` | timeline | #F44336（紅） | #4CAF50（綠） | 鎖狀態 |
+| `cover` | chart | - | - | 窗簾位置 |
+
+#### 數值精度配置
+
+根據 `device_class` 和 `unit_of_measurement` 自動格式化：
+
+| device_class | 單位 | 小數位數 | 範例 |
+|-------------|------|---------|------|
+| `current` | mA | 1 | 456.5 mA |
+| `current` | A | 3 | 0.456 A |
+| `voltage` | V | 2 | 220.12 V |
+| `power` | W | 2 | 100.99 W |
+| `power` | kW | 3 | 1.234 kW |
+| `energy` | kWh | 3 | 1.234 kWh |
+| `temperature` | °C/°F | 1 | 25.5 °C |
+| `humidity` | % | 1 | 65.5 % |
+| `battery` | % | 0 | 85 % |
 
 #### 錯誤響應
 
@@ -655,6 +810,277 @@ class SmartlyHistoryClient:
 # 使用範例
 client = SmartlyHistoryClient(
     base_url="http://localhost:8123",
+    client_id="ha_your-client-id",
+    client_secret="your-client-secret"
+)
+
+# 查詢單一實體歷史
+result = client.get_history("sensor.temperature")
+print(f"Retrieved {result['count']} records")
+
+# 使用元數據渲染圖表
+metadata = result.get('metadata', {})
+viz_config = metadata.get('visualization', {})
+
+if viz_config.get('type') == 'chart':
+    print(f"建議使用 {viz_config['chart_type']} 圖表")
+    print(f"顏色：{viz_config['color']}")
+    print(f"插值方式：{viz_config['interpolation']}")
+
+# 批量查詢
+batch_result = client.get_batch_history([
+    "sensor.temperature",
+    "sensor.humidity"
+])
+```
+
+---
+
+## 🎨 前端實作建議
+
+### 使用 Chart.js 渲染歷史數據
+
+```javascript
+// 獲取歷史數據
+const response = await fetch('/api/smartly/history/sensor.temperature', {
+    headers: {
+        'X-Client-Id': clientId,
+        'X-Timestamp': timestamp,
+        'X-Nonce': nonce,
+        'X-Signature': signature
+    }
+});
+
+const data = await response.json();
+const { history, metadata } = data;
+
+// 根據 metadata 配置圖表
+const vizConfig = metadata.visualization;
+
+const chartData = {
+    labels: history.map(h => new Date(h.last_changed)),
+    datasets: [{
+        label: metadata.friendly_name,
+        data: history.map(h => h.state),
+        borderColor: vizConfig.color,
+        backgroundColor: vizConfig.chart_type === 'area' 
+            ? vizConfig.color + '40'  // 添加透明度
+            : vizConfig.color,
+        fill: vizConfig.chart_type === 'area',
+        pointRadius: vizConfig.show_points ? 3 : 0,
+        tension: vizConfig.interpolation === 'natural' ? 0.4 :
+                 vizConfig.interpolation === 'monotone' ? 0.3 : 0,
+        stepped: vizConfig.interpolation === 'step-after' ? 'after' : false
+    }]
+};
+
+const chartConfig = {
+    type: vizConfig.chart_type === 'spline' ? 'line' : vizConfig.chart_type,
+    data: chartData,
+    options: {
+        responsive: true,
+        scales: {
+            y: {
+                title: {
+                    display: true,
+                    text: metadata.unit_of_measurement
+                }
+            }
+        }
+    }
+};
+
+new Chart(ctx, chartConfig);
+```
+
+### 使用 ECharts 渲染時間軸（開關狀態）
+
+```javascript
+const response = await fetch('/api/smartly/history/switch.living_room', {
+    headers: { /* ... */ }
+});
+
+const data = await response.json();
+const { history, metadata } = data;
+const vizConfig = metadata.visualization;
+
+// 將狀態轉換為時間段
+const timeRanges = history.map((h, i) => {
+    const nextTime = history[i + 1]?.last_changed || data.end_time;
+    return {
+        name: h.state === 'on' ? '開啟' : '關閉',
+        value: [
+            new Date(h.last_changed),
+            new Date(nextTime),
+            h.state === 'on' ? 1 : 0
+        ],
+        itemStyle: {
+            color: h.state === 'on' ? vizConfig.on_color : vizConfig.off_color
+        }
+    };
+});
+
+const option = {
+    tooltip: {
+        formatter: function(params) {
+            const duration = (params.value[1] - params.value[0]) / 1000;
+            return `${params.name}<br/>持續時間：${duration.toFixed(0)} 秒`;
+        }
+    },
+    xAxis: {
+        type: 'time',
+        min: new Date(data.start_time),
+        max: new Date(data.end_time)
+    },
+    yAxis: {
+        type: 'value',
+        max: 1,
+        splitLine: { show: false }
+    },
+    series: [{
+        type: 'custom',
+        renderItem: function(params, api) {
+            const start = api.coord([api.value(0), 0]);
+            const end = api.coord([api.value(1), 1]);
+            const height = api.size([0, 1])[1];
+            
+            return {
+                type: 'rect',
+                shape: {
+                    x: start[0],
+                    y: start[1],
+                    width: end[0] - start[0],
+                    height: height
+                },
+                style: api.style()
+            };
+        },
+        data: timeRanges
+    }]
+};
+
+chart.setOption(option);
+```
+
+### React 組件範例
+
+```jsx
+import React, { useEffect, useState } from 'react';
+import { Line, Bar } from 'react-chartjs-2';
+
+function HistoryChart({ entityId, startTime, endTime }) {
+    const [data, setData] = useState(null);
+    const [loading, setLoading] = useState(true);
+
+    useEffect(() => {
+        async function fetchHistory() {
+            const response = await fetch(
+                `/api/smartly/history/${entityId}?start_time=${startTime}&end_time=${endTime}`,
+                { headers: { /* authentication headers */ } }
+            );
+            const result = await response.json();
+            setData(result);
+            setLoading(false);
+        }
+        fetchHistory();
+    }, [entityId, startTime, endTime]);
+
+    if (loading) return <div>載入中...</div>;
+    if (!data) return <div>無數據</div>;
+
+    const { history, metadata } = data;
+    const vizConfig = metadata.visualization;
+
+    const chartData = {
+        labels: history.map(h => new Date(h.last_changed)),
+        datasets: [{
+            label: metadata.friendly_name,
+            data: history.map(h => h.state),
+            borderColor: vizConfig.color,
+            backgroundColor: vizConfig.chart_type === 'area' 
+                ? `${vizConfig.color}40` 
+                : vizConfig.color,
+            fill: vizConfig.chart_type === 'area',
+        }]
+    };
+
+    const ChartComponent = vizConfig.type === 'bar' ? Bar : Line;
+
+    return (
+        <div>
+            <h3>{metadata.friendly_name}</h3>
+            <ChartComponent data={chartData} />
+            <p>共 {data.count} 筆記錄</p>
+        </div>
+    );
+}
+
+export default HistoryChart;
+```
+
+---
+
+## 📊 最佳實作建議
+
+### 1. 性能優化
+
+- **使用 `significant_changes_only=true`**：減少不必要的數據點
+- **合理設置 `limit`**：避免一次性獲取過多數據
+- **批量查詢**：需要多個實體數據時使用 batch API
+- **前端緩存**：對於不常變化的歷史數據進行緩存
+
+### 2. 視覺化建議
+
+- **自動應用 metadata 配置**：直接使用 API 提供的顏色和圖表類型
+- **響應式設計**：根據螢幕大小調整數據點密度
+- **時間軸適配**：開關類設備使用時間軸而非折線圖
+- **數值格式化**：使用 `metadata.decimal_places` 顯示適當精度
+
+### 3. 錯誤處理
+
+```javascript
+async function fetchHistoryWithRetry(entityId, retries = 3) {
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(`/api/smartly/history/${entityId}`);
+            if (response.status === 429) {
+                // Rate limited - 等待後重試
+                const retryAfter = response.headers.get('Retry-After') || 60;
+                await new Promise(resolve => setTimeout(resolve, retryAfter * 1000));
+                continue;
+            }
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+            }
+            return await response.json();
+        } catch (error) {
+            if (i === retries - 1) throw error;
+        }
+    }
+}
+```
+
+---
+
+## 🔄 版本更新記錄
+
+### v1.3.0 (2026-01-10)
+
+**新增功能：**
+- ✨ 新增 `metadata` 欄位，包含視覺化建議和精度配置
+- ✨ 智能數值格式化，自動根據 device_class 和 unit 調整精度
+- ✨ 優化屬性回傳，僅首筆包含完整 attributes 減少傳輸量
+
+**改進：**
+- 🎨 提供 15+ 種 device_class 的預設視覺化配置
+- 🎨 支援 5 種 domain 的時間軸配置
+- 📊 狀態值自動轉換為數值型態（適用於圖表渲染）
+
+**範例：**
+- 電流從 `"34.000001847744"` 格式化為 `34.0` (mA 單位保留 1 位小數)
+- 自動建議使用橘色 (#FFA726) 折線圖呈現電流數據
+
+### v1.2.0 (2026-01-08)
     client_id="ha_your-client-id",
     client_secret="your-client-secret"
 )
