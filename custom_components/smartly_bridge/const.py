@@ -148,22 +148,22 @@ HEARTBEAT_INTERVAL = 60  # seconds
 # Default icons by domain
 # 當實體沒有自定義圖標時使用的默認圖標
 DEFAULT_DOMAIN_ICONS: dict[str, str] = {
-    "switch": "mdi:toggle-switch",
-    "light": "mdi:lightbulb",
-    "camera": "mdi:camera",
-    "sensor": "mdi:eye",
-    "binary_sensor": "mdi:checkbox-marked-circle",
-    "cover": "mdi:window-shutter",
-    "climate": "mdi:thermostat",
-    "fan": "mdi:fan",
-    "lock": "mdi:lock",
-    "scene": "mdi:palette",
-    "script": "mdi:script-text",
-    "automation": "mdi:robot",
-    "input_boolean": "mdi:toggle-switch",
-    "input_button": "mdi:gesture-tap-button",
-    "input_number": "mdi:ray-vertex",
-    "input_select": "mdi:format-list-bulleted",
-    "input_text": "mdi:form-textbox",
-    "button": "mdi:gesture-tap-button",
+    "switch": "mdi:toggle-switch-outline",  # 開關：使用輪廓版本更清爽
+    "light": "mdi:lightbulb-outline",  # 燈光：輪廓版本更通用
+    "camera": "mdi:camera",  # 相機：保持原樣
+    "sensor": "mdi:gauge",  # 感測器：儀表更能代表數據讀取
+    "binary_sensor": "mdi:radiobox-marked",  # 二元感測器：單選框表示開/關狀態
+    "cover": "mdi:window-shutter",  # 窗簾：保持原樣
+    "climate": "mdi:thermostat",  # 空調：保持原樣
+    "fan": "mdi:fan",  # 風扇：保持原樣
+    "lock": "mdi:lock",  # 鎖：保持原樣
+    "scene": "mdi:palette",  # 場景：保持原樣
+    "script": "mdi:script-text",  # 腳本：保持原樣
+    "automation": "mdi:robot",  # 自動化：保持原樣
+    "input_boolean": "mdi:checkbox-marked-outline",  # 輸入布林值：核取框輪廓版本
+    "input_button": "mdi:gesture-tap-button",  # 輸入按鈕：保持原樣
+    "input_number": "mdi:numeric",  # 輸入數字：數字符號更直觀
+    "input_select": "mdi:format-list-bulleted",  # 輸入選擇：保持原樣
+    "input_text": "mdi:form-textbox",  # 輸入文字：保持原樣
+    "button": "mdi:button-pointer",  # 按鈕：使用更明確的按鈕圖標
 }

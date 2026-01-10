@@ -550,10 +550,10 @@ class TestSmartlySyncStatesView:
                     switch_state = next(
                         s for s in data["states"] if s["entity_id"] == "switch.test"
                     )
-                    assert switch_state["icon"] == "mdi:toggle-switch"
+                    assert switch_state["icon"] == "mdi:toggle-switch-outline"
 
                     light_state = next(s for s in data["states"] if s["entity_id"] == "light.test")
-                    assert light_state["icon"] == "mdi:lightbulb"
+                    assert light_state["icon"] == "mdi:lightbulb-outline"
 
                     camera_state = next(
                         s for s in data["states"] if s["entity_id"] == "camera.test"
