@@ -209,6 +209,81 @@ def _format_state(
     return result
 
 
+def _ensure_time_bounds(
+    history_data: list[dict[str, Any]],
+    start_time: datetime,
+    end_time: datetime,
+    is_numeric: bool,
+) -> list[dict[str, Any]]:
+    """確保歷史數據涵蓋完整時間範圍，填補缺失的邊界點。
+
+    Args:
+        history_data: 已格式化的歷史數據列表
+        start_time: 查詢開始時間
+        end_time: 查詢結束時間
+        is_numeric: 是否為數值型數據
+
+    Returns:
+        填補後的歷史數據列表
+    """
+    if not history_data:
+        # 如果沒有任何歷史數據，回傳空列表
+        return []
+
+    result = []
+    start_time_iso = start_time.isoformat()
+    end_time_iso = end_time.isoformat()
+
+    # 解析第一筆數據的時間
+    first_data = history_data[0]
+    first_time = first_data.get("last_changed", first_data.get("last_updated", start_time_iso))
+
+    # 如果第一筆數據時間晚於 start_time，在開始處插入一個點
+    if first_time > start_time_iso:
+        # 對於數值型數據，插入第一個已知值或 0
+        if is_numeric:
+            first_state = first_data.get("state")
+            # 如果第一個狀態是數值，使用它；否則使用 0
+            try:
+                if isinstance(first_state, (int, float)):
+                    fill_value = first_state
+                elif first_state not in ("unknown", "unavailable", None):
+                    fill_value = float(first_state)
+                else:
+                    fill_value = 0
+            except (ValueError, TypeError):
+                fill_value = 0
+
+            result.append(
+                {
+                    "state": fill_value,
+                    "last_changed": start_time_iso,
+                    "last_updated": start_time_iso,
+                }
+            )
+
+    # 添加所有原始數據
+    result.extend(history_data)
+
+    # 解析最後一筆數據的時間
+    last_data = history_data[-1]
+    last_time = last_data.get("last_changed", last_data.get("last_updated", end_time_iso))
+
+    # 如果最後一筆數據時間早於 end_time，在結束處插入一個點
+    if last_time < end_time_iso:
+        # 使用最後一個已知狀態值
+        last_state = last_data.get("state")
+        result.append(
+            {
+                "state": last_state,
+                "last_changed": end_time_iso,
+                "last_updated": end_time_iso,
+            }
+        )
+
+    return result
+
+
 class SmartlyHistoryView(web.View):
     """Handle GET /api/smartly/history/{entity_id} requests.
 
@@ -347,11 +422,17 @@ class SmartlyHistoryView(web.View):
             )
 
         # Parse limit parameter
-        try:
-            limit = int(query.get("limit", HISTORY_DEFAULT_LIMIT))
-            limit = min(limit, HISTORY_DEFAULT_LIMIT)
-        except ValueError:
-            limit = HISTORY_DEFAULT_LIMIT
+        # 對於 24 小時內的查詢，不限制筆數；超過 24 小時則使用預設限制
+        duration_hours = (end_time - start_time).total_seconds() / 3600
+        if duration_hours <= 24:
+            # 24 小時內不限制筆數，使用一個很大的值
+            limit = 999999
+        else:
+            try:
+                limit = int(query.get("limit", HISTORY_DEFAULT_LIMIT))
+                limit = min(limit, HISTORY_DEFAULT_LIMIT)
+            except ValueError:
+                limit = HISTORY_DEFAULT_LIMIT
 
         # Get significant_changes_only parameter
         significant_changes_only = query.get("significant_changes_only", "true").lower() == "true"
@@ -408,6 +489,7 @@ class SmartlyHistoryView(web.View):
 
         # Get decimal places for state formatting
         decimal_places = metadata.get("decimal_places") if metadata else None
+        is_numeric = metadata.get("is_numeric", False) if metadata else False
 
         # Format history data with proper precision
         # Include full attributes only for first state, omit for subsequent if unchanged
@@ -415,6 +497,9 @@ class SmartlyHistoryView(web.View):
         for i, s in enumerate(entity_states[:limit]):
             include_attrs = i == 0  # Only include attributes for first state
             history_data.append(_format_state(s, decimal_places, include_attrs))
+
+        # 確保時間範圍完整，填補邊界點
+        history_data = _ensure_time_bounds(history_data, start_time, end_time, is_numeric)
 
         response_data = {
             "entity_id": entity_id,
@@ -612,11 +697,17 @@ class SmartlyHistoryBatchView(web.View):
             )
 
         # Parse limit parameter
-        try:
-            limit = int(body.get("limit", HISTORY_DEFAULT_LIMIT))
-            limit = min(limit, HISTORY_DEFAULT_LIMIT)
-        except (ValueError, TypeError):
-            limit = HISTORY_DEFAULT_LIMIT
+        # 對於 24 小時內的查詢，不限制筆數；超過 24 小時則使用預設限制
+        duration_hours = (end_time - start_time).total_seconds() / 3600
+        if duration_hours <= 24:
+            # 24 小時內不限制筆數，使用一個很大的值
+            limit = 999999
+        else:
+            try:
+                limit = int(body.get("limit", HISTORY_DEFAULT_LIMIT))
+                limit = min(limit, HISTORY_DEFAULT_LIMIT)
+            except (ValueError, TypeError):
+                limit = HISTORY_DEFAULT_LIMIT
 
         # Query history from Recorder
         try:
@@ -645,24 +736,67 @@ class SmartlyHistoryBatchView(web.View):
         history_data: dict[str, list[dict[str, Any]]] = {}
         count_data: dict[str, int] = {}
         truncated_data: dict[str, bool] = {}
+        metadata_data: dict[str, dict[str, Any]] = {}
 
         for eid in allowed_entity_ids:
             entity_states = states.get(eid, [])
             truncated_data[eid] = len(entity_states) > limit
-            history_data[eid] = [_format_state(s) for s in entity_states[:limit]]
-            count_data[eid] = len(history_data[eid])
 
-        return web.json_response(
-            {
-                "history": history_data,
-                "count": count_data,
-                "truncated": truncated_data,
-                "denied_entities": denied_entity_ids,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
-            status=200,
-        )
+            # Generate metadata for entity
+            metadata = None
+            if entity_states:
+                # Find first state with attributes
+                for state in entity_states:
+                    # Check if it's a State object (not dict)
+                    if not isinstance(state, dict):
+                        if hasattr(state, "attributes") and state.attributes:
+                            metadata = _get_entity_metadata(
+                                eid, _format_state(state, include_attributes=True)
+                            )
+                            break
+                    elif state.get("a"):  # Compressed format with attributes
+                        metadata = _get_entity_metadata(eid, _format_state(state))
+                        break
+
+                if not metadata:
+                    metadata = _get_entity_metadata(eid, _format_state(entity_states[0]))
+
+            # Get decimal places and is_numeric for formatting and boundary filling
+            decimal_places = metadata.get("decimal_places") if metadata else None
+            is_numeric = metadata.get("is_numeric", False) if metadata else False
+
+            # Format history data
+            formatted_states = [
+                _format_state(s, decimal_places, include_attributes=(i == 0))
+                for i, s in enumerate(entity_states[:limit])
+            ]
+
+            # 確保時間範圍完整，填補邊界點
+            formatted_states = _ensure_time_bounds(
+                formatted_states, start_time, end_time, is_numeric
+            )
+
+            history_data[eid] = formatted_states
+            count_data[eid] = len(formatted_states)
+
+            # Add metadata if available
+            if metadata:
+                metadata_data[eid] = metadata
+
+        response = {
+            "history": history_data,
+            "count": count_data,
+            "truncated": truncated_data,
+            "denied_entities": denied_entity_ids,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+        }
+
+        # Add metadata if any entities have it
+        if metadata_data:
+            response["metadata"] = metadata_data
+
+        return web.json_response(response, status=200)
 
 
 class SmartlyHistoryBatchViewWrapper(HomeAssistantView):

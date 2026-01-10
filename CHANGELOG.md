@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正 24 小時歷史數據時間軸不完整問題，確保 X 軸涵蓋完整時間範圍
+* **history:** 修正數據被截斷問題，24 小時內查詢不再限制筆數
+* **history:** 修正開始時間無數據時的顯示問題，數值型感測器自動補 0 或第一個已知值
+
 ## [1.10.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.9.1...v1.10.0) (2026-01-10)
 
 ### ✨ 新增功能 (Features)
