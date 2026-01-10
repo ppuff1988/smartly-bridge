@@ -6,7 +6,8 @@
   "issue_tracker": "https://github.com/ppuff1988/smartly-bridge/issues",
   "requirements": [],
   "dependencies": [
-    "http"
+    "http",
+    "recorder"
   ],
   "codeowners": [
     "@your-org"

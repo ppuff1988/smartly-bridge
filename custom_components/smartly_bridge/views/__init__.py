@@ -10,6 +10,11 @@ from .camera import (
     SmartlyCameraStreamViewWrapper,
 )
 from .control import SmartlyControlViewWrapper
+from .history import (
+    SmartlyHistoryBatchViewWrapper,
+    SmartlyHistoryViewWrapper,
+    SmartlyStatisticsViewWrapper,
+)
 from .sync import SmartlySyncStatesViewWrapper, SmartlySyncViewWrapper
 
 __all__ = [
@@ -21,6 +26,9 @@ __all__ = [
     "SmartlyCameraListViewWrapper",
     "SmartlyCameraConfigViewWrapper",
     "SmartlyCameraHLSInfoViewWrapper",
+    "SmartlyHistoryViewWrapper",
+    "SmartlyHistoryBatchViewWrapper",
+    "SmartlyStatisticsViewWrapper",
 ]
 
 
@@ -36,3 +44,7 @@ def register_views(hass) -> None:
     hass.http.register_view(SmartlyCameraConfigViewWrapper)
     # HLS streaming views
     hass.http.register_view(SmartlyCameraHLSInfoViewWrapper)
+    # History views
+    hass.http.register_view(SmartlyHistoryViewWrapper)
+    hass.http.register_view(SmartlyHistoryBatchViewWrapper)
+    hass.http.register_view(SmartlyStatisticsViewWrapper)

@@ -89,6 +89,17 @@ API_PATH_CAMERA_HLS_INIT = "/api/smartly/camera/{entity_id}/stream/hls/init.mp4"
 API_PATH_CAMERA_HLS_SEGMENT = "/api/smartly/camera/{entity_id}/stream/hls/segment/{sequence}.m4s"
 API_PATH_CAMERA_HLS_PART = "/api/smartly/camera/{entity_id}/stream/hls/part/{sequence}.{part}.m4s"
 
+# History API paths
+API_PATH_HISTORY = "/api/smartly/history/{entity_id}"
+API_PATH_HISTORY_BATCH = "/api/smartly/history/batch"
+API_PATH_STATISTICS = "/api/smartly/statistics/{entity_id}"
+
+# History API settings
+HISTORY_MAX_DURATION_DAYS = 30  # 最大查詢天數
+HISTORY_DEFAULT_LIMIT = 1000  # 預設最大筆數
+HISTORY_MAX_ENTITIES_BATCH = 50  # 批次查詢最大實體數
+HISTORY_DEFAULT_HOURS = 24  # 預設查詢時數
+
 # Camera settings
 CAMERA_CACHE_TTL = 10.0  # seconds - snapshot cache time-to-live
 CAMERA_SNAPSHOT_TIMEOUT = 10.0  # seconds - timeout for fetching snapshots

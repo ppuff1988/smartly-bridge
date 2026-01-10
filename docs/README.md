@@ -29,10 +29,20 @@
 - Icon 資訊的使用方式和建議
 - 安全性說明和範例程式碼
 
+### `history-api.md` ⭐ NEW
+詳細的 History API 說明文件，包含：
+- `/api/smartly/history/{entity_id}` - 單一實體歷史查詢
+- `/api/smartly/history/batch` - 批量實體歷史查詢
+- `/api/smartly/history/statistics` - 統計數據查詢
+- HMAC 簽名計算詳細說明
+- Python 客戶端完整範例
+- Postman Pre-request Script
+- 常見問題與故障排除
+
 ### `camera-api.md`
 詳細的 Camera API 說明文件，包含快照、串流和 HLS 支援。
 
-### `CONTROL_EXAMPLES.md`
+### `control-examples.md`
 詳細的裝置控制範例文件。
 
 ## 🚀 使用方式
@@ -198,13 +208,18 @@ X-Signature: [HMAC-SHA256 簽章]
 
 ## 📋 API 概覽
 
-### 端點
+### 核心端點
 
-| 端點 | 方法 | 說明 |
-|-----|------|------|
-| `/api/smartly/control` | POST | 控制裝置 |
-| `/api/smartly/sync/structure` | GET | 取得結構層級 |
-| `/api/smartly/sync/states` | GET | 取得所有實體狀態 |
+| 端點 | 方法 | 說明 | 文檔 |
+|-----|------|------|------|
+| `/api/smartly/control` | POST | 控制裝置 | [control-examples.md](control-examples.md) |
+| `/api/smartly/sync/structure` | GET | 取得結構層級 | [sync-api.md](sync-api.md) |
+| `/api/smartly/sync/states` | GET | 取得所有實體狀態 | [sync-api.md](sync-api.md) |
+| `/api/smartly/history/{entity_id}` | GET | 單一實體歷史查詢 | [history-api.md](history-api.md) |
+| `/api/smartly/history/batch` | POST | 批量實體歷史查詢 | [history-api.md](history-api.md) |
+| `/api/smartly/history/statistics` | POST | 統計數據查詢 | [history-api.md](history-api.md) |
+| `/api/smartly/camera/{entity_id}/snapshot` | GET | 攝影機快照 | [camera-api.md](camera-api.md) |
+| `/api/smartly/camera/{entity_id}/stream` | GET | MJPEG 串流 | [camera-api.md](camera-api.md) |
 
 ### Webhooks
 

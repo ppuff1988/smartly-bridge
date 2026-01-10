@@ -234,17 +234,6 @@ class StatePushManager:
             _LOGGER.debug("No webhook URL configured, skipping push")
             return
 
-        # Log events before sending
-        _LOGGER.info(
-            "準備發送 %d 個事件到 webhook: %s",
-            len(events_to_send),
-            webhook_url,
-        )
-        _LOGGER.debug(
-            "發送的事件資料:\n%s",
-            json.dumps(events_to_send, indent=2, ensure_ascii=False),
-        )
-
         await self._send_with_retry(webhook_url, events_to_send)
 
     async def _send_with_retry(
@@ -263,13 +252,6 @@ class StatePushManager:
         payload = {"events": events}
         body = json.dumps(payload).encode("utf-8")
 
-        # Log request body for debugging
-        _LOGGER.debug(
-            "Push request body (%d bytes): %s",
-            len(body),
-            json.dumps(payload, indent=2, ensure_ascii=False)[:1000],
-        )
-
         # Extract path from webhook URL for HMAC signature
         # Per platform spec: PATH without query string and without trailing slash
         parsed_url = urlparse(webhook_url)
@@ -283,7 +265,6 @@ class StatePushManager:
                 headers_log = headers.copy()
                 if HEADER_SIGNATURE in headers_log:
                     headers_log[HEADER_SIGNATURE] = f"{headers_log[HEADER_SIGNATURE][:16]}..."
-                _LOGGER.debug("Push request headers: %s", json.dumps(headers_log, indent=2))
 
                 async with self._session.post(
                     webhook_url,

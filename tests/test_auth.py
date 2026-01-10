@@ -99,6 +99,37 @@ class TestVerifySignature:
 
         assert verify_signature("secret2", method, path, timestamp, nonce, body, signature) is False
 
+    def test_verify_signature_with_query_params(self):
+        """Test that query parameters are included in signature."""
+        secret = "test_secret"
+        method = "GET"
+        path_without_query = "/api/smartly/history/sensor.temp"
+        path_with_query = "/api/smartly/history/sensor.temp?start_time=2026-01-09T00:00:00Z"
+        timestamp = "1700000000"
+        nonce = "test-nonce"
+        body = b""
+
+        # Signature computed with query params
+        signature_with_query = compute_signature(
+            secret, method, path_with_query, timestamp, nonce, body
+        )
+
+        # Should verify with same path (including query)
+        assert (
+            verify_signature(
+                secret, method, path_with_query, timestamp, nonce, body, signature_with_query
+            )
+            is True
+        )
+
+        # Should NOT verify without query params
+        assert (
+            verify_signature(
+                secret, method, path_without_query, timestamp, nonce, body, signature_with_query
+            )
+            is False
+        )
+
 
 class TestCheckTimestamp:
     """Tests for check_timestamp function."""
