@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.9.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.9.0...v1.9.1) (2026-01-10)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正資料庫存取未使用 executor 的警告 ([#44](https://github.com/ppuff1988/smartly-bridge/issues/44)) ([a3007bb](https://github.com/ppuff1988/smartly-bridge/commit/a3007bbb239c103ab1556905437748f8174e9a6a))
+
 ## [1.9.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.8.1...v1.9.0) (2026-01-10)
 
 ### ✨ 新增功能 (Features)
