@@ -135,7 +135,7 @@ run_lint() {
     
     # MyPy - Type checking
     echo -e "\n${YELLOW}4. MyPy (Type Checking)${NC}"
-    python -m mypy custom_components/ --ignore-missing-imports --no-strict-optional
+    python -m mypy custom_components/ --no-strict-optional --cache-fine-grained
     if [ $? -ne 0 ]; then
         echo -e "  ${DARK_YELLOW}WARNING: MyPy found issues (non-blocking)${NC}"
     else

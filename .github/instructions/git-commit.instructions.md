@@ -1,6 +1,6 @@
 ---
 applyTo: '*'
-description: 'Git Commit 最佳實作指南，採用 Conventional Commits 規範並使用繁體中文。涵蓋 commit 訊息格式、類型定義、範圍設定、Breaking Changes 處理，以及與 CI/CD 工具整合的完整指引。'
+description: 'Git Commit 最佳實作指南，採用 Conventional Commits 規範並使用繁體中文。涵蓋 commit 訊息格式、類型定義、範圍設定、Breaking Changes 處理，以及與 CI/CD 工具整合的完整指引。請不要任意寫下不存在CLOSED issue 編號。'
 ---
 
 # Git Commit 最佳實作（Conventional Commits）
