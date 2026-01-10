@@ -368,7 +368,7 @@ async def verify_request(
     )
 
     # Debug logging for signature verification
-    _LOGGER.debug(
+    _LOGGER.warning(
         "Signature verification details:\n"
         "  Method: %s\n"
         "  Path (raw): %s\n"

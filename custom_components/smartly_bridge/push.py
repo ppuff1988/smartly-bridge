@@ -263,13 +263,6 @@ class StatePushManager:
         payload = {"events": events}
         body = json.dumps(payload).encode("utf-8")
 
-        # Log request body for debugging
-        _LOGGER.debug(
-            "Push request body (%d bytes): %s",
-            len(body),
-            json.dumps(payload, indent=2, ensure_ascii=False)[:1000],
-        )
-
         # Extract path from webhook URL for HMAC signature
         # Per platform spec: PATH without query string and without trailing slash
         parsed_url = urlparse(webhook_url)
@@ -283,7 +276,6 @@ class StatePushManager:
                 headers_log = headers.copy()
                 if HEADER_SIGNATURE in headers_log:
                     headers_log[HEADER_SIGNATURE] = f"{headers_log[HEADER_SIGNATURE][:16]}..."
-                _LOGGER.debug("Push request headers: %s", json.dumps(headers_log, indent=2))
 
                 async with self._session.post(
                     webhook_url,
