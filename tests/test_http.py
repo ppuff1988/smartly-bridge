@@ -304,13 +304,24 @@ class TestStatesEndpoint:
         mock_request.path = "/api/smartly/sync/states"
         mock_request.read = AsyncMock(return_value=b"")
 
+        # Mock entity registry entry
+        mock_entry = MagicMock()
+        mock_entry.icon = "mdi:lightbulb"
+        mock_entry.original_icon = None
+
+        mock_entity_reg = MagicMock()
+        mock_entity_reg.async_get_entity_id = MagicMock(return_value="light.test")
+
         # Mock auth verification
         with patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify:
             mock_verify.return_value = MagicMock(
                 success=True, client_id=mock_config_entry.data["client_id"], error=None
             )
 
-            with patch("homeassistant.helpers.entity_registry.async_get"):
+            with patch("homeassistant.helpers.entity_registry.async_get") as mock_reg_get:
+                mock_reg_get.return_value = mock_entity_reg
+                mock_entity_reg.async_get = MagicMock(return_value=mock_entry)
+
                 with patch(
                     "custom_components.smartly_bridge.views.sync.get_allowed_entities"
                 ) as mock_get:
