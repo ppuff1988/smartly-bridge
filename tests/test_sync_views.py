@@ -363,3 +363,108 @@ class TestSmartlySyncStatesView:
                 data = json.loads(response.body)
                 assert data["count"] == 0
                 assert len(data["states"]) == 0
+
+    @pytest.mark.asyncio
+    async def test_states_sync_icon_priority(self, mock_request, mock_hass):
+        """Test icon retrieval priority: state > registry custom > registry original."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["light.state_icon", "light.custom_icon", "light.original_icon"],
+            ):
+                # Create mock states
+                mock_state_1 = MagicMock()
+                mock_state_1.state = "on"
+                mock_state_1.attributes = {"icon": "mdi:lightbulb-on"}  # Has icon in state
+                mock_state_1.last_changed = MagicMock()
+                mock_state_1.last_changed.isoformat = MagicMock(return_value="2026-01-10T00:00:00")
+                mock_state_1.last_updated = MagicMock()
+                mock_state_1.last_updated.isoformat = MagicMock(return_value="2026-01-10T00:00:00")
+
+                mock_state_2 = MagicMock()
+                mock_state_2.state = "off"
+                mock_state_2.attributes = {}  # No icon in state
+                mock_state_2.last_changed = MagicMock()
+                mock_state_2.last_changed.isoformat = MagicMock(return_value="2026-01-10T00:00:00")
+                mock_state_2.last_updated = MagicMock()
+                mock_state_2.last_updated.isoformat = MagicMock(return_value="2026-01-10T00:00:00")
+
+                mock_state_3 = MagicMock()
+                mock_state_3.state = "off"
+                mock_state_3.attributes = {}  # No icon in state
+                mock_state_3.last_changed = MagicMock()
+                mock_state_3.last_changed.isoformat = MagicMock(return_value="2026-01-10T00:00:00")
+                mock_state_3.last_updated = MagicMock()
+                mock_state_3.last_updated.isoformat = MagicMock(return_value="2026-01-10T00:00:00")
+
+                def get_state(entity_id):
+                    if entity_id == "light.state_icon":
+                        return mock_state_1
+                    elif entity_id == "light.custom_icon":
+                        return mock_state_2
+                    elif entity_id == "light.original_icon":
+                        return mock_state_3
+                    return None
+
+                # Mock entity registry entries
+                mock_entry_1 = MagicMock()
+                mock_entry_1.icon = "mdi:custom-should-not-use"  # Should not use this
+                mock_entry_1.original_icon = "mdi:original-should-not-use"
+
+                mock_entry_2 = MagicMock()
+                mock_entry_2.icon = "mdi:custom-icon"  # Should use this
+                mock_entry_2.original_icon = "mdi:original-icon"
+
+                mock_entry_3 = MagicMock()
+                mock_entry_3.icon = None  # No custom icon
+                mock_entry_3.original_icon = "mdi:original-icon"  # Should use this
+
+                def async_get_entry(entity_id):
+                    if entity_id == "light.state_icon":
+                        return mock_entry_1
+                    elif entity_id == "light.custom_icon":
+                        return mock_entry_2
+                    elif entity_id == "light.original_icon":
+                        return mock_entry_3
+                    return None
+
+                mock_hass.states.get = get_state
+
+                # Mock entity registry
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = async_get_entry
+                    mock_er_get.return_value = mock_registry
+
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    import json
+
+                    data = json.loads(response.body)
+                    assert data["count"] == 3
+                    assert len(data["states"]) == 3
+
+                    # Check priority 1: state icon
+                    state_1 = next(
+                        s for s in data["states"] if s["entity_id"] == "light.state_icon"
+                    )
+                    assert state_1["icon"] == "mdi:lightbulb-on"
+
+                    # Check priority 2: custom registry icon
+                    state_2 = next(
+                        s for s in data["states"] if s["entity_id"] == "light.custom_icon"
+                    )
+                    assert state_2["icon"] == "mdi:custom-icon"
+
+                    # Check priority 3: original registry icon
+                    state_3 = next(
+                        s for s in data["states"] if s["entity_id"] == "light.original_icon"
+                    )
+                    assert state_3["icon"] == "mdi:original-icon"

@@ -205,6 +205,7 @@ def _initialize_device(
 
 
 def _build_floors_dict(
+    hass: HomeAssistant,
     allowed_entities: list[str],
     entity_registry: EntityRegistry,
     device_registry: DeviceRegistry,
@@ -253,11 +254,17 @@ def _build_floors_dict(
             _initialize_device(device_id, floor_key, area_key, floors_dict, device_registry)
 
         # Add entity
+        # Icon priority: state attributes > entity registry custom > entity registry original
+        state = hass.states.get(entity_id)
+        icon = state.attributes.get("icon") if state else None
+        if not icon:
+            icon = entry.icon or entry.original_icon
+
         entity_data = {
             "entity_id": entity_id,
             "domain": get_entity_domain(entity_id),
             "name": entry.name or entry.original_name,
-            "icon": entry.icon or entry.original_icon,
+            "icon": icon,
         }
         floors_dict[floor_key]["areas"][area_key]["devices"][device_id]["entities"].append(
             entity_data
@@ -373,6 +380,7 @@ def get_structure(
 
     # Build hierarchical dictionary
     floors_dict = _build_floors_dict(
+        hass,
         allowed_entities,
         entity_registry,
         device_registry,
