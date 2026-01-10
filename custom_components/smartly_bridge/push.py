@@ -81,7 +81,7 @@ class StatePushManager:
         self._unsub_state_changed = async_track_state_change_event(
             self.hass,
             allowed_entities,
-            state_changed_listener,  # type: ignore[arg-type]
+            state_changed_listener,
         )
 
         # Start batch processing task
@@ -392,7 +392,7 @@ class StatePushManager:
         self._unsub_state_changed = async_track_state_change_event(
             self.hass,
             allowed_entities,
-            state_changed_listener,  # type: ignore[arg-type]
+            state_changed_listener,
         )
 
         _LOGGER.info(

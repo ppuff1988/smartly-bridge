@@ -30,22 +30,6 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements-dev.txt
-          pip install radon pylint
-
-      - name: Calculate code complexity
-        id: complexity
-        run: |
-          echo "## Code Complexity Report" > complexity-report.md
-          echo "" >> complexity-report.md
-          
-          echo "### Cyclomatic Complexity" >> complexity-report.md
-          radon cc custom_components/smartly_bridge -a -s >> complexity-report.md || true
-          
-          echo "" >> complexity-report.md
-          echo "### Maintainability Index" >> complexity-report.md
-          radon mi custom_components/smartly_bridge -s >> complexity-report.md || true
-          
-          cat complexity-report.md
 
       - name: Run Pylint
         run: |
@@ -53,21 +37,6 @@ jobs:
             --disable=C0111,C0103,R0913,R0914 \
             --max-line-length=100 \
             --output-format=text || true
-
-      - name: Comment PR with complexity report
-        if: github.event_name == 'pull_request'
-        uses: actions/github-script@v8
-        with:
-          script: |
-            const fs = require('fs');
-            const report = fs.readFileSync('complexity-report.md', 'utf8');
-            
-            github.rest.issues.createComment({
-              issue_number: context.issue.number,
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              body: report
-            });
 
   coverage-check:
     name: Coverage Check
