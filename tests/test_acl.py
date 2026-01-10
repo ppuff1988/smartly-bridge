@@ -270,6 +270,22 @@ class TestGetStructure:
 
     def test_get_structure_includes_icons(self, mock_hass, mock_entity_registry):
         """Test that structure includes icon information."""
+        # Setup mock states with icons in attributes
+        mock_light_state = MagicMock()
+        mock_light_state.attributes = {"icon": "mdi:lightbulb-on", "friendly_name": "Test Light"}
+
+        mock_switch_state = MagicMock()
+        mock_switch_state.attributes = {"friendly_name": "Test Switch"}  # No icon in state
+
+        def get_state(entity_id):
+            if entity_id == "light.test_light":
+                return mock_light_state
+            elif entity_id == "switch.test_switch":
+                return mock_switch_state
+            return None
+
+        mock_hass.states.get = get_state
+
         # Setup mock registries
         device_registry = MagicMock()
         mock_device = MagicMock()
@@ -304,20 +320,20 @@ class TestGetStructure:
         assert "entities" in structure
         assert len(structure["entities"]) > 0
 
-        # Find the light.test_light entity (has custom icon)
+        # Find the light.test_light entity (has icon in state attributes)
         test_light = next(
             (e for e in structure["entities"] if e["entity_id"] == "light.test_light"), None
         )
         assert test_light is not None
         assert "icon" in test_light
-        # Should return custom icon since it's set
-        assert test_light["icon"] == "mdi:lightbulb"
+        # Should return state icon since it's set (priority over registry icon)
+        assert test_light["icon"] == "mdi:lightbulb-on"
 
-        # Find the switch.test_switch entity (no custom icon, should fallback)
+        # Find the switch.test_switch entity (no icon in state, should fallback to registry)
         test_switch = next(
             (e for e in structure["entities"] if e["entity_id"] == "switch.test_switch"), None
         )
         assert test_switch is not None
         assert "icon" in test_switch
-        # Should return original_icon as fallback since custom icon is None
+        # Should return original_icon from registry as fallback since state has no icon
         assert test_switch["icon"] == "mdi:toggle-switch"
