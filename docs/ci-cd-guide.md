@@ -29,9 +29,8 @@ Triggers on version tags (v*.*.*) or manual dispatch.
 Runs on pull requests and pushes.
 
 **Jobs:**
-- Code complexity analysis (Radon)
 - Pylint checks
-- Coverage validation (minimum 80%)
+- Coverage validation (minimum 65%)
 - Documentation checks
 - Translation completeness
 
@@ -92,14 +91,9 @@ Automated dependency updates:
 ## Quality Standards
 
 ### Code Coverage
-- Minimum: 80%
+- Minimum: 65%
 - Reported to Codecov
 - HTML reports available as artifacts
-
-### Code Complexity
-- Maximum cyclomatic complexity: 10
-- Monitored with Radon
-- Reported on PRs
 
 ### Security
 - Bandit security linting
