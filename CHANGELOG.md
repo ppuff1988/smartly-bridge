@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.8.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.8.0...v1.8.1) (2026-01-10)
+
+### ♻️ 程式碼重構 (Refactoring)
+
+* **const:** 改善預設 domain 圖標選擇 ([#39](https://github.com/ppuff1988/smartly-bridge/issues/39)) ([714370f](https://github.com/ppuff1988/smartly-bridge/commit/714370fdc7ab40117f4fd1c2091ff4046403a901))
+
 ## [1.8.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.7.1...v1.8.0) (2026-01-10)
 
 ### ✨ 新增功能 (Features)
