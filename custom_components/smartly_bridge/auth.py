@@ -367,27 +367,6 @@ async def verify_request(
         body,
     )
 
-    # Debug logging for signature verification
-    _LOGGER.warning(
-        "Signature verification details:\n"
-        "  Method: %s\n"
-        "  Path (raw): %s\n"
-        "  Path (with query): %s\n"
-        "  Timestamp: %s\n"
-        "  Nonce: %s\n"
-        "  Body length: %d\n"
-        "  Expected signature: %s...\n"
-        "  Provided signature: %s...",
-        request.method,
-        request.path,
-        request.path_qs,
-        timestamp,
-        nonce[:8] + "...",
-        len(body),
-        expected_signature[:16],
-        signature[:16] if signature else "None",
-    )
-
     if not verify_signature(
         client_secret,
         request.method,

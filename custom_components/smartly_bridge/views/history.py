@@ -52,18 +52,26 @@ def _format_state(state) -> dict[str, Any]:
     """Format a State object or compressed state dict to a dictionary."""
     # Handle compressed state format (dict)
     if isinstance(state, dict):
+        # Get timestamps, use lu as fallback for lc if not available
+        lc_timestamp = state.get("lc", 0)
+        lu_timestamp = state.get("lu", 0)
+
+        # If lc is 0 or None, use lu instead
+        if not lc_timestamp:
+            lc_timestamp = lu_timestamp
+
         return {
             "state": state.get("s", "unknown"),
             "attributes": state.get("a", {}),
             "last_changed": (
-                datetime.fromtimestamp(state.get("lc", 0), tz=dt_util.UTC).isoformat()
-                if state.get("lc")
-                else None
+                datetime.fromtimestamp(lc_timestamp, tz=dt_util.UTC).isoformat()
+                if lc_timestamp
+                else dt_util.utcnow().isoformat()
             ),
             "last_updated": (
-                datetime.fromtimestamp(state.get("lu", 0), tz=dt_util.UTC).isoformat()
-                if state.get("lu")
-                else None
+                datetime.fromtimestamp(lu_timestamp, tz=dt_util.UTC).isoformat()
+                if lu_timestamp
+                else dt_util.utcnow().isoformat()
             ),
         }
 
@@ -226,8 +234,10 @@ class SmartlyHistoryView(web.View):
         # Query history from Recorder
         try:
             from homeassistant.components.recorder import history
+            from homeassistant.helpers.recorder import get_instance
 
-            states = await self.hass.async_add_executor_job(
+            recorder_instance = get_instance(self.hass)
+            states = await recorder_instance.async_add_executor_job(
                 history.get_significant_states,
                 self.hass,
                 start_time,
@@ -451,8 +461,10 @@ class SmartlyHistoryBatchView(web.View):
         # Query history from Recorder
         try:
             from homeassistant.components.recorder import history
+            from homeassistant.helpers.recorder import get_instance
 
-            states = await self.hass.async_add_executor_job(
+            recorder_instance = get_instance(self.hass)
+            states = await recorder_instance.async_add_executor_job(
                 history.get_significant_states,
                 self.hass,
                 start_time,
@@ -656,6 +668,7 @@ class SmartlyStatisticsView(web.View):
             from typing import Literal
 
             from homeassistant.components.recorder.statistics import statistics_during_period
+            from homeassistant.helpers.recorder import get_instance
 
             # Get statistic_id (usually same as entity_id for sensors)
             statistic_id = entity_id
@@ -666,7 +679,8 @@ class SmartlyStatisticsView(web.View):
             ] = {"mean", "min", "max", "sum", "state"}
 
             # statistics_during_period returns dict with start as timestamp (float)
-            stat_result = await self.hass.async_add_executor_job(
+            recorder_instance = get_instance(self.hass)
+            stat_result = await recorder_instance.async_add_executor_job(
                 statistics_during_period,
                 self.hass,
                 start_time,
