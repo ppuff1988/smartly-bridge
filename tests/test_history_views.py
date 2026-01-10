@@ -235,7 +235,9 @@ class TestSmartlyHistoryView:
         mock_state.last_changed = datetime(2026, 1, 10, 10, 0, 0)
         mock_state.last_updated = datetime(2026, 1, 10, 10, 0, 0)
 
-        mock_hass.async_add_executor_job = AsyncMock(
+        # Mock recorder instance
+        mock_recorder = MagicMock()
+        mock_recorder.async_add_executor_job = AsyncMock(
             return_value={"sensor.temperature": [mock_state]}
         )
 
@@ -252,15 +254,19 @@ class TestSmartlyHistoryView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ):
-                view = SmartlyHistoryView(mock_request)
-                response = await view.get()
+                with patch(
+                    "homeassistant.helpers.recorder.get_instance",
+                    return_value=mock_recorder,
+                ):
+                    view = SmartlyHistoryView(mock_request)
+                    response = await view.get()
 
-                assert response.status == 200
-                data = json.loads(response.body)
-                assert data["entity_id"] == "sensor.temperature"
-                assert "history" in data
-                assert data["count"] == 1
-                assert data["truncated"] is False
+                    assert response.status == 200
+                    data = json.loads(response.body)
+                    assert data["entity_id"] == "sensor.temperature"
+                    assert "history" in data
+                    assert data["count"] == 1
+                    assert data["truncated"] is False
 
 
 class TestSmartlyHistoryBatchView:
@@ -381,7 +387,9 @@ class TestSmartlyHistoryBatchView:
         mock_state.last_changed = datetime(2026, 1, 10, 10, 0, 0)
         mock_state.last_updated = datetime(2026, 1, 10, 10, 0, 0)
 
-        mock_hass.async_add_executor_job = AsyncMock(
+        # Mock recorder instance
+        mock_recorder = MagicMock()
+        mock_recorder.async_add_executor_job = AsyncMock(
             return_value={
                 "sensor.temp1": [mock_state],
                 "sensor.temp2": [mock_state, mock_state],
@@ -401,16 +409,20 @@ class TestSmartlyHistoryBatchView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ):
-                view = SmartlyHistoryBatchView(mock_request)
-                response = await view.post()
+                with patch(
+                    "homeassistant.helpers.recorder.get_instance",
+                    return_value=mock_recorder,
+                ):
+                    view = SmartlyHistoryBatchView(mock_request)
+                    response = await view.post()
 
-                assert response.status == 200
-                data = json.loads(response.body)
-                assert "history" in data
-                assert "sensor.temp1" in data["history"]
-                assert "sensor.temp2" in data["history"]
-                assert data["count"]["sensor.temp1"] == 1
-                assert data["count"]["sensor.temp2"] == 2
+                    assert response.status == 200
+                    data = json.loads(response.body)
+                    assert "history" in data
+                    assert "sensor.temp1" in data["history"]
+                    assert "sensor.temp2" in data["history"]
+                    assert data["count"]["sensor.temp1"] == 1
+                    assert data["count"]["sensor.temp2"] == 2
 
 
 class TestSmartlyStatisticsView:
@@ -479,7 +491,9 @@ class TestSmartlyStatisticsView:
         """Test successful statistics query."""
         import time
 
-        mock_hass.async_add_executor_job = AsyncMock(
+        # Mock recorder instance
+        mock_recorder = MagicMock()
+        mock_recorder.async_add_executor_job = AsyncMock(
             return_value={
                 "sensor.power": [
                     {
@@ -507,13 +521,17 @@ class TestSmartlyStatisticsView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ):
-                view = SmartlyStatisticsView(mock_request)
-                response = await view.get()
+                with patch(
+                    "homeassistant.helpers.recorder.get_instance",
+                    return_value=mock_recorder,
+                ):
+                    view = SmartlyStatisticsView(mock_request)
+                    response = await view.get()
 
-                assert response.status == 200
-                data = json.loads(response.body)
-                assert data["entity_id"] == "sensor.power"
-                assert data["period"] == "hour"
+                    assert response.status == 200
+                    data = json.loads(response.body)
+                    assert data["entity_id"] == "sensor.power"
+                    assert data["period"] == "hour"
                 assert "statistics" in data
                 assert len(data["statistics"]) == 1
                 assert data["statistics"][0]["mean"] == 150.5
