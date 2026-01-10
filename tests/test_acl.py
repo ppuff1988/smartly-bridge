@@ -267,3 +267,57 @@ class TestGetStructure:
         # Should include virtual device
         assert "floors" in structure
         assert len(structure["floors"]) >= 0  # May be 0 if no entities found
+
+    def test_get_structure_includes_icons(self, mock_hass, mock_entity_registry):
+        """Test that structure includes icon information."""
+        # Setup mock registries
+        device_registry = MagicMock()
+        mock_device = MagicMock()
+        mock_device.area_id = "area_1"
+        mock_device.name = "Test Device"
+        device_registry.async_get = MagicMock(return_value=mock_device)
+
+        area_registry = MagicMock()
+        mock_area = MagicMock()
+        mock_area.floor_id = "floor_1"
+        mock_area.name = "Living Room"
+        area_registry.async_get_area = MagicMock(return_value=mock_area)
+
+        floor_registry = MagicMock()
+        mock_floor = MagicMock()
+        mock_floor.name = "Ground Floor"
+        floor_registry.async_get_floor = MagicMock(return_value=mock_floor)
+
+        # Get allowed entities
+        allowed_entities = get_allowed_entities(mock_hass, mock_entity_registry)
+
+        structure = get_structure(
+            mock_hass,
+            allowed_entities,
+            mock_entity_registry,
+            device_registry,
+            area_registry,
+            floor_registry,
+        )
+
+        # Verify entities list includes icon fields
+        assert "entities" in structure
+        assert len(structure["entities"]) > 0
+
+        # Find the light.test_light entity (has custom icon)
+        test_light = next(
+            (e for e in structure["entities"] if e["entity_id"] == "light.test_light"), None
+        )
+        assert test_light is not None
+        assert "icon" in test_light
+        # Should return custom icon since it's set
+        assert test_light["icon"] == "mdi:lightbulb"
+
+        # Find the switch.test_switch entity (no custom icon, should fallback)
+        test_switch = next(
+            (e for e in structure["entities"] if e["entity_id"] == "switch.test_switch"), None
+        )
+        assert test_switch is not None
+        assert "icon" in test_switch
+        # Should return original_icon as fallback since custom icon is None
+        assert test_switch["icon"] == "mdi:toggle-switch"

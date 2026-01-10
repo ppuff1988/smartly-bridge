@@ -22,6 +22,16 @@
 - 🌐 支援繁體中文顯示
 - 📱 響應式設計，支援行動裝置
 
+### `sync-api.md`
+詳細的 Sync API 說明文件，包含：
+- `/api/smartly/sync/structure` - 取得結構層級
+- `/api/smartly/sync/states` - 取得實體狀態
+- Icon 資訊的使用方式和建議
+- 安全性說明和範例程式碼
+
+### `camera-api.md`
+詳細的 Camera API 說明文件，包含快照、串流和 HLS 支援。
+
 ### `CONTROL_EXAMPLES.md`
 詳細的裝置控制範例文件。
 

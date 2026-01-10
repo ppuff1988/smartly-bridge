@@ -135,7 +135,7 @@ run_lint() {
     
     # MyPy - Type checking
     echo -e "\n${YELLOW}4. MyPy (Type Checking)${NC}"
-    python -m mypy custom_components/ --ignore-missing-imports --no-strict-optional
+    python -m mypy custom_components/ --no-strict-optional --cache-fine-grained
     if [ $? -ne 0 ]; then
         echo -e "  ${DARK_YELLOW}WARNING: MyPy found issues (non-blocking)${NC}"
     else
@@ -152,6 +152,7 @@ run_tests() {
     if [ "$FAST_MODE" = true ]; then
         echo -e "\n${YELLOW}Fast mode - No coverage report${NC}"
         python -m pytest tests/ -v
+        TEST_EXIT_CODE=$?
     else
         echo -e "\n${YELLOW}Full mode - With coverage report${NC}"
         python -m pytest tests/ \
@@ -161,8 +162,9 @@ run_tests() {
             --cov-report=html \
             --junitxml=test-results.xml \
             -v
+        TEST_EXIT_CODE=$?
         
-        if [ $? -eq 0 ]; then
+        if [ $TEST_EXIT_CODE -eq 0 ]; then
             echo -e "\n${GREEN}Coverage reports generated:${NC}"
             echo -e "  ${GRAY}- coverage.xml (for Codecov)${NC}"
             echo -e "  ${GRAY}- htmlcov/index.html (browser view)${NC}"
@@ -170,7 +172,7 @@ run_tests() {
         fi
     fi
     
-    if [ $? -ne 0 ]; then
+    if [ $TEST_EXIT_CODE -ne 0 ]; then
         FAILED_STEPS+=("Tests")
     else
         echo -e "\n${GREEN}OK: All tests passed${NC}"

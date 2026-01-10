@@ -213,6 +213,9 @@ class SmartlySyncStatesView(web.View):
         for entity_id in allowed_entities:
             state = self.hass.states.get(entity_id)
             if state:
+                # Get entity registry entry for icon info
+                entry = entity_registry.async_get(entity_id)
+
                 states.append(
                     {
                         "entity_id": entity_id,
@@ -224,6 +227,7 @@ class SmartlySyncStatesView(web.View):
                         "last_updated": (
                             state.last_updated.isoformat() if state.last_updated else None
                         ),
+                        "icon": (entry.icon or entry.original_icon) if entry else None,
                     }
                 )
 

@@ -49,17 +49,30 @@ def mock_entity_registry():
     mock_entry_allowed.area_id = "area_1"
     mock_entry_allowed.name = "Test Light"
     mock_entry_allowed.original_name = "Test Light Original"
+    mock_entry_allowed.icon = "mdi:lightbulb"  # Has custom icon
+    mock_entry_allowed.original_icon = "mdi:light"
 
     mock_entry_not_allowed = MagicMock()
     mock_entry_not_allowed.labels = set()
     mock_entry_not_allowed.device_id = "device_2"
     mock_entry_not_allowed.area_id = "area_2"
     mock_entry_not_allowed.name = "Hidden Light"
+    mock_entry_not_allowed.icon = None
+    mock_entry_not_allowed.original_icon = "mdi:lightbulb-off"
+
+    mock_entry_switch = MagicMock()
+    mock_entry_switch.labels = {"smartly"}
+    mock_entry_switch.device_id = "device_1"
+    mock_entry_switch.area_id = "area_1"
+    mock_entry_switch.name = "Test Switch"
+    mock_entry_switch.original_name = "Test Switch Original"
+    mock_entry_switch.icon = None  # No custom icon, should fallback
+    mock_entry_switch.original_icon = "mdi:toggle-switch"
 
     registry.entities = {
         "light.test_light": mock_entry_allowed,
         "light.hidden_light": mock_entry_not_allowed,
-        "switch.test_switch": mock_entry_allowed,
+        "switch.test_switch": mock_entry_switch,
     }
 
     def async_get(entity_id):

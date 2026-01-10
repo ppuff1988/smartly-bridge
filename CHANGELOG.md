@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ 新增功能 (Features)
+
+- **sync:** Sync API 新增 icon 資訊回傳 (#SYNC-ICON-001)
+  - `/api/smartly/sync/structure` 端點的 entities 列表新增 `icon` 欄位
+  - `/api/smartly/sync/states` 端點的 states 列表新增 `icon` 欄位
+  - 支援 MDI (Material Design Icons) 格式圖示
+  - Icon 欄位自動 fallback：優先使用使用者自訂圖示，若無則自動使用原始預設圖示
+  - 新增詳細的 Sync API 文件 (docs/sync-api.md)
+
+### 📝 文件更新 (Documentation)
+
+- 新增 [Sync API 說明文件](docs/sync-api.md)，包含完整的 API 參考和使用範例
+- 說明 `icon` 和 `original_icon` 欄位的使用方式和建議
+
 ## [1.6.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.5.1...v1.6.0) (2026-01-08)
 
 ### ✨ 新增功能 (Features)

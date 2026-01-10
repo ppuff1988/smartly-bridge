@@ -257,6 +257,7 @@ def _build_floors_dict(
             "entity_id": entity_id,
             "domain": get_entity_domain(entity_id),
             "name": entry.name or entry.original_name,
+            "icon": entry.icon or entry.original_icon,
         }
         floors_dict[floor_key]["areas"][area_key]["devices"][device_id]["entities"].append(
             entity_data
@@ -333,6 +334,7 @@ def _convert_to_result_format(floors_dict: dict[str, dict[str, Any]]) -> dict[st
                             "domain": entity["domain"],
                             "name": entity["name"],
                             "device_id": device_data["id"],
+                            "icon": entity.get("icon"),
                         }
                     )
 
