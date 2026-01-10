@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Smartly Bridge API
-  version: 1.2.0
+  version: 1.3.0
   description: |
     Home Assistant Custom Integration API for connecting community-level Home Assistant 
     with central management platform (Smartly Platform).
@@ -19,9 +19,11 @@ info:
     - **State Sync**: Query current state of all labeled entities with MDI icons
     - **Webhook Push**: Real-time state change notifications (batched)
     - **Heartbeat**: Periodic health check notifications
+    - **History API**: Query entity history with intelligent visualization metadata
     
     ## Version History
     
+    - **v1.3.0** (2026-01-10): Added visualization metadata to History API (chart types, colors, interpolation)
     - **v1.2.0** (2026-01-10): Added History API for querying entity history and statistics
     - **v1.1.0** (2026-01-09): Added `icon` and `original_icon` fields to sync APIs
     - **v1.0.0**: Initial release
@@ -532,15 +534,32 @@ paths:
               example:
                 entity_id: sensor.temperature
                 history:
-                  - state: "22.5"
+                  - state: 22.5
                     attributes:
                       unit_of_measurement: "°C"
+                      device_class: "temperature"
                     last_changed: "2026-01-10T10:00:00+00:00"
                     last_updated: "2026-01-10T10:00:00+00:00"
-                count: 1
+                  - state: 23.1
+                    last_changed: "2026-01-10T11:00:00+00:00"
+                    last_updated: "2026-01-10T11:00:00+00:00"
+                count: 2
                 truncated: false
                 start_time: "2026-01-09T00:00:00+00:00"
                 end_time: "2026-01-10T00:00:00+00:00"
+                metadata:
+                  domain: sensor
+                  device_class: temperature
+                  unit_of_measurement: "°C"
+                  friendly_name: "Temperature Sensor"
+                  is_numeric: true
+                  decimal_places: 1
+                  visualization:
+                    type: chart
+                    chart_type: spline
+                    color: "#EF5350"
+                    show_points: false
+                    interpolation: natural
         '400':
           description: Bad request (invalid time range, missing entity_id)
           content:
@@ -1153,7 +1172,9 @@ components:
           example: sensor.temperature
         history:
           type: array
-          description: List of historical states
+          description: |
+            List of historical states (ordered oldest to newest).
+            Note: attributes are only included in the first record for efficiency.
           items:
             $ref: '#/components/schemas/HistoryState'
         count:
@@ -1174,6 +1195,104 @@ components:
           format: date-time
           description: Query end time
           example: "2026-01-10T00:00:00+00:00"
+        metadata:
+          $ref: '#/components/schemas/HistoryMetadata'
+          description: |
+            Entity metadata with visualization recommendations (v1.3.0+).
+            Provides intelligent suggestions for rendering the data based on device_class and domain.
+
+    HistoryMetadata:
+      type: object
+      description: Metadata for entity history including visualization recommendations
+      properties:
+        domain:
+          type: string
+          description: Entity domain (sensor, switch, light, etc.)
+          example: sensor
+        device_class:
+          type: string
+          nullable: true
+          description: Device class (temperature, current, voltage, etc.)
+          example: temperature
+        unit_of_measurement:
+          type: string
+          description: Measurement unit
+          example: "°C"
+        friendly_name:
+          type: string
+          description: Entity friendly name
+          example: "Temperature Sensor"
+        is_numeric:
+          type: boolean
+          description: Whether the state value is numeric
+          example: true
+        decimal_places:
+          type: integer
+          nullable: true
+          description: Recommended decimal places for numeric display
+          example: 1
+        visualization:
+          $ref: '#/components/schemas/VisualizationConfig'
+
+    VisualizationConfig:
+      type: object
+      description: Visualization configuration for rendering history data
+      required:
+        - type
+      properties:
+        type:
+          type: string
+          enum: [chart, timeline, gauge, bar, text]
+          description: |
+            Recommended visualization type:
+            - chart: Line/area/spline charts for continuous numeric data
+            - timeline: Timeline view for on/off states
+            - gauge: Gauge display for range values
+            - bar: Bar chart for cumulative data
+            - text: Plain text display
+          example: chart
+        chart_type:
+          type: string
+          enum: [line, area, spline, bar]
+          description: Chart sub-type (for chart and bar types)
+          example: spline
+        color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Recommended color in hex format
+          example: "#EF5350"
+        show_points:
+          type: boolean
+          description: Whether to show data points (for chart type)
+          example: false
+        interpolation:
+          type: string
+          enum: [linear, monotone, natural, step-after]
+          description: |
+            Interpolation method for charts:
+            - linear: Straight lines between points
+            - monotone: Smooth curves preserving monotonicity
+            - natural: Natural cubic spline
+            - step-after: Step function
+          example: natural
+        on_color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Color for "on" state (for timeline type)
+          example: "#66BB6A"
+        off_color:
+          type: string
+          pattern: '^#[0-9A-Fa-f]{6}$'
+          description: Color for "off" state (for timeline type)
+          example: "#BDBDBD"
+        min:
+          type: number
+          description: Minimum value (for gauge type)
+          example: 0
+        max:
+          type: number
+          description: Maximum value (for gauge type)
+          example: 1
 
     HistoryState:
       type: object
@@ -1184,16 +1303,19 @@ components:
         - last_updated
       properties:
         state:
-          type: string
-          description: The state value
-          example: "22.5"
+          oneOf:
+            - type: string
+            - type: number
+          description: Entity state value (numeric values are automatically formatted with appropriate precision)
+          example: 22.5
         attributes:
           type: object
-          description: Entity attributes at this point in time
+          description: Entity attributes (only included in first record for efficiency)
           additionalProperties: true
           example:
             unit_of_measurement: "°C"
             friendly_name: "Temperature Sensor"
+            device_class: temperature
         last_changed:
           type: string
           format: date-time

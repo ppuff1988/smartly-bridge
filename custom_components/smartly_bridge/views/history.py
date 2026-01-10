@@ -28,13 +28,15 @@ from ..const import (
     CONF_TRUST_PROXY,
     DEFAULT_TRUST_PROXY,
     DOMAIN,
+    DOMAIN_VISUALIZATION_CONFIG,
     HISTORY_DEFAULT_HOURS,
     HISTORY_DEFAULT_LIMIT,
     HISTORY_MAX_DURATION_DAYS,
     HISTORY_MAX_ENTITIES_BATCH,
     RATE_WINDOW,
+    VIZUALIZATION_CONFIG,
 )
-from ..utils import format_numeric_attributes
+from ..utils import format_numeric_attributes, get_decimal_places
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -49,8 +51,109 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def _format_state(state) -> dict[str, Any]:
-    """Format a State object or compressed state dict to a dictionary."""
+def _get_entity_metadata(entity_id: str, first_state: dict[str, Any]) -> dict[str, Any]:
+    """Generate metadata for entity history visualization.
+
+    Args:
+        entity_id: Entity ID
+        first_state: First state in history (contains attributes)
+
+    Returns:
+        Metadata dict with visualization config, unit, precision, etc.
+    """
+    domain = entity_id.split(".")[0] if "." in entity_id else "sensor"
+    attributes = first_state.get("attributes", {})
+    device_class = attributes.get("device_class")
+    unit = attributes.get("unit_of_measurement", "")
+    state_value = first_state.get("state", "")
+
+    # Determine if state is numeric
+    is_numeric = False
+    try:
+        if state_value not in ("", "unknown", "unavailable", None):
+            float(state_value)
+            is_numeric = True
+    except (ValueError, TypeError):
+        pass
+
+    # Get visualization config
+    viz_config = {}
+    if device_class and device_class in VIZUALIZATION_CONFIG:
+        viz_config = VIZUALIZATION_CONFIG[device_class].copy()
+    elif domain in DOMAIN_VISUALIZATION_CONFIG:
+        viz_config = DOMAIN_VISUALIZATION_CONFIG[domain].copy()
+    else:
+        # Default config based on data type
+        if is_numeric:
+            viz_config = {
+                "type": "chart",
+                "chart_type": "line",
+                "color": "#607D8B",
+                "show_points": True,
+                "interpolation": "linear",
+            }
+        else:
+            viz_config = {
+                "type": "timeline",
+                "on_color": "#66BB6A",
+                "off_color": "#BDBDBD",
+            }
+
+    # Get decimal precision
+    decimal_places = None
+    if is_numeric and device_class:
+        decimal_places = get_decimal_places(device_class, unit)
+
+    metadata = {
+        "domain": domain,
+        "device_class": device_class,
+        "unit_of_measurement": unit,
+        "friendly_name": attributes.get("friendly_name", entity_id),
+        "is_numeric": is_numeric,
+        "visualization": viz_config,
+    }
+
+    if decimal_places is not None:
+        metadata["decimal_places"] = decimal_places
+
+    return metadata
+
+
+def _format_state_value(state: str, decimal_places: int | None) -> str | float:
+    """Format state value with proper precision.
+
+    Args:
+        state: State value as string
+        decimal_places: Number of decimal places to round to
+
+    Returns:
+        Formatted value (float if numeric, string otherwise)
+    """
+    if state in ("", "unknown", "unavailable", None):
+        return state
+
+    try:
+        numeric_value = float(state)
+        if decimal_places is not None:
+            return round(numeric_value, decimal_places)
+        return numeric_value
+    except (ValueError, TypeError):
+        return state
+
+
+def _format_state(
+    state, decimal_places: int | None = None, include_attributes: bool = True
+) -> dict[str, Any]:
+    """Format a State object or compressed state dict to a dictionary.
+
+    Args:
+        state: State object or compressed state dict
+        decimal_places: Number of decimal places for numeric state values
+        include_attributes: Whether to include attributes in output
+
+    Returns:
+        Formatted state dict
+    """
     # Handle compressed state format (dict)
     if isinstance(state, dict):
         # Get timestamps, use lu as fallback for lc if not available
@@ -61,13 +164,12 @@ def _format_state(state) -> dict[str, Any]:
         if not lc_timestamp:
             lc_timestamp = lu_timestamp
 
-        # Get and format attributes
-        attributes = state.get("a", {})
-        formatted_attributes = format_numeric_attributes(attributes) if attributes else {}
+        # Get state value and format it
+        state_value = state.get("s", "unknown")
+        formatted_state = _format_state_value(state_value, decimal_places)
 
-        return {
-            "state": state.get("s", "unknown"),
-            "attributes": formatted_attributes,
+        result = {
+            "state": formatted_state,
             "last_changed": (
                 datetime.fromtimestamp(lc_timestamp, tz=dt_util.UTC).isoformat()
                 if lc_timestamp
@@ -80,16 +182,31 @@ def _format_state(state) -> dict[str, Any]:
             ),
         }
 
-    # Handle State object
-    attributes = dict(state.attributes)
-    formatted_attributes = format_numeric_attributes(attributes) if attributes else {}
+        # Add attributes if requested and available
+        if include_attributes:
+            attributes = state.get("a", {})
+            formatted_attributes = format_numeric_attributes(attributes) if attributes else {}
+            result["attributes"] = formatted_attributes
 
-    return {
-        "state": state.state,
-        "attributes": formatted_attributes,
+        return result
+
+    # Handle State object
+    state_value = state.state
+    formatted_state = _format_state_value(state_value, decimal_places)
+
+    result = {
+        "state": formatted_state,
         "last_changed": state.last_changed.isoformat(),
         "last_updated": state.last_updated.isoformat(),
     }
+
+    # Add attributes if requested
+    if include_attributes:
+        attributes = dict(state.attributes)
+        formatted_attributes = format_numeric_attributes(attributes) if attributes else {}
+        result["attributes"] = formatted_attributes
+
+    return result
 
 
 class SmartlyHistoryView(web.View):
@@ -268,17 +385,52 @@ class SmartlyHistoryView(web.View):
         # Format response
         entity_states = states.get(entity_id, [])
         truncated = len(entity_states) > limit
-        history_data = [_format_state(s) for s in entity_states[:limit]]
+
+        # Generate metadata from first state with attributes
+        metadata = None
+        if entity_states:
+            # Find first state with attributes
+            for state in entity_states:
+                if isinstance(state, dict) and state.get("a"):
+                    metadata = _get_entity_metadata(entity_id, _format_state(state))
+                    break
+                elif not isinstance(state, dict):
+                    # State object
+                    if hasattr(state, "attributes") and state.attributes:
+                        metadata = _get_entity_metadata(
+                            entity_id, _format_state(state, include_attributes=True)
+                        )
+                        break
+
+            # If no attributes found, use first state anyway
+            if not metadata:
+                metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
+
+        # Get decimal places for state formatting
+        decimal_places = metadata.get("decimal_places") if metadata else None
+
+        # Format history data with proper precision
+        # Include full attributes only for first state, omit for subsequent if unchanged
+        history_data = []
+        for i, s in enumerate(entity_states[:limit]):
+            include_attrs = i == 0  # Only include attributes for first state
+            history_data.append(_format_state(s, decimal_places, include_attrs))
+
+        response_data = {
+            "entity_id": entity_id,
+            "history": history_data,
+            "count": len(history_data),
+            "truncated": truncated,
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+        }
+
+        # Add metadata if available
+        if metadata:
+            response_data["metadata"] = metadata
 
         return web.json_response(
-            {
-                "entity_id": entity_id,
-                "history": history_data,
-                "count": len(history_data),
-                "truncated": truncated,
-                "start_time": start_time.isoformat(),
-                "end_time": end_time.isoformat(),
-            },
+            response_data,
             status=200,
         )
 
