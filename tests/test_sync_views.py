@@ -468,3 +468,94 @@ class TestSmartlySyncStatesView:
                         s for s in data["states"] if s["entity_id"] == "light.original_icon"
                     )
                     assert state_3["icon"] == "mdi:original-icon"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_default_icon(self, mock_request, mock_hass):
+        """Test that default domain icons are used when no other icon is available."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["switch.test", "light.test", "camera.test"],
+            ):
+                # Create mock states without icon
+                mock_state_switch = MagicMock()
+                mock_state_switch.state = "on"
+                mock_state_switch.attributes = {}  # No icon
+                mock_state_switch.last_changed = MagicMock()
+                mock_state_switch.last_changed.isoformat = MagicMock(
+                    return_value="2026-01-10T00:00:00"
+                )
+                mock_state_switch.last_updated = MagicMock()
+                mock_state_switch.last_updated.isoformat = MagicMock(
+                    return_value="2026-01-10T00:00:00"
+                )
+
+                mock_state_light = MagicMock()
+                mock_state_light.state = "off"
+                mock_state_light.attributes = {}
+                mock_state_light.last_changed = MagicMock()
+                mock_state_light.last_changed.isoformat = MagicMock(
+                    return_value="2026-01-10T00:00:00"
+                )
+                mock_state_light.last_updated = MagicMock()
+                mock_state_light.last_updated.isoformat = MagicMock(
+                    return_value="2026-01-10T00:00:00"
+                )
+
+                mock_state_camera = MagicMock()
+                mock_state_camera.state = "idle"
+                mock_state_camera.attributes = {}
+                mock_state_camera.last_changed = MagicMock()
+                mock_state_camera.last_changed.isoformat = MagicMock(
+                    return_value="2026-01-10T00:00:00"
+                )
+                mock_state_camera.last_updated = MagicMock()
+                mock_state_camera.last_updated.isoformat = MagicMock(
+                    return_value="2026-01-10T00:00:00"
+                )
+
+                def get_state(entity_id):
+                    if entity_id == "switch.test":
+                        return mock_state_switch
+                    elif entity_id == "light.test":
+                        return mock_state_light
+                    elif entity_id == "camera.test":
+                        return mock_state_camera
+                    return None
+
+                # Mock entity registry - no entry (returns None)
+                mock_entity_registry = MagicMock()
+                mock_entity_registry.async_get = MagicMock(return_value=None)
+
+                mock_hass.states.get = get_state
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_er_get.return_value = mock_entity_registry
+
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    import json
+
+                    data = json.loads(response.body)
+                    assert data["count"] == 3
+
+                    # Check default icons
+                    switch_state = next(
+                        s for s in data["states"] if s["entity_id"] == "switch.test"
+                    )
+                    assert switch_state["icon"] == "mdi:toggle-switch"
+
+                    light_state = next(s for s in data["states"] if s["entity_id"] == "light.test")
+                    assert light_state["icon"] == "mdi:lightbulb"
+
+                    camera_state = next(
+                        s for s in data["states"] if s["entity_id"] == "camera.test"
+                    )
+                    assert camera_state["icon"] == "mdi:camera"

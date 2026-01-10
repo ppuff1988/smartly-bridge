@@ -5,7 +5,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, Any
 
-from .const import ALLOWED_SERVICES, PLATFORM_CONTROL_LABEL
+from .const import ALLOWED_SERVICES, DEFAULT_DOMAIN_ICONS, PLATFORM_CONTROL_LABEL
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -254,11 +254,15 @@ def _build_floors_dict(
             _initialize_device(device_id, floor_key, area_key, floors_dict, device_registry)
 
         # Add entity
-        # Icon priority: state attributes > entity registry custom > entity registry original
+        # Icon priority: state > registry custom > registry original > default by domain
         state = hass.states.get(entity_id)
         icon = state.attributes.get("icon") if state else None
         if not icon:
             icon = entry.icon or entry.original_icon
+        if not icon:
+            # Use default icon based on domain
+            domain = get_entity_domain(entity_id)
+            icon = DEFAULT_DOMAIN_ICONS.get(domain)
 
         entity_data = {
             "entity_id": entity_id,

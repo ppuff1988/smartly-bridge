@@ -16,6 +16,7 @@ from ..const import (
     CONF_ALLOWED_CIDRS,
     CONF_CLIENT_SECRET,
     CONF_TRUST_PROXY,
+    DEFAULT_DOMAIN_ICONS,
     DEFAULT_TRUST_PROXY,
     DOMAIN,
     RATE_WINDOW,
@@ -216,10 +217,14 @@ class SmartlySyncStatesView(web.View):
                 # Get entity registry entry for icon info
                 entry = entity_registry.async_get(entity_id)
 
-                # Icon priority: state > registry custom > registry original
+                # Icon priority: state > registry custom > registry original > default by domain
                 icon = state.attributes.get("icon")
                 if not icon and entry:
                     icon = entry.icon or entry.original_icon
+                if not icon:
+                    # Use default icon based on domain
+                    domain = entity_id.split(".")[0] if "." in entity_id else ""
+                    icon = DEFAULT_DOMAIN_ICONS.get(domain)
 
                 states.append(
                     {

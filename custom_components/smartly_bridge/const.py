@@ -144,3 +144,26 @@ UNIT_SPECIFIC_PRECISION_CONFIG = {
 
 # Heartbeat
 HEARTBEAT_INTERVAL = 60  # seconds
+
+# Default icons by domain
+# 當實體沒有自定義圖標時使用的默認圖標
+DEFAULT_DOMAIN_ICONS: dict[str, str] = {
+    "switch": "mdi:toggle-switch",
+    "light": "mdi:lightbulb",
+    "camera": "mdi:camera",
+    "sensor": "mdi:eye",
+    "binary_sensor": "mdi:checkbox-marked-circle",
+    "cover": "mdi:window-shutter",
+    "climate": "mdi:thermostat",
+    "fan": "mdi:fan",
+    "lock": "mdi:lock",
+    "scene": "mdi:palette",
+    "script": "mdi:script-text",
+    "automation": "mdi:robot",
+    "input_boolean": "mdi:toggle-switch",
+    "input_button": "mdi:gesture-tap-button",
+    "input_number": "mdi:ray-vertex",
+    "input_select": "mdi:format-list-bulleted",
+    "input_text": "mdi:form-textbox",
+    "button": "mdi:gesture-tap-button",
+}
