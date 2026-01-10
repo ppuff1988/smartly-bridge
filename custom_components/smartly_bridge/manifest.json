@@ -1,7 +1,7 @@
 {
   "domain": "smartly_bridge",
   "name": "Smartly Bridge",
-  "version": "1.6.0",
+  "version": "1.7.0",
   "documentation": "https://github.com/ppuff1988/smartly-bridge",
   "issue_tracker": "https://github.com/ppuff1988/smartly-bridge/issues",
   "requirements": [],

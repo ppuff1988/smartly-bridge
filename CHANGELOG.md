@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.6.0...v1.7.0) (2026-01-10)
+
+### ✨ 新增功能 (Features)
+
+* **sync:** 新增實體圖示欄位到同步 API ([#36](https://github.com/ppuff1988/smartly-bridge/issues/36)) ([b8ead21](https://github.com/ppuff1988/smartly-bridge/commit/b8ead213fb1e72c052f1b93316b11f279fc64e44)), closes [#issue](https://github.com/ppuff1988/smartly-bridge/issues/issue)
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### ✨ 新增功能 (Features)
