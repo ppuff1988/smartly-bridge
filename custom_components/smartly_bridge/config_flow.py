@@ -37,7 +37,7 @@ def generate_client_secret() -> str:
     return secrets.token_urlsafe(32)
 
 
-class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]
     """Handle a config flow for Smartly Bridge."""
 
     VERSION = 1
