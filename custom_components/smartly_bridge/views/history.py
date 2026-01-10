@@ -34,6 +34,7 @@ from ..const import (
     HISTORY_MAX_ENTITIES_BATCH,
     RATE_WINDOW,
 )
+from ..utils import format_numeric_attributes
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -60,9 +61,13 @@ def _format_state(state) -> dict[str, Any]:
         if not lc_timestamp:
             lc_timestamp = lu_timestamp
 
+        # Get and format attributes
+        attributes = state.get("a", {})
+        formatted_attributes = format_numeric_attributes(attributes) if attributes else {}
+
         return {
             "state": state.get("s", "unknown"),
-            "attributes": state.get("a", {}),
+            "attributes": formatted_attributes,
             "last_changed": (
                 datetime.fromtimestamp(lc_timestamp, tz=dt_util.UTC).isoformat()
                 if lc_timestamp
@@ -76,9 +81,12 @@ def _format_state(state) -> dict[str, Any]:
         }
 
     # Handle State object
+    attributes = dict(state.attributes)
+    formatted_attributes = format_numeric_attributes(attributes) if attributes else {}
+
     return {
         "state": state.state,
-        "attributes": dict(state.attributes),
+        "attributes": formatted_attributes,
         "last_changed": state.last_changed.isoformat(),
         "last_updated": state.last_updated.isoformat(),
     }
