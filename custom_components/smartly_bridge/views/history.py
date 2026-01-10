@@ -55,11 +55,9 @@ def _format_state(state) -> dict[str, Any]:
         # Get timestamps, use lu as fallback for lc if not available
         lc_timestamp = state.get("lc", 0)
         lu_timestamp = state.get("lu", 0)
-
         # If lc is 0 or None, use lu instead
         if not lc_timestamp:
             lc_timestamp = lu_timestamp
-
         return {
             "state": state.get("s", "unknown"),
             "attributes": state.get("a", {}),
