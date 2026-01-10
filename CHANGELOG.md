@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.7.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.7.0...v1.7.1) (2026-01-10)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **sync:** 修正實體圖標獲取邏輯，優先使用狀態屬性中的圖標 ([#37](https://github.com/ppuff1988/smartly-bridge/issues/37)) ([8f6aa0d](https://github.com/ppuff1988/smartly-bridge/commit/8f6aa0d62b225603d62a28e69635c4c691d1f5cf))
+
 ## [1.7.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.6.0...v1.7.0) (2026-01-10)
 
 ### ✨ 新增功能 (Features)
