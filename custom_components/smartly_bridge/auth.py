@@ -353,11 +353,11 @@ async def verify_request(
     # Read body
     body = await request.read()
 
-    # Verify signature
+    # Verify signature (use path_qs to include query parameters)
     if not verify_signature(
         client_secret,
         request.method,
-        request.path,
+        request.path_qs,
         timestamp,
         nonce,
         body,

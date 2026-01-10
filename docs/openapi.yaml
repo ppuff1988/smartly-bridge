@@ -494,7 +494,7 @@ paths:
         - name: start_time
           in: query
           required: false
-          description: ISO 8601 start time (default: 24 hours ago)
+          description: "ISO 8601 start time (default: 24 hours ago)"
           schema:
             type: string
             format: date-time
@@ -502,7 +502,7 @@ paths:
         - name: end_time
           in: query
           required: false
-          description: ISO 8601 end time (default: now)
+          description: "ISO 8601 end time (default: now)"
           schema:
             type: string
             format: date-time
@@ -644,14 +644,14 @@ paths:
         - name: start_time
           in: query
           required: false
-          description: ISO 8601 start time (default: 24 hours ago)
+          description: "ISO 8601 start time (default: 24 hours ago)"
           schema:
             type: string
             format: date-time
         - name: end_time
           in: query
           required: false
-          description: ISO 8601 end time (default: now)
+          description: "ISO 8601 end time (default: now)"
           schema:
             type: string
             format: date-time
@@ -1223,12 +1223,12 @@ components:
         start_time:
           type: string
           format: date-time
-          description: ISO 8601 start time (default: 24 hours ago)
+          description: "ISO 8601 start time (default: 24 hours ago)"
           example: "2026-01-09T00:00:00Z"
         end_time:
           type: string
           format: date-time
-          description: ISO 8601 end time (default: now)
+          description: "ISO 8601 end time (default: now)"
           example: "2026-01-10T00:00:00Z"
         limit:
           type: integer
