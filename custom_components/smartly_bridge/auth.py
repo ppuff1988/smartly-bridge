@@ -6,6 +6,7 @@ import asyncio
 import hashlib
 import hmac
 import ipaddress
+import logging
 import time
 import uuid
 from dataclasses import dataclass
@@ -29,6 +30,9 @@ from .const import (
 
 if TYPE_CHECKING:
     pass
+
+
+_LOGGER = logging.getLogger(__name__)
 
 
 @dataclass
@@ -354,6 +358,36 @@ async def verify_request(
     body = await request.read()
 
     # Verify signature (use path_qs to include query parameters)
+    expected_signature = compute_signature(
+        client_secret,
+        request.method,
+        request.path_qs,
+        timestamp,
+        nonce,
+        body,
+    )
+
+    # Debug logging for signature verification
+    _LOGGER.debug(
+        "Signature verification details:\n"
+        "  Method: %s\n"
+        "  Path (raw): %s\n"
+        "  Path (with query): %s\n"
+        "  Timestamp: %s\n"
+        "  Nonce: %s\n"
+        "  Body length: %d\n"
+        "  Expected signature: %s...\n"
+        "  Provided signature: %s...",
+        request.method,
+        request.path,
+        request.path_qs,
+        timestamp,
+        nonce[:8] + "...",
+        len(body),
+        expected_signature[:16],
+        signature[:16] if signature else "None",
+    )
+
     if not verify_signature(
         client_secret,
         request.method,
@@ -363,6 +397,11 @@ async def verify_request(
         body,
         signature,
     ):
+        _LOGGER.warning(
+            "Signature mismatch: expected=%s..., got=%s...",
+            expected_signature[:16],
+            signature[:16] if signature else "None",
+        )
         return AuthResult(success=False, error="invalid_signature")
 
     return AuthResult(success=True, client_id=client_id)
