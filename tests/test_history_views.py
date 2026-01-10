@@ -231,7 +231,7 @@ class TestSmartlyHistoryView:
         """Test successful history query."""
         mock_state = MagicMock()
         mock_state.state = "22.5"
-        mock_state.attributes = {"unit_of_measurement": "°C"}
+        mock_state.attributes = {"unit_of_measurement": "°C", "device_class": "temperature"}
         mock_state.last_changed = datetime(2026, 1, 10, 10, 0, 0)
         mock_state.last_updated = datetime(2026, 1, 10, 10, 0, 0)
 
@@ -265,8 +265,12 @@ class TestSmartlyHistoryView:
                     data = json.loads(response.body)
                     assert data["entity_id"] == "sensor.temperature"
                     assert "history" in data
-                    assert data["count"] == 1
+                    # 24 小時查詢會添加邊界點，所以數量會大於等於原始數據
+                    assert data["count"] >= 1
                     assert data["truncated"] is False
+                    # 驗證包含 metadata
+                    assert "metadata" in data
+                    assert data["metadata"]["is_numeric"] is True
 
 
 class TestSmartlyHistoryBatchView:
@@ -383,7 +387,7 @@ class TestSmartlyHistoryBatchView:
         """Test successful batch history query."""
         mock_state = MagicMock()
         mock_state.state = "22.5"
-        mock_state.attributes = {"unit_of_measurement": "°C"}
+        mock_state.attributes = {"unit_of_measurement": "°C", "device_class": "temperature"}
         mock_state.last_changed = datetime(2026, 1, 10, 10, 0, 0)
         mock_state.last_updated = datetime(2026, 1, 10, 10, 0, 0)
 
@@ -421,8 +425,13 @@ class TestSmartlyHistoryBatchView:
                     assert "history" in data
                     assert "sensor.temp1" in data["history"]
                     assert "sensor.temp2" in data["history"]
-                    assert data["count"]["sensor.temp1"] == 1
-                    assert data["count"]["sensor.temp2"] == 2
+                    # 24 小時查詢會添加邊界點，所以數量會大於等於原始數據
+                    assert data["count"]["sensor.temp1"] >= 1
+                    assert data["count"]["sensor.temp2"] >= 2
+                    # 驗證包含 metadata
+                    assert "metadata" in data
+                    assert "sensor.temp1" in data["metadata"]
+                    assert data["metadata"]["sensor.temp1"]["is_numeric"] is True
 
 
 class TestSmartlyStatisticsView:
