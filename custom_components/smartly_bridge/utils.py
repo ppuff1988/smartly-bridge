@@ -49,3 +49,32 @@ def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
                 pass  # Keep original value if conversion fails
 
     return formatted
+
+
+def format_sensor_state(state_value: str, attributes: dict[str, Any]) -> str:
+    """Format sensor state value with configurable decimal places.
+
+    Args:
+        state_value: The state value as string
+        attributes: Entity attributes containing device_class and unit_of_measurement
+
+    Returns:
+        Formatted state value as string
+    """
+    # 只處理數值型態的 sensor
+    try:
+        numeric_value = float(state_value)
+    except (ValueError, TypeError):
+        return state_value
+
+    # 取得 device_class 和 unit
+    device_class = attributes.get("device_class", "")
+    unit = attributes.get("unit_of_measurement", "")
+
+    # 取得對應的小數位數配置
+    decimal_places = get_decimal_places(device_class, unit)
+
+    if decimal_places is not None:
+        return str(round(numeric_value, decimal_places))
+
+    return state_value

@@ -5,6 +5,15 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **sync:** 修正 sensor state 未套用小數點格式化問題
+  - 新增 `format_sensor_state` 函數統一處理 sensor state 數值格式化
+  - sync API 和 webhook 推送現在都會根據 device_class 和 unit 正確格式化 sensor 數值
+  - 例如：電壓顯示 2 位小數 (115.7V)、電流毫安培顯示 1 位小數 (35.0mA)、溫度顯示 1 位小數 (25.6°C)
+
 ## [1.10.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.1...v1.10.2) (2026-01-11)
 
 ### 🐛 錯誤修正 (Bug Fixes)

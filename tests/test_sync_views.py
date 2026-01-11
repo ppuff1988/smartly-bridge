@@ -559,3 +559,160 @@ class TestSmartlySyncStatesView:
                         s for s in data["states"] if s["entity_id"] == "camera.test"
                     )
                     assert camera_state["icon"] == "mdi:camera"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_sensor_decimal_formatting(self, mock_request, mock_hass):
+        """Test sensor state values are formatted with correct decimal places."""
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.sync.verify_request"
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities"
+            ) as mock_allowed,
+        ):
+            # Setup auth success
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+
+            # Mock allowed entities - various sensors
+            mock_allowed.return_value = [
+                "sensor.voltage",
+                "sensor.current_ma",
+                "sensor.current_a",
+                "sensor.power",
+                "sensor.temperature",
+            ]
+
+            # Create mock states with high precision values
+            mock_state_voltage = MagicMock()
+            mock_state_voltage.state = "115.699996948242"
+            mock_state_voltage.attributes = {
+                "device_class": "voltage",
+                "unit_of_measurement": "V",
+            }
+            mock_state_voltage.last_changed = MagicMock()
+            mock_state_voltage.last_changed.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+            mock_state_voltage.last_updated = MagicMock()
+            mock_state_voltage.last_updated.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+
+            mock_state_current_ma = MagicMock()
+            mock_state_current_ma.state = "35.0000001490116"
+            mock_state_current_ma.attributes = {
+                "device_class": "current",
+                "unit_of_measurement": "mA",
+            }
+            mock_state_current_ma.last_changed = MagicMock()
+            mock_state_current_ma.last_changed.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+            mock_state_current_ma.last_updated = MagicMock()
+            mock_state_current_ma.last_updated.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+
+            mock_state_current_a = MagicMock()
+            mock_state_current_a.state = "0.456789123456"
+            mock_state_current_a.attributes = {
+                "device_class": "current",
+                "unit_of_measurement": "A",
+            }
+            mock_state_current_a.last_changed = MagicMock()
+            mock_state_current_a.last_changed.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+            mock_state_current_a.last_updated = MagicMock()
+            mock_state_current_a.last_updated.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+
+            mock_state_power = MagicMock()
+            mock_state_power.state = "0.800000011920929"
+            mock_state_power.attributes = {
+                "device_class": "power",
+                "unit_of_measurement": "W",
+            }
+            mock_state_power.last_changed = MagicMock()
+            mock_state_power.last_changed.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+            mock_state_power.last_updated = MagicMock()
+            mock_state_power.last_updated.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+
+            mock_state_temp = MagicMock()
+            mock_state_temp.state = "25.56789"
+            mock_state_temp.attributes = {
+                "device_class": "temperature",
+                "unit_of_measurement": "°C",
+            }
+            mock_state_temp.last_changed = MagicMock()
+            mock_state_temp.last_changed.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+            mock_state_temp.last_updated = MagicMock()
+            mock_state_temp.last_updated.isoformat = MagicMock(
+                return_value="2026-01-11T00:00:00"
+            )
+
+            def get_state(entity_id):
+                if entity_id == "sensor.voltage":
+                    return mock_state_voltage
+                elif entity_id == "sensor.current_ma":
+                    return mock_state_current_ma
+                elif entity_id == "sensor.current_a":
+                    return mock_state_current_a
+                elif entity_id == "sensor.power":
+                    return mock_state_power
+                elif entity_id == "sensor.temperature":
+                    return mock_state_temp
+                return None
+
+            mock_entity_registry = MagicMock()
+            mock_entity_registry.async_get = MagicMock(return_value=None)
+            mock_hass.states.get = get_state
+
+            with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                mock_er_get.return_value = mock_entity_registry
+
+                view = SmartlySyncStatesView(mock_request)
+                response = await view.get()
+
+                assert response.status == 200
+                import json
+
+                data = json.loads(response.body)
+                assert data["count"] == 5
+
+                # Check voltage: 2 decimal places (V)
+                voltage_state = next(
+                    s for s in data["states"] if s["entity_id"] == "sensor.voltage"
+                )
+                assert voltage_state["state"] == "115.7"
+
+                # Check current (mA): 1 decimal place
+                current_ma_state = next(
+                    s for s in data["states"] if s["entity_id"] == "sensor.current_ma"
+                )
+                assert current_ma_state["state"] == "35.0"
+
+                # Check current (A): 3 decimal places
+                current_a_state = next(
+                    s for s in data["states"] if s["entity_id"] == "sensor.current_a"
+                )
+                assert current_a_state["state"] == "0.457"
+
+                # Check power: 2 decimal places (W)
+                power_state = next(s for s in data["states"] if s["entity_id"] == "sensor.power")
+                assert power_state["state"] == "0.8"
+
+                # Check temperature: 1 decimal place
+                temp_state = next(
+                    s for s in data["states"] if s["entity_id"] == "sensor.temperature"
+                )
+                assert temp_state["state"] == "25.6"
+
