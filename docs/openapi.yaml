@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Smartly Bridge API
-  version: 1.3.0
+  version: 1.4.0
   description: |
     Home Assistant Custom Integration API for connecting community-level Home Assistant 
     with central management platform (Smartly Platform).
@@ -19,10 +19,11 @@ info:
     - **State Sync**: Query current state of all labeled entities with MDI icons
     - **Webhook Push**: Real-time state change notifications (batched)
     - **Heartbeat**: Periodic health check notifications
-    - **History API**: Query entity history with intelligent visualization metadata
+    - **History API**: Query entity history with intelligent visualization metadata and cursor-based pagination
     
     ## Version History
     
+    - **v1.4.0** (2026-01-11): Added cursor-based pagination to History API for efficient large dataset queries
     - **v1.3.0** (2026-01-10): Added visualization metadata to History API (chart types, colors, interpolation)
     - **v1.2.0** (2026-01-10): Added History API for querying entity history and statistics
     - **v1.1.0** (2026-01-09): Added `icon` and `original_icon` fields to sync APIs
@@ -481,9 +482,16 @@ paths:
         - Maximum duration: 30 days
         - Default duration: 24 hours (if start_time not specified)
         
+        **Pagination (v1.4.0):**
+        - Use `cursor` parameter for efficient pagination through large datasets
+        - Without cursor: Returns up to `limit` records (legacy mode)
+        - With cursor: Returns up to `page_size` records per page (default: 100, max: 1000)
+        - Response includes `has_more` and `next_cursor` for fetching next page
+        - Cursor contains encoded timestamp and state change time (Base64)
+        
         **Response Limit:**
-        - Maximum 1000 records per request
-        - Use `truncated` field to detect if more records exist
+        - Without cursor: Maximum 1000 records per request (use `truncated` field)
+        - With cursor: Maximum `page_size` records per request (use `has_more` field)
       operationId: getEntityHistory
       parameters:
         - name: entity_id
@@ -512,7 +520,7 @@ paths:
         - name: limit
           in: query
           required: false
-          description: Maximum number of records to return (max 1000)
+          description: "Maximum number of records to return (max 1000). Note: Ignored when using cursor pagination."
           schema:
             type: integer
             default: 1000
@@ -524,6 +532,27 @@ paths:
           schema:
             type: boolean
             default: true
+        - name: cursor
+          in: query
+          required: false
+          description: |
+            **[v1.4.0]** Pagination cursor (Base64 encoded). Use the `next_cursor` value from 
+            a previous response to fetch the next page of results. When using cursor, the `limit` 
+            parameter is ignored and `page_size` is used instead.
+          schema:
+            type: string
+            example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9"
+        - name: page_size
+          in: query
+          required: false
+          description: |
+            **[v1.4.0]** Number of records per page when using cursor pagination (min: 1, max: 1000). 
+            Only effective when `cursor` parameter is provided.
+          schema:
+            type: integer
+            default: 100
+            minimum: 1
+            maximum: 1000
       responses:
         '200':
           description: History retrieved successfully
@@ -561,11 +590,21 @@ paths:
                     show_points: false
                     interpolation: natural
         '400':
-          description: Bad request (invalid time range, missing entity_id)
+          description: Bad request (invalid time range, missing entity_id, invalid cursor)
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalid_time_range:
+                  summary: Invalid time range
+                  value:
+                    error: invalid_time_range
+                    message: "Time range cannot exceed 30 days"
+                invalid_cursor:
+                  summary: Invalid cursor
+                  value:
+                    error: invalid_cursor
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -1162,7 +1201,6 @@ components:
         - entity_id
         - history
         - count
-        - truncated
         - start_time
         - end_time
       properties:
@@ -1183,7 +1221,9 @@ components:
           example: 24
         truncated:
           type: boolean
-          description: Whether more records exist beyond the limit
+          description: |
+            Whether more records exist beyond the limit (legacy mode only, not present in cursor mode).
+            When using cursor pagination, use `has_more` instead.
           example: false
         start_time:
           type: string
@@ -1200,6 +1240,23 @@ components:
           description: |
             Entity metadata with visualization recommendations (v1.3.0+).
             Provides intelligent suggestions for rendering the data based on device_class and domain.
+        page_size:
+          type: integer
+          description: |
+            **[v1.4.0]** Number of records per page (only present when using cursor pagination).
+          example: 100
+        has_more:
+          type: boolean
+          description: |
+            **[v1.4.0]** Whether more records are available (only present when using cursor pagination).
+            If true, use `next_cursor` to fetch the next page.
+          example: true
+        next_cursor:
+          type: string
+          description: |
+            **[v1.4.0]** Cursor for fetching the next page (only present when `has_more` is true).
+            Pass this value as the `cursor` parameter in the next request.
+          example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9"
 
     HistoryMetadata:
       type: object

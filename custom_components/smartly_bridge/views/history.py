@@ -7,6 +7,8 @@ statistics for entities.
 
 from __future__ import annotations
 
+import base64
+import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -39,6 +41,47 @@ from ..const import (
 from ..utils import format_numeric_attributes, get_decimal_places
 
 _LOGGER = logging.getLogger(__name__)
+
+# Default page size for cursor pagination
+DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 1000
+
+
+def _encode_cursor(timestamp: str, last_changed: str) -> str:
+    """Encode cursor for pagination.
+
+    Args:
+        timestamp: ISO 8601 timestamp
+        last_changed: ISO 8601 last_changed timestamp
+
+    Returns:
+        Base64 encoded cursor string
+    """
+    cursor_data = {
+        "ts": timestamp,
+        "lc": last_changed,
+    }
+    cursor_json = json.dumps(cursor_data, separators=(",", ":"))
+    return base64.urlsafe_b64encode(cursor_json.encode()).decode()
+
+
+def _decode_cursor(cursor: str) -> dict[str, str] | None:
+    """Decode cursor for pagination.
+
+    Args:
+        cursor: Base64 encoded cursor string
+
+    Returns:
+        Dict with timestamp and last_changed, or None if invalid
+    """
+    try:
+        cursor_json = base64.urlsafe_b64decode(cursor.encode()).decode()
+        cursor_data = json.loads(cursor_json)
+        if "ts" in cursor_data and "lc" in cursor_data:
+            return cursor_data
+    except (ValueError, KeyError, json.JSONDecodeError):
+        pass
+    return None
 
 
 def _parse_datetime(value: str | None) -> datetime | None:
@@ -306,6 +349,171 @@ class SmartlyHistoryView(web.View):
 
         return None
 
+    def _parse_pagination_params(
+        self, query, start_time: datetime, end_time: datetime
+    ) -> tuple[str | None, dict[str, str] | None, int, int, bool, datetime]:
+        """Parse pagination related parameters.
+
+        Returns:
+            tuple: (cursor_str, cursor_data, page_size, limit, use_pagination, updated_start_time)
+        """
+        # Parse cursor parameter
+        cursor_str = query.get("cursor")
+        cursor_data = None
+        updated_start_time = start_time
+
+        if cursor_str:
+            cursor_data = _decode_cursor(cursor_str)
+            if cursor_data:
+                # Update start_time based on cursor
+                try:
+                    cursor_timestamp = datetime.fromisoformat(
+                        cursor_data["ts"].replace("Z", "+00:00")
+                    )
+                    if cursor_timestamp > start_time:
+                        updated_start_time = cursor_timestamp
+                except (ValueError, KeyError) as err:
+                    _LOGGER.error("Invalid cursor timestamp: %s", err)
+                    cursor_data = None
+
+        # Parse page_size parameter
+        try:
+            page_size = int(query.get("page_size", DEFAULT_PAGE_SIZE))
+            page_size = min(max(1, page_size), MAX_PAGE_SIZE)
+            use_pagination = "page_size" in query or cursor_str is not None
+        except ValueError:
+            page_size = DEFAULT_PAGE_SIZE
+            use_pagination = cursor_str is not None
+
+        # Calculate limit
+        duration_hours = (end_time - start_time).total_seconds() / 3600
+        if use_pagination:
+            limit = page_size + 1
+        elif duration_hours <= 24:
+            limit = 999999
+        else:
+            try:
+                limit = int(query.get("limit", HISTORY_DEFAULT_LIMIT))
+                limit = min(limit, HISTORY_DEFAULT_LIMIT)
+            except ValueError:
+                limit = HISTORY_DEFAULT_LIMIT
+
+        return cursor_str, cursor_data, page_size, limit, use_pagination, updated_start_time
+
+    def _apply_pagination_filter(
+        self,
+        entity_states: list,
+        cursor_data: dict[str, str] | None,
+        page_size: int,
+        use_pagination: bool,
+    ) -> tuple[list, bool]:
+        """Apply pagination filtering to entity states.
+
+        Returns:
+            tuple: (filtered_states, has_more)
+        """
+        if not use_pagination:
+            return entity_states, False
+
+        # Check if there are more results
+        has_more = len(entity_states) > page_size
+        if has_more:
+            entity_states = entity_states[:page_size]
+
+        # Filter states based on cursor position (if cursor is provided)
+        if cursor_data:
+            cursor_lc = cursor_data.get("lc")
+            filtered_states = []
+            for state in entity_states:
+                state_lc = _format_state(state).get("last_changed", "")
+                if cursor_lc and state_lc > cursor_lc:
+                    filtered_states.append(state)
+            entity_states = filtered_states
+            # Recalculate has_more after filtering
+            has_more = len(entity_states) == page_size
+
+        return entity_states, has_more
+
+    def _format_history_response(
+        self,
+        entity_states: list,
+        entity_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        limit: int,
+        page_size: int,
+        has_more: bool,
+        use_pagination: bool,
+    ) -> dict:
+        """Format history query response.
+
+        Returns:
+            dict: Response data
+        """
+        # Generate metadata from first state with attributes
+        metadata = None
+        if entity_states:
+            for state in entity_states:
+                if isinstance(state, dict) and state.get("a"):
+                    metadata = _get_entity_metadata(entity_id, _format_state(state))
+                    break
+                elif not isinstance(state, dict):
+                    if hasattr(state, "attributes") and state.attributes:
+                        metadata = _get_entity_metadata(
+                            entity_id, _format_state(state, include_attributes=True)
+                        )
+                        break
+
+            if not metadata:
+                metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
+
+        # Get formatting parameters
+        decimal_places = metadata.get("decimal_places") if metadata else None
+        is_numeric = metadata.get("is_numeric", False) if metadata else False
+
+        # Format history data
+        history_data = []
+        if use_pagination:
+            for i, s in enumerate(entity_states):
+                include_attrs = i == 0
+                history_data.append(_format_state(s, decimal_places, include_attrs))
+        else:
+            for i, s in enumerate(entity_states[:limit]):
+                include_attrs = i == 0
+                history_data.append(_format_state(s, decimal_places, include_attrs))
+
+        # Fill time boundaries (non-pagination mode only)
+        if not use_pagination:
+            history_data = _ensure_time_bounds(history_data, start_time, end_time, is_numeric)
+
+        # Build response
+        response_data = {
+            "entity_id": entity_id,
+            "history": history_data,
+            "count": len(history_data),
+            "start_time": start_time.isoformat(),
+            "end_time": end_time.isoformat(),
+        }
+
+        # Add pagination info
+        if use_pagination:
+            response_data["page_size"] = page_size
+            response_data["has_more"] = has_more
+
+            if has_more and history_data:
+                last_state = history_data[-1]
+                next_cursor = _encode_cursor(last_state["last_updated"], last_state["last_changed"])
+                response_data["next_cursor"] = next_cursor
+        else:
+            # Legacy mode: include truncated flag (calculated earlier)
+            response_data["truncated"] = has_more
+
+        # Add metadata
+        if metadata:
+            response_data["metadata"] = metadata
+
+        return response_data
+
     async def get(self) -> web.Response:
         """Handle history query request."""
         # Get integration data
@@ -421,18 +629,16 @@ class SmartlyHistoryView(web.View):
                 status=400,
             )
 
-        # Parse limit parameter
-        # 對於 24 小時內的查詢，不限制筆數；超過 24 小時則使用預設限制
-        duration_hours = (end_time - start_time).total_seconds() / 3600
-        if duration_hours <= 24:
-            # 24 小時內不限制筆數，使用一個很大的值
-            limit = 999999
-        else:
-            try:
-                limit = int(query.get("limit", HISTORY_DEFAULT_LIMIT))
-                limit = min(limit, HISTORY_DEFAULT_LIMIT)
-            except ValueError:
-                limit = HISTORY_DEFAULT_LIMIT
+        # Parse cursor parameter
+        cursor_str, cursor_data, page_size, limit, use_pagination, start_time = (
+            self._parse_pagination_params(query, start_time, end_time)
+        )
+
+        if cursor_str and not cursor_data:
+            return web.json_response(
+                {"error": "invalid_cursor"},
+                status=400,
+            )
 
         # Get significant_changes_only parameter
         significant_changes_only = query.get("significant_changes_only", "true").lower() == "true"
@@ -465,54 +671,27 @@ class SmartlyHistoryView(web.View):
 
         # Format response
         entity_states = states.get(entity_id, [])
-        truncated = len(entity_states) > limit
 
-        # Generate metadata from first state with attributes
-        metadata = None
-        if entity_states:
-            # Find first state with attributes
-            for state in entity_states:
-                if isinstance(state, dict) and state.get("a"):
-                    metadata = _get_entity_metadata(entity_id, _format_state(state))
-                    break
-                elif not isinstance(state, dict):
-                    # State object
-                    if hasattr(state, "attributes") and state.attributes:
-                        metadata = _get_entity_metadata(
-                            entity_id, _format_state(state, include_attributes=True)
-                        )
-                        break
+        # Apply pagination filtering
+        entity_states, has_more = self._apply_pagination_filter(
+            entity_states, cursor_data, page_size, use_pagination
+        )
 
-            # If no attributes found, use first state anyway
-            if not metadata:
-                metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
+        # Legacy mode truncated flag
+        if not use_pagination:
+            has_more = len(states.get(entity_id, [])) > limit
 
-        # Get decimal places for state formatting
-        decimal_places = metadata.get("decimal_places") if metadata else None
-        is_numeric = metadata.get("is_numeric", False) if metadata else False
-
-        # Format history data with proper precision
-        # Include full attributes only for first state, omit for subsequent if unchanged
-        history_data = []
-        for i, s in enumerate(entity_states[:limit]):
-            include_attrs = i == 0  # Only include attributes for first state
-            history_data.append(_format_state(s, decimal_places, include_attrs))
-
-        # 確保時間範圍完整，填補邊界點
-        history_data = _ensure_time_bounds(history_data, start_time, end_time, is_numeric)
-
-        response_data = {
-            "entity_id": entity_id,
-            "history": history_data,
-            "count": len(history_data),
-            "truncated": truncated,
-            "start_time": start_time.isoformat(),
-            "end_time": end_time.isoformat(),
-        }
-
-        # Add metadata if available
-        if metadata:
-            response_data["metadata"] = metadata
+        # Format response
+        response_data = self._format_history_response(
+            entity_states,
+            entity_id,
+            start_time,
+            end_time,
+            limit,
+            page_size,
+            has_more,
+            use_pagination,
+        )
 
         return web.json_response(
             response_data,

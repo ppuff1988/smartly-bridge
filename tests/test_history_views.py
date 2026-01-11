@@ -546,3 +546,252 @@ class TestSmartlyStatisticsView:
                 assert data["statistics"][0]["mean"] == 150.5
                 assert data["statistics"][0]["min"] == 50.0
                 assert data["statistics"][0]["max"] == 300.0
+
+
+class TestCursorPagination:
+    """Tests for cursor-based pagination."""
+
+    @pytest.fixture
+    def mock_hass(self):
+        """Create mock Home Assistant instance."""
+        hass = MagicMock()
+        hass.data = {
+            DOMAIN: {
+                "config_entry": MagicMock(
+                    data={
+                        "client_secret": "test_secret",
+                        "allowed_cidrs": "",
+                        "trust_proxy": "off",
+                    }
+                ),
+                "nonce_cache": NonceCache(),
+                "rate_limiter": RateLimiter(60, 60),
+            }
+        }
+        hass.async_add_executor_job = AsyncMock()
+        return hass
+
+    @pytest.fixture
+    def mock_request(self, mock_hass):
+        """Create mock request."""
+        request = MagicMock()
+        request.app = {"hass": mock_hass}
+        request.headers = {"X-Client-Id": "test_client"}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        request.read = AsyncMock(return_value=b"")
+        request.match_info = {"entity_id": "sensor.temperature"}
+        request.query = {}
+        return request
+
+    @pytest.mark.asyncio
+    async def test_cursor_encode_decode(self):
+        """Test cursor encoding and decoding."""
+        from custom_components.smartly_bridge.views.history import _decode_cursor, _encode_cursor
+
+        # Test encoding
+        timestamp = "2026-01-10T12:00:00Z"
+        last_changed = "2026-01-10T12:00:00.123456Z"
+        cursor = _encode_cursor(timestamp, last_changed)
+
+        assert cursor is not None
+        assert isinstance(cursor, str)
+
+        # Test decoding
+        decoded = _decode_cursor(cursor)
+        assert decoded is not None
+        assert decoded["ts"] == timestamp
+        assert decoded["lc"] == last_changed
+
+    @pytest.mark.asyncio
+    async def test_cursor_decode_invalid(self):
+        """Test decoding invalid cursor."""
+        from custom_components.smartly_bridge.views.history import _decode_cursor
+
+        # Invalid base64
+        assert _decode_cursor("invalid!!!") is None
+
+        # Valid base64 but invalid JSON
+        assert _decode_cursor("aW52YWxpZCBqc29u") is None
+
+        # Valid JSON but missing fields
+        import base64
+
+        invalid_json = base64.urlsafe_b64encode(b'{"ts":"time"}').decode()
+        assert _decode_cursor(invalid_json) is None
+
+    @pytest.mark.asyncio
+    async def test_history_with_cursor_first_page(self, mock_hass, mock_request):
+        """Test history query with cursor pagination - first page."""
+        mock_request.app = {"hass": mock_hass}
+        mock_request.match_info = {"entity_id": "sensor.temperature"}
+        mock_request.query = {
+            "start_time": "2026-01-09T00:00:00Z",
+            "end_time": "2026-01-10T00:00:00Z",
+            "page_size": "5",  # Small page size for testing
+        }
+        mock_request.path_qs = (
+            "/api/smartly/history/sensor.temperature?"
+            "start_time=2026-01-09T00:00:00Z&end_time=2026-01-10T00:00:00Z&page_size=5"
+        )
+
+        # Create mock states (6 items to trigger has_more)
+        mock_states = []
+        for i in range(6):
+            mock_state = MagicMock()
+            mock_state.state = f"{20 + i}.5"
+            mock_state.last_changed = datetime(2026, 1, 9, i, 0, 0)
+            mock_state.last_updated = datetime(2026, 1, 9, i, 0, 0)
+            mock_state.attributes = {
+                "device_class": "temperature",
+                "unit_of_measurement": "°C",
+            }
+            mock_states.append(mock_state)
+
+        mock_recorder = MagicMock()
+        mock_recorder.async_add_executor_job = AsyncMock(
+            return_value={"sensor.temperature": mock_states}
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "homeassistant.helpers.recorder.get_instance",
+                    return_value=mock_recorder,
+                ):
+                    view = SmartlyHistoryView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    data = json.loads(response.body)
+
+                    # Verify pagination fields
+                    assert data["page_size"] == 5
+                    assert data["has_more"] is True
+                    assert "next_cursor" in data
+                    assert data["count"] <= 5
+
+                    # Verify cursor is valid
+                    from custom_components.smartly_bridge.views.history import _decode_cursor
+
+                    decoded = _decode_cursor(data["next_cursor"])
+                    assert decoded is not None
+                    assert "ts" in decoded
+                    assert "lc" in decoded
+
+    @pytest.mark.asyncio
+    async def test_history_with_cursor_last_page(self, mock_hass, mock_request):
+        """Test history query with cursor pagination - last page."""
+        from custom_components.smartly_bridge.views.history import _encode_cursor
+
+        mock_request.app = {"hass": mock_hass}
+        mock_request.match_info = {"entity_id": "sensor.temperature"}
+
+        # Create cursor for testing
+        cursor = _encode_cursor("2026-01-09T02:00:00Z", "2026-01-09T02:00:00Z")
+
+        mock_request.query = {
+            "start_time": "2026-01-09T00:00:00Z",
+            "end_time": "2026-01-10T00:00:00Z",
+            "page_size": "5",
+            "cursor": cursor,
+        }
+        mock_request.path_qs = (
+            f"/api/smartly/history/sensor.temperature?"
+            f"start_time=2026-01-09T00:00:00Z&end_time=2026-01-10T00:00:00Z&"
+            f"page_size=5&cursor={cursor}"
+        )
+
+        # Create mock states (3 items after cursor position: 03:00, 04:00, 05:00)
+        mock_states = []
+        for i in range(3, 6):
+            mock_state = MagicMock()
+            mock_state.state = f"{20 + i}.5"
+            mock_state.last_changed = datetime(2026, 1, 9, i, 0, 0)
+            mock_state.last_updated = datetime(2026, 1, 9, i, 0, 0)
+            mock_state.attributes = {
+                "device_class": "temperature",
+                "unit_of_measurement": "°C",
+            }
+            mock_states.append(mock_state)
+
+        mock_recorder = MagicMock()
+        mock_recorder.async_add_executor_job = AsyncMock(
+            return_value={"sensor.temperature": mock_states}
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "homeassistant.helpers.recorder.get_instance",
+                    return_value=mock_recorder,
+                ):
+                    view = SmartlyHistoryView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    data = json.loads(response.body)
+
+                    # Verify last page
+                    assert data["page_size"] == 5
+                    assert data["has_more"] is False
+                    assert "next_cursor" not in data
+                    assert data["count"] == 3
+
+    @pytest.mark.asyncio
+    async def test_history_with_invalid_cursor(self, mock_hass, mock_request):
+        """Test history query with invalid cursor."""
+        mock_request.app = {"hass": mock_hass}
+        mock_request.match_info = {"entity_id": "sensor.temperature"}
+        mock_request.query = {
+            "start_time": "2026-01-09T00:00:00Z",
+            "end_time": "2026-01-10T00:00:00Z",
+            "cursor": "invalid_cursor_string!!!",
+        }
+        mock_request.path_qs = (
+            "/api/smartly/history/sensor.temperature?"
+            "start_time=2026-01-09T00:00:00Z&end_time=2026-01-10T00:00:00Z&"
+            "cursor=invalid_cursor_string!!!"
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ):
+                view = SmartlyHistoryView(mock_request)
+                response = await view.get()
+
+                assert response.status == 400
+                data = json.loads(response.body)
+                assert data["error"] == "invalid_cursor"

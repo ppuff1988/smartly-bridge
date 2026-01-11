@@ -188,15 +188,32 @@ console.log("Message to sign:\n" + message);
 |------|------|------|--------|------|
 | `start_time` | string | ❌ | 24小時前 | 開始時間（ISO 8601 格式，例如：`2026-01-09T00:00:00Z`） |
 | `end_time` | string | ❌ | 現在 | 結束時間（ISO 8601 格式） |
-| `limit` | integer | ❌ | 自動 | 返回的最大記錄數（24小時內查詢不限制，超過24小時預設最多1000筆） |
+| `limit` | integer | ❌ | 自動 | 返回的最大記錄數（24小時內查詢不限制，超過24小時預設最多1000筆）⚠️ 使用 `cursor` 時無效 |
 | `significant_changes_only` | boolean | ❌ | true | 是否只返回顯著變化的狀態 |
+| `cursor` | string | ❌ | - | **[v1.4.0]** 分頁游標（Base64 編碼），用於獲取下一頁數據 |
+| `page_size` | integer | ❌ | 100 | **[v1.4.0]** 每頁返回的記錄數（僅在使用 `cursor` 時有效，範圍：1-1000） |
 
 #### 限制
 
 - 時間範圍最長 30 天
-- **24 小時內查詢：** 回傳所有記錄，不限制筆數，確保時間軸完整
-- **超過 24 小時查詢：** 單次查詢最多返回 1000 筆記錄
+- **24 小時內查詢（不使用 cursor）：** 回傳所有記錄，不限制筆數，確保時間軸完整
+- **超過 24 小時查詢（不使用 cursor）：** 單次查詢最多返回 1000 筆記錄
+- **使用 cursor 分頁：** 每頁最多返回 `page_size` 筆（預設 100，最大 1000）
 - 僅能查詢有權限的實體
+
+#### 分頁查詢說明（v1.4.0 新增）
+
+當查詢大量歷史數據時，可使用 cursor-based pagination 來分批獲取數據：
+
+1. **首次請求**：不提供 `cursor` 參數
+2. **後續請求**：使用上一次回應中的 `next_cursor` 作為 `cursor` 參數
+3. **結束條件**：當回應的 `has_more` 為 `false` 時，表示已經取得所有數據
+
+**注意事項：**
+- 使用 cursor 時，`limit` 參數將被忽略
+- 使用 cursor 時，不會進行時間邊界填補（`_ensure_time_bounds`）
+- cursor 包含加密的時間戳和狀態變更時間，不可手動構造
+- cursor 有時效性，建議在合理時間內完成分頁查詢
 
 #### 請求範例
 
@@ -285,10 +302,13 @@ X-Signature: computed-hmac-signature
 | `history[].last_changed` | string | 狀態變更時間（ISO 8601） |
 | `history[].last_updated` | string | 最後更新時間（ISO 8601） |
 | `count` | integer | 返回的記錄數 |
-| `truncated` | boolean | 是否因超過 limit 而截斷 |
+| `truncated` | boolean | 是否因超過 limit 而截斷（僅在非 cursor 模式） |
 | `start_time` | string | 查詢開始時間 |
 | `end_time` | string | 查詢結束時間 |
 | `metadata` | object | **[v1.3.0]** 實體元數據與視覺化建議 |
+| `page_size` | integer | **[v1.4.0]** 每頁記錄數（僅在 cursor 模式） |
+| `has_more` | boolean | **[v1.4.0]** 是否還有更多數據（僅在 cursor 模式） |
+| `next_cursor` | string | **[v1.4.0]** 下一頁游標（僅在 `has_more=true` 時返回） |
 
 #### 元數據（metadata）欄位說明
 
@@ -390,6 +410,168 @@ X-Signature: computed-hmac-signature
 | `humidity` | % | 1 | 65.5 % |
 | `battery` | % | 0 | 85 % |
 
+#### Cursor Pagination 使用範例（v1.4.0）
+
+**場景：** 查詢過去 7 天的溫度數據，每次獲取 50 筆記錄
+
+**第一次請求：**
+```http
+GET /api/smartly/history/sensor.temperature?start_time=2026-01-03T00:00:00Z&end_time=2026-01-10T00:00:00Z&page_size=50
+Host: localhost:8123
+X-Client-Id: ha_your-client-id
+X-Timestamp: 1768018354
+X-Nonce: uuid-v4-string-1
+X-Signature: computed-hmac-signature-1
+```
+
+**第一次響應：**
+```json
+{
+  "entity_id": "sensor.temperature",
+  "history": [
+    {
+      "state": 22.5,
+      "attributes": {
+        "device_class": "temperature",
+        "unit_of_measurement": "°C"
+      },
+      "last_changed": "2026-01-03T00:00:00Z",
+      "last_updated": "2026-01-03T00:00:00Z"
+    },
+    // ... 49 more records
+  ],
+  "count": 50,
+  "page_size": 50,
+  "has_more": true,
+  "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9",
+  "start_time": "2026-01-03T00:00:00Z",
+  "end_time": "2026-01-10T00:00:00Z",
+  "metadata": { ... }
+}
+```
+
+**第二次請求（使用 cursor）：**
+```http
+GET /api/smartly/history/sensor.temperature?start_time=2026-01-03T00:00:00Z&end_time=2026-01-10T00:00:00Z&page_size=50&cursor=eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9
+Host: localhost:8123
+X-Client-Id: ha_your-client-id
+X-Timestamp: 1768018360
+X-Nonce: uuid-v4-string-2
+X-Signature: computed-hmac-signature-2
+```
+
+**第二次響應：**
+```json
+{
+  "entity_id": "sensor.temperature",
+  "history": [
+    {
+      "state": 23.1,
+      "attributes": { ... },
+      "last_changed": "2026-01-03T02:30:01Z",
+      "last_updated": "2026-01-03T02:30:01Z"
+    },
+    // ... 49 more records
+  ],
+  "count": 50,
+  "page_size": 50,
+  "has_more": true,
+  "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9",
+  "start_time": "2026-01-03T02:30:00Z",
+  "end_time": "2026-01-10T00:00:00Z",
+  "metadata": { ... }
+}
+```
+
+**最後一次響應（has_more = false）：**
+```json
+{
+  "entity_id": "sensor.temperature",
+  "history": [
+    {
+      "state": 21.8,
+      "attributes": { ... },
+      "last_changed": "2026-01-09T22:30:00Z",
+      "last_updated": "2026-01-09T22:30:00Z"
+    },
+    // ... 25 records (less than page_size)
+  ],
+  "count": 25,
+  "page_size": 50,
+  "has_more": false,
+  "start_time": "2026-01-09T20:00:00Z",
+  "end_time": "2026-01-10T00:00:00Z",
+  "metadata": { ... }
+}
+```
+
+**Python 範例（完整分頁查詢）：**
+```python
+import requests
+from datetime import datetime, timedelta
+from typing import List, Dict
+
+def fetch_all_history(
+    base_url: str,
+    entity_id: str,
+    start_time: datetime,
+    end_time: datetime,
+    auth_headers: Dict[str, str],
+    page_size: int = 100
+) -> List[Dict]:
+    """使用 cursor pagination 獲取所有歷史數據"""
+    all_history = []
+    cursor = None
+    
+    while True:
+        # 構建請求參數
+        params = {
+            "start_time": start_time.isoformat() + "Z",
+            "end_time": end_time.isoformat() + "Z",
+            "page_size": page_size
+        }
+        if cursor:
+            params["cursor"] = cursor
+        
+        # 發送請求
+        response = requests.get(
+            f"{base_url}/api/smartly/history/{entity_id}",
+            params=params,
+            headers=auth_headers
+        )
+        response.raise_for_status()
+        
+        data = response.json()
+        all_history.extend(data["history"])
+        
+        # 檢查是否還有更多數據
+        if not data.get("has_more", False):
+            break
+        
+        cursor = data.get("next_cursor")
+        if not cursor:
+            break
+    
+    return all_history
+
+# 使用範例
+base_url = "http://localhost:8123"
+entity_id = "sensor.temperature"
+start_time = datetime.now() - timedelta(days=7)
+end_time = datetime.now()
+
+# 注意：實際使用時需要計算 HMAC 簽名
+auth_headers = {
+    "X-Client-Id": "your-client-id",
+    "X-Timestamp": str(int(datetime.now().timestamp())),
+    "X-Nonce": "unique-nonce",
+    "X-Signature": "computed-hmac-signature"
+}
+
+history = fetch_all_history(base_url, entity_id, start_time, end_time, auth_headers)
+print(f"Total records: {len(history)}")
+```
+
 #### 錯誤響應
 
 ```json
@@ -414,6 +596,11 @@ X-Signature: computed-hmac-signature
 {
   "error": "invalid_time_range",
   "message": "Time range cannot exceed 30 days"
+}
+
+// 400 Bad Request - 無效的游標
+{
+  "error": "invalid_cursor"
 }
 
 // 500 Internal Server Error - 查詢失敗
