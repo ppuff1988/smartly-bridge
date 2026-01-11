@@ -564,9 +564,7 @@ class TestSmartlySyncStatesView:
     async def test_states_sync_sensor_decimal_formatting(self, mock_request, mock_hass):
         """Test sensor state values are formatted with correct decimal places."""
         with (
-            patch(
-                "custom_components.smartly_bridge.views.sync.verify_request"
-            ) as mock_verify,
+            patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify,
             patch(
                 "custom_components.smartly_bridge.views.sync.get_allowed_entities"
             ) as mock_allowed,
@@ -636,13 +634,9 @@ class TestSmartlySyncStatesView:
                 "unit_of_measurement": "W",
             }
             mock_state_power.last_changed = MagicMock()
-            mock_state_power.last_changed.isoformat = MagicMock(
-                return_value="2026-01-11T00:00:00"
-            )
+            mock_state_power.last_changed.isoformat = MagicMock(return_value="2026-01-11T00:00:00")
             mock_state_power.last_updated = MagicMock()
-            mock_state_power.last_updated.isoformat = MagicMock(
-                return_value="2026-01-11T00:00:00"
-            )
+            mock_state_power.last_updated.isoformat = MagicMock(return_value="2026-01-11T00:00:00")
 
             mock_state_temp = MagicMock()
             mock_state_temp.state = "25.56789"
@@ -651,13 +645,9 @@ class TestSmartlySyncStatesView:
                 "unit_of_measurement": "°C",
             }
             mock_state_temp.last_changed = MagicMock()
-            mock_state_temp.last_changed.isoformat = MagicMock(
-                return_value="2026-01-11T00:00:00"
-            )
+            mock_state_temp.last_changed.isoformat = MagicMock(return_value="2026-01-11T00:00:00")
             mock_state_temp.last_updated = MagicMock()
-            mock_state_temp.last_updated.isoformat = MagicMock(
-                return_value="2026-01-11T00:00:00"
-            )
+            mock_state_temp.last_updated.isoformat = MagicMock(return_value="2026-01-11T00:00:00")
 
             def get_state(entity_id):
                 if entity_id == "sensor.voltage":
@@ -715,4 +705,3 @@ class TestSmartlySyncStatesView:
                     s for s in data["states"] if s["entity_id"] == "sensor.temperature"
                 )
                 assert temp_state["state"] == "25.6"
-
