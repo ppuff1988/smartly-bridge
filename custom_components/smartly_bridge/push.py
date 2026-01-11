@@ -24,7 +24,7 @@ from .const import (
     PUSH_RETRY_BACKOFF_BASE,
     PUSH_RETRY_MAX,
 )
-from .utils import format_numeric_attributes, get_decimal_places
+from .utils import format_numeric_attributes, format_sensor_state
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -152,20 +152,8 @@ class StatePushManager:
         # Format attributes (for complex devices with numeric values in attributes)
         formatted_attrs = format_numeric_attributes(dict(state.attributes))
 
-        # Format the state value if it's numeric
-        formatted_state = state.state
-        try:
-            state_value = float(state.state)
-            device_class = state.attributes.get("device_class", "")
-            unit = state.attributes.get("unit_of_measurement", "")
-
-            # Use device_class to determine decimal places for state value
-            decimal_places = get_decimal_places(device_class, unit)
-            if decimal_places is not None:
-                formatted_state = str(round(state_value, decimal_places))
-        except (ValueError, TypeError):
-            # Keep original state if it's not numeric
-            pass
+        # Format the state value using the shared formatting function
+        formatted_state = format_sensor_state(state.state, state.attributes)
 
         return {
             "state": formatted_state,

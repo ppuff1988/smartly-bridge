@@ -21,7 +21,7 @@ from ..const import (
     DOMAIN,
     RATE_WINDOW,
 )
-from ..utils import format_numeric_attributes
+from ..utils import format_numeric_attributes, format_sensor_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -229,7 +229,7 @@ class SmartlySyncStatesView(web.View):
                 states.append(
                     {
                         "entity_id": entity_id,
-                        "state": state.state,
+                        "state": format_sensor_state(state.state, state.attributes),
                         "attributes": format_numeric_attributes(dict(state.attributes)),
                         "last_changed": (
                             state.last_changed.isoformat() if state.last_changed else None
