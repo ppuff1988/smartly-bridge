@@ -20,6 +20,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### ✨ 新增功能 (Features)
+
+* **history:** 新增 Cursor-based Pagination 支援，可分頁查詢大量歷史數據
+  - 新增 `cursor` 和 `page_size` 查詢參數
+  - 回應包含 `has_more` 和 `next_cursor` 欄位
+  - Base64 編碼游標，支援無狀態分頁
+  - 預設每頁 100 筆，最大 1000 筆
+
+### 📝 文檔更新 (Documentation)
+
+* **openapi:** 更新 API 規範至 v1.4.0，新增 cursor pagination 參數定義
+  - 更新 `/api/smartly/history/{entity_id}` 端點文檔
+  - 新增 `cursor` 和 `page_size` 參數說明
+  - 更新 `HistoryResponse` schema 包含分頁欄位
+  - 新增 `invalid_cursor` 錯誤回應範例
+
 ### 🐛 錯誤修正 (Bug Fixes)
 
 * **history:** 修正 24 小時歷史數據時間軸不完整問題，確保 X 軸涵蓋完整時間範圍
