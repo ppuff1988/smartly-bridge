@@ -357,6 +357,12 @@ class SmartlyHistoryView(web.View):
         Returns:
             tuple: (cursor_str, cursor_data, page_size, limit, use_pagination, updated_start_time)
         """
+        # Ensure start_time and end_time are timezone-aware
+        if start_time.tzinfo is None:
+            start_time = start_time.replace(tzinfo=dt_util.UTC)
+        if end_time.tzinfo is None:
+            end_time = end_time.replace(tzinfo=dt_util.UTC)
+
         # Parse cursor parameter
         cursor_str = query.get("cursor")
         cursor_data = None
@@ -415,11 +421,6 @@ class SmartlyHistoryView(web.View):
         if not use_pagination:
             return entity_states, False
 
-        # Check if there are more results
-        has_more = len(entity_states) > page_size
-        if has_more:
-            entity_states = entity_states[:page_size]
-
         # Filter states based on cursor position (if cursor is provided)
         if cursor_data:
             cursor_lc = cursor_data.get("lc")
@@ -429,8 +430,13 @@ class SmartlyHistoryView(web.View):
                 if cursor_lc and state_lc > cursor_lc:
                     filtered_states.append(state)
             entity_states = filtered_states
-            # Recalculate has_more after filtering
-            has_more = len(entity_states) == page_size
+
+        # Check if there are more results after filtering
+        # We need to check if we have more than page_size records
+        has_more = len(entity_states) > page_size
+        if has_more:
+            # Only return page_size records
+            entity_states = entity_states[:page_size]
 
         return entity_states, has_more
 

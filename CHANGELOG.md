@@ -14,12 +14,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - sync API 和 webhook 推送現在都會根據 device_class 和 unit 正確格式化 sensor 數值
   - 例如：電壓顯示 2 位小數 (115.7V)、電流毫安培顯示 1 位小數 (35.0mA)、溫度顯示 1 位小數 (25.6°C)
 
+## [1.10.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.2...v1.10.3) (2026-01-11)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正 cursor pagination 連續分頁邏輯錯誤 ([#48](https://github.com/ppuff1988/smartly-bridge/issues/48)) ([f1f584c](https://github.com/ppuff1988/smartly-bridge/commit/f1f584c6d5382f50c070ec7129e526be4dd9f095))
+
 ## [1.10.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.1...v1.10.2) (2026-01-11)
 
 ### 🐛 錯誤修正 (Bug Fixes)
 
 * **history:** 新增 cursor-based pagination 支援 ([#47](https://github.com/ppuff1988/smartly-bridge/issues/47)) ([1709633](https://github.com/ppuff1988/smartly-bridge/commit/17096334881e4e0d00d317542d3987e1e1bd54e3))
-
 # Changelog
 
 All notable changes to this project will be documented in this file.
@@ -32,37 +37,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 錯誤修正 (Bug Fixes)
 
 * **history:** 修正 24 小時歷史數據時間軸顯示問題 ([#46](https://github.com/ppuff1988/smartly-bridge/issues/46)) ([a33c40d](https://github.com/ppuff1988/smartly-bridge/commit/a33c40db1dcdb910962ba258620240127a117f3c))
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### ✨ 新增功能 (Features)
-
-* **history:** 新增 Cursor-based Pagination 支援，可分頁查詢大量歷史數據
-  - 新增 `cursor` 和 `page_size` 查詢參數
-  - 回應包含 `has_more` 和 `next_cursor` 欄位
-  - Base64 編碼游標，支援無狀態分頁
-  - 預設每頁 100 筆，最大 1000 筆
-
-### 📝 文檔更新 (Documentation)
-
-* **openapi:** 更新 API 規範至 v1.4.0，新增 cursor pagination 參數定義
-  - 更新 `/api/smartly/history/{entity_id}` 端點文檔
-  - 新增 `cursor` 和 `page_size` 參數說明
-  - 更新 `HistoryResponse` schema 包含分頁欄位
-  - 新增 `invalid_cursor` 錯誤回應範例
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正 24 小時歷史數據時間軸不完整問題，確保 X 軸涵蓋完整時間範圍
-* **history:** 修正數據被截斷問題，24 小時內查詢不再限制筆數
-* **history:** 修正開始時間無數據時的顯示問題，數值型感測器自動補 0 或第一個已知值
 
 ## [1.10.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.9.1...v1.10.0) (2026-01-10)
 
