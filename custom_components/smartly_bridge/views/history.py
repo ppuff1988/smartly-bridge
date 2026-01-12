@@ -108,12 +108,19 @@ def _parse_datetime(value: str | None) -> datetime | None:
         return None
 
 
-def _get_entity_metadata(entity_id: str, first_state: dict[str, Any]) -> dict[str, Any]:
+def _get_entity_metadata(
+    entity_id: str,
+    first_state: dict[str, Any],
+    all_states: list[dict[str, Any]] | None = None,
+    hass: HomeAssistant | None = None,
+) -> dict[str, Any]:
     """Generate metadata for entity history visualization.
 
     Args:
         entity_id: Entity ID
         first_state: First state in history (contains attributes)
+        all_states: Optional list of all states to search for device_class
+        hass: Optional HomeAssistant instance to get current state
 
     Returns:
         Metadata dict with visualization config, unit, precision, etc.
@@ -123,6 +130,30 @@ def _get_entity_metadata(entity_id: str, first_state: dict[str, Any]) -> dict[st
     device_class = attributes.get("device_class")
     unit = attributes.get("unit_of_measurement", "")
     state_value = first_state.get("state", "")
+
+    # If device_class is None and we have all_states, search for the first state with device_class
+    if device_class is None and all_states:
+        for state in all_states:
+            state_attrs = state.get("attributes", {})
+            if state_attrs.get("device_class"):
+                device_class = state_attrs.get("device_class")
+                # Also update unit if not already set
+                if not unit:
+                    unit = state_attrs.get("unit_of_measurement", "")
+                break
+
+    # If still no device_class and hass is available, try to get from current state
+    if device_class is None and hass is not None:
+        current_state = hass.states.get(entity_id)
+        if current_state and current_state.attributes:
+            device_class = current_state.attributes.get("device_class")
+            # Also update unit if not already set
+            if not unit:
+                unit = current_state.attributes.get("unit_of_measurement", "")
+            # Update friendly_name if not in first_state
+            if "friendly_name" not in attributes and "friendly_name" in current_state.attributes:
+                attributes = dict(attributes)  # Make a copy
+                attributes["friendly_name"] = current_state.attributes.get("friendly_name")
 
     # Determine if state is numeric
     is_numeric = False
@@ -697,25 +728,43 @@ class SmartlyHistoryView(web.View):
         # Generate metadata from first state with attributes
         metadata = None
         if entity_states:
+            # Format all states for metadata search
+            formatted_states = [_format_state(s, include_attributes=True) for s in entity_states]
+
             # Try to find a state with attributes in the current page
             for state in entity_states:
                 if isinstance(state, dict) and state.get("a"):
-                    metadata = _get_entity_metadata(entity_id, _format_state(state))
+                    metadata = _get_entity_metadata(
+                        entity_id, _format_state(state), all_states=formatted_states, hass=self.hass
+                    )
                     break
                 elif not isinstance(state, dict):
                     if hasattr(state, "attributes") and state.attributes:
                         metadata = _get_entity_metadata(
-                            entity_id, _format_state(state, include_attributes=True)
+                            entity_id,
+                            _format_state(state, include_attributes=True),
+                            all_states=formatted_states,
+                            hass=self.hass,
                         )
                         break
 
             # If no state with attributes in current page, use the provided first_state_with_attrs
             if not metadata and first_state_with_attrs:
-                metadata = _get_entity_metadata(entity_id, _format_state(first_state_with_attrs))
+                metadata = _get_entity_metadata(
+                    entity_id,
+                    _format_state(first_state_with_attrs),
+                    all_states=formatted_states,
+                    hass=self.hass,
+                )
 
             # Fallback: use first state without attributes
             if not metadata:
-                metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
+                metadata = _get_entity_metadata(
+                    entity_id,
+                    _format_state(entity_states[0]),
+                    all_states=formatted_states,
+                    hass=self.hass,
+                )
 
         # Get formatting parameters
         decimal_places = metadata.get("decimal_places") if metadata else None
@@ -1047,21 +1096,34 @@ class SmartlyHistoryBatchView(web.View):
         # Generate metadata for entity
         metadata = None
         if entity_states:
+            # Format all states for metadata search
+            formatted_states = [_format_state(s, include_attributes=True) for s in entity_states]
+
             # Find first state with attributes
             for state in entity_states:
                 # Check if it's a State object (not dict)
                 if not isinstance(state, dict):
                     if hasattr(state, "attributes") and state.attributes:
                         metadata = _get_entity_metadata(
-                            entity_id, _format_state(state, include_attributes=True)
+                            entity_id,
+                            _format_state(state, include_attributes=True),
+                            all_states=formatted_states,
+                            hass=self.hass,
                         )
                         break
                 elif state.get("a"):  # Compressed format with attributes
-                    metadata = _get_entity_metadata(entity_id, _format_state(state))
+                    metadata = _get_entity_metadata(
+                        entity_id, _format_state(state), all_states=formatted_states, hass=self.hass
+                    )
                     break
 
             if not metadata:
-                metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
+                metadata = _get_entity_metadata(
+                    entity_id,
+                    _format_state(entity_states[0]),
+                    all_states=formatted_states,
+                    hass=self.hass,
+                )
 
         # Get decimal places and is_numeric for formatting and boundary filling
         decimal_places = metadata.get("decimal_places") if metadata else None

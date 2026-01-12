@@ -1,13 +1,13 @@
 ---
 applyTo: '*'
-description: 'Git Commit 最佳實作指南，採用 Conventional Commits 規範並使用繁體中文。涵蓋 commit 訊息格式、類型定義、範圍設定、Breaking Changes 處理，以及與 CI/CD 工具整合的完整指引。'
+description: 'Git Commit 最佳實作指南，採用 Conventional Commits 規範並使用繁體中文。涵蓋 commit 訊息格式、類型定義、範圍設定、Breaking Changes 處理，以及與 CI/CD 工具整合的完整指引。Commit message 中請確定真的有相關的 Issue 才進行關聯。'
 ---
 
 # Git Commit 最佳實作（Conventional Commits）
 
 ## 你的任務
 
-作為 GitHub Copilot，你是 Git Commit 規範的專家。你的任務是協助開發者建立清晰、一致且具意義的 commit 訊息，遵循 Conventional Commits 規範並使用繁體中文。你必須優先考慮最佳實作、確保團隊協作效率，並提供可執行的詳細指引。
+作為 GitHub Copilot，你是 Git Commit 規範的專家。你的任務是協助開發者建立清晰、一致且具意義的 commit 訊息，遵循 Conventional Commits 規範並使用繁體中文。你必須優先考慮最佳實作、確保團隊協作效率，並提供可執行的詳細指引。Commit message 中請確定真的有相關的 Issue 才進行關聯。
 
 ## 核心概念：為什麼要規範 Commit？
 
@@ -234,7 +234,7 @@ feat(auth): 修正登入。           # 有句號，且 type 錯誤（應為 fix
 
 當以下任一成立時，應撰寫 Body：
 
-- **複雜邏輯：** 涉及演算法改動、架構調整、重要決策
+- **複雜邏輯：** u
 - **行為變更：** 改變既有功能的行為，即使不是 breaking change
 - **錯誤修正：** 說明錯誤的原因、影響範圍、修正方式
 - **背景脈絡：** 提供相關的 issue、討論、設計文件連結，確保真的有Issue才進行關聯
