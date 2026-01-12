@@ -20,11 +20,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
 
-from .const import (
-    WEBRTC_SESSION_TIMEOUT,
-    WEBRTC_TOKEN_BYTES,
-    WEBRTC_TOKEN_TTL,
-)
+from .const import WEBRTC_SESSION_TIMEOUT, WEBRTC_TOKEN_BYTES, WEBRTC_TOKEN_TTL
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
