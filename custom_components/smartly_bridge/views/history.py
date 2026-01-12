@@ -847,6 +847,36 @@ class SmartlyHistoryView(web.View):
             start_time, end_time, cursor_data, entity_id
         )
 
+        # For cursor pagination, fetch first state with attributes from original time range
+        # to ensure consistent metadata across all paginated requests
+        first_state_with_attrs = None
+        if use_pagination and cursor_data:
+            # Query a single state from the original start_time to get complete attributes
+            try:
+                from homeassistant.components.recorder import history
+                from homeassistant.helpers.recorder import get_instance
+
+                recorder_instance = get_instance(self.hass)
+                # Query only 1 state from original start time for metadata
+                first_states = await recorder_instance.async_add_executor_job(
+                    history.get_significant_states,
+                    self.hass,
+                    start_time,
+                    start_time + timedelta(seconds=1),  # Just get the first state
+                    [entity_id],
+                    None,
+                    True,
+                    True,
+                    False,  # Get full response with attributes
+                    False,  # Include attributes
+                    False,  # Don't compress
+                )
+                first_state_list = first_states.get(entity_id, [])
+                if first_state_list:
+                    first_state_with_attrs = first_state_list[0]
+            except Exception as err:
+                _LOGGER.debug("Failed to fetch first state for metadata: %s", err)
+
         # Query history from Recorder
         states = await self._query_history(
             entity_id, query_start_time, query_end_time, significant_changes_only
@@ -857,9 +887,8 @@ class SmartlyHistoryView(web.View):
         # Format and process results
         entity_states = list(reversed(states.get(entity_id, [])))
 
-        # Find first state with attributes for metadata (if using pagination)
-        first_state_with_attrs = None
-        if use_pagination and entity_states:
+        # Find first state with attributes for metadata (if not already fetched)
+        if use_pagination and entity_states and not first_state_with_attrs:
             first_state_with_attrs = self._find_first_state_with_attrs(
                 entity_states, states, entity_id
             )
