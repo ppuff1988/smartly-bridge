@@ -864,18 +864,32 @@ class SmartlyHistoryView(web.View):
                     start_time,
                     start_time + timedelta(seconds=1),  # Just get the first state
                     [entity_id],
-                    None,
-                    True,
-                    True,
-                    False,  # Get full response with attributes
-                    False,  # Include attributes
-                    False,  # Don't compress
+                    None,  # filters
+                    True,  # include_start_time_state
+                    True,  # significant_changes_only
+                    True,  # minimal_response
+                    False,  # no_attributes (False = include attributes)
+                    True,  # compressed_state_format
                 )
                 first_state_list = first_states.get(entity_id, [])
                 if first_state_list:
                     first_state_with_attrs = first_state_list[0]
+                    _LOGGER.debug(
+                        "Fetched first state for metadata: entity=%s, state=%s, attrs=%s",
+                        entity_id,
+                        (
+                            first_state_with_attrs.get("s")
+                            if isinstance(first_state_with_attrs, dict)
+                            else getattr(first_state_with_attrs, "state", None)
+                        ),
+                        (
+                            first_state_with_attrs.get("a")
+                            if isinstance(first_state_with_attrs, dict)
+                            else getattr(first_state_with_attrs, "attributes", None)
+                        ),
+                    )
             except Exception as err:
-                _LOGGER.debug("Failed to fetch first state for metadata: %s", err)
+                _LOGGER.error("Failed to fetch first state for metadata: %s", err)
 
         # Query history from Recorder
         states = await self._query_history(
