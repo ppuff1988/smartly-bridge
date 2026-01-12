@@ -104,6 +104,68 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
+* **ci:** 新增 tags 強制同步步驟避免重複 tag 錯誤 ([459a523](https://github.com/ppuff1988/smartly-bridge/commit/459a5239b2ce70ac1050d9cb18f1099dc33da028))
+* **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
+* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
+
+## [Unreleased]
+
+### Fixed
+- **history:** 修正 cursor 分頁無限循環與 total_count 計算錯誤
+  - 修正過濾邏輯：使用 `state_lc < cursor_lc` 而非 `state_lc != cursor_lc`
+  - 移除時間範圍調整邏輯，完全依賴應用層過濾
+  - 簡化 has_more 判斷：只有 `len(entity_states) > page_size` 才為 True
+  - 在第一頁時額外查詢完整時間範圍以計算正確的 total_count
+  - 測試結果：成功完成 25 頁分頁，收集 1244 筆記錄，total_count 完全一致
+
+## [1.10.9](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.8...v1.10.9) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正 cursor pagination 後續請求 metadata device_class 為 null ([#54](https://github.com/ppuff1988/smartly-bridge/issues/54)) ([3ae4bf1](https://github.com/ppuff1988/smartly-bridge/commit/3ae4bf1dfd2f9f96b96eda55f124313b6bfb6f19)), closes [#53](https://github.com/ppuff1988/smartly-bridge/issues/53)
+
+## [1.10.8](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.7...v1.10.8) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正 cursor pagination 大量查詢失敗問題 ([#53](https://github.com/ppuff1988/smartly-bridge/issues/53)) ([14b70b5](https://github.com/ppuff1988/smartly-bridge/commit/14b70b57ae209d1e06535e9942dc152c402d9119))
+
+## [1.10.7](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.6...v1.10.7) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正反序排序時游標分頁失效問題 ([#52](https://github.com/ppuff1988/smartly-bridge/issues/52)) ([7d2328c](https://github.com/ppuff1988/smartly-bridge/commit/7d2328cbcb794aada0d29ba4b9022635e592deb7))
+
+## [1.10.6](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.5...v1.10.6) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正歷史資料排序順序為從新到舊 ([#51](https://github.com/ppuff1988/smartly-bridge/issues/51)) ([e77ee8b](https://github.com/ppuff1988/smartly-bridge/commit/e77ee8b13b80a01298b68065806904f7cd6d94ed))
+
+## [1.10.5](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.4...v1.10.5) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正數值格式化與 cursor 分頁問題 ([#50](https://github.com/ppuff1988/smartly-bridge/issues/50)) ([8c2bcc4](https://github.com/ppuff1988/smartly-bridge/commit/8c2bcc406349d2950f14393b12a501eb87029820))
+
+## [1.10.4](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.3...v1.10.4) (2026-01-11)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **sync:** 修正 sensor state 未套用小數點格式化問題 ([#49](https://github.com/ppuff1988/smartly-bridge/issues/49)) ([4e29dcd](https://github.com/ppuff1988/smartly-bridge/commit/4e29dcd96fc1fa8b556075c9b889d849da6515ff))
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### 🐛 錯誤修正 (Bug Fixes)

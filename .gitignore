@@ -89,6 +89,6 @@ dmypy.json
 .pyre/
 
 # custom
-test_smartly_api.py
-test_results.xml
+test_api_local.py
+test_cursor_pagination.py
 test-results.xml
