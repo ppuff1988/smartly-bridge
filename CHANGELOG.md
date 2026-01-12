@@ -19,6 +19,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 錯誤修正 (Bug Fixes)
 
 * **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
+* **ci:** 新增 tags 強制同步步驟避免重複 tag 錯誤 ([859f1f1](https://github.com/ppuff1988/smartly-bridge/commit/859f1f1d8c2579c8dc018460fa3ade19a823a101))
+* **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
+* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
+
+## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
 * **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
 * **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
 
