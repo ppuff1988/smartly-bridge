@@ -698,8 +698,8 @@ class TestCursorPagination:
         mock_request.app = {"hass": mock_hass}
         mock_request.match_info = {"entity_id": "sensor.temperature"}
 
-        # Create cursor for testing
-        cursor = _encode_cursor("2026-01-09T02:00:00Z", "2026-01-09T02:00:00Z")
+        # Create cursor for testing (反序：游標指向較舊的時間點)
+        cursor = _encode_cursor("2026-01-09T03:00:00Z", "2026-01-09T03:00:00Z")
 
         mock_request.query = {
             "start_time": "2026-01-09T00:00:00Z",
@@ -713,9 +713,9 @@ class TestCursorPagination:
             f"page_size=5&cursor={cursor}"
         )
 
-        # Create mock states (3 items after cursor position: 03:00, 04:00, 05:00)
+        # Create mock states (反序：3 items before cursor position: 00:00, 01:00, 02:00)
         mock_states = []
-        for i in range(3, 6):
+        for i in range(0, 3):
             mock_state = MagicMock()
             mock_state.state = f"{20 + i}.5"
             mock_state.last_changed = datetime(2026, 1, 9, i, 0, 0)

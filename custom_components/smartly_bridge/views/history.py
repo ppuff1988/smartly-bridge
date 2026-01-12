@@ -452,7 +452,8 @@ class SmartlyHistoryView(web.View):
             filtered_states = []
             for state in entity_states:
                 state_lc = _format_state(state).get("last_changed", "")
-                if cursor_lc and state_lc > cursor_lc:
+                # 反序排序：尋找比游標時間更早的資料
+                if cursor_lc and state_lc < cursor_lc:
                     filtered_states.append(state)
             entity_states = filtered_states
 
@@ -543,6 +544,7 @@ class SmartlyHistoryView(web.View):
             response_data["has_more"] = has_more
 
             if has_more and history_data:
+                # 反序排序：使用最後一筆資料（最舊的）作為 next_cursor
                 last_state = history_data[-1]
                 next_cursor = _encode_cursor(last_state["last_updated"], last_state["last_changed"])
                 response_data["next_cursor"] = next_cursor
@@ -713,6 +715,9 @@ class SmartlyHistoryView(web.View):
 
         # Format response
         entity_states = states.get(entity_id, [])
+
+        # 反轉結果：從新到舊排序
+        entity_states = list(reversed(entity_states))
 
         # When using cursor pagination, find the first state with attributes for metadata
         first_state_with_attrs = None
@@ -902,6 +907,9 @@ class SmartlyHistoryBatchView(web.View):
         # Ensure decimal_places has a default value for numeric data
         if is_numeric and decimal_places is None:
             decimal_places = 2  # Default to 2 decimal places
+
+        # 反轉結果：從新到舊排序
+        entity_states = list(reversed(entity_states))
 
         # Format history data
         formatted_states = [
