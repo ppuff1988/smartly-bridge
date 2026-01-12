@@ -475,31 +475,64 @@ class SmartlyHistoryView(web.View):
     ) -> tuple[list, bool]:
         """Apply pagination filtering to entity states.
 
+        Args:
+            entity_states: List of entity states (reversed, newest first)
+            cursor_data: Cursor data if continuing pagination
+            page_size: Number of items per page
+            use_pagination: Whether pagination is enabled
+
         Returns:
             tuple: (filtered_states, has_more)
         """
         if not use_pagination:
             return entity_states, False
 
-        # Since we already adjusted query time range for cursor,
-        # we only need to filter out states that exactly match cursor timestamp
+        # Filter out states at or after the cursor timestamp
+        # Since data is sorted newest-first, we need states OLDER than cursor
         if cursor_data:
             cursor_lc = cursor_data.get("lc")
             if cursor_lc:
                 filtered_states = []
                 for state in entity_states:
                     state_lc = _format_state(state).get("last_changed", "")
-                    # 排除與游標完全相同的時間戳記（避免重複）
-                    if state_lc != cursor_lc:
+                    # Only include states strictly BEFORE the cursor timestamp
+                    # Use string comparison (ISO 8601 format is lexicographically sortable)
+                    if state_lc < cursor_lc:
                         filtered_states.append(state)
                 entity_states = filtered_states
+                _LOGGER.debug(
+                    "Pagination: filtered from %d to %d states (excluding cursor %s)",
+                    len(entity_states) + (len(entity_states) - len(filtered_states)),
+                    len(filtered_states),
+                    cursor_lc,
+                )
 
         # Check if there are more results after filtering
-        # We need to check if we have more than page_size records
-        has_more = len(entity_states) > page_size
-        if has_more:
-            # Only return page_size records
+        # Strategy:
+        # - We query for (page_size + 1) records from the database
+        # - If we get MORE than page_size records after filtering, has_more = True
+        # - Otherwise, has_more = False (we've reached the end)
+        # This is the correct approach for cursor-based pagination
+        num_states = len(entity_states)
+
+        if num_states > page_size:
+            # We got more than requested, so there's definitely more data
+            has_more = True
+            # Return only page_size records
             entity_states = entity_states[:page_size]
+            _LOGGER.debug(
+                "Pagination: got %d items (> page_size %d), has_more=True",
+                num_states,
+                page_size,
+            )
+        else:
+            # We got page_size or fewer records, no more data available
+            has_more = False
+            _LOGGER.debug(
+                "Pagination: got %d items (<= page_size %d), has_more=False",
+                num_states,
+                page_size,
+            )
 
         return entity_states, has_more
 
@@ -601,29 +634,16 @@ class SmartlyHistoryView(web.View):
     ) -> tuple[datetime, datetime]:
         """Adjust query time range for cursor pagination.
 
+        Note: We don't actually adjust the query time range here anymore,
+        because the filtering is done in _apply_pagination_filter instead.
+        This is more reliable than trying to adjust the database query,
+        which may have inclusive/exclusive boundary issues.
+
         Returns:
-            Tuple of (query_start_time, query_end_time).
+            Tuple of (query_start_time, query_end_time) - unchanged.
         """
-        query_start_time = start_time
-        query_end_time = end_time
-
-        if cursor_data:
-            cursor_lc = cursor_data.get("lc")
-            if cursor_lc:
-                try:
-                    cursor_dt = dt_util.parse_datetime(cursor_lc)
-                    if cursor_dt and cursor_dt > start_time:
-                        query_start_time = cursor_dt
-                        _LOGGER.debug(
-                            "Cursor pagination: adjusted start_time from %s to %s for %s",
-                            start_time.isoformat(),
-                            query_start_time.isoformat(),
-                            entity_id,
-                        )
-                except (ValueError, TypeError) as err:
-                    _LOGGER.warning("Failed to parse cursor timestamp: %s", err)
-
-        return query_start_time, query_end_time
+        # No adjustment needed - filtering happens in _apply_pagination_filter
+        return start_time, end_time
 
     async def _query_history(
         self,
@@ -719,6 +739,7 @@ class SmartlyHistoryView(web.View):
         has_more: bool,
         use_pagination: bool,
         first_state_with_attrs=None,
+        total_count: int | None = None,
     ) -> dict:
         """Format history query response.
 
@@ -802,6 +823,10 @@ class SmartlyHistoryView(web.View):
         if use_pagination:
             response_data["page_size"] = page_size
             response_data["has_more"] = has_more
+
+            # Add total count if available (first page only)
+            if total_count is not None:
+                response_data["total_count"] = total_count
 
             if has_more and history_data:
                 # 反序排序：使用最後一筆資料（最舊的）作為 next_cursor
@@ -956,6 +981,43 @@ class SmartlyHistoryView(web.View):
                 entity_states, states, entity_id
             )
 
+        # Calculate total count on first page (no cursor)
+        total_count = None
+        if use_pagination and not cursor_data:
+            # First page: count total items in the ENTIRE time range (not just what we fetched)
+            # We need to query again without limits to get accurate count
+            try:
+                from homeassistant.components.recorder import history
+                from homeassistant.helpers.recorder import get_instance
+
+                recorder_instance = get_instance(self.hass)
+                # Query full time range to count total records
+                full_states = await recorder_instance.async_add_executor_job(
+                    history.get_significant_states,
+                    self.hass,
+                    start_time,  # Use original start_time, not cursor-adjusted time
+                    end_time,  # Use original end_time
+                    [entity_id],
+                    None,  # filters
+                    True,  # include_start_time_state
+                    significant_changes_only,
+                    True,  # minimal_response
+                    True,  # no_attributes (True = faster query for counting)
+                    True,  # compressed_state_format
+                )
+                total_count = len(full_states.get(entity_id, []))
+                _LOGGER.debug(
+                    "First page query for %s: total_count=%d in full time range %s to %s",
+                    entity_id,
+                    total_count,
+                    start_time.isoformat(),
+                    end_time.isoformat(),
+                )
+            except Exception as err:
+                _LOGGER.error("Failed to count total records: %s", err)
+                # Fallback to the number we fetched
+                total_count = len(entity_states)
+
         # Apply pagination filtering
         entity_states, has_more = self._apply_pagination_filter(
             entity_states, cursor_data, page_size, use_pagination
@@ -976,6 +1038,7 @@ class SmartlyHistoryView(web.View):
             has_more,
             use_pagination,
             first_state_with_attrs,
+            total_count,
         )
 
         return web.json_response(response_data, status=200)
