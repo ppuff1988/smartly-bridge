@@ -36,10 +36,10 @@
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           {
-            "context": "CI / Lint Code (pull_request)"
+            "context": "Lint Code"
           },
           {
-            "context": "CI / Test (Python 3.13) (pull_request)"
+            "context": "Test (Python 3.13)"
           }
         ]
       }

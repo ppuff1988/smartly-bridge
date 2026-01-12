@@ -40,16 +40,16 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {
-            "context": "CI / Lint Code (pull_request)"
+            "context": "Lint Code"
           },
           {
-            "context": "CI / Test (Python 3.13) (pull_request)"
+            "context": "Test (Python 3.13)"
           },
           {
-            "context": "PR Checks / Validate PR (pull_request)"
+            "context": "Quality Gate"
           },
           {
-            "context": "Code Quality / Coverage Check (pull_request)"
+            "context": "Validate PR"
           }
         ]
       }
