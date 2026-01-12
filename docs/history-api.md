@@ -4,11 +4,25 @@
 
 History API 提供查詢 Home Assistant 實體歷史狀態的功能，支援單一實體查詢、批量查詢和統計數據查詢。所有請求都需要通過 HMAC-SHA256 簽名驗證。
 
-**版本：** 1.3.0  
+**版本：** 1.5.1  
 **基礎 URL：** `http://your-home-assistant:8123`
 
-## ✨ 新功能（v1.3.0）
+## ✨ 新功能
 
+### v1.5.1
+- **修正 cursor 分頁無限循環**：修正過濾邏輯使用嚴格小於比較，避免重複返回相同記錄
+- **修正 total_count 準確性**：在第一頁時額外查詢完整時間範圍以計算正確的總記錄數
+- **簡化 has_more 判斷**：移除 90% 閾值邏輯，僅當 `len(entity_states) > page_size` 時為 true
+
+### v1.5.0
+- **總筆數統計（total_count）**：第一頁查詢時返回查詢範圍內的總記錄數
+- **改進分頁判斷**：使用 90% 閾值更保守地判斷是否還有更多資料，避免過早停止（已在 v1.5.1 移除）
+
+### v1.4.0
+- **Cursor Pagination**：支援游標分頁，避免資料重複和遺漏
+- **自動化分頁**：前端可根據 `has_more` 和 `next_cursor` 自動獲取所有資料
+
+### v1.3.0
 - **視覺化元數據**：API 回傳包含視覺化建議（圖表類型、顏色、插值方式）
 - **智能數值格式化**：自動根據 device_class 和單位格式化數值精度
 - **精簡屬性回傳**：僅首個狀態包含完整屬性，減少資料傳輸量
@@ -309,6 +323,7 @@ X-Signature: computed-hmac-signature
 | `page_size` | integer | **[v1.4.0]** 每頁記錄數（僅在 cursor 模式） |
 | `has_more` | boolean | **[v1.4.0]** 是否還有更多數據（僅在 cursor 模式） |
 | `next_cursor` | string | **[v1.4.0]** 下一頁游標（僅在 `has_more=true` 時返回） |
+| `total_count` | integer | **[v1.5.0]** 查詢範圍內的總記錄數（僅在第一頁返回） |
 
 #### 元數據（metadata）欄位說明
 
@@ -443,6 +458,7 @@ X-Signature: computed-hmac-signature-1
   "count": 50,
   "page_size": 50,
   "has_more": true,
+  "total_count": 387,
   "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9",
   "start_time": "2026-01-03T00:00:00Z",
   "end_time": "2026-01-10T00:00:00Z",
@@ -522,6 +538,7 @@ def fetch_all_history(
     """使用 cursor pagination 獲取所有歷史數據"""
     all_history = []
     cursor = None
+    total_count = None
     
     while True:
         # 構建請求參數
@@ -543,6 +560,16 @@ def fetch_all_history(
         
         data = response.json()
         all_history.extend(data["history"])
+        
+        # 第一頁會返回 total_count
+        if total_count is None and "total_count" in data:
+            total_count = data["total_count"]
+            print(f"查詢範圍內共有 {total_count} 筆記錄")
+        
+        # 顯示進度
+        if total_count:
+            progress = len(all_history) / total_count * 100
+            print(f"進度: {len(all_history)}/{total_count} ({progress:.1f}%)")
         
         # 檢查是否還有更多數據
         if not data.get("has_more", False):
