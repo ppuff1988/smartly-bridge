@@ -12,19 +12,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
 * **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
 
-## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [Unreleased]
 
 ### Fixed
