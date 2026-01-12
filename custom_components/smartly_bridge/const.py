@@ -33,8 +33,11 @@ DEFAULT_PUSH_BATCH_INTERVAL = 0.5  # seconds
 DEFAULT_TRUST_PROXY = TRUST_PROXY_AUTO  # Auto-detect by default
 
 # Rate limiting
-RATE_LIMIT = 60  # requests per window
+RATE_LIMIT = 200  # requests per window (increased for batch operations)
 RATE_WINDOW = 60  # seconds (1 minute)
+
+# Database query limits
+MAX_CONCURRENT_HISTORY_QUERIES = 5  # 最大並發歷史查詢數
 
 # HMAC authentication
 TIMESTAMP_TOLERANCE = 30  # seconds
