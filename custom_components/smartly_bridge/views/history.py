@@ -376,11 +376,11 @@ class SmartlyHistoryView(web.View):
 
     def _parse_pagination_params(
         self, query, start_time: datetime, end_time: datetime
-    ) -> tuple[str | None, dict[str, str] | None, int, int, bool, datetime]:
+    ) -> tuple[str | None, dict[str, str] | None, int, int, bool]:
         """Parse pagination related parameters.
 
         Returns:
-            tuple: (cursor_str, cursor_data, page_size, limit, use_pagination, updated_start_time)
+            tuple: (cursor_str, cursor_data, page_size, limit, use_pagination)
         """
         # Ensure start_time and end_time are timezone-aware
         if start_time.tzinfo is None:
@@ -391,21 +391,11 @@ class SmartlyHistoryView(web.View):
         # Parse cursor parameter
         cursor_str = query.get("cursor")
         cursor_data = None
-        updated_start_time = start_time
 
         if cursor_str:
             cursor_data = _decode_cursor(cursor_str)
-            if cursor_data:
-                # Update start_time based on cursor
-                try:
-                    cursor_timestamp = datetime.fromisoformat(
-                        cursor_data["ts"].replace("Z", "+00:00")
-                    )
-                    if cursor_timestamp > start_time:
-                        updated_start_time = cursor_timestamp
-                except (ValueError, KeyError) as err:
-                    _LOGGER.error("Invalid cursor timestamp: %s", err)
-                    cursor_data = None
+            if not cursor_data:
+                _LOGGER.error("Invalid cursor format")
 
         # Parse page_size parameter
         try:
@@ -429,7 +419,7 @@ class SmartlyHistoryView(web.View):
             except ValueError:
                 limit = HISTORY_DEFAULT_LIMIT
 
-        return cursor_str, cursor_data, page_size, limit, use_pagination, updated_start_time
+        return cursor_str, cursor_data, page_size, limit, use_pagination
 
     def _apply_pagination_filter(
         self,
@@ -674,8 +664,8 @@ class SmartlyHistoryView(web.View):
             )
 
         # Parse cursor parameter
-        cursor_str, cursor_data, page_size, limit, use_pagination, start_time = (
-            self._parse_pagination_params(query, start_time, end_time)
+        cursor_str, cursor_data, page_size, limit, use_pagination = self._parse_pagination_params(
+            query, start_time, end_time
         )
 
         if cursor_str and not cursor_data:
