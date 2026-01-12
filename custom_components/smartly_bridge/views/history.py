@@ -144,8 +144,35 @@ def _get_entity_metadata(entity_id: str, first_state: dict[str, Any]) -> dict[st
 
     # Get decimal precision
     decimal_places = None
-    if is_numeric and device_class:
-        decimal_places = get_decimal_places(device_class, unit)
+    if is_numeric:
+        if device_class:
+            # 優先使用 device_class 獲取精度配置
+            decimal_places = get_decimal_places(device_class, unit)
+
+        if decimal_places is None:
+            # 如果 device_class 沒有配置，嘗試從 entity_id 推斷類型
+            # 例如：sensor.xxx_current -> "current"
+            entity_name = entity_id.split(".")[-1].lower()
+            for key in [
+                "current",
+                "voltage",
+                "power",
+                "energy",
+                "temperature",
+                "humidity",
+                "battery",
+                "pressure",
+                "power_factor",
+                "frequency",
+            ]:
+                if key in entity_name:
+                    decimal_places = get_decimal_places(key, unit)
+                    if decimal_places is not None:
+                        break
+
+        # 如果還是沒有找到配置，使用預設值 2
+        if decimal_places is None:
+            decimal_places = 2
 
     metadata = {
         "domain": domain,
@@ -154,10 +181,8 @@ def _get_entity_metadata(entity_id: str, first_state: dict[str, Any]) -> dict[st
         "friendly_name": attributes.get("friendly_name", entity_id),
         "is_numeric": is_numeric,
         "visualization": viz_config,
+        "decimal_places": decimal_places,  # Always include, even if None
     }
-
-    if decimal_places is not None:
-        metadata["decimal_places"] = decimal_places
 
     return metadata
 
@@ -450,6 +475,7 @@ class SmartlyHistoryView(web.View):
         page_size: int,
         has_more: bool,
         use_pagination: bool,
+        first_state_with_attrs=None,
     ) -> dict:
         """Format history query response.
 
@@ -459,6 +485,7 @@ class SmartlyHistoryView(web.View):
         # Generate metadata from first state with attributes
         metadata = None
         if entity_states:
+            # Try to find a state with attributes in the current page
             for state in entity_states:
                 if isinstance(state, dict) and state.get("a"):
                     metadata = _get_entity_metadata(entity_id, _format_state(state))
@@ -470,12 +497,21 @@ class SmartlyHistoryView(web.View):
                         )
                         break
 
+            # If no state with attributes in current page, use the provided first_state_with_attrs
+            if not metadata and first_state_with_attrs:
+                metadata = _get_entity_metadata(entity_id, _format_state(first_state_with_attrs))
+
+            # Fallback: use first state without attributes
             if not metadata:
                 metadata = _get_entity_metadata(entity_id, _format_state(entity_states[0]))
 
         # Get formatting parameters
         decimal_places = metadata.get("decimal_places") if metadata else None
         is_numeric = metadata.get("is_numeric", False) if metadata else False
+
+        # Ensure decimal_places has a default value for numeric data
+        if is_numeric and decimal_places is None:
+            decimal_places = 2  # Default to 2 decimal places
 
         # Format history data
         history_data = []
@@ -678,6 +714,28 @@ class SmartlyHistoryView(web.View):
         # Format response
         entity_states = states.get(entity_id, [])
 
+        # When using cursor pagination, find the first state with attributes for metadata
+        first_state_with_attrs = None
+        if use_pagination and entity_states:
+            # Check if any state in current page has attributes
+            has_attrs_in_page = any(
+                (isinstance(s, dict) and s.get("a"))
+                or (not isinstance(s, dict) and hasattr(s, "attributes") and s.attributes)
+                for s in entity_states
+            )
+
+            # If no attributes in current page, search all states for first one with attributes
+            if not has_attrs_in_page:
+                all_states = states.get(entity_id, [])
+                for state in all_states:
+                    if isinstance(state, dict) and state.get("a"):
+                        first_state_with_attrs = state
+                        break
+                    elif not isinstance(state, dict):
+                        if hasattr(state, "attributes") and state.attributes:
+                            first_state_with_attrs = state
+                            break
+
         # Apply pagination filtering
         entity_states, has_more = self._apply_pagination_filter(
             entity_states, cursor_data, page_size, use_pagination
@@ -697,6 +755,7 @@ class SmartlyHistoryView(web.View):
             page_size,
             has_more,
             use_pagination,
+            first_state_with_attrs,
         )
 
         return web.json_response(
@@ -839,6 +898,10 @@ class SmartlyHistoryBatchView(web.View):
         # Get decimal places and is_numeric for formatting and boundary filling
         decimal_places = metadata.get("decimal_places") if metadata else None
         is_numeric = metadata.get("is_numeric", False) if metadata else False
+
+        # Ensure decimal_places has a default value for numeric data
+        if is_numeric and decimal_places is None:
+            decimal_places = 2  # Default to 2 decimal places
 
         # Format history data
         formatted_states = [
