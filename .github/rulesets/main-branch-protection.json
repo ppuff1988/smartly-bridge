@@ -6,7 +6,9 @@
   "conditions": {
     "ref_name": {
       "exclude": [],
-      "include": ["refs/heads/main"]
+      "include": [
+        "refs/heads/main"
+      ]
     }
   },
   "rules": [
@@ -38,16 +40,16 @@
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
           {
-            "context": "CI / Lint Code"
+            "context": "Lint Code"
           },
           {
-            "context": "CI / Test (Python 3.13)"
+            "context": "Test (Python 3.13)"
           },
           {
-            "context": "PR Checks / Validate PR"
+            "context": "Quality Gate"
           },
           {
-            "context": "Code Quality / Coverage Check"
+            "context": "Validate PR"
           }
         ]
       }
