@@ -7,6 +7,7 @@ statistics for entities.
 
 from __future__ import annotations
 
+import asyncio
 import base64
 import json
 import logging
@@ -20,7 +21,7 @@ from homeassistant.util import dt as dt_util
 
 from ..acl import is_entity_allowed
 from ..audit import log_deny
-from ..auth import RateLimiter, verify_request
+from ..auth import AuthResult, RateLimiter, verify_request
 from ..const import (
     API_PATH_HISTORY,
     API_PATH_HISTORY_BATCH,
@@ -35,12 +36,25 @@ from ..const import (
     HISTORY_DEFAULT_LIMIT,
     HISTORY_MAX_DURATION_DAYS,
     HISTORY_MAX_ENTITIES_BATCH,
+    MAX_CONCURRENT_HISTORY_QUERIES,
     RATE_WINDOW,
     VIZUALIZATION_CONFIG,
 )
 from ..utils import format_numeric_attributes, get_decimal_places
 
 _LOGGER = logging.getLogger(__name__)
+
+# Semaphore for limiting concurrent database queries
+_history_query_semaphore: asyncio.Semaphore | None = None
+
+
+def _get_history_semaphore() -> asyncio.Semaphore:
+    """Get or create the history query semaphore."""
+    global _history_query_semaphore
+    if _history_query_semaphore is None:
+        _history_query_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
+    return _history_query_semaphore
+
 
 # Default page size for cursor pagination
 DEFAULT_PAGE_SIZE = 100
@@ -436,16 +450,18 @@ class SmartlyHistoryView(web.View):
         if not use_pagination:
             return entity_states, False
 
-        # Filter states based on cursor position (if cursor is provided)
+        # Since we already adjusted query time range for cursor,
+        # we only need to filter out states that exactly match cursor timestamp
         if cursor_data:
             cursor_lc = cursor_data.get("lc")
-            filtered_states = []
-            for state in entity_states:
-                state_lc = _format_state(state).get("last_changed", "")
-                # 反序排序：尋找比游標時間更早的資料
-                if cursor_lc and state_lc < cursor_lc:
-                    filtered_states.append(state)
-            entity_states = filtered_states
+            if cursor_lc:
+                filtered_states = []
+                for state in entity_states:
+                    state_lc = _format_state(state).get("last_changed", "")
+                    # 排除與游標完全相同的時間戳記（避免重複）
+                    if state_lc != cursor_lc:
+                        filtered_states.append(state)
+                entity_states = filtered_states
 
         # Check if there are more results after filtering
         # We need to check if we have more than page_size records
@@ -455,6 +471,211 @@ class SmartlyHistoryView(web.View):
             entity_states = entity_states[:page_size]
 
         return entity_states, has_more
+
+    async def _verify_auth_and_rate_limit(
+        self, data: dict[str, Any]
+    ) -> tuple[AuthResult, web.Response | None]:
+        """Verify authentication and rate limit.
+
+        Returns:
+            Tuple of (auth_result, error_response). If error_response is not None, return it.
+            If error_response is None, auth_result will be valid.
+        """
+        client_secret = data.get(CONF_CLIENT_SECRET)
+        if not client_secret:
+            # This should never happen as we check in get(), but handle defensively
+            dummy_auth = AuthResult(success=False, error="client_secret_not_configured")
+            return dummy_auth, web.json_response(
+                {"error": "client_secret_not_configured"},
+                status=500,
+            )
+
+        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
+        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
+        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
+        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
+
+        # Verify authentication
+        auth_result = await verify_request(
+            self.request,
+            client_secret,
+            nonce_cache,
+            allowed_cidrs,
+            trust_proxy_mode,
+        )
+
+        if not auth_result.success:
+            log_deny(
+                _LOGGER,
+                client_id=self.request.headers.get("X-Client-Id", "unknown"),
+                entity_id="",
+                service="history",
+                reason=auth_result.error or "auth_failed",
+            )
+            return auth_result, web.json_response(
+                {"error": auth_result.error},
+                status=401,
+            )
+
+        # Check rate limit
+        if not await rate_limiter.check(auth_result.client_id or ""):
+            log_deny(
+                _LOGGER,
+                client_id=auth_result.client_id or "unknown",
+                entity_id="",
+                service="history",
+                reason="rate_limited",
+            )
+            return auth_result, web.json_response(
+                {"error": "rate_limited"},
+                status=429,
+                headers={
+                    "Retry-After": str(RATE_WINDOW),
+                    "X-RateLimit-Remaining": "0",
+                },
+            )
+
+        return auth_result, None
+
+    def _validate_time_range(self, start_time: datetime, end_time: datetime) -> web.Response | None:
+        """Validate time range parameters.
+
+        Returns:
+            Error response if validation fails, None otherwise.
+        """
+        max_duration = timedelta(days=HISTORY_MAX_DURATION_DAYS)
+        if end_time - start_time > max_duration:
+            return web.json_response(
+                {
+                    "error": "time_range_too_large",
+                    "max_days": HISTORY_MAX_DURATION_DAYS,
+                },
+                status=400,
+            )
+
+        if start_time > end_time:
+            return web.json_response(
+                {"error": "invalid_time_range"},
+                status=400,
+            )
+
+        return None
+
+    def _adjust_query_time_range(
+        self,
+        start_time: datetime,
+        end_time: datetime,
+        cursor_data: dict[str, str] | None,
+        entity_id: str,
+    ) -> tuple[datetime, datetime]:
+        """Adjust query time range for cursor pagination.
+
+        Returns:
+            Tuple of (query_start_time, query_end_time).
+        """
+        query_start_time = start_time
+        query_end_time = end_time
+
+        if cursor_data:
+            cursor_lc = cursor_data.get("lc")
+            if cursor_lc:
+                try:
+                    cursor_dt = dt_util.parse_datetime(cursor_lc)
+                    if cursor_dt and cursor_dt > start_time:
+                        query_start_time = cursor_dt
+                        _LOGGER.debug(
+                            "Cursor pagination: adjusted start_time from %s to %s for %s",
+                            start_time.isoformat(),
+                            query_start_time.isoformat(),
+                            entity_id,
+                        )
+                except (ValueError, TypeError) as err:
+                    _LOGGER.warning("Failed to parse cursor timestamp: %s", err)
+
+        return query_start_time, query_end_time
+
+    async def _query_history(
+        self,
+        entity_id: str,
+        query_start_time: datetime,
+        query_end_time: datetime,
+        significant_changes_only: bool,
+    ) -> dict[str, list] | web.Response:
+        """Query history from Recorder.
+
+        Returns:
+            States dict or error response.
+        """
+        semaphore = _get_history_semaphore()
+        try:
+            async with semaphore:
+                from homeassistant.components.recorder import history
+                from homeassistant.helpers.recorder import get_instance
+
+                recorder_instance = get_instance(self.hass)
+                states = await recorder_instance.async_add_executor_job(
+                    history.get_significant_states,
+                    self.hass,
+                    query_start_time,
+                    query_end_time,
+                    [entity_id],
+                    None,  # filters
+                    True,  # include_start_time_state
+                    significant_changes_only,
+                    True,  # minimal_response
+                    False,  # no_attributes
+                    True,  # compressed_state_format
+                )
+                return states
+        except asyncio.TimeoutError:
+            _LOGGER.error("History query timeout for %s", entity_id)
+            return web.json_response(
+                {"error": "query_timeout"},
+                status=504,
+            )
+        except Exception as err:
+            _LOGGER.error(
+                "Failed to query history for %s (range: %s to %s): %s",
+                entity_id,
+                query_start_time.isoformat(),
+                query_end_time.isoformat(),
+                err,
+                exc_info=True,
+            )
+            return web.json_response(
+                {
+                    "error": "history_query_failed",
+                    "message": str(err),
+                },
+                status=500,
+            )
+
+    def _find_first_state_with_attrs(
+        self, entity_states: list, states: dict[str, list], entity_id: str
+    ) -> Any | None:
+        """Find first state with attributes for metadata.
+
+        Returns:
+            First state with attributes or None.
+        """
+        has_attrs_in_page = any(
+            (isinstance(s, dict) and s.get("a"))
+            or (not isinstance(s, dict) and hasattr(s, "attributes") and s.attributes)
+            for s in entity_states
+        )
+
+        if has_attrs_in_page:
+            return None
+
+        all_states = states.get(entity_id, [])
+        for state in all_states:
+            if isinstance(state, dict) and state.get("a"):
+                return state
+            elif not isinstance(state, dict):
+                if hasattr(state, "attributes") and state.attributes:
+                    return state
+
+        return None
 
     def _format_history_response(
         self,
@@ -558,56 +779,16 @@ class SmartlyHistoryView(web.View):
                 status=500,
             )
 
-        client_secret = data.get(CONF_CLIENT_SECRET)
-        if not client_secret:
+        if not data.get(CONF_CLIENT_SECRET):
             return web.json_response(
                 {"error": "client_secret_not_configured"},
                 status=500,
             )
-        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
-        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
-        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
-        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
 
-        # Verify authentication
-        auth_result = await verify_request(
-            self.request,
-            client_secret,
-            nonce_cache,
-            allowed_cidrs,
-            trust_proxy_mode,
-        )
-
-        if not auth_result.success:
-            log_deny(
-                _LOGGER,
-                client_id=self.request.headers.get("X-Client-Id", "unknown"),
-                entity_id="",
-                service="history",
-                reason=auth_result.error or "auth_failed",
-            )
-            return web.json_response(
-                {"error": auth_result.error},
-                status=401,
-            )
-
-        # Check rate limit
-        if not await rate_limiter.check(auth_result.client_id or ""):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id="",
-                service="history",
-                reason="rate_limited",
-            )
-            return web.json_response(
-                {"error": "rate_limited"},
-                status=429,
-                headers={
-                    "Retry-After": str(RATE_WINDOW),
-                    "X-RateLimit-Remaining": "0",
-                },
-            )
+        # Verify authentication and rate limit
+        auth_result, error_response = await self._verify_auth_and_rate_limit(data)
+        if error_response:
+            return error_response
 
         # Get entity_id from path
         entity_id = self.request.match_info.get("entity_id")
@@ -638,32 +819,16 @@ class SmartlyHistoryView(web.View):
         query = self.request.query
         now = dt_util.utcnow()
 
-        end_time = _parse_datetime(query.get("end_time"))
-        if end_time is None:
-            end_time = now
-
-        start_time = _parse_datetime(query.get("start_time"))
-        if start_time is None:
-            start_time = end_time - timedelta(hours=HISTORY_DEFAULT_HOURS)
+        end_time = _parse_datetime(query.get("end_time")) or now
+        start_time = _parse_datetime(query.get("start_time")) or (
+            end_time - timedelta(hours=HISTORY_DEFAULT_HOURS)
+        )
 
         # Validate time range
-        max_duration = timedelta(days=HISTORY_MAX_DURATION_DAYS)
-        if end_time - start_time > max_duration:
-            return web.json_response(
-                {
-                    "error": "time_range_too_large",
-                    "max_days": HISTORY_MAX_DURATION_DAYS,
-                },
-                status=400,
-            )
+        if error_response := self._validate_time_range(start_time, end_time):
+            return error_response
 
-        if start_time > end_time:
-            return web.json_response(
-                {"error": "invalid_time_range"},
-                status=400,
-            )
-
-        # Parse cursor parameter
+        # Parse pagination parameters
         cursor_str, cursor_data, page_size, limit, use_pagination = self._parse_pagination_params(
             query, start_time, end_time
         )
@@ -674,62 +839,30 @@ class SmartlyHistoryView(web.View):
                 status=400,
             )
 
-        # Get significant_changes_only parameter
+        # Get query parameters
         significant_changes_only = query.get("significant_changes_only", "true").lower() == "true"
 
+        # Adjust time range for cursor pagination
+        query_start_time, query_end_time = self._adjust_query_time_range(
+            start_time, end_time, cursor_data, entity_id
+        )
+
         # Query history from Recorder
-        try:
-            from homeassistant.components.recorder import history
-            from homeassistant.helpers.recorder import get_instance
+        states = await self._query_history(
+            entity_id, query_start_time, query_end_time, significant_changes_only
+        )
+        if isinstance(states, web.Response):
+            return states
 
-            recorder_instance = get_instance(self.hass)
-            states = await recorder_instance.async_add_executor_job(
-                history.get_significant_states,
-                self.hass,
-                start_time,
-                end_time,
-                [entity_id],
-                None,  # filters
-                True,  # include_start_time_state
-                significant_changes_only,
-                True,  # minimal_response
-                False,  # no_attributes
-                True,  # compressed_state_format
-            )
-        except Exception as err:
-            _LOGGER.error("Failed to query history for %s: %s", entity_id, err)
-            return web.json_response(
-                {"error": "history_query_failed"},
-                status=500,
-            )
+        # Format and process results
+        entity_states = list(reversed(states.get(entity_id, [])))
 
-        # Format response
-        entity_states = states.get(entity_id, [])
-
-        # 反轉結果：從新到舊排序
-        entity_states = list(reversed(entity_states))
-
-        # When using cursor pagination, find the first state with attributes for metadata
+        # Find first state with attributes for metadata (if using pagination)
         first_state_with_attrs = None
         if use_pagination and entity_states:
-            # Check if any state in current page has attributes
-            has_attrs_in_page = any(
-                (isinstance(s, dict) and s.get("a"))
-                or (not isinstance(s, dict) and hasattr(s, "attributes") and s.attributes)
-                for s in entity_states
+            first_state_with_attrs = self._find_first_state_with_attrs(
+                entity_states, states, entity_id
             )
-
-            # If no attributes in current page, search all states for first one with attributes
-            if not has_attrs_in_page:
-                all_states = states.get(entity_id, [])
-                for state in all_states:
-                    if isinstance(state, dict) and state.get("a"):
-                        first_state_with_attrs = state
-                        break
-                    elif not isinstance(state, dict):
-                        if hasattr(state, "attributes") and state.attributes:
-                            first_state_with_attrs = state
-                            break
 
         # Apply pagination filtering
         entity_states, has_more = self._apply_pagination_filter(
@@ -753,10 +886,7 @@ class SmartlyHistoryView(web.View):
             first_state_with_attrs,
         )
 
-        return web.json_response(
-            response_data,
-            status=200,
-        )
+        return web.json_response(response_data, status=200)
 
 
 class SmartlyHistoryViewWrapper(HomeAssistantView):
@@ -1032,21 +1162,29 @@ class SmartlyHistoryBatchView(web.View):
             except (ValueError, TypeError):
                 limit = HISTORY_DEFAULT_LIMIT
 
-        # Query history from Recorder
+        # Query history from Recorder with concurrency control
+        semaphore = _get_history_semaphore()
         try:
-            from homeassistant.components.recorder import history
-            from homeassistant.helpers.recorder import get_instance
+            async with semaphore:
+                from homeassistant.components.recorder import history
+                from homeassistant.helpers.recorder import get_instance
 
-            recorder_instance = get_instance(self.hass)
-            states = await recorder_instance.async_add_executor_job(
-                history.get_significant_states,
-                self.hass,
-                start_time,
-                end_time,
-                allowed_entity_ids,
-                None,  # filters
-                True,  # include_start_time_state
-                True,  # significant_changes_only
+                recorder_instance = get_instance(self.hass)
+                states = await recorder_instance.async_add_executor_job(
+                    history.get_significant_states,
+                    self.hass,
+                    start_time,
+                    end_time,
+                    allowed_entity_ids,
+                    None,  # filters
+                    True,  # include_start_time_state
+                    True,  # significant_changes_only
+                )
+        except asyncio.TimeoutError:
+            _LOGGER.error("Batch history query timeout for %d entities", len(allowed_entity_ids))
+            return web.json_response(
+                {"error": "query_timeout"},
+                status=504,
             )
         except Exception as err:
             _LOGGER.error("Failed to query batch history: %s", err)

@@ -1,6 +1,6 @@
 ---
 applyTo: '*'
-description: 'Git Commit 最佳實作指南，採用 Conventional Commits 規範並使用繁體中文。涵蓋 commit 訊息格式、類型定義、範圍設定、Breaking Changes 處理，以及與 CI/CD 工具整合的完整指引。請不要任意寫下不存在CLOSED issue 編號。'
+description: 'Git Commit 最佳實作指南，採用 Conventional Commits 規範並使用繁體中文。涵蓋 commit 訊息格式、類型定義、範圍設定、Breaking Changes 處理，以及與 CI/CD 工具整合的完整指引。'
 ---
 
 # Git Commit 最佳實作（Conventional Commits）
@@ -237,7 +237,7 @@ feat(auth): 修正登入。           # 有句號，且 type 錯誤（應為 fix
 - **複雜邏輯：** 涉及演算法改動、架構調整、重要決策
 - **行為變更：** 改變既有功能的行為，即使不是 breaking change
 - **錯誤修正：** 說明錯誤的原因、影響範圍、修正方式
-- **背景脈絡：** 提供相關的 issue、討論、設計文件連結
+- **背景脈絡：** 提供相關的 issue、討論、設計文件連結，確保真的有Issue才進行關聯
 - **取捨說明：** 解釋為何選擇某種方案而非其他方案
 
 ### **2. Body 撰寫最佳實作**
