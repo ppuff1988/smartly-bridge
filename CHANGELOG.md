@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- 修正歷史查詢 API metadata 中 device_class 為 null 的問題，實作三層 fallback 機制：
+  1. 從歷史記錄的第一個 state 獲取
+  2. 從歷史記錄中搜尋第一個有 device_class 的 state
+  3. 從 Home Assistant 的當前狀態獲取（最可靠）
+  - 確保即使歷史記錄中的 attributes 不完整，也能提供正確的 metadata
+  - 同時改善 unit_of_measurement 和 friendly_name 的獲取邏輯
+
 ## [1.10.9](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.8...v1.10.9) (2026-01-12)
 
 ### 🐛 錯誤修正 (Bug Fixes)
