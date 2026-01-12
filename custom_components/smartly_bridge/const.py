@@ -119,9 +119,23 @@ HLS_IDLE_TIMEOUT = 300.0  # seconds - timeout before stopping idle HLS stream
 HLS_MAX_SEGMENTS = 5  # maximum number of segments in playlist
 HLS_STREAM_START_TIMEOUT = 10.0  # seconds - timeout waiting for stream to start
 
+# WebRTC settings
+WEBRTC_TOKEN_TTL = 300  # 5 minutes - Token validity period
+WEBRTC_TOKEN_BYTES = 32  # Token length in bytes (256-bit)
+WEBRTC_SESSION_TIMEOUT = 600  # 10 minutes - Session idle timeout
+WEBRTC_HEARTBEAT_INTERVAL = 30  # seconds - WebSocket heartbeat interval
+WEBRTC_ICE_CANDIDATE_TIMEOUT = 30  # seconds - ICE gathering timeout
+
+# WebRTC API paths
+API_PATH_WEBRTC_TOKEN = "/api/smartly/camera/{entity_id}/webrtc"
+API_PATH_WEBRTC_OFFER = "/api/smartly/camera/{entity_id}/webrtc/offer"
+API_PATH_WEBRTC_ICE = "/api/smartly/camera/{entity_id}/webrtc/ice"
+API_PATH_WEBRTC_HANGUP = "/api/smartly/camera/{entity_id}/webrtc/hangup"
+
 # Stream types
 STREAM_TYPE_MJPEG = "mjpeg"
 STREAM_TYPE_HLS = "hls"
+STREAM_TYPE_WEBRTC = "webrtc"
 
 # Numeric formatting configuration
 # 基礎配置：attribute/device_class -> decimal places

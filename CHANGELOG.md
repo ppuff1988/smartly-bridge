@@ -5,6 +5,30 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### ✨ 新功能 (Features)
+
+* **webrtc:** 新增 WebRTC P2P 連線支援，節省 Platform 流量
+  - 新增 \`webrtc.py\` 模組處理 Token 管理和 Session 生命週期
+  - Token 機制：Platform 透過 HMAC 認證請求短期 Token（5 分鐘有效）
+  - Token 為單次使用，消費後即失效，防止重放攻擊
+  - 新增 4 個 WebRTC API 端點：
+    - \`POST /api/smartly/camera/{entity_id}/webrtc\` - 請求 Token（HMAC 保護）
+    - \`POST /api/smartly/camera/{entity_id}/webrtc/offer\` - SDP Offer/Answer 交換
+    - \`POST /api/smartly/camera/{entity_id}/webrtc/ice\` - ICE Candidate 交換
+    - \`POST /api/smartly/camera/{entity_id}/webrtc/hangup\` - 關閉 Session
+  - Camera 列表 API 現在回傳 \`webrtc\` 端點資訊
+  - 新增 37 個 WebRTC 相關測試案例
+
+### Fixed
+- 修正歷史查詢 API metadata 中 device_class 為 null 的問題，實作三層 fallback 機制：
+  1. 從歷史記錄的第一個 state 獲取
+  2. 從歷史記錄中搜尋第一個有 device_class 的 state
+  3. 從 Home Assistant 的當前狀態獲取（最可靠）
+  - 確保即使歷史記錄中的 attributes 不完整，也能提供正確的 metadata
+  - 同時改善 unit_of_measurement 和 friendly_name 的獲取邏輯
+
 ## [1.10.12](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.11...v1.10.12) (2026-01-12)
 
 ### 🐛 錯誤修正 (Bug Fixes)
@@ -26,47 +50,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 * **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
 * **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
 
-## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
-* **ci:** 新增 tags 強制同步步驟避免重複 tag 錯誤 ([859f1f1](https://github.com/ppuff1988/smartly-bridge/commit/859f1f1d8c2579c8dc018460fa3ade19a823a101))
-* **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
-* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
-
-## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
-* **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
-* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
-* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
-
-## [Unreleased]
-
-### Fixed
-- 修正歷史查詢 API metadata 中 device_class 為 null 的問題，實作三層 fallback 機制：
-  1. 從歷史記錄的第一個 state 獲取
-  2. 從歷史記錄中搜尋第一個有 device_class 的 state
-  3. 從 Home Assistant 的當前狀態獲取（最可靠）
-  - 確保即使歷史記錄中的 attributes 不完整，也能提供正確的 metadata
-  - 同時改善 unit_of_measurement 和 friendly_name 的獲取邏輯
-
 ## [1.10.9](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.8...v1.10.9) (2026-01-12)
 
 ### 🐛 錯誤修正 (Bug Fixes)
@@ -102,84 +85,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### 🐛 錯誤修正 (Bug Fixes)
 
 * **sync:** 修正 sensor state 未套用小數點格式化問題 ([#49](https://github.com/ppuff1988/smartly-bridge/issues/49)) ([4e29dcd](https://github.com/ppuff1988/smartly-bridge/commit/4e29dcd96fc1fa8b556075c9b889d849da6515ff))
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [1.10.10](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.9...v1.10.10) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **ci:** 新增 release workflow 並行控制，避免 tag 衝突問題 ([a893f17](https://github.com/ppuff1988/smartly-bridge/commit/a893f1785154f2fa8eae993afe6511879afa1a70))
-* **ci:** 新增 tags 強制同步步驟避免重複 tag 錯誤 ([459a523](https://github.com/ppuff1988/smartly-bridge/commit/459a5239b2ce70ac1050d9cb18f1099dc33da028))
-* **docs:** 修正 CHANGELOG 重複條目問題 ([ea4f5fe](https://github.com/ppuff1988/smartly-bridge/commit/ea4f5fe3034fdb5ed08564ffdfea780f79d9774a))
-* **history:** 修正歷史查詢 metadata device_class 為 null 問題 ([#56](https://github.com/ppuff1988/smartly-bridge/issues/56)) ([617fc11](https://github.com/ppuff1988/smartly-bridge/commit/617fc1191514d46ede04d5c161a4ac6ea5709d77))
-
-## [Unreleased]
-
-### Fixed
-- **history:** 修正 cursor 分頁無限循環與 total_count 計算錯誤
-  - 修正過濾邏輯：使用 `state_lc < cursor_lc` 而非 `state_lc != cursor_lc`
-  - 移除時間範圍調整邏輯，完全依賴應用層過濾
-  - 簡化 has_more 判斷：只有 `len(entity_states) > page_size` 才為 True
-  - 在第一頁時額外查詢完整時間範圍以計算正確的 total_count
-  - 測試結果：成功完成 25 頁分頁，收集 1244 筆記錄，total_count 完全一致
-
-## [1.10.9](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.8...v1.10.9) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正 cursor pagination 後續請求 metadata device_class 為 null ([#54](https://github.com/ppuff1988/smartly-bridge/issues/54)) ([3ae4bf1](https://github.com/ppuff1988/smartly-bridge/commit/3ae4bf1dfd2f9f96b96eda55f124313b6bfb6f19)), closes [#53](https://github.com/ppuff1988/smartly-bridge/issues/53)
-
-## [1.10.8](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.7...v1.10.8) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正 cursor pagination 大量查詢失敗問題 ([#53](https://github.com/ppuff1988/smartly-bridge/issues/53)) ([14b70b5](https://github.com/ppuff1988/smartly-bridge/commit/14b70b57ae209d1e06535e9942dc152c402d9119))
-
-## [1.10.7](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.6...v1.10.7) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正反序排序時游標分頁失效問題 ([#52](https://github.com/ppuff1988/smartly-bridge/issues/52)) ([7d2328c](https://github.com/ppuff1988/smartly-bridge/commit/7d2328cbcb794aada0d29ba4b9022635e592deb7))
-
-## [1.10.6](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.5...v1.10.6) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正歷史資料排序順序為從新到舊 ([#51](https://github.com/ppuff1988/smartly-bridge/issues/51)) ([e77ee8b](https://github.com/ppuff1988/smartly-bridge/commit/e77ee8b13b80a01298b68065806904f7cd6d94ed))
-
-## [1.10.5](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.4...v1.10.5) (2026-01-12)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **history:** 修正數值格式化與 cursor 分頁問題 ([#50](https://github.com/ppuff1988/smartly-bridge/issues/50)) ([8c2bcc4](https://github.com/ppuff1988/smartly-bridge/commit/8c2bcc406349d2950f14393b12a501eb87029820))
-
-## [1.10.4](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.3...v1.10.4) (2026-01-11)
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **sync:** 修正 sensor state 未套用小數點格式化問題 ([#49](https://github.com/ppuff1988/smartly-bridge/issues/49)) ([4e29dcd](https://github.com/ppuff1988/smartly-bridge/commit/4e29dcd96fc1fa8b556075c9b889d849da6515ff))
-
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-* **sync:** 修正 sensor state 未套用小數點格式化問題
-  - 新增 `format_sensor_state` 函數統一處理 sensor state 數值格式化
-  - sync API 和 webhook 推送現在都會根據 device_class 和 unit 正確格式化 sensor 數值
-  - 例如：電壓顯示 2 位小數 (115.7V)、電流毫安培顯示 1 位小數 (35.0mA)、溫度顯示 1 位小數 (25.6°C)
 
 ## [1.10.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.2...v1.10.3) (2026-01-11)
 
@@ -247,93 +152,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **sync:** 新增實體圖示欄位到同步 API ([#36](https://github.com/ppuff1988/smartly-bridge/issues/36)) ([b8ead21](https://github.com/ppuff1988/smartly-bridge/commit/b8ead213fb1e72c052f1b93316b11f279fc64e44)), closes [#issue](https://github.com/ppuff1988/smartly-bridge/issues/issue)
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### ✨ 新增功能 (Features)
-
-- **sync:** Sync API 新增 icon 資訊回傳 (#SYNC-ICON-001)
-  - `/api/smartly/sync/structure` 端點的 entities 列表新增 `icon` 欄位
-  - `/api/smartly/sync/states` 端點的 states 列表新增 `icon` 欄位
-  - 支援 MDI (Material Design Icons) 格式圖示
-  - Icon 欄位自動 fallback：優先使用使用者自訂圖示，若無則自動使用原始預設圖示
-  - 新增詳細的 Sync API 文件 (docs/sync-api.md)
-
-### 📝 文件更新 (Documentation)
-
-- 新增 [Sync API 說明文件](docs/sync-api.md)，包含完整的 API 參考和使用範例
-- 說明 `icon` 和 `original_icon` 欄位的使用方式和建議
-
 ## [1.6.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.5.1...v1.6.0) (2026-01-08)
 
 ### ✨ 新增功能 (Features)
 
 * **camera:** 新增 IP Camera 支援與 MJPEG 串流修正 ([#35](https://github.com/ppuff1988/smartly-bridge/issues/35)) ([43b628f](https://github.com/ppuff1988/smartly-bridge/commit/43b628fd30ffac1e3bbc6ab9f072ab73416e776a)), closes [#MJPEG-001](https://github.com/ppuff1988/smartly-bridge/issues/MJPEG-001)
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
-## [Unreleased]
-
-### ✨ 新增功能 (Features)
-
-- **camera:** 新增 IP Camera 支援，包含快取截圖和串流代理功能
-  - 新增 `CameraManager` 管理器，提供快取機制的截圖功能
-  - 支援 MJPEG 串流代理
-  - 支援 ETag 條件請求 (304 Not Modified)
-  - 可配置快取 TTL、串流逾時等參數
-  - 新增 Camera API 端點：
-    - `GET /api/smartly/camera/{entity_id}/snapshot` - 取得攝影機截圖
-    - `GET /api/smartly/camera/{entity_id}/stream` - 取得攝影機串流
-    - `GET /api/smartly/camera/list` - 列出所有可用攝影機
-    - `POST /api/smartly/camera/config` - 管理攝影機設定
-
-### 🐛 錯誤修正 (Bug Fixes)
-
-- **camera:** 修正 MJPEG 串流雙層 HTTP 響應和 chunked encoding 問題 (#MJPEG-001)
-  - **關鍵修正**：正確使用 `stream_response.content.iter_chunked()` 獲取純 MJPEG 數據
-  - 修正雙層 HTTP 響應問題（body 中包含 `HTTP/1.1 200 OK` 導致解析失敗）
-  - 禁用 MJPEG 串流的 `Transfer-Encoding: chunked`
-  - 使用 `Connection: close` 和 `enable_compression(False)` 強制禁用 chunked encoding
-  - 修正 Go HTTP 客戶端解析失敗問題（`invalid byte in chunk length`）
-  - 確保 `multipart/x-mixed-replace` 格式正確傳輸
-  - 新增詳細的調試日誌追蹤串流狀態
-  - 解決串流數據無法正常傳輸的問題（bytes_written: 0）
-
-### ♻️ 程式碼重構 (Refactoring)
-
-- **utils:** 將數值格式化工具函式重構到 `utils.py` 模組
-  - 將 `NUMERIC_PRECISION_CONFIG` 和 `UNIT_SPECIFIC_PRECISION_CONFIG` 移至 `const.py`
-  - 建立 `utils.py` 存放 `format_numeric_attributes` 和 `get_decimal_places` 函式
-  - 改善程式碼組織性和可維護性
-
-### 🔒 安全性修正 (Security)
-
-- **ci:** 改用 pip-audit 取代 Safety，解決 typer 相容性問題
-- **ci:** 調整安全掃描為資訊性質，不因已知依賴限制而阻塞 CI
-
-### 📝 說明
-
-**安全漏洞狀況：**
-- 目前開發環境使用 Python 3.12 + Home Assistant 2024.x
-- pip-audit 檢測到 20 個已知漏洞（主要來自 aiohttp, urllib3 等）
-- 這些是開發依賴，不影響生產環境的 Integration 本身
-
-**解決方案：**
-- 短期：安全掃描改為資訊性質，持續監控但不阻塞 CI
-- 長期：升級到 Python 3.13 + Home Assistant 2025.2+
-  - 可解決大部分安全漏洞
-  - 需要 CI 環境支援 Python 3.13
 ## [1.5.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.4.1...v1.5.0) (2026-01-06)
 
 ### ✨ 新增功能 (Features)
@@ -383,13 +207,6 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * **api:** add states sync API and heartbeat mechanism ([#19](https://github.com/ppuff1988/smartly-bridge/issues/19)) ([82f3524](https://github.com/ppuff1988/smartly-bridge/commit/82f35246165a03cc925c4eb120026a2656ee38af))
 
-# Changelog
-
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
-
 ## [1.1.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.1.2...v1.1.3) (2025-12-22)
 
 ### 🐛 錯誤修正 (Bug Fixes)
@@ -429,48 +246,3 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 * 初始化 Smartly Bridge Home Assistant 整合專案 ([a4e5c92](https://github.com/ppuff1988/smartly-bridge/commit/a4e5c92d433dbd7cacf0f24d3119622909151007))
 * 實體標籤存取控制與自動化發布流程 ([#11](https://github.com/ppuff1988/smartly-bridge/issues/11)) ([b5bc9a5](https://github.com/ppuff1988/smartly-bridge/commit/b5bc9a5055c6e425fc6e5511c1f0878cca51d160))
-
-## [Unreleased]
-
-### Added
-- 實體標籤（Entity Labels）存取控制機制，支援基於 Home Assistant 標籤過濾可存取的實體
-- 完全自動化的 Semantic Release 流程，根據 Conventional Commits 自動發布版本
-- 自動版本號決定機制（feat → minor, fix → patch, BREAKING → major）
-- 自動生成繁體中文 CHANGELOG 功能
-- 自動更新 manifest.json 版本的 Python 腳本 (`scripts/update_manifest_version.py`)
-- `docs/RELEASE.md` 完整的自動化 Release 流程說明文件
-- `.github/workflows/auto-release.yml` 自動發布 workflow
-- `.releaserc.json` Semantic Release 配置檔
-- `run-ci-tests.sh` 和 `reset.sh` 測試輔助腳本
-- Git commit 規範中的 CHANGELOG 更新指南
-
-### Changed
-- 優化 `get_structure` 函數，正確處理沒有 floor 或 area 的實體
-- 改善實體註冊表讀取與標籤檢查邏輯
-- 更新 ACL 警告訊息，明確區分實體標籤與 NFC 標籤
-- 停用手動 release.yml workflow，避免與自動化流程衝突
-- 強化 `.gitignore` 配置以保護敏感資訊
-- 改善 CI/CD workflows 和程式碼品質檢查配置
-- 更新 SECURITY.md 安全指南內容
-
-### Security
-- 新增安全檢查文檔和最佳實踐指南
-
-## [1.0.0] - 2025-12-17
-
-### Added
-- Initial release of Smartly Bridge integration
-- OAuth-like authentication with HMAC-SHA256
-- RESTful API endpoints for device control and sync
-- Push notification system for state changes
-- Access control list (ACL) for entities and services
-- Audit logging for all control actions
-- Rate limiting and CIDR-based IP filtering
-- Support for Home Assistant structure (floors, areas, devices)
-- Internationalization support (en, zh-Hant)
-
-### Security
-- HMAC-SHA256 request signing
-- Nonce-based replay attack prevention
-- Configurable CIDR IP whitelist
-- Rate limiting per client
