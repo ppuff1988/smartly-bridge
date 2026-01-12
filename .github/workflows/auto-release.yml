@@ -29,6 +29,15 @@ jobs:
           persist-credentials: false
           token: ${{ secrets.RELEASE_PAT || secrets.GITHUB_TOKEN }}
 
+      - name: Sync tags
+        run: |
+          echo "🔄 Synchronizing tags from remote..."
+          git fetch --tags --force
+          echo "✅ Tags synchronized"
+          echo ""
+          echo "📋 Latest tags:"
+          git tag | sort -V | tail -5
+
       - name: Setup Node.js
         uses: actions/setup-node@v6
         with:
