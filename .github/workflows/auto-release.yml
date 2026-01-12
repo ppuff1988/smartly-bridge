@@ -16,6 +16,11 @@ jobs:
     name: Semantic Release
     runs-on: ubuntu-latest
     
+    # 🔒 防止並行執行，避免 tag 衝突
+    concurrency:
+      group: release-${{ github.ref }}
+      cancel-in-progress: false
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
