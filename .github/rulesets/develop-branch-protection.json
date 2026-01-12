@@ -6,7 +6,9 @@
   "conditions": {
     "ref_name": {
       "exclude": [],
-      "include": ["refs/heads/develop"]
+      "include": [
+        "refs/heads/develop"
+      ]
     }
   },
   "rules": [
@@ -34,10 +36,10 @@
         "strict_required_status_checks_policy": false,
         "required_status_checks": [
           {
-            "context": "CI / Lint Code"
+            "context": "CI / Lint Code (pull_request)"
           },
           {
-            "context": "CI / Test (Python 3.13)"
+            "context": "CI / Test (Python 3.13) (pull_request)"
           }
         ]
       }
