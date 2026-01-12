@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.10.9](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.8...v1.10.9) (2026-01-12)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **history:** 修正 cursor pagination 後續請求 metadata device_class 為 null ([#54](https://github.com/ppuff1988/smartly-bridge/issues/54)) ([3ae4bf1](https://github.com/ppuff1988/smartly-bridge/commit/3ae4bf1dfd2f9f96b96eda55f124313b6bfb6f19)), closes [#53](https://github.com/ppuff1988/smartly-bridge/issues/53)
+
 ## [1.10.8](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.7...v1.10.8) (2026-01-12)
 
 ### 🐛 錯誤修正 (Bug Fixes)
