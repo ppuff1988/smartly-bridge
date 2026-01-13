@@ -12,6 +12,9 @@ CONF_INSTANCE_ID = "instance_id"
 CONF_ALLOWED_CIDRS = "allowed_cidrs"
 CONF_PUSH_BATCH_INTERVAL = "push_batch_interval"
 CONF_TRUST_PROXY = "trust_proxy"
+CONF_TURN_URL = "turn_url"
+CONF_TURN_USERNAME = "turn_username"
+CONF_TURN_CREDENTIAL = "turn_credential"
 
 # Trust proxy modes
 TRUST_PROXY_AUTO = "auto"
@@ -125,6 +128,10 @@ WEBRTC_TOKEN_BYTES = 32  # Token length in bytes (256-bit)
 WEBRTC_SESSION_TIMEOUT = 600  # 10 minutes - Session idle timeout
 WEBRTC_HEARTBEAT_INTERVAL = 30  # seconds - WebSocket heartbeat interval
 WEBRTC_ICE_CANDIDATE_TIMEOUT = 30  # seconds - ICE gathering timeout
+
+# go2rtc settings
+GO2RTC_URL = "http://localhost:1984"  # Default go2rtc server URL
+GO2RTC_WEBRTC_TIMEOUT = 10.0  # seconds - Timeout for go2rtc WebRTC operations
 
 # WebRTC API paths
 API_PATH_WEBRTC_TOKEN = "/api/smartly/camera/{entity_id}/webrtc"

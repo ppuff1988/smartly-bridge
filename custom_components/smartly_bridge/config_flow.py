@@ -17,6 +17,9 @@ from .const import (
     CONF_INSTANCE_ID,
     CONF_PUSH_BATCH_INTERVAL,
     CONF_TRUST_PROXY,
+    CONF_TURN_CREDENTIAL,
+    CONF_TURN_URL,
+    CONF_TURN_USERNAME,
     CONF_WEBHOOK_URL,
     DEFAULT_PUSH_BATCH_INTERVAL,
     DEFAULT_TRUST_PROXY,
@@ -76,6 +79,9 @@ class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type
                             CONF_PUSH_BATCH_INTERVAL, DEFAULT_PUSH_BATCH_INTERVAL
                         ),
                         CONF_TRUST_PROXY: DEFAULT_TRUST_PROXY,
+                        CONF_TURN_URL: "",
+                        CONF_TURN_USERNAME: "",
+                        CONF_TURN_CREDENTIAL: "",
                     },
                 )
 
@@ -152,6 +158,9 @@ class SmartlyBridgeOptionsFlow(OptionsFlowWithConfigEntry):
             CONF_PUSH_BATCH_INTERVAL, DEFAULT_PUSH_BATCH_INTERVAL
         )
         current_trust_proxy = self.config_entry.data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
+        current_turn_url = self.config_entry.data.get(CONF_TURN_URL, "")
+        current_turn_username = self.config_entry.data.get(CONF_TURN_USERNAME, "")
+        current_turn_credential = self.config_entry.data.get(CONF_TURN_CREDENTIAL, "")
 
         return self.async_show_form(
             step_id="init",
@@ -169,6 +178,9 @@ class SmartlyBridgeOptionsFlow(OptionsFlowWithConfigEntry):
                             TRUST_PROXY_NEVER: "Never trust (Direct connection)",
                         }
                     ),
+                    vol.Optional(CONF_TURN_URL, default=current_turn_url): str,
+                    vol.Optional(CONF_TURN_USERNAME, default=current_turn_username): str,
+                    vol.Optional(CONF_TURN_CREDENTIAL, default=current_turn_credential): str,
                 }
             ),
             errors=errors,

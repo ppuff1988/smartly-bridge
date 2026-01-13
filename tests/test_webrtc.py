@@ -718,3 +718,70 @@ class TestWebRTCIntegration:
         assert validated is None
 
         await manager.stop()
+
+
+# ============================================================================
+# TURN Server Configuration Tests
+# ============================================================================
+
+
+class TestTURNConfiguration:
+    """Tests for TURN server configuration integration."""
+
+    @pytest.mark.asyncio
+    async def test_ice_servers_with_turn_from_config(self):
+        """Test ICE servers generation from config with TURN settings."""
+        # Generate ICE servers with TURN
+        ice_servers = get_ice_servers_with_turn(
+            turn_url="turn:turn.example.com:3478",
+            turn_username="testuser",
+            turn_credential="testpass",
+        )
+
+        # Should have STUN servers + TURN server
+        assert len(ice_servers) == 4
+        assert ice_servers[0]["urls"] == "stun:stun.l.google.com:19302"
+        assert ice_servers[3]["urls"] == "turn:turn.example.com:3478"
+        assert ice_servers[3]["username"] == "testuser"
+        assert ice_servers[3]["credential"] == "testpass"
+
+    @pytest.mark.asyncio
+    async def test_ice_servers_without_turn_from_config(self):
+        """Test ICE servers generation when TURN is not configured."""
+        # Generate ICE servers (should only return STUN)
+        ice_servers = get_ice_servers_with_turn(
+            turn_url="",
+            turn_username="",
+            turn_credential="",
+        )
+
+        # Should only have STUN servers
+        assert len(ice_servers) == 3
+        assert all("stun" in server["urls"] for server in ice_servers)
+
+    @pytest.mark.asyncio
+    async def test_partial_turn_config_ignored(self):
+        """Test that incomplete TURN config is ignored safely."""
+        # Missing credential
+        ice_servers = get_ice_servers_with_turn(
+            turn_url="turn:turn.example.com:3478",
+            turn_username="testuser",
+            turn_credential=None,
+        )
+        assert len(ice_servers) == 3  # Only STUN servers
+
+        # Missing username
+        ice_servers = get_ice_servers_with_turn(
+            turn_url="turn:turn.example.com:3478",
+            turn_username=None,
+            turn_credential="testpass",
+        )
+        assert len(ice_servers) == 3
+
+        # Missing URL
+        ice_servers = get_ice_servers_with_turn(
+            turn_url=None,
+            turn_username="testuser",
+            turn_credential="testpass",
+        )
+        assert len(ice_servers) == 3

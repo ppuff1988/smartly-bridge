@@ -2,22 +2,24 @@
 
 Provides HTTP API endpoints for WebRTC P2P video streaming:
 - Token: Generate short-lived tokens for WebRTC connections
-- Offer: Handle SDP offer/answer exchange
+- Offer: Handle SDP offer/answer exchange via go2rtc
 - ICE: Exchange ICE candidates for NAT traversal
 - Hangup: Close WebRTC sessions
 
 Authentication Flow:
 1. Platform requests token via HMAC-authenticated endpoint
 2. Token (5-min validity) is used for subsequent signaling
-3. P2P connection established for direct video streaming
+3. P2P connection established for direct video streaming via go2rtc
 """
 
 import json
 import logging
 from typing import Any
 
-from aiohttp import web
+import aiohttp
+from aiohttp import ClientTimeout, web
 from homeassistant.components.http import HomeAssistantView
+from homeassistant.helpers.aiohttp_client import async_get_clientsession
 
 from ..acl import is_entity_allowed
 from ..audit import log_control, log_deny
@@ -30,11 +32,16 @@ from ..const import (
     CONF_ALLOWED_CIDRS,
     CONF_CLIENT_SECRET,
     CONF_TRUST_PROXY,
+    CONF_TURN_CREDENTIAL,
+    CONF_TURN_URL,
+    CONF_TURN_USERNAME,
     DEFAULT_TRUST_PROXY,
     DOMAIN,
+    GO2RTC_URL,
+    GO2RTC_WEBRTC_TIMEOUT,
     RATE_WINDOW,
 )
-from ..webrtc import WebRTCTokenManager, get_default_ice_servers
+from ..webrtc import WebRTCTokenManager, get_default_ice_servers, get_ice_servers_with_turn
 from .base import BaseView
 
 _LOGGER = logging.getLogger(__name__)
@@ -179,6 +186,22 @@ class SmartlyWebRTCTokenView(BaseView):
             result="success",
         )
 
+        # Get ICE servers (with TURN if configured)
+        turn_url = data.get(CONF_TURN_URL, "").strip()
+        turn_username = data.get(CONF_TURN_USERNAME, "").strip()
+        turn_credential = data.get(CONF_TURN_CREDENTIAL, "").strip()
+
+        if turn_url and turn_username and turn_credential:
+            ice_servers = get_ice_servers_with_turn(
+                turn_url=turn_url,
+                turn_username=turn_username,
+                turn_credential=turn_credential,
+            )
+            _LOGGER.debug("Using ICE servers with TURN: %s", turn_url)
+        else:
+            ice_servers = get_default_ice_servers()
+            _LOGGER.debug("Using default STUN servers only")
+
         # Return token and connection info
         return web.json_response(
             {
@@ -189,7 +212,7 @@ class SmartlyWebRTCTokenView(BaseView):
                 "offer_endpoint": f"/api/smartly/camera/{entity_id}/webrtc/offer",
                 "ice_endpoint": f"/api/smartly/camera/{entity_id}/webrtc/ice",
                 "hangup_endpoint": f"/api/smartly/camera/{entity_id}/webrtc/hangup",
-                "ice_servers": get_default_ice_servers(),
+                "ice_servers": ice_servers,
             }
         )
 
@@ -286,6 +309,20 @@ class SmartlyWebRTCOfferView(BaseView):
                 status=401,
             )
 
+        # Log incoming offer details
+        _LOGGER.info(
+            "WebRTC offer received - entity_id: %s, client_id: %s, token: %s..., sdp_length: %d",
+            entity_id,
+            session.client_id,
+            token_str[:16],
+            len(sdp_offer),
+        )
+        _LOGGER.debug(
+            "WebRTC SDP offer content for %s:\n%s",
+            entity_id,
+            sdp_offer[:500] + "..." if len(sdp_offer) > 500 else sdp_offer,
+        )
+
         # Update session state
         await webrtc_manager.update_session_state(
             token_str=session.token,
@@ -293,29 +330,26 @@ class SmartlyWebRTCOfferView(BaseView):
             remote_sdp=sdp_offer,
         )
 
-        # Generate SDP answer
-        # Note: In a full implementation, this would integrate with
-        # Home Assistant's WebRTC/go2rtc or aiortc for actual WebRTC handling
+        # Generate SDP answer via go2rtc
         try:
             answer_sdp = await self._create_webrtc_answer(entity_id, sdp_offer, session)
-        except NotImplementedError:
-            # Return placeholder response for now
-            # Real implementation would integrate with HA's stream component
+        except RuntimeError as ex:
+            # go2rtc related errors
+            _LOGGER.error("go2rtc WebRTC error for %s: %s", entity_id, ex)
             log_control(
                 _LOGGER,
                 client_id=session.client_id,
                 entity_id=entity_id,
                 service="webrtc_offer",
-                result="pending_implementation",
+                result="go2rtc_error",
             )
             return web.json_response(
                 {
-                    "type": "answer",
-                    "sdp": "",  # Placeholder
+                    "error": "webrtc_failed",
+                    "message": str(ex),
                     "session_id": session.token[:16],
-                    "status": "pending",
-                    "message": "WebRTC SDP answer generation requires go2rtc integration",
-                }
+                },
+                status=500,
             )
         except Exception as ex:
             _LOGGER.error("Failed to create WebRTC answer for %s: %s", entity_id, ex)
@@ -323,6 +357,19 @@ class SmartlyWebRTCOfferView(BaseView):
                 {"error": "webrtc_failed", "message": str(ex)},
                 status=500,
             )
+
+        # Log successful answer
+        _LOGGER.info(
+            "WebRTC answer generated - entity_id: %s, session_id: %s, sdp_length: %d",
+            entity_id,
+            session.token[:16],
+            len(answer_sdp),
+        )
+        _LOGGER.debug(
+            "WebRTC SDP answer content for %s:\n%s",
+            entity_id,
+            answer_sdp[:500] + "..." if len(answer_sdp) > 500 else answer_sdp,
+        )
 
         # Update session with answer
         await webrtc_manager.update_session_state(
@@ -353,10 +400,10 @@ class SmartlyWebRTCOfferView(BaseView):
         offer_sdp: str,
         session: Any,
     ) -> str:
-        """Create WebRTC SDP answer.
+        """Create WebRTC SDP answer via go2rtc.
 
-        This method should integrate with Home Assistant's WebRTC
-        infrastructure (go2rtc) to generate a proper SDP answer.
+        Integrates with go2rtc server to handle WebRTC signaling.
+        go2rtc provides the actual media handling and SDP negotiation.
 
         Args:
             entity_id: Camera entity ID.
@@ -364,24 +411,151 @@ class SmartlyWebRTCOfferView(BaseView):
             session: WebRTC session object.
 
         Returns:
-            SDP answer string.
+            SDP answer string from go2rtc.
 
         Raises:
-            NotImplementedError: When go2rtc integration is not available.
+            RuntimeError: When go2rtc is not available or request fails.
         """
-        # Check if go2rtc/WebRTC is available in Home Assistant
-        # This is where you'd integrate with HA's stream component
-        #
-        # Example integration points:
-        # 1. homeassistant.components.camera.async_get_stream_source
-        # 2. homeassistant.components.stream for stream management
-        # 3. go2rtc integration for WebRTC handling
-        #
-        # For now, raise NotImplementedError to indicate pending implementation
-        raise NotImplementedError(
-            "WebRTC answer generation requires go2rtc integration. "
-            "Please ensure go2rtc is configured in Home Assistant."
-        )
+        # Get stream source from camera
+        try:
+            from homeassistant.components.camera import async_get_stream_source
+
+            stream_source = await async_get_stream_source(self.hass, entity_id)
+            if not stream_source:
+                raise RuntimeError(f"No stream source available for camera {entity_id}")
+        except ImportError:
+            raise RuntimeError("Camera stream component not available")
+
+        # Get go2rtc URL from config or use default
+        data = self._get_integration_data()
+        go2rtc_url = GO2RTC_URL
+        if data:
+            go2rtc_url = data.get("go2rtc_url", GO2RTC_URL)
+
+        # Use stream source as the go2rtc stream name
+        # go2rtc expects stream names, we'll use the entity_id
+        stream_name = entity_id
+
+        # Try go2rtc REST API first (WHEP style)
+        session_client = async_get_clientsession(self.hass)
+        timeout = ClientTimeout(total=GO2RTC_WEBRTC_TIMEOUT)
+
+        try:
+            # go2rtc WHEP API: POST /api/webrtc?src=<stream>
+            url = f"{go2rtc_url}/api/webrtc"
+            params = {"src": stream_name}
+
+            # go2rtc expects just the SDP offer as body or JSON with type/sdp
+            payload = {
+                "type": "offer",
+                "sdp": offer_sdp,
+            }
+
+            _LOGGER.debug(
+                "Sending WebRTC offer to go2rtc for %s: %s",
+                stream_name,
+                url,
+            )
+
+            async with session_client.post(
+                url,
+                params=params,
+                json=payload,
+                timeout=timeout,
+            ) as response:
+                if response.status == 200:
+                    result = await response.json()
+                    answer_sdp = result.get("sdp", "")
+                    if not answer_sdp:
+                        raise RuntimeError("go2rtc returned empty SDP answer")
+
+                    _LOGGER.info(
+                        "Successfully got WebRTC answer from go2rtc for %s",
+                        entity_id,
+                    )
+                    return answer_sdp
+                elif response.status == 404:
+                    # Stream not found in go2rtc, try to add it dynamically
+                    _LOGGER.warning(
+                        "Stream %s not found in go2rtc, attempting to add...",
+                        stream_name,
+                    )
+                    await self._add_stream_to_go2rtc(
+                        session_client, go2rtc_url, stream_name, stream_source
+                    )
+                    # Retry the offer
+                    async with session_client.post(
+                        url,
+                        params=params,
+                        json=payload,
+                        timeout=timeout,
+                    ) as retry_response:
+                        if retry_response.status == 200:
+                            result = await retry_response.json()
+                            answer_sdp = result.get("sdp", "")
+                            if not answer_sdp:
+                                raise RuntimeError("go2rtc returned empty SDP answer after retry")
+                            return answer_sdp
+                        else:
+                            error_text = await retry_response.text()
+                            raise RuntimeError(
+                                f"go2rtc WebRTC request failed after adding stream: "
+                                f"{retry_response.status} - {error_text}"
+                            )
+                else:
+                    error_text = await response.text()
+                    raise RuntimeError(
+                        f"go2rtc WebRTC request failed: {response.status} - {error_text}"
+                    )
+
+        except aiohttp.ClientError as err:
+            _LOGGER.error("Failed to connect to go2rtc at %s: %s", go2rtc_url, err)
+            raise RuntimeError(
+                f"Failed to connect to go2rtc server at {go2rtc_url}. "
+                f"Please ensure go2rtc is running. Error: {err}"
+            ) from err
+
+    async def _add_stream_to_go2rtc(
+        self,
+        session_client: aiohttp.ClientSession,
+        go2rtc_url: str,
+        stream_name: str,
+        stream_source: str,
+    ) -> None:
+        """Add a stream to go2rtc dynamically.
+
+        Args:
+            session_client: aiohttp client session.
+            go2rtc_url: go2rtc server URL.
+            stream_name: Name for the stream (entity_id).
+            stream_source: RTSP or other stream URL.
+        """
+        # go2rtc API: PUT /api/streams?src=<stream>&name=<name>
+        # or POST /api/streams with JSON body
+        url = f"{go2rtc_url}/api/streams"
+        params = {
+            "name": stream_name,
+            "src": stream_source,
+        }
+
+        try:
+            async with session_client.put(url, params=params) as response:
+                if response.status in (200, 201):
+                    _LOGGER.info(
+                        "Successfully added stream %s to go2rtc with source: %s",
+                        stream_name,
+                        stream_source[:50] + "..." if len(stream_source) > 50 else stream_source,
+                    )
+                else:
+                    error_text = await response.text()
+                    _LOGGER.warning(
+                        "Failed to add stream %s to go2rtc: %s - %s",
+                        stream_name,
+                        response.status,
+                        error_text,
+                    )
+        except aiohttp.ClientError as err:
+            _LOGGER.warning("Failed to add stream to go2rtc: %s", err)
 
 
 class SmartlyWebRTCICEView(BaseView):

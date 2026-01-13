@@ -10,7 +10,7 @@
   - [3. 取得攝影機清單](#3-取得攝影機清單)
   - [4. 攝影機設定管理](#4-攝影機設定管理)
   - [5. HLS 串流管理](#5-hls-串流管理)
-  - [6. WebRTC P2P 串流](#6-webrtc-p2p-串流)
+  - [6. WebRTC P2P 串流](#6-webrtc-p2p-串流) → [完整文件](webrtc.md)
 - [錯誤碼](#錯誤碼)
 - [快取機制](#快取機制)
 - [使用範例](#使用範例)
@@ -681,350 +681,48 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stats HTTP/1.1
 
 ### 6. WebRTC P2P 串流
 
-提供點對點（Peer-to-Peer）視訊串流，直接在 Platform 與 Home Assistant 之間建立連線，節省伺服器頻寬與延遲。
+WebRTC 點對點串流功能提供低延遲、高品質的視訊串流體驗。完整的 WebRTC API 文件已獨立至專門文件。
 
-#### 認證流程
+**📄 完整文件：[WebRTC 串流 API 文件](webrtc.md)**
 
-WebRTC 使用 Token-based 認證機制，分為兩階段：
+#### 主要功能
 
-1. **Token 請求階段**：Platform 使用 HMAC 認證請求短期 Token（5 分鐘有效）
-2. **信令交換階段**：使用 Token 進行 SDP Offer/Answer 和 ICE Candidate 交換
+- ✅ **低延遲 P2P 連線**：直接在客戶端與 Home Assistant 間建立連線
+- ✅ **Token-based 認證**：5 分鐘 TTL，單次使用防重放
+- ✅ **go2rtc 整合**：自動串流註冊，零配置體驗
+- ✅ **STUN/TURN 支援**：適應各種網路環境（含嚴格 NAT）
+- ✅ **Session 自動管理**：10 分鐘閒置自動清理
 
-#### 端點總覽
+#### 快速開始
 
-| 端點 | 方法 | 認證方式 | 說明 |
-|------|------|---------|------|
-| `/api/smartly/camera/{entity_id}/webrtc` | POST | HMAC | 請求 WebRTC Token |
-| `/api/smartly/camera/{entity_id}/webrtc/offer` | POST | Token | SDP Offer/Answer 交換 |
-| `/api/smartly/camera/{entity_id}/webrtc/ice` | POST | Session | ICE Candidate 交換 |
-| `/api/smartly/camera/{entity_id}/webrtc/hangup` | POST | Session | 關閉 WebRTC Session |
-
----
-
-#### 6.1 請求 WebRTC Token
-
-Platform 使用 HMAC 認證請求短期 Token，用於後續的 WebRTC 信令交換。
-
-#### 端點
-
-```
+**1. 請求 WebRTC Token**
+```http
 POST /api/smartly/camera/{entity_id}/webrtc
+Headers: X-Client-Id, X-Timestamp, X-Nonce, X-Signature
 ```
 
-#### 路徑參數
-
-| 參數 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `entity_id` | string | 是 | 攝影機實體 ID，格式：`camera.*` |
-
-#### Request
-
+**2. 交換 SDP Offer/Answer**
 ```http
-POST /api/smartly/camera/camera.front_door/webrtc HTTP/1.1
-Host: homeassistant.local:8123
-Content-Type: application/json
-X-Client-Id: mobile-app-001
-X-Timestamp: 1735228800
-X-Nonce: abc123def456
-X-Signature: a3f8b2c1d4e5f6...
-
-{}
-```
-
-#### Response (成功 - 200 OK)
-
-```json
-{
-  "token": "xxxxx...",
-  "expires_at": 1735229100,
-  "expires_in": 300,
-  "entity_id": "camera.front_door",
-  "offer_endpoint": "/api/smartly/camera/camera.front_door/webrtc/offer",
-  "ice_endpoint": "/api/smartly/camera/camera.front_door/webrtc/ice",
-  "hangup_endpoint": "/api/smartly/camera/camera.front_door/webrtc/hangup",
-  "ice_servers": [
-    {
-      "urls": "stun:stun.l.google.com:19302"
-    },
-    {
-      "urls": "stun:stun1.l.google.com:19302"
-    }
-  ]
-}
-```
-
-#### Response 欄位說明
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `token` | string | WebRTC 認證 Token（256-bit，單次使用） |
-| `expires_at` | number | Token 到期時間（Unix 時間戳） |
-| `expires_in` | number | Token 剩餘有效秒數 |
-| `entity_id` | string | 攝影機實體 ID |
-| `offer_endpoint` | string | SDP Offer 交換端點 |
-| `ice_endpoint` | string | ICE Candidate 交換端點 |
-| `hangup_endpoint` | string | 關閉 Session 端點 |
-| `ice_servers` | array | ICE 伺服器列表（STUN/TURN） |
-
-#### 重要特性
-
-- ✅ Token 有效期：5 分鐘
-- ✅ 單次使用：消費後即失效，防止重放攻擊
-- ✅ 實體綁定：Token 只能用於請求的攝影機
-
----
-
-#### 6.2 SDP Offer/Answer 交換
-
-使用 Token 交換 SDP（Session Description Protocol），建立 WebRTC 連線。
-
-#### 端點
-
-```
 POST /api/smartly/camera/{entity_id}/webrtc/offer
+Body: { token, sdp, type: "offer" }
 ```
 
-#### Request
-
+**3. 交換 ICE Candidates**
 ```http
-POST /api/smartly/camera/camera.front_door/webrtc/offer HTTP/1.1
-Host: homeassistant.local:8123
-Content-Type: application/json
-
-{
-  "token": "xxxxx...",
-  "sdp": "v=0\r\no=- 123456 2 IN IP4 127.0.0.1\r\n...",
-  "type": "offer"
-}
-```
-
-#### Request 欄位說明
-
-| 欄位 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `token` | string | 是 | 從 Token 請求端點取得的 Token |
-| `sdp` | string | 是 | SDP Offer 內容 |
-| `type` | string | 是 | 固定為 `"offer"` |
-
-#### Response (成功 - 200 OK)
-
-```json
-{
-  "type": "answer",
-  "sdp": "v=0\r\no=- 789012 2 IN IP4 192.168.1.100\r\n...",
-  "session_id": "abcdefghijklmnop"
-}
-```
-
-#### Response 欄位說明
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `type` | string | 固定為 `"answer"` |
-| `sdp` | string | SDP Answer 內容 |
-| `session_id` | string | WebRTC Session ID（用於後續操作） |
-
-**注意**：目前 SDP Answer 生成需要與 Home Assistant 的 go2rtc 整合，實作中可能返回 `status: "pending"` 狀態。
-
----
-
-#### 6.3 ICE Candidate 交換
-
-交換 ICE（Interactive Connectivity Establishment）候選者，用於 NAT 穿越。
-
-#### 端點
-
-```
 POST /api/smartly/camera/{entity_id}/webrtc/ice
+Body: { session_id, candidate }
 ```
 
-#### Request
+#### 詳細內容
 
-```http
-POST /api/smartly/camera/camera.front_door/webrtc/ice HTTP/1.1
-Host: homeassistant.local:8123
-Content-Type: application/json
+請參閱 **[WebRTC 串流 API 完整文件](webrtc.md)**，包含：
 
-{
-  "session_id": "abcdefghijklmnop",
-  "candidate": {
-    "candidate": "candidate:1 1 UDP 2130706431 192.168.1.100 54321 typ host",
-    "sdpMid": "0",
-    "sdpMLineIndex": 0
-  }
-}
-```
-
-#### Request 欄位說明
-
-| 欄位 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `session_id` | string | 是 | 從 SDP 交換取得的 Session ID |
-| `candidate` | object | 是 | ICE Candidate 物件 |
-| `candidate.candidate` | string | 是 | ICE Candidate 字串 |
-| `candidate.sdpMid` | string | 是 | Media Stream ID |
-| `candidate.sdpMLineIndex` | number | 是 | Media Line Index |
-
-#### Response (成功 - 200 OK)
-
-```json
-{
-  "status": "accepted",
-  "candidates": []
-}
-```
-
-#### Response 欄位說明
-
-| 欄位 | 類型 | 說明 |
-|------|------|------|
-| `status` | string | 固定為 `"accepted"` |
-| `candidates` | array | 伺服器端的 ICE Candidates（如有） |
-
----
-
-#### 6.4 關閉 WebRTC Session
-
-主動關閉 WebRTC 連線，釋放資源。
-
-#### 端點
-
-```
-POST /api/smartly/camera/{entity_id}/webrtc/hangup
-```
-
-#### Request
-
-```http
-POST /api/smartly/camera/camera.front_door/webrtc/hangup HTTP/1.1
-Host: homeassistant.local:8123
-Content-Type: application/json
-
-{
-  "session_id": "abcdefghijklmnop"
-}
-```
-
-#### Request 欄位說明
-
-| 欄位 | 類型 | 必填 | 說明 |
-|------|------|------|------|
-| `session_id` | string | 是 | WebRTC Session ID |
-
-#### Response (成功 - 200 OK)
-
-```json
-{
-  "status": "closed"
-}
-```
-
----
-
-#### WebRTC 完整流程範例
-
-```javascript
-// 1. 請求 Token
-const tokenResponse = await fetch('/api/smartly/camera/camera.front_door/webrtc', {
-  method: 'POST',
-  headers: {
-    'X-Client-Id': clientId,
-    'X-Timestamp': timestamp,
-    'X-Nonce': nonce,
-    'X-Signature': signature,
-    'Content-Type': 'application/json'
-  },
-  body: JSON.stringify({})
-});
-const { token, ice_servers, offer_endpoint } = await tokenResponse.json();
-
-// 2. 建立 RTCPeerConnection
-const pc = new RTCPeerConnection({ iceServers: ice_servers });
-
-// 3. 建立 Offer
-const offer = await pc.createOffer();
-await pc.setLocalDescription(offer);
-
-// 4. 交換 SDP Offer
-const offerResponse = await fetch(offer_endpoint, {
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify({
-    token: token,
-    sdp: offer.sdp,
-    type: 'offer'
-  })
-});
-const { sdp: answerSdp, session_id } = await offerResponse.json();
-
-// 5. 設定 Remote Description
-await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
-
-// 6. 交換 ICE Candidates
-pc.onicecandidate = async (event) => {
-  if (event.candidate) {
-    await fetch('/api/smartly/camera/camera.front_door/webrtc/ice', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        session_id: session_id,
-        candidate: {
-          candidate: event.candidate.candidate,
-          sdpMid: event.candidate.sdpMid,
-          sdpMLineIndex: event.candidate.sdpMLineIndex
-        }
-      })
-    });
-  }
-};
-
-// 7. 接收媒體串流
-pc.ontrack = (event) => {
-  videoElement.srcObject = event.streams[0];
-};
-
-// 8. 結束時關閉 Session
-window.addEventListener('beforeunload', async () => {
-  await fetch('/api/smartly/camera/camera.front_door/webrtc/hangup', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ session_id: session_id })
-  });
-  pc.close();
-});
-```
-
-#### WebRTC Error Response
-
-```json
-{
-  "error": "invalid_or_expired_token",
-  "message": "Token is invalid or expired"
-}
-```
-
-**可能的錯誤碼：**
-
-| HTTP Status | Error Code | 說明 |
-|-------------|------------|------|
-| 400 | `invalid_entity_id` | entity_id 格式錯誤 |
-| 400 | `missing_token` | 缺少 token 參數 |
-| 400 | `missing_sdp` | 缺少 SDP offer |
-| 400 | `invalid_sdp_type` | SDP type 必須為 'offer' |
-| 400 | `missing_session_id` | 缺少 session_id |
-| 401 | `invalid_or_expired_token` | Token 無效或已過期 |
-| 403 | `entity_not_allowed` | 攝影機未被授權存取 |
-| 404 | `session_not_found` | Session 不存在 |
-| 404 | `entity_not_found` | 找不到指定攝影機 |
-| 500 | `webrtc_not_available` | WebRTC 服務未初始化 |
-| 500 | `webrtc_failed` | WebRTC 連線建立失敗 |
-
-#### Session 生命週期管理
-
-- **Token TTL**: 5 分鐘（300 秒）
-- **Session Timeout**: 10 分鐘閒置自動關閉（600 秒）
-- **自動清理**: 背景任務每 60 秒清理過期 Token 和閒置 Session
-- **單次使用**: Token 消費後即失效，無法重複使用
+- 詳細 API 規格（Token、SDP、ICE、Hangup）
+- 完整流程範例（JavaScript、Python）
+- go2rtc 整合架構與 SDP 交換流程
+- TURN 伺服器設定指南（含 Coturn 自架範例）
+- 除錯技巧與常見問題診斷
+- WebRTC 連線品質測試方法
 
 ---
 
@@ -1300,6 +998,25 @@ curl -X GET "${BASE_URL}${PATH}?capabilities=true" \
 ---
 
 ## 版本歷史
+
+- **v1.2.0** (2026-01-12)
+  - 🚀 **go2rtc 整合實作**
+    - 實作 `_create_webrtc_answer()` 與 go2rtc REST API 通訊
+    - 新增 `_add_stream_to_go2rtc()` 自動串流註冊機制
+    - 支援 WHEP-style SDP 交換協議
+  - 🔧 **新增設定常數**
+    - `GO2RTC_URL`: go2rtc 服務位址（預設 `http://localhost:1984`）
+    - `GO2RTC_WEBRTC_TIMEOUT`: 連線逾時設定（預設 10 秒）
+  - 🌐 **TURN 伺服器支援**
+    - 新增 Config Flow 選項設定 TURN 伺服器（`CONF_TURN_URL`、`CONF_TURN_USERNAME`、`CONF_TURN_CREDENTIAL`）
+    - 動態 ICE Servers 生成：自動判斷使用 STUN-only 或 STUN+TURN
+    - 支援嚴格 NAT 環境的 WebRTC 連線（TURN 中繼）
+  - 📝 **完整文件更新**
+    - 新增 go2rtc 整合架構說明
+    - 新增 TURN 伺服器設定指南（含 Coturn、Twilio、Xirsys 等方案）
+    - 新增 Python 完整範例（SmartlyWebRTCClient）
+    - 新增除錯技巧與 TURN 測試方法
+    - 新增 WebRTC 連線品質檢測指南
 
 - **v1.1.0** (2026-01-12)
   - ✨ 新增 WebRTC P2P 串流支援
