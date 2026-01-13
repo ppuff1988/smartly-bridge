@@ -19,7 +19,7 @@ types-aiofiles>=23.0.0
 # aiohttp version is managed by homeassistant dependency
 aioresponses>=0.7.4
 # Fix for Python 3.13 compatibility
-aiodns>=3.0.0,<4.0.0
+aiodns>=3.0.0,<5.0.0
 pycares>=4.3.0,<6.0.0
 
 # Home Assistant (required for testing)
