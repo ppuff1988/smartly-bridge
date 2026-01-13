@@ -81,7 +81,7 @@ class CameraStreamInfo:
     supports_snapshot: bool = False
     supports_mjpeg: bool = False
     supports_hls: bool = False
-    supports_webrtc: bool = False  # Future support
+    supports_webrtc: bool = False  # WebRTC P2P streaming support
     hls_url: str | None = None
     mjpeg_url: str | None = None
     stream_source: str | None = None
@@ -111,6 +111,9 @@ class CameraStreamInfo:
                     f"/api/smartly/camera/{self.entity_id}/stream/hls"
                     if self.supports_hls
                     else None
+                ),
+                "webrtc": (
+                    f"/api/smartly/camera/{self.entity_id}/webrtc" if self.supports_webrtc else None
                 ),
             },
             "is_streaming": self.is_streaming,
@@ -599,7 +602,7 @@ class CameraManager:
             supports_snapshot=True,  # All cameras support snapshot
             supports_mjpeg=True,  # All cameras support MJPEG via HA
             supports_hls=supports_stream,
-            supports_webrtc=False,  # Future support
+            supports_webrtc=supports_stream,  # WebRTC requires stream support
             hls_url=f"/api/smartly/camera/{entity_id}/stream/hls" if supports_stream else None,
             mjpeg_url=f"/api/smartly/camera/{entity_id}/stream",
             stream_source=config.stream_url if config else None,

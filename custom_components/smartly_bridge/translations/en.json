@@ -35,10 +35,16 @@
           "webhook_url": "Platform Webhook URL",
           "allowed_cidrs": "Allowed IP Ranges (CIDR)",
           "push_batch_interval": "Push Batch Interval (seconds)",
-          "trust_proxy": "Proxy Trust Mode"
+          "trust_proxy": "Proxy Trust Mode",
+          "turn_url": "TURN Server URL",
+          "turn_username": "TURN Username",
+          "turn_credential": "TURN Credential"
         },
         "data_description": {
-          "trust_proxy": "Whether to trust X-Forwarded-For header. Auto-detect (Recommended): Automatically determines if behind a proxy. Always trust: Use when behind trusted reverse proxy like Nginx/Caddy. Never trust: Use when directly exposed to internet."
+          "trust_proxy": "Whether to trust X-Forwarded-For header. Auto-detect (Recommended): Automatically determines if behind a proxy. Always trust: Use when behind trusted reverse proxy like Nginx/Caddy. Never trust: Use when directly exposed to internet.",
+          "turn_url": "TURN server address (optional). Format: turn:host:port or turns:host:port. Used for WebRTC NAT traversal in strict network environments. Leave empty to use STUN servers only.",
+          "turn_username": "TURN server authentication username (optional). Required if TURN URL is set.",
+          "turn_credential": "TURN server authentication password (optional). Required if TURN URL is set."
         }
       }
     },

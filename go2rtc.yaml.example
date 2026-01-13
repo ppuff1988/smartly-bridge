@@ -1,0 +1,20 @@
+# go2rtc Configuration Example
+# Copy this file to go2rtc.yaml and configure your own streams
+
+streams:
+  # Example camera stream configuration
+  camera.test:
+    - http://192.168.x.x/video.cgi
+  
+  # Example with RTSP (username/password in URL)
+  # camera.front_door:
+  #   - rtsp://username:password@192.168.x.x:554/stream1
+  
+  # Example with multiple sources (fallback)
+  # camera.backyard:
+  #   - rtsp://192.168.x.x:554/stream1
+  #   - http://192.168.x.x/video.cgi
+
+# NOTE: WebRTC configuration (ICE servers, TURN server) is configured in 
+# Home Assistant's Smartly Bridge integration config flow, not here.
+# This file only defines stream sources for go2rtc to fetch video from.

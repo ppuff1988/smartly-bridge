@@ -66,6 +66,9 @@ env/
 # Ignore entire config directory (test/development environment only)
 config/
 
+# go2rtc configuration (contains local/sensitive stream URLs)
+go2rtc.yaml
+
 # Temporary files
 *.tmp
 *.bak

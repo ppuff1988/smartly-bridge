@@ -10,6 +10,7 @@
   - [3. 取得攝影機清單](#3-取得攝影機清單)
   - [4. 攝影機設定管理](#4-攝影機設定管理)
   - [5. HLS 串流管理](#5-hls-串流管理)
+  - [6. WebRTC P2P 串流](#6-webrtc-p2p-串流) → [完整文件](webrtc.md)
 - [錯誤碼](#錯誤碼)
 - [快取機制](#快取機制)
 - [使用範例](#使用範例)
@@ -23,6 +24,7 @@ Smartly Bridge Camera API 提供完整的 IP 攝影機管理功能，包含：
 - **快照擷取**：靜態影像擷取，支援 ETag 快取機制
 - **MJPEG 串流**：即時影像串流，適合低延遲需求
 - **HLS 串流**：自適應碼率串流，適合行動裝置與網頁播放
+- **WebRTC P2P 串流**：點對點直連串流，節省伺服器頻寬（推薦）
 - **攝影機管理**：註冊、移除攝影機及快取管理
 
 所有 API 端點皆需 HMAC 簽章認證，並支援速率限制與 IP 白名單控制。
@@ -252,12 +254,13 @@ X-Signature: a3f8b2c1d4e5f6...
         "snapshot": true,
         "mjpeg": true,
         "hls": true,
-        "webrtc": false
+        "webrtc": true
       },
       "endpoints": {
         "snapshot": "/api/smartly/camera/camera.front_door/snapshot",
         "mjpeg": "/api/smartly/camera/camera.front_door/stream",
-        "hls": "/api/smartly/camera/camera.front_door/stream/hls"
+        "hls": "/api/smartly/camera/camera.front_door/stream/hls",
+        "webrtc": "/api/smartly/camera/camera.front_door/webrtc"
       }
     },
     {
@@ -272,12 +275,13 @@ X-Signature: a3f8b2c1d4e5f6...
         "snapshot": true,
         "mjpeg": true,
         "hls": true,
-        "webrtc": false
+        "webrtc": true
       },
       "endpoints": {
         "snapshot": "/api/smartly/camera/camera.backyard/snapshot",
         "mjpeg": "/api/smartly/camera/camera.backyard/stream",
-        "hls": "/api/smartly/camera/camera.backyard/stream/hls"
+        "hls": "/api/smartly/camera/camera.backyard/stream/hls",
+        "webrtc": "/api/smartly/camera/camera.backyard/webrtc"
       }
     }
   ],
@@ -675,6 +679,53 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stats HTTP/1.1
 
 ---
 
+### 6. WebRTC P2P 串流
+
+WebRTC 點對點串流功能提供低延遲、高品質的視訊串流體驗。完整的 WebRTC API 文件已獨立至專門文件。
+
+**📄 完整文件：[WebRTC 串流 API 文件](webrtc.md)**
+
+#### 主要功能
+
+- ✅ **低延遲 P2P 連線**：直接在客戶端與 Home Assistant 間建立連線
+- ✅ **Token-based 認證**：5 分鐘 TTL，單次使用防重放
+- ✅ **go2rtc 整合**：自動串流註冊，零配置體驗
+- ✅ **STUN/TURN 支援**：適應各種網路環境（含嚴格 NAT）
+- ✅ **Session 自動管理**：10 分鐘閒置自動清理
+
+#### 快速開始
+
+**1. 請求 WebRTC Token**
+```http
+POST /api/smartly/camera/{entity_id}/webrtc
+Headers: X-Client-Id, X-Timestamp, X-Nonce, X-Signature
+```
+
+**2. 交換 SDP Offer/Answer**
+```http
+POST /api/smartly/camera/{entity_id}/webrtc/offer
+Body: { token, sdp, type: "offer" }
+```
+
+**3. 交換 ICE Candidates**
+```http
+POST /api/smartly/camera/{entity_id}/webrtc/ice
+Body: { session_id, candidate }
+```
+
+#### 詳細內容
+
+請參閱 **[WebRTC 串流 API 完整文件](webrtc.md)**，包含：
+
+- 詳細 API 規格（Token、SDP、ICE、Hangup）
+- 完整流程範例（JavaScript、Python）
+- go2rtc 整合架構與 SDP 交換流程
+- TURN 伺服器設定指南（含 Coturn 自架範例）
+- 除錯技巧與常見問題診斷
+- WebRTC 連線品質測試方法
+
+---
+
 ## 錯誤碼
 
 所有 Camera API 端點共用的錯誤回應格式：
@@ -947,6 +998,32 @@ curl -X GET "${BASE_URL}${PATH}?capabilities=true" \
 ---
 
 ## 版本歷史
+
+- **v1.2.0** (2026-01-12)
+  - 🚀 **go2rtc 整合實作**
+    - 實作 `_create_webrtc_answer()` 與 go2rtc REST API 通訊
+    - 新增 `_add_stream_to_go2rtc()` 自動串流註冊機制
+    - 支援 WHEP-style SDP 交換協議
+  - 🔧 **新增設定常數**
+    - `GO2RTC_URL`: go2rtc 服務位址（預設 `http://localhost:1984`）
+    - `GO2RTC_WEBRTC_TIMEOUT`: 連線逾時設定（預設 10 秒）
+  - 🌐 **TURN 伺服器支援**
+    - 新增 Config Flow 選項設定 TURN 伺服器（`CONF_TURN_URL`、`CONF_TURN_USERNAME`、`CONF_TURN_CREDENTIAL`）
+    - 動態 ICE Servers 生成：自動判斷使用 STUN-only 或 STUN+TURN
+    - 支援嚴格 NAT 環境的 WebRTC 連線（TURN 中繼）
+  - 📝 **完整文件更新**
+    - 新增 go2rtc 整合架構說明
+    - 新增 TURN 伺服器設定指南（含 Coturn、Twilio、Xirsys 等方案）
+    - 新增 Python 完整範例（SmartlyWebRTCClient）
+    - 新增除錯技巧與 TURN 測試方法
+    - 新增 WebRTC 連線品質檢測指南
+
+- **v1.1.0** (2026-01-12)
+  - ✨ 新增 WebRTC P2P 串流支援
+  - 實作 Token-based 認證機制（5 分鐘 TTL）
+  - 支援 SDP Offer/Answer 和 ICE Candidate 交換
+  - Session 自動管理與清理（10 分鐘閒置超時）
+  - 新增 37 個 WebRTC 相關測試案例
 
 - **v1.0.0** (2026-01-08)
   - 初始版本

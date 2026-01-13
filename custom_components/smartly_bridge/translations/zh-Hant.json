@@ -35,10 +35,16 @@
           "webhook_url": "Platform Webhook 網址",
           "allowed_cidrs": "允許的 IP 範圍（CIDR）",
           "push_batch_interval": "推送批次間隔（秒）",
-          "trust_proxy": "Proxy 信任模式"
+          "trust_proxy": "Proxy 信任模式",
+          "turn_url": "TURN 伺服器網址",
+          "turn_username": "TURN 使用者名稱",
+          "turn_credential": "TURN 密碼"
         },
         "data_description": {
-          "trust_proxy": "決定是否信任 X-Forwarded-For 標頭。自動檢測（推薦）：自動判斷是否在 Proxy 後方。總是信任：當位於 Nginx/Caddy 等可信的反向代理後方時使用。永不信任：直連到公網時使用。"
+          "trust_proxy": "決定是否信任 X-Forwarded-For 標頭。自動檢測（推薦）：自動判斷是否在 Proxy 後方。總是信任：當位於 Nginx/Caddy 等可信的反向代理後方時使用。永不信任：直連到公網時使用。",
+          "turn_url": "TURN 伺服器地址（選填）。格式：turn:host:port 或 turns:host:port。用於嚴格 NAT 環境下的 WebRTC 連線穿透。留空則僅使用 STUN 伺服器。",
+          "turn_username": "TURN 伺服器認證用戶名（選填）。如設定 TURN URL 則必填。",
+          "turn_credential": "TURN 伺服器認證密碼（選填）。如設定 TURN URL 則必填。"
         }
       }
     },

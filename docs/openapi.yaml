@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Smartly Bridge API
-  version: 1.4.0
+  version: 1.5.0
   description: |
     Home Assistant Custom Integration API for connecting community-level Home Assistant 
     with central management platform (Smartly Platform).
@@ -20,9 +20,11 @@ info:
     - **Webhook Push**: Real-time state change notifications (batched)
     - **Heartbeat**: Periodic health check notifications
     - **History API**: Query entity history with intelligent visualization metadata and cursor-based pagination
+    - **Camera API**: Snapshot, MJPEG streaming, and WebRTC P2P video streaming
     
     ## Version History
     
+    - **v1.5.0** (2026-01-12): Added Camera API with snapshot, MJPEG, HLS, and WebRTC streaming support
     - **v1.4.0** (2026-01-11): Added cursor-based pagination to History API for efficient large dataset queries
     - **v1.3.0** (2026-01-10): Added visualization metadata to History API (chart types, colors, interpolation)
     - **v1.2.0** (2026-01-10): Added History API for querying entity history and statistics
@@ -160,6 +162,8 @@ tags:
     description: Structure and state synchronization
   - name: History
     description: Query entity history and statistics
+  - name: Camera
+    description: Camera snapshot, streaming, and WebRTC P2P video
 
 paths:
   /api/smartly/control:
@@ -751,6 +755,314 @@ paths:
           $ref: '#/components/responses/RateLimitError'
         '500':
           $ref: '#/components/responses/InternalError'
+
+  /api/smartly/camera/list:
+    get:
+      tags:
+        - Camera
+      summary: List available cameras
+      description: |
+        Returns a list of all camera entities with the `smartly` label,
+        including their streaming capabilities (snapshot, MJPEG, HLS, WebRTC).
+      operationId: listCameras
+      responses:
+        '200':
+          description: Camera list retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CameraListResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/camera/{entity_id}/snapshot:
+    get:
+      tags:
+        - Camera
+      summary: Get camera snapshot
+      description: |
+        Returns the latest snapshot image from the camera.
+        Supports caching with ETag and If-None-Match headers.
+      operationId: getCameraSnapshot
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID (e.g., camera.front_door)
+          schema:
+            type: string
+            example: camera.front_door
+      responses:
+        '200':
+          description: Snapshot image
+          content:
+            image/jpeg:
+              schema:
+                type: string
+                format: binary
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Cache identifier for the snapshot
+            Cache-Control:
+              schema:
+                type: string
+              description: Cache control directive
+        '304':
+          description: Not modified (use cached version)
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Camera not allowed (missing smartly label)
+        '404':
+          description: Camera not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/camera/{entity_id}/stream:
+    get:
+      tags:
+        - Camera
+      summary: Get MJPEG stream
+      description: |
+        Returns a continuous MJPEG stream from the camera.
+        This is a long-running connection that streams video frames.
+      operationId: getCameraStream
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID
+          schema:
+            type: string
+            example: camera.front_door
+      responses:
+        '200':
+          description: MJPEG video stream
+          content:
+            multipart/x-mixed-replace:
+              schema:
+                type: string
+                format: binary
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Camera not allowed
+        '404':
+          description: Camera not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+
+  /api/smartly/camera/{entity_id}/stream/hls:
+    get:
+      tags:
+        - Camera
+      summary: Get HLS stream info
+      description: |
+        Returns HLS streaming information and starts the stream if not already running.
+        Use the returned URLs for HLS playback.
+      operationId: getCameraHLSInfo
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID
+          schema:
+            type: string
+            example: camera.front_door
+      responses:
+        '200':
+          description: HLS stream information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HLSStreamResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Camera not allowed
+        '404':
+          description: Camera not found or HLS not supported
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/camera/{entity_id}/webrtc:
+    post:
+      tags:
+        - Camera
+      summary: Request WebRTC token
+      description: |
+        Request a short-lived token for WebRTC P2P video streaming.
+        The token is valid for 5 minutes and can be used to initiate
+        a WebRTC connection without repeated HMAC authentication.
+        
+        **Flow:**
+        1. Request token via this HMAC-authenticated endpoint
+        2. Use token to call `/webrtc/offer` endpoint
+        3. Exchange ICE candidates via `/webrtc/ice` endpoint
+        4. Establish P2P connection for direct video streaming
+      operationId: requestWebRTCToken
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID
+          schema:
+            type: string
+            example: camera.front_door
+      responses:
+        '200':
+          description: WebRTC token generated
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebRTCTokenResponse'
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Camera not allowed
+        '404':
+          description: Camera not found
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          description: WebRTC not available
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/smartly/camera/{entity_id}/webrtc/offer:
+    post:
+      tags:
+        - Camera
+      summary: Send WebRTC SDP offer
+      description: |
+        Send SDP offer to establish WebRTC connection.
+        Uses token-based authentication (from `/webrtc` endpoint).
+        Returns SDP answer for completing the WebRTC handshake.
+        
+        This endpoint integrates with go2rtc for actual media handling.
+      operationId: sendWebRTCOffer
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID
+          schema:
+            type: string
+            example: camera.front_door
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebRTCOfferRequest'
+      responses:
+        '200':
+          description: SDP answer returned
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebRTCAnswerResponse'
+        '400':
+          description: Invalid request (missing token, SDP, or wrong type)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '401':
+          description: Invalid or expired token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: go2rtc connection failed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/smartly/camera/{entity_id}/webrtc/ice:
+    post:
+      tags:
+        - Camera
+      summary: Exchange ICE candidates
+      description: |
+        Exchange ICE candidates for NAT traversal.
+        Call this endpoint to send client ICE candidates to the server.
+      operationId: exchangeICECandidates
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID
+          schema:
+            type: string
+            example: camera.front_door
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebRTCICERequest'
+      responses:
+        '200':
+          description: ICE candidate accepted
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WebRTCICEResponse'
+        '400':
+          description: Invalid request
+        '404':
+          description: Session not found
+
+  /api/smartly/camera/{entity_id}/webrtc/hangup:
+    post:
+      tags:
+        - Camera
+      summary: Close WebRTC session
+      description: |
+        Close an active WebRTC session and release resources.
+      operationId: hangupWebRTC
+      parameters:
+        - name: entity_id
+          in: path
+          required: true
+          description: Camera entity ID
+          schema:
+            type: string
+            example: camera.front_door
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebRTCHangupRequest'
+      responses:
+        '200':
+          description: Session closed
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: closed
+        '404':
+          description: Session not found
 
 components:
   securitySchemes:
@@ -1528,6 +1840,255 @@ components:
           type: number
           description: Last state value in period
           example: 155.0
+
+    # Camera API Schemas
+    CameraListResponse:
+      type: object
+      description: Response for camera list query
+      properties:
+        cameras:
+          type: array
+          description: List of available cameras with capabilities
+          items:
+            $ref: '#/components/schemas/CameraInfo'
+        count:
+          type: integer
+          description: Number of cameras
+          example: 3
+
+    CameraInfo:
+      type: object
+      description: Camera information and capabilities
+      properties:
+        entity_id:
+          type: string
+          description: Camera entity ID
+          example: camera.front_door
+        name:
+          type: string
+          description: Camera friendly name
+          example: Front Door Camera
+        capabilities:
+          type: object
+          description: Supported streaming capabilities
+          properties:
+            snapshot:
+              type: boolean
+              description: Supports snapshot capture
+              example: true
+            mjpeg:
+              type: boolean
+              description: Supports MJPEG streaming
+              example: true
+            hls:
+              type: boolean
+              description: Supports HLS streaming
+              example: true
+            webrtc:
+              type: boolean
+              description: Supports WebRTC P2P streaming
+              example: true
+        endpoints:
+          type: object
+          description: API endpoints for each capability
+          properties:
+            snapshot:
+              type: string
+              nullable: true
+              example: /api/smartly/camera/camera.front_door/snapshot
+            mjpeg:
+              type: string
+              nullable: true
+              example: /api/smartly/camera/camera.front_door/stream
+            hls:
+              type: string
+              nullable: true
+              example: /api/smartly/camera/camera.front_door/stream/hls
+            webrtc:
+              type: string
+              nullable: true
+              example: /api/smartly/camera/camera.front_door/webrtc
+        is_streaming:
+          type: boolean
+          description: Whether camera is currently streaming
+          example: false
+
+    HLSStreamResponse:
+      type: object
+      description: HLS stream information
+      properties:
+        entity_id:
+          type: string
+          description: Camera entity ID
+          example: camera.front_door
+        stream_url:
+          type: string
+          description: HLS master playlist URL
+          example: /api/smartly/camera/camera.front_door/stream/hls/master.m3u8
+        token:
+          type: string
+          description: Stream authentication token
+          example: abc123def456
+        expires_at:
+          type: integer
+          description: Token expiration timestamp
+          example: 1736696400
+
+    WebRTCTokenResponse:
+      type: object
+      description: WebRTC token response
+      properties:
+        token:
+          type: string
+          description: Short-lived token for WebRTC signaling (5 minutes validity)
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        expires_at:
+          type: integer
+          description: Token expiration Unix timestamp
+          example: 1736696700
+        expires_in:
+          type: integer
+          description: Seconds until token expires
+          example: 300
+        entity_id:
+          type: string
+          description: Camera entity ID
+          example: camera.front_door
+        offer_endpoint:
+          type: string
+          description: Endpoint for sending SDP offer
+          example: /api/smartly/camera/camera.front_door/webrtc/offer
+        ice_endpoint:
+          type: string
+          description: Endpoint for ICE candidate exchange
+          example: /api/smartly/camera/camera.front_door/webrtc/ice
+        hangup_endpoint:
+          type: string
+          description: Endpoint for closing session
+          example: /api/smartly/camera/camera.front_door/webrtc/hangup
+        ice_servers:
+          type: array
+          description: ICE server configuration for NAT traversal
+          items:
+            $ref: '#/components/schemas/ICEServer'
+
+    ICEServer:
+      type: object
+      description: ICE server configuration
+      properties:
+        urls:
+          oneOf:
+            - type: string
+            - type: array
+              items:
+                type: string
+          description: STUN/TURN server URL(s)
+          example: stun:stun.l.google.com:19302
+        username:
+          type: string
+          description: TURN server username (optional)
+        credential:
+          type: string
+          description: TURN server credential (optional)
+
+    WebRTCOfferRequest:
+      type: object
+      description: WebRTC SDP offer request
+      required:
+        - token
+        - sdp
+        - type
+      properties:
+        token:
+          type: string
+          description: Token from /webrtc endpoint
+          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+        sdp:
+          type: string
+          description: SDP offer string
+          example: "v=0\r\no=- 123456 2 IN IP4 127.0.0.1\r\n..."
+        type:
+          type: string
+          enum: [offer]
+          description: SDP type (must be 'offer')
+          example: offer
+
+    WebRTCAnswerResponse:
+      type: object
+      description: WebRTC SDP answer response
+      properties:
+        type:
+          type: string
+          enum: [answer]
+          description: SDP type
+          example: answer
+        sdp:
+          type: string
+          description: SDP answer string from go2rtc
+          example: "v=0\r\no=- 654321 2 IN IP4 192.168.1.100\r\n..."
+        session_id:
+          type: string
+          description: Session identifier for subsequent requests
+          example: abc123def456
+
+    WebRTCICERequest:
+      type: object
+      description: ICE candidate exchange request
+      required:
+        - session_id
+      properties:
+        session_id:
+          type: string
+          description: Session ID from offer response
+          example: abc123def456
+        candidate:
+          type: object
+          description: ICE candidate information
+          properties:
+            candidate:
+              type: string
+              description: ICE candidate string
+              example: "candidate:0 1 UDP 2122252543 192.168.1.100 12345 typ host"
+            sdpMid:
+              type: string
+              description: Media stream identification
+              example: "0"
+            sdpMLineIndex:
+              type: integer
+              description: Media description line index
+              example: 0
+
+    WebRTCICEResponse:
+      type: object
+      description: ICE candidate exchange response
+      properties:
+        status:
+          type: string
+          description: Acceptance status
+          example: accepted
+        candidates:
+          type: array
+          description: Server-side ICE candidates (if available)
+          items:
+            type: object
+            properties:
+              candidate:
+                type: string
+              sdpMid:
+                type: string
+              sdpMLineIndex:
+                type: integer
+
+    WebRTCHangupRequest:
+      type: object
+      description: WebRTC hangup request
+      required:
+        - session_id
+      properties:
+        session_id:
+          type: string
+          description: Session ID to close
+          example: abc123def456
 
     ErrorResponse:
       type: object
