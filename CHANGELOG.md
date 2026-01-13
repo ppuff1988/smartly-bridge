@@ -5,6 +5,19 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.12...v1.11.0) (2026-01-13)
+
+### ✨ 新增功能 (Features)
+
+* **webrtc:** 完善 WebRTC P2P 串流功能 ([#62](https://github.com/ppuff1988/smartly-bridge/issues/62)) ([68903ec](https://github.com/ppuff1988/smartly-bridge/commit/68903ec545ce72324a83fc6f79c4ab1d5932ca49))
+
+# Changelog
+
+All notable changes to this project will be documented in this file.
+
+The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
+and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+
 ## [Unreleased]
 
 ### ✨ 新功能 (Features)
