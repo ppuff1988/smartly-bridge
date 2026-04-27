@@ -24,4 +24,4 @@ pycares>=4.3.0,<6.0.0
 
 # Home Assistant (required for testing)
 # Using 2025.x for Python 3.13 compatibility
-homeassistant>=2025.1.0
+homeassistant>=2026.4.4
