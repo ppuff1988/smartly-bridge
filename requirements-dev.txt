@@ -13,7 +13,7 @@ flake8>=6.0.0
 mypy>=1.0.0
 
 # Type stubs
-types-aiofiles>=23.0.0
+types-aiofiles>=25.1.0.20260409
 
 # HTTP testing
 # aiohttp version is managed by homeassistant dependency
