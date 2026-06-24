@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from .audit import log_integration_event
@@ -19,12 +20,32 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
+FRONTEND_COPY_MODULE_URL = "/smartly_bridge/frontend/credential-copy.js?v=2"
+_FRONTEND_STATIC_PATH = "/smartly_bridge/frontend"
+_FRONTEND_DIR = Path(__file__).parent / "frontend"
+_FRONTEND_REGISTERED = f"{DOMAIN}_frontend_registered"
+
 
 def register_views(hass: HomeAssistant) -> None:
     """Register HTTP views without importing the HTTP layer at module load."""
     from .http import register_views as register_http_views
 
     register_http_views(hass)
+
+
+async def _async_register_frontend(hass: HomeAssistant) -> None:
+    """Register frontend helpers used by Smartly Bridge dialogs."""
+    if hass.data.get(_FRONTEND_REGISTERED):
+        return
+
+    from homeassistant.components import frontend
+    from homeassistant.components.http import StaticPathConfig
+
+    await hass.http.async_register_static_paths(
+        [StaticPathConfig(_FRONTEND_STATIC_PATH, str(_FRONTEND_DIR), True)]
+    )
+    frontend.add_extra_js_url(hass, FRONTEND_COPY_MODULE_URL)
+    hass.data[_FRONTEND_REGISTERED] = True
 
 
 async def async_setup(hass: HomeAssistant, config: dict) -> bool:
@@ -45,7 +66,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     log_integration_event(_LOGGER, "setup_start", f"instance={entry.data.get(CONF_INSTANCE_ID)}")
 
     # Initialize domain data
-    hass.data.setdefault(DOMAIN, {})
+    domain_data = hass.data.setdefault(DOMAIN, {})
 
     # Create nonce cache
     nonce_cache = NonceCache()
@@ -66,17 +87,22 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await webrtc_manager.start()
 
     # Store in hass.data
-    hass.data[DOMAIN] = {
-        "config_entry": entry,
-        "nonce_cache": nonce_cache,
-        "rate_limiter": rate_limiter,
-        "push_manager": push_manager,
-        "camera_manager": camera_manager,
-        "webrtc_manager": webrtc_manager,
-    }
+    domain_data.update(
+        {
+            "config_entry": entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": rate_limiter,
+            "push_manager": push_manager,
+            "camera_manager": camera_manager,
+            "webrtc_manager": webrtc_manager,
+        }
+    )
 
     # Register HTTP views
     register_views(hass)
+
+    # Register frontend module for options dialog copy shortcuts
+    await _async_register_frontend(hass)
 
     # Start push manager
     await push_manager.start()

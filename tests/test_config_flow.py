@@ -42,6 +42,15 @@ class TestGenerateCredentials:
 
         assert len(secret) >= 32  # At least 32 characters
 
+    def test_generate_client_secret_hex_format(self):
+        """Test client_secret uses a consistent hex-only format."""
+        secret = generate_client_secret()
+
+        assert len(secret) == 64
+        int(secret, 16)
+        assert "-" not in secret
+        assert "_" not in secret
+
     def test_generate_client_secret_unique(self):
         """Test client_secret is unique each time."""
         secrets = [generate_client_secret() for _ in range(100)]
@@ -403,3 +412,58 @@ class TestOptionsFlow:
             # Invalid cases
             assert options_flow._validate_cidrs("invalid") is False
             assert options_flow._validate_cidrs("256.0.0.0/8") is False
+
+
+class TestOptionsCredentialsCopy:
+    """Tests for credential copy affordance in options UI."""
+
+    def test_options_description_exposes_copyable_credential_lines(self):
+        """Test options description keeps credential lines discoverable by frontend."""
+        import json
+        from pathlib import Path
+
+        strings_path = Path(__file__).parents[1] / "custom_components/smartly_bridge/strings.json"
+        strings = json.loads(strings_path.read_text())
+
+        description = strings["options"]["step"]["init"]["description"]
+
+        assert "Client ID: `{client_id}`" in description
+        assert "Client Secret: `{client_secret}`" in description
+
+    @pytest.mark.asyncio
+    async def test_frontend_copy_module_registered(self):
+        """Test setup registers the credential copy frontend module."""
+        from unittest.mock import AsyncMock
+
+        from custom_components.smartly_bridge import (
+            FRONTEND_COPY_MODULE_URL,
+            _async_register_frontend,
+        )
+
+        mock_hass = MagicMock()
+        mock_hass.data = {}
+        mock_hass.http.async_register_static_paths = AsyncMock()
+
+        with patch("homeassistant.components.frontend.add_extra_js_url") as mock_add_js:
+            await _async_register_frontend(mock_hass)
+
+        mock_hass.http.async_register_static_paths.assert_awaited_once()
+        mock_add_js.assert_called_once_with(mock_hass, FRONTEND_COPY_MODULE_URL)
+
+    @pytest.mark.asyncio
+    async def test_frontend_copy_module_registration_is_idempotent(self):
+        """Test frontend module registration is not repeated on reload."""
+        from unittest.mock import AsyncMock
+
+        from custom_components.smartly_bridge import _async_register_frontend
+
+        mock_hass = MagicMock()
+        mock_hass.data = {}
+        mock_hass.http.async_register_static_paths = AsyncMock()
+
+        with patch("homeassistant.components.frontend.add_extra_js_url") as mock_add_js:
+            await _async_register_frontend(mock_hass)
+            await _async_register_frontend(mock_hass)
+
+        mock_hass.http.async_register_static_paths.assert_awaited_once()
+        mock_add_js.assert_called_once()
