@@ -7,6 +7,7 @@
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "source=${localWorkspaceFolder}/integration/config,target=/config,type=bind",
+    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=${localEnv:HOME}/.codex/skills,target=/root/.codex/skills,type=bind,readonly",
     "source=gh-config,target=/root/.config/gh,type=volume"
   ],
@@ -28,7 +29,7 @@
     }
   },
 
-  "postCreateCommand": "apt-get update && apt-get install -y gh bash && python -m pip install --upgrade pip && python -m pip install pytest black isort",
+  "postCreateCommand": "apt-get update && apt-get install -y gh bash docker-cli docker-compose && python -m pip install --upgrade pip && python -m pip install pytest black isort",
 
   "remoteUser": "root",
 
