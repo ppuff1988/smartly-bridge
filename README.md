@@ -487,12 +487,49 @@ python -m pytest tests/ -v
 python -m pytest tests/ --cov=custom_components.smartly_bridge --cov-report=html
 ```
 
+### 使用 Docker Compose 開發 Home Assistant
+
+本專案的本機 Home Assistant 開發環境使用 `integration/config/` 作為 HA 的 `/config`，
+並將 `custom_components/smartly_bridge/` 直接掛載到
+`/config/custom_components/smartly_bridge`。
+
+```bash
+# 啟動 Home Assistant
+docker compose up -d
+
+# 查看 logs
+docker compose logs -f homeassistant
+
+# 修改 integration 程式碼後重新載入
+docker compose restart homeassistant
+
+# 停止環境
+docker compose down
+```
+
+啟動後可開啟：
+
+```text
+http://localhost:8123
+```
+
+### 開發目錄
+
+```text
+custom_components/smartly_bridge/   # Integration 原始碼
+integration/config/                 # Docker Compose 掛載的 HA /config
+```
+
+`integration/config/` 下由 Home Assistant 產生的 runtime state 會被 git 忽略；
+只保留最小開發 scaffold 與 `configuration.yaml`。
+
 ### 使用 Dev Container
 
 本專案支援 VS Code Dev Container，包含：
-- Home Assistant 官方映像
+- Python 3.13 開發環境
 - Python 開發工具（pytest、black、isort）
-- HA 設定自動掛載
+- HA 設定自動掛載到 `integration/config/`
+- 主機 Codex skills 唯讀掛載到 `/root/.codex/skills`
 
 ```bash
 # 在 VS Code 中開啟專案

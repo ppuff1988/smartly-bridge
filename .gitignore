@@ -63,8 +63,17 @@ env/
 .DS_Store
 
 # Home Assistant specific
-# Ignore entire config directory (test/development environment only)
-config/
+# Ignore root config directory (legacy local test/development environment only)
+/config/
+
+# Keep the Docker development scaffold, ignore Home Assistant runtime state.
+integration/config/*
+!integration/config/
+!integration/config/.gitkeep
+!integration/config/README.md
+!integration/config/configuration.yaml
+!integration/config/custom_components/
+!integration/config/custom_components/.gitkeep
 
 # go2rtc configuration (contains local/sensitive stream URLs)
 go2rtc.yaml

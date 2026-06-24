@@ -1,0 +1,14 @@
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:stable
+    container_name: smartly-bridge-ha
+    restart: unless-stopped
+    ports:
+      - "8123:8123"
+    volumes:
+      - ./integration/config:/config
+      - ./custom_components/smartly_bridge:/config/custom_components/smartly_bridge
+      - /etc/localtime:/etc/localtime:ro
+    environment:
+      TZ: Asia/Taipei
+    privileged: true

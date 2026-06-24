@@ -1,0 +1,16 @@
+# Minimal Home Assistant config for Smartly Bridge development.
+default_config:
+
+homeassistant:
+  name: Smartly Bridge Dev
+  latitude: 25.0330
+  longitude: 121.5654
+  elevation: 10
+  unit_system: metric
+  time_zone: Asia/Taipei
+  country: TW
+
+logger:
+  default: info
+  logs:
+    custom_components.smartly_bridge: debug
