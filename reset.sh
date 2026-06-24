@@ -6,7 +6,11 @@
 
 set -e
 
-CONFIG_DIR="/workspace/config"
+CONFIG_DIR="${CONFIG_DIR:-/config}"
+
+if [ ! -d "$CONFIG_DIR" ] && [ -d "/workspace/integration/config" ]; then
+    CONFIG_DIR="/workspace/integration/config"
+fi
 
 echo "======================================================"
 echo "Home Assistant 完全重置腳本"
