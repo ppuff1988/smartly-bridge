@@ -13,7 +13,7 @@
         "data_description": {
           "instance_id": "A unique identifier for this Home Assistant instance (e.g., community_001)",
           "webhook_url": "The URL where state changes will be pushed (e.g., https://platform.example.com/webhooks/ha-events)",
-          "allowed_cidrs": "Comma-separated list of allowed IP ranges in CIDR format (e.g., 10.0.0.0/8,192.168.1.0/24). Leave empty to allow all IPs.",
+          "allowed_cidrs": "Comma-separated list of allowed IP ranges in CIDR format (e.g., 10.0.0.0/8,192.168.1.0/24) or simple wildcard format (e.g., 10.*). Leave empty to allow all IPs.",
           "push_batch_interval": "How often to batch and send state changes (default: 0.5 seconds)"
         }
       }

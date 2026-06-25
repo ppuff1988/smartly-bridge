@@ -27,6 +27,7 @@ from .const import (
     TRUST_PROXY_AUTO,
     TRUST_PROXY_NEVER,
 )
+from .utils import parse_allowed_networks
 
 if TYPE_CHECKING:
     pass
@@ -234,15 +235,13 @@ def _should_trust_proxy(request: web.Request, allowed_cidrs: str) -> bool:
     if not allowed_cidrs or not allowed_cidrs.strip():
         return False
 
-    cidrs = [c.strip() for c in allowed_cidrs.split(",") if c.strip()]
-    for cidr in cidrs:
-        try:
-            network = ipaddress.ip_network(cidr, strict=False)
+    try:
+        for network in parse_allowed_networks(allowed_cidrs):
             # If whitelist contains non-private IPs, assume proxy is used
             if not network.is_private:
                 return True
-        except ValueError:
-            continue
+    except ValueError:
+        return False
 
     return False
 
@@ -257,15 +256,10 @@ def check_ip(
 
     try:
         ip = ipaddress.ip_address(client_ip)
-        cidrs = [c.strip() for c in allowed_cidrs.split(",") if c.strip()]
 
-        for cidr in cidrs:
-            try:
-                network = ipaddress.ip_network(cidr, strict=False)
-                if ip in network:
-                    return True
-            except ValueError:
-                continue
+        for network in parse_allowed_networks(allowed_cidrs):
+            if ip in network:
+                return True
 
         return False
     except ValueError:

@@ -13,7 +13,7 @@
         "data_description": {
           "instance_id": "此 Home Assistant 實例的唯一識別碼（例如：community_001）",
           "webhook_url": "狀態變更推送目標網址（例如：https://platform.example.com/webhooks/ha-events）",
-          "allowed_cidrs": "以逗號分隔的 CIDR 格式 IP 範圍（例如：10.0.0.0/8,192.168.1.0/24）。留空則允許所有 IP。",
+          "allowed_cidrs": "以逗號分隔的 CIDR 格式 IP 範圍（例如：10.0.0.0/8,192.168.1.0/24）或簡易萬用字元格式（例如：10.*）。留空則允許所有 IP。",
           "push_batch_interval": "批次發送狀態變更的間隔時間（預設：0.5 秒）"
         }
       }

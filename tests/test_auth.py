@@ -181,6 +181,12 @@ class TestCheckIp:
         assert check_ip("10.0.0.1", "10.0.0.0/8") is True
         assert check_ip("172.16.5.10", "172.16.0.0/12") is True
 
+    def test_check_ip_in_wildcard_range(self):
+        """Test IP within allowed wildcard range."""
+        assert check_ip("10.1.2.3", "10.*") is True
+        assert check_ip("10.1.2.3", "10.＊") is True
+        assert check_ip("192.168.1.1", "10.*") is False
+
     def test_check_ip_not_in_cidr(self):
         """Test IP not within allowed CIDR."""
         assert check_ip("8.8.8.8", "192.168.0.0/16") is False

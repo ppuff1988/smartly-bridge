@@ -28,6 +28,7 @@ from .const import (
     TRUST_PROXY_AUTO,
     TRUST_PROXY_NEVER,
 )
+from .utils import parse_allowed_networks
 
 
 def generate_client_id() -> str:
@@ -104,17 +105,13 @@ class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type
 
     def _validate_cidrs(self, cidrs_str: str) -> bool:
         """Validate CIDR format."""
-        import ipaddress
-
         if not cidrs_str.strip():
             return True
 
-        cidrs = [c.strip() for c in cidrs_str.split(",") if c.strip()]
-        for cidr in cidrs:
-            try:
-                ipaddress.ip_network(cidr, strict=False)
-            except ValueError:
-                return False
+        try:
+            parse_allowed_networks(cidrs_str)
+        except ValueError:
+            return False
         return True
 
     @staticmethod
@@ -192,15 +189,11 @@ class SmartlyBridgeOptionsFlow(OptionsFlowWithConfigEntry):
 
     def _validate_cidrs(self, cidrs_str: str) -> bool:
         """Validate CIDR format."""
-        import ipaddress
-
         if not cidrs_str.strip():
             return True
 
-        cidrs = [c.strip() for c in cidrs_str.split(",") if c.strip()]
-        for cidr in cidrs:
-            try:
-                ipaddress.ip_network(cidr, strict=False)
-            except ValueError:
-                return False
+        try:
+            parse_allowed_networks(cidrs_str)
+        except ValueError:
+            return False
         return True

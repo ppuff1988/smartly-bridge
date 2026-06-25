@@ -72,6 +72,8 @@ class TestConfigFlowValidation:
         flow = SmartlyBridgeConfigFlow()
 
         assert flow._validate_cidrs("10.0.0.0/8") is True
+        assert flow._validate_cidrs("10.*") is True
+        assert flow._validate_cidrs("10.＊") is True
         assert flow._validate_cidrs("192.168.1.0/24") is True
         assert flow._validate_cidrs("172.16.0.0/12") is True
 
@@ -407,6 +409,7 @@ class TestOptionsFlow:
             # Valid cases
             assert options_flow._validate_cidrs("") is True
             assert options_flow._validate_cidrs("10.0.0.0/8") is True
+            assert options_flow._validate_cidrs("10.*") is True
             assert options_flow._validate_cidrs("10.0.0.0/8,192.168.0.0/16") is True
 
             # Invalid cases

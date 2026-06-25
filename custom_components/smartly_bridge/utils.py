@@ -2,9 +2,51 @@
 
 from __future__ import annotations
 
+import ipaddress
 from typing import Any
 
 from .const import NUMERIC_PRECISION_CONFIG, UNIT_SPECIFIC_PRECISION_CONFIG
+
+
+def parse_allowed_networks(
+    allowed_cidrs: str,
+) -> list[ipaddress.IPv4Network | ipaddress.IPv6Network]:
+    """Parse comma-separated CIDR ranges, including simple octet wildcards."""
+    networks: list[ipaddress.IPv4Network | ipaddress.IPv6Network] = []
+
+    for raw_range in allowed_cidrs.split(","):
+        ip_range = raw_range.strip().replace("＊", "*")
+        if not ip_range:
+            continue
+
+        if "*" in ip_range:
+            ip_range = _wildcard_to_cidr(ip_range)
+
+        networks.append(ipaddress.ip_network(ip_range, strict=False))
+
+    return networks
+
+
+def _wildcard_to_cidr(ip_range: str) -> str:
+    """Convert ranges like 10.* or 192.168.* to IPv4 CIDR notation."""
+    parts = ip_range.split(".")
+    if not 1 < len(parts) <= 4:
+        raise ValueError(f"Invalid wildcard range: {ip_range}")
+
+    wildcard_index = None
+    for index, part in enumerate(parts):
+        if part == "*":
+            wildcard_index = index
+            break
+        if not part.isdigit() or not 0 <= int(part) <= 255:
+            raise ValueError(f"Invalid wildcard range: {ip_range}")
+
+    if wildcard_index is None or any(part != "*" for part in parts[wildcard_index:]):
+        raise ValueError(f"Invalid wildcard range: {ip_range}")
+
+    prefix = wildcard_index * 8
+    network_parts = parts[:wildcard_index] + ["0"] * (4 - wildcard_index)
+    return f"{'.'.join(network_parts)}/{prefix}"
 
 
 def get_decimal_places(key: str, unit: str = "") -> int | None:
