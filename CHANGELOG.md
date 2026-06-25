@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.4](https://github.com/ppuff1988/smartly-bridge/compare/v1.11.3...v1.11.4) (2026-06-25)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **sync:** serialize datetime attributes ([#80](https://github.com/ppuff1988/smartly-bridge/issues/80)) ([7103abf](https://github.com/ppuff1988/smartly-bridge/commit/7103abf81be7de5ab4557c423cea621ba75b0f16))
+
 ## [1.11.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.11.2...v1.11.3) (2026-06-25)
 
 ### 🐛 錯誤修正 (Bug Fixes)
