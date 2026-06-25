@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import date, datetime
 import ipaddress
+from datetime import date, datetime
 from typing import Any
 
 from .const import NUMERIC_PRECISION_CONFIG, UNIT_SPECIFIC_PRECISION_CONFIG
