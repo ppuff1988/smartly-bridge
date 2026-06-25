@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -28,8 +29,7 @@ class TestGenerateCredentials:
         """Test client_id has correct format."""
         client_id = generate_client_id()
 
-        assert client_id.startswith("ha_")
-        assert len(client_id) > 10
+        assert re.fullmatch(r"ha_[0-9a-f]{16}", client_id)
 
     def test_generate_client_id_unique(self):
         """Test client_id is unique each time."""
@@ -37,16 +37,16 @@ class TestGenerateCredentials:
         assert len(set(ids)) == 100  # All unique
 
     def test_generate_client_secret_length(self):
-        """Test client_secret has sufficient length."""
+        """Test client_secret has expected length."""
         secret = generate_client_secret()
 
-        assert len(secret) >= 32  # At least 32 characters
+        assert len(secret) == 32
 
     def test_generate_client_secret_hex_format(self):
         """Test client_secret uses a consistent hex-only format."""
         secret = generate_client_secret()
 
-        assert len(secret) == 64
+        assert len(secret) == 32
         int(secret, 16)
         assert "-" not in secret
         assert "_" not in secret

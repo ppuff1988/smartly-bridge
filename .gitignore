@@ -105,3 +105,4 @@ dmypy.json
 test_api_local.py
 test_cursor_pagination.py
 test-results.xml
+docs/.brainstorms/
