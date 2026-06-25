@@ -8,7 +8,6 @@ statistics for entities.
 from __future__ import annotations
 
 import asyncio
-import json
 import logging
 from datetime import datetime, timedelta
 from typing import Any
@@ -24,8 +23,8 @@ from ..application.history import (
     BatchHistoryQuery,
     BatchHistoryUseCase,
     HistoryMetadataBuilder,
-    HistoryResponseFormatter,
     HistoryQueryPlanner,
+    HistoryResponseFormatter,
     SingleHistoryQuery,
     SingleHistoryUseCase,
     StatisticsQuery,

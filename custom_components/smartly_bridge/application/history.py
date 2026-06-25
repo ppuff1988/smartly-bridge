@@ -15,10 +15,8 @@ from ..const import (
     VIZUALIZATION_CONFIG,
 )
 from ..domain.models import BridgeResponse
-from ..utils import format_numeric_attributes
-from ..utils import get_decimal_places
+from ..utils import format_numeric_attributes, get_decimal_places
 from .ports import HistoryGatewayPort
-
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 1000
@@ -605,8 +603,7 @@ class SingleHistoryUseCase:
             return None
 
         formatted_states = [
-            self._formatter.format_state(state, include_attributes=True)
-            for state in entity_states
+            self._formatter.format_state(state, include_attributes=True) for state in entity_states
         ]
 
         for state in entity_states:
@@ -728,8 +725,7 @@ class BatchHistoryUseCase:
             return None
 
         formatted_states = [
-            self._formatter.format_state(state, include_attributes=True)
-            for state in entity_states
+            self._formatter.format_state(state, include_attributes=True) for state in entity_states
         ]
         current_attributes = self._gateway.get_current_attributes(entity_id)
 

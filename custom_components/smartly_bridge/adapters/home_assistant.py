@@ -455,8 +455,7 @@ class HomeAssistantWebRTCGateway:
                 error_text = await response.text()
                 suffix = " after adding stream" if retry else ""
                 raise RuntimeError(
-                    f"go2rtc WebRTC request failed{suffix}: "
-                    f"{response.status} - {error_text}"
+                    f"go2rtc WebRTC request failed{suffix}: " f"{response.status} - {error_text}"
                 )
         except aiohttp.ClientError as err:
             raise RuntimeError(f"Failed to connect to go2rtc server. Error: {err}") from err

@@ -76,9 +76,7 @@ class CameraStreamInfo:
             "snapshot": f"/api/smartly/camera/{self.entity_id}/snapshot",
             "mjpeg": f"/api/smartly/camera/{self.entity_id}/stream",
             "hls": (
-                f"/api/smartly/camera/{self.entity_id}/stream/hls"
-                if self.supports_hls
-                else None
+                f"/api/smartly/camera/{self.entity_id}/stream/hls" if self.supports_hls else None
             ),
         }
 

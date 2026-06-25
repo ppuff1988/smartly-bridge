@@ -18,8 +18,8 @@ import logging
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import HomeAssistantWebRTCGateway
 from ..acl import is_entity_allowed
+from ..adapters.home_assistant import HomeAssistantWebRTCGateway
 from ..application.webrtc import (
     WebRTCHangupUseCase,
     WebRTCICEUseCase,

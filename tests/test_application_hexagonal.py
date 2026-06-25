@@ -228,9 +228,9 @@ def test_package_init_does_not_import_outer_adapters_at_module_load() -> None:
     for node in tree.body:
         if not isinstance(node, ast.ImportFrom) or node.level != 1:
             continue
-        assert node.module not in forbidden_relative_imports, (
-            f"{path} imports adapter module at package load: {node.module}"
-        )
+        assert (
+            node.module not in forbidden_relative_imports
+        ), f"{path} imports adapter module at package load: {node.module}"
 
 
 def test_webrtc_views_do_not_lookup_sessions_directly() -> None:
