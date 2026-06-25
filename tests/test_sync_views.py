@@ -274,6 +274,48 @@ class TestSmartlySyncStatesView:
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
 
     @pytest.mark.asyncio
+    async def test_states_sync_serializes_datetime_attributes(self, mock_request, mock_hass):
+        """Test datetime values in attributes are serialized for JSON responses."""
+        from datetime import datetime, timezone
+
+        last_triggered = datetime(2026, 6, 25, 4, 0, 0, tzinfo=timezone.utc)
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["automation.wakeup"],
+            ):
+                mock_state = MagicMock()
+                mock_state.state = "on"
+                mock_state.attributes = {
+                    "friendly_name": "Wakeup",
+                    "last_triggered": last_triggered,
+                }
+                mock_state.last_changed = last_triggered
+                mock_state.last_updated = last_triggered
+                mock_hass.states.get = MagicMock(return_value=mock_state)
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = MagicMock(return_value=None)
+                    mock_er_get.return_value = mock_registry
+
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    import json
+
+                    data = json.loads(response.body)
+                    state = data["states"][0]
+                    assert state["attributes"]["last_triggered"] == last_triggered.isoformat()
+
+    @pytest.mark.asyncio
     async def test_states_sync_with_missing_entity(self, mock_request, mock_hass):
         """Test states sync when some entities don't have states."""
         with patch(

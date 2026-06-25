@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+from datetime import date, datetime
 from typing import Any
 
 from .const import NUMERIC_PRECISION_CONFIG, UNIT_SPECIFIC_PRECISION_CONFIG
@@ -90,7 +91,20 @@ def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass  # Keep original value if conversion fails
 
-    return formatted
+    return {key: _json_safe_attribute_value(value) for key, value in formatted.items()}
+
+
+def _json_safe_attribute_value(value: Any) -> Any:
+    """Convert common Home Assistant attribute values to JSON-safe values."""
+    if isinstance(value, datetime | date):
+        return value.isoformat()
+    if isinstance(value, dict):
+        return {key: _json_safe_attribute_value(item) for key, item in value.items()}
+    if isinstance(value, list):
+        return [_json_safe_attribute_value(item) for item in value]
+    if isinstance(value, tuple):
+        return [_json_safe_attribute_value(item) for item in value]
+    return value
 
 
 def format_sensor_state(state_value: str, attributes: dict[str, Any]) -> str:
