@@ -16,6 +16,7 @@ def mock_hass():
     hass.services.async_call = AsyncMock()
     hass.http = MagicMock()
     hass.http.register_view = MagicMock()
+    hass.http.async_register_static_paths = AsyncMock()
     return hass
 
 

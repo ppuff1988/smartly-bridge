@@ -19,21 +19,28 @@ The integration source code stays in the repository standard path:
 custom_components/smartly_bridge/
 ```
 
-Docker Compose mounts it into Home Assistant at:
+Docker Compose mounts `integration/config/` into Home Assistant at:
 
 ```text
-/config/custom_components/smartly_bridge
+/config
 ```
 
-That means you edit code in `custom_components/smartly_bridge/`, then restart
-Home Assistant to load the latest integration code.
+That means Home Assistant loads the synced copy from
+`/config/custom_components/smartly_bridge`. After starting Home Assistant, copy
+the integration source into the running container:
+
+```bash
+make dev
+```
+
+Run `make sync` after editing code in `custom_components/smartly_bridge/`.
 
 ## Start Home Assistant
 
 Run this from the repository root:
 
 ```bash
-docker compose up -d
+make dev
 ```
 
 Open Home Assistant:
@@ -45,19 +52,19 @@ http://localhost:8123
 View logs:
 
 ```bash
-docker compose logs -f homeassistant
+make logs
 ```
 
 Restart after code changes:
 
 ```bash
-docker compose restart homeassistant
+make sync
 ```
 
 Stop the environment:
 
 ```bash
-docker compose down
+make down
 ```
 
 ## Git hygiene

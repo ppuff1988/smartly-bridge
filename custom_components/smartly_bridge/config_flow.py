@@ -32,12 +32,12 @@ from .const import (
 
 def generate_client_id() -> str:
     """Generate a unique client ID."""
-    return f"ha_{secrets.token_urlsafe(16)}"
+    return f"ha_{secrets.token_hex(8)}"
 
 
 def generate_client_secret() -> str:
     """Generate a secure client secret."""
-    return secrets.token_urlsafe(32)
+    return secrets.token_hex(16)
 
 
 class SmartlyBridgeConfigFlow(config_entries.ConfigFlow, domain=DOMAIN):  # type: ignore[call-arg]

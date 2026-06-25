@@ -13,6 +13,15 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..acl import get_allowed_entities, is_entity_allowed
+from ..adapters.home_assistant import HomeAssistantCameraGateway
+from ..application.camera import (
+    CameraConfigCommand,
+    CameraConfigUseCase,
+    CameraHLSUseCase,
+    CameraListUseCase,
+    CameraSnapshotUseCase,
+    CameraStreamUseCase,
+)
 from ..audit import log_control, log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -118,10 +127,7 @@ class SmartlyCameraSnapshotView(BaseView):
                 status=403,
             )
 
-        # Get camera manager
-        from ..camera import CameraManager
-
-        camera_manager: CameraManager | None = self.hass.data[DOMAIN].get("camera_manager")
+        camera_manager = self.hass.data[DOMAIN].get("camera_manager")
         if camera_manager is None:
             return web.json_response(
                 {"error": "camera_manager_not_initialized"},
@@ -132,20 +138,21 @@ class SmartlyCameraSnapshotView(BaseView):
         if_none_match = self.request.headers.get("If-None-Match")
         force_refresh = self.request.query.get("refresh", "").lower() == "true"
 
-        # Get snapshot
-        snapshot, not_modified = await camera_manager.get_snapshot(
+        result = await CameraSnapshotUseCase(
+            HomeAssistantCameraGateway(self.hass, camera_manager)
+        ).execute(
             entity_id,
             force_refresh=force_refresh,
             if_none_match=if_none_match,
         )
 
-        if not_modified:
+        if result.status == 304:
             return web.Response(status=304)
 
-        if snapshot is None:
+        if result.status == 404:
             return web.json_response(
-                {"error": "snapshot_unavailable"},
-                status=404,
+                result.body,
+                status=result.status,
             )
 
         log_control(
@@ -156,14 +163,11 @@ class SmartlyCameraSnapshotView(BaseView):
             result="success",
         )
 
+        snapshot = result.body["snapshot"]
         return web.Response(
             body=snapshot.image_data,
             content_type=snapshot.content_type,
-            headers={
-                "ETag": snapshot.etag,
-                "Cache-Control": "private, max-age=10",
-                "X-Snapshot-Timestamp": str(snapshot.timestamp),
-            },
+            headers=result.headers,
         )
 
 
@@ -297,24 +301,11 @@ class SmartlyCameraStreamView(BaseView):
             result="started",
         )
 
-        # Create stream response
-        # IMPORTANT: For MJPEG streams, we must avoid chunked encoding
-        # MJPEG uses multipart/x-mixed-replace format which is incompatible with
-        # Transfer-Encoding: chunked. The chunked wrapper breaks the multipart
-        # boundaries and causes parsing errors in clients (e.g., Go HTTP client).
-        #
-        # Solution: Use HTTP/1.0-style response (no chunked encoding)
-        # by explicitly disabling compression and using Connection: close
-        response = web.StreamResponse(
-            status=200,
-            headers={
-                "Content-Type": "multipart/x-mixed-replace;boundary=frame",
-                "Cache-Control": "no-cache, no-store, must-revalidate",
-                "Pragma": "no-cache",
-                "Expires": "0",
-                "Connection": "close",  # Critical: prevents chunked encoding
-            },
-        )
+        # MJPEG uses multipart/x-mixed-replace boundaries, which break when
+        # chunked encoding wraps the stream. The Connection header from the
+        # use case keeps this response in the non-chunked path expected by clients.
+        stream_result = CameraStreamUseCase().execute()
+        response = web.StreamResponse(status=stream_result.status, headers=stream_result.headers)
 
         # Explicitly disable compression to avoid any encoding
         response.enable_compression(False)
@@ -386,72 +377,20 @@ class SmartlyCameraListView(BaseView):
                 },
             )
 
-        # Get allowed camera entities
-        from homeassistant.helpers import entity_registry as er
-
-        entity_registry = er.async_get(self.hass)
-        allowed_entities = get_allowed_entities(self.hass, entity_registry)
-
-        # Filter to only camera entities
-        camera_entities = [e for e in allowed_entities if e.startswith("camera.")]
-
         # Get camera manager
-        from ..camera import CameraManager
-
-        camera_manager: CameraManager | None = self.hass.data[DOMAIN].get("camera_manager")
+        camera_manager = self.hass.data[DOMAIN].get("camera_manager")
 
         # Check if detailed capabilities requested
         include_capabilities = self.request.query.get("capabilities", "").lower() == "true"
 
-        # Build camera list with states and capabilities
-        cameras = []
-        for entity_id in camera_entities:
-            state = self.hass.states.get(entity_id)
-            if state:
-                camera_info: dict = {
-                    "entity_id": entity_id,
-                    "name": state.attributes.get("friendly_name", entity_id),
-                    "state": state.state,
-                    "is_streaming": state.attributes.get("is_streaming", False),
-                    "brand": state.attributes.get("brand"),
-                    "model": state.attributes.get("model_name"),
-                    "supported_features": state.attributes.get("supported_features", 0),
-                }
-
-                # Add streaming capabilities if requested
-                if include_capabilities and camera_manager:
-                    stream_info = await camera_manager.get_stream_info(entity_id)
-                    if stream_info:
-                        camera_info["capabilities"] = {
-                            "snapshot": stream_info.supports_snapshot,
-                            "mjpeg": stream_info.supports_mjpeg,
-                            "hls": stream_info.supports_hls,
-                            "webrtc": stream_info.supports_webrtc,
-                        }
-                        camera_info["endpoints"] = {
-                            "snapshot": f"/api/smartly/camera/{entity_id}/snapshot",
-                            "mjpeg": f"/api/smartly/camera/{entity_id}/stream",
-                            "hls": (
-                                f"/api/smartly/camera/{entity_id}/stream/hls"
-                                if stream_info.supports_hls
-                                else None
-                            ),
-                        }
-
-                cameras.append(camera_info)
-
-        cache_stats = camera_manager.get_cache_stats() if camera_manager else {}
-        hls_stats = camera_manager.get_hls_stats() if camera_manager else {}
-
-        return web.json_response(
-            {
-                "cameras": cameras,
-                "count": len(cameras),
-                "cache_stats": cache_stats,
-                "hls_stats": hls_stats,
-            },
-            status=200,
-        )
+        result = await CameraListUseCase(
+            HomeAssistantCameraGateway(
+                self.hass,
+                camera_manager,
+                allowed_entities_fn=get_allowed_entities,
+            )
+        ).execute(include_capabilities=include_capabilities)
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 class SmartlyCameraConfigView(BaseView):
@@ -532,70 +471,23 @@ class SmartlyCameraConfigView(BaseView):
             )
 
         # Get camera manager
-        from ..camera import CameraConfig, CameraManager
-
-        camera_manager: CameraManager | None = self.hass.data[DOMAIN].get("camera_manager")
+        camera_manager = self.hass.data[DOMAIN].get("camera_manager")
         if camera_manager is None:
             return web.json_response(
                 {"error": "camera_manager_not_initialized"},
                 status=500,
             )
 
-        # Handle different actions
-        if action == "register":
-            if not entity_id:
-                return web.json_response(
-                    {"error": "missing_entity_id"},
-                    status=400,
-                )
-
-            config = CameraConfig(
+        result = await CameraConfigUseCase(
+            HomeAssistantCameraGateway(self.hass, camera_manager)
+        ).execute(
+            CameraConfigCommand(
+                action=action,
                 entity_id=entity_id,
-                name=body.get("name", entity_id),
-                snapshot_url=body.get("snapshot_url"),
-                stream_url=body.get("stream_url"),
-                username=body.get("username"),
-                password=body.get("password"),
-                verify_ssl=body.get("verify_ssl", True),
-                extra_headers=body.get("extra_headers", {}),
+                data=body,
             )
-            camera_manager.register_camera(config)
-            return web.json_response(
-                {"success": True, "action": "registered", "entity_id": entity_id},
-                status=200,
-            )
-
-        elif action == "unregister":
-            if not entity_id:
-                return web.json_response(
-                    {"error": "missing_entity_id"},
-                    status=400,
-                )
-            camera_manager.unregister_camera(entity_id)
-            return web.json_response(
-                {"success": True, "action": "unregistered", "entity_id": entity_id},
-                status=200,
-            )
-
-        elif action == "clear_cache":
-            count = await camera_manager.clear_cache(entity_id)
-            return web.json_response(
-                {"success": True, "action": "cache_cleared", "cleared_count": count},
-                status=200,
-            )
-
-        elif action == "list":
-            cameras = camera_manager.list_cameras()
-            return web.json_response(
-                {"cameras": cameras, "count": len(cameras)},
-                status=200,
-            )
-
-        else:
-            return web.json_response(
-                {"error": "unknown_action"},
-                status=400,
-            )
+        )
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 class SmartlyCameraHLSInfoView(BaseView):
@@ -696,43 +588,21 @@ class SmartlyCameraHLSInfoView(BaseView):
                 status=500,
             )
 
-        # Check query parameter for action
         action = self.request.query.get("action", "start")
+        result = await CameraHLSUseCase(
+            HomeAssistantCameraGateway(self.hass, camera_manager)
+        ).execute(entity_id, action)
 
-        if action == "info":
-            # Just get stream info without starting
-            stream_info = await camera_manager.get_stream_info(entity_id)
-            if stream_info is None:
-                return web.json_response(
-                    {"error": "camera_not_found"},
-                    status=404,
-                )
-            return web.json_response(stream_info.to_dict(), status=200)
-
-        elif action == "stop":
-            # Stop HLS stream
-            stopped = await camera_manager.stop_hls_stream(entity_id)
+        if action == "stop":
             log_control(
                 _LOGGER,
                 client_id=auth_result.client_id or "unknown",
                 entity_id=entity_id,
                 service="camera_hls_stop",
-                result="success" if stopped else "not_found",
-            )
-            return web.json_response(
-                {"success": stopped, "action": "stopped"},
-                status=200 if stopped else 404,
+                result="success" if result.status == 200 else "not_found",
             )
 
-        elif action == "start" or action == "":
-            # Start HLS stream (default action)
-            hls_info = await camera_manager.start_hls_stream(entity_id)
-            if hls_info is None:
-                return web.json_response(
-                    {"error": "hls_not_supported"},
-                    status=400,
-                )
-
+        if action in ("start", "") and result.status == 200:
             log_control(
                 _LOGGER,
                 client_id=auth_result.client_id or "unknown",
@@ -740,18 +610,8 @@ class SmartlyCameraHLSInfoView(BaseView):
                 service="camera_hls_start",
                 result="success",
             )
-            return web.json_response(hls_info, status=200)
 
-        elif action == "stats":
-            # Get HLS stats
-            stats = camera_manager.get_hls_stats()
-            return web.json_response(stats, status=200)
-
-        else:
-            return web.json_response(
-                {"error": "unknown_action"},
-                status=400,
-            )
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 # Wrapper classes for Home Assistant view registration

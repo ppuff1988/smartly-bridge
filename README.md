@@ -489,22 +489,25 @@ python -m pytest tests/ --cov=custom_components.smartly_bridge --cov-report=html
 
 ### 使用 Docker Compose 開發 Home Assistant
 
-本專案的本機 Home Assistant 開發環境使用 `integration/config/` 作為 HA 的 `/config`，
-並將 `custom_components/smartly_bridge/` 直接掛載到
-`/config/custom_components/smartly_bridge`。
+本專案的本機 Home Assistant 開發環境使用 `integration/config/` 作為 HA 的 `/config`。
+啟動容器後，將 `custom_components/smartly_bridge/` 複製到 HA 的
+`/config/custom_components/smartly_bridge/`。
 
 ```bash
 # 啟動 Home Assistant
-docker compose up -d
+make dev
+
+# 或只啟動容器
+make up
 
 # 查看 logs
-docker compose logs -f homeassistant
+make logs
 
 # 修改 integration 程式碼後重新載入
-docker compose restart homeassistant
+make sync
 
 # 停止環境
-docker compose down
+make down
 ```
 
 啟動後可開啟：
@@ -518,6 +521,8 @@ http://localhost:8123
 ```text
 custom_components/smartly_bridge/   # Integration 原始碼
 integration/config/                 # Docker Compose 掛載的 HA /config
+integration/config/custom_components/smartly_bridge/
+                                      # 本機 HA runtime 內的同步副本
 ```
 
 `integration/config/` 下由 Home Assistant 產生的 runtime state 會被 git 忽略；

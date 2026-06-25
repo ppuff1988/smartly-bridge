@@ -8,6 +8,8 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from ..acl import get_allowed_entities, get_structure
+from ..adapters.home_assistant import HomeAssistantStateSyncGateway, HomeAssistantSyncGateway
+from ..application.sync import SyncStatesUseCase, SyncStructureUseCase
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -16,12 +18,10 @@ from ..const import (
     CONF_ALLOWED_CIDRS,
     CONF_CLIENT_SECRET,
     CONF_TRUST_PROXY,
-    DEFAULT_DOMAIN_ICONS,
     DEFAULT_TRUST_PROXY,
     DOMAIN,
     RATE_WINDOW,
 )
-from ..utils import format_numeric_attributes, format_sensor_state
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -101,31 +101,14 @@ class SmartlySyncView(web.View):
                 },
             )
 
-        # Get registries
-        from homeassistant.helpers import area_registry as ar
-        from homeassistant.helpers import device_registry as dr
-        from homeassistant.helpers import entity_registry as er
-        from homeassistant.helpers import floor_registry as fr
-
-        entity_registry = er.async_get(self.hass)
-        device_registry = dr.async_get(self.hass)
-        area_registry = ar.async_get(self.hass)
-        floor_registry = fr.async_get(self.hass)
-
-        # Get allowed entities
-        allowed_entities = get_allowed_entities(self.hass, entity_registry)
-
-        # Build structure
-        structure = get_structure(
-            self.hass,
-            allowed_entities,
-            entity_registry,
-            device_registry,
-            area_registry,
-            floor_registry,
-        )
-
-        return web.json_response(structure, status=200)
+        result = SyncStructureUseCase(
+            HomeAssistantSyncGateway(
+                self.hass,
+                allowed_entities_fn=get_allowed_entities,
+                structure_fn=get_structure,
+            )
+        ).execute()
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 class SmartlySyncStatesView(web.View):
@@ -203,48 +186,13 @@ class SmartlySyncStatesView(web.View):
                 },
             )
 
-        # Get entity registry
-        from homeassistant.helpers import entity_registry as er
-
-        entity_registry = er.async_get(self.hass)
-        allowed_entities = get_allowed_entities(self.hass, entity_registry)
-
-        # Build states list
-        states = []
-        for entity_id in allowed_entities:
-            state = self.hass.states.get(entity_id)
-            if state:
-                # Get entity registry entry for icon info
-                entry = entity_registry.async_get(entity_id)
-
-                # Icon priority: state > registry custom > registry original > default by domain
-                icon = state.attributes.get("icon")
-                if not icon and entry:
-                    icon = entry.icon or entry.original_icon
-                if not icon:
-                    # Use default icon based on domain
-                    domain = entity_id.split(".")[0] if "." in entity_id else ""
-                    icon = DEFAULT_DOMAIN_ICONS.get(domain)
-
-                states.append(
-                    {
-                        "entity_id": entity_id,
-                        "state": format_sensor_state(state.state, state.attributes),
-                        "attributes": format_numeric_attributes(dict(state.attributes)),
-                        "last_changed": (
-                            state.last_changed.isoformat() if state.last_changed else None
-                        ),
-                        "last_updated": (
-                            state.last_updated.isoformat() if state.last_updated else None
-                        ),
-                        "icon": icon,
-                    }
-                )
-
-        return web.json_response(
-            {"states": states, "count": len(states)},
-            status=200,
-        )
+        result = SyncStatesUseCase(
+            HomeAssistantStateSyncGateway(
+                self.hass,
+                allowed_entities_fn=get_allowed_entities,
+            )
+        ).execute()
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 # Wrapper classes for Home Assistant view registration

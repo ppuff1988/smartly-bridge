@@ -32,6 +32,7 @@ class TestSetup:
             patch.object(NonceCache, "start", new_callable=AsyncMock),
             patch.object(StatePushManager, "start", new_callable=AsyncMock),
             patch("custom_components.smartly_bridge.register_views"),
+            patch("homeassistant.components.frontend.add_extra_js_url"),
         ):
 
             result = await async_setup_entry(mock_hass, mock_config_entry)
@@ -54,6 +55,7 @@ class TestSetup:
             patch.object(NonceCache, "start", new_callable=AsyncMock),
             patch.object(StatePushManager, "start", new_callable=AsyncMock),
             patch("custom_components.smartly_bridge.register_views") as mock_register,
+            patch("homeassistant.components.frontend.add_extra_js_url"),
         ):
 
             await async_setup_entry(mock_hass, mock_config_entry)

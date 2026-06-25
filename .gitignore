@@ -73,6 +73,7 @@ integration/config/*
 !integration/config/README.md
 !integration/config/configuration.yaml
 !integration/config/custom_components/
+integration/config/custom_components/*
 !integration/config/custom_components/.gitkeep
 
 # go2rtc configuration (contains local/sensitive stream URLs)
@@ -104,3 +105,4 @@ dmypy.json
 test_api_local.py
 test_cursor_pagination.py
 test-results.xml
+docs/.brainstorms/

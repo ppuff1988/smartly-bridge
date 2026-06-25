@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 import json
 import logging
 from typing import TYPE_CHECKING, Any
@@ -10,8 +9,13 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..acl import get_entity_domain, is_entity_allowed, is_service_allowed
-from ..audit import log_control, log_deny
+from ..adapters.home_assistant import (
+    HomeAssistantControlGateway,
+    HomeAssistantEntityPolicy,
+    LoggingAuditAdapter,
+)
+from ..application.control import ControlCommand, ControlUseCase
+from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
     API_PATH_CONTROL,
@@ -22,7 +26,6 @@ from ..const import (
     DOMAIN,
     RATE_WINDOW,
 )
-from ..utils import format_numeric_attributes
 
 if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
@@ -125,96 +128,21 @@ class SmartlyControlView(web.View):
                 status=400,
             )
 
-        # Get entity registry
-        from homeassistant.helpers import entity_registry as er
-
-        entity_registry = er.async_get(self.hass)
-
-        # Check entity is allowed
-        if not is_entity_allowed(self.hass, entity_id, entity_registry):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
+        use_case = ControlUseCase(
+            HomeAssistantEntityPolicy(self.hass),
+            HomeAssistantControlGateway(self.hass),
+            LoggingAuditAdapter(_LOGGER),
+        )
+        result = await use_case.execute(
+            auth_result.client_id or "unknown",
+            ControlCommand(
                 entity_id=entity_id,
-                service=action,
-                reason="entity_not_allowed",
+                action=action,
+                service_data=service_data,
                 actor=actor,
-            )
-            return web.json_response(
-                {"error": "entity_not_allowed"},
-                status=403,
-            )
-
-        # Check service is allowed
-        domain = get_entity_domain(entity_id)
-        if not is_service_allowed(domain, action):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service=action,
-                reason="service_not_allowed",
-                actor=actor,
-            )
-            return web.json_response(
-                {"error": "service_not_allowed"},
-                status=403,
-            )
-
-        # Call the service
-        try:
-            # Prepare service data
-            service_call_data = {"entity_id": entity_id, **service_data}
-
-            await self.hass.services.async_call(
-                domain,
-                action,
-                service_call_data,
-                blocking=True,
-            )
-
-            # Wait a short moment for state to propagate
-            await asyncio.sleep(0.1)
-
-            log_control(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service=action,
-                result="success",
-                actor=actor,
-            )
-
-            # Get new state after service call
-            new_state = self.hass.states.get(entity_id)
-
-            return web.json_response(
-                {
-                    "success": True,
-                    "entity_id": entity_id,
-                    "action": action,
-                    "new_state": new_state.state if new_state else None,
-                    "new_attributes": (
-                        format_numeric_attributes(dict(new_state.attributes)) if new_state else None
-                    ),
-                },
-                status=200,
-            )
-
-        except Exception as err:
-            _LOGGER.error("Service call failed: %s", err)
-            log_control(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service=action,
-                result=f"error: {type(err).__name__}",
-                actor=actor,
-            )
-            return web.json_response(
-                {"error": "service_call_failed"},
-                status=500,
-            )
+            ),
+        )
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 class SmartlyControlViewWrapper(HomeAssistantView):
