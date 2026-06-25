@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.11.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.11.0...v1.11.1) (2026-06-24)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **reset:** use Home Assistant config path ([#77](https://github.com/ppuff1988/smartly-bridge/issues/77)) ([f141359](https://github.com/ppuff1988/smartly-bridge/commit/f141359fd140956de72f80f6996588d9559229d5))
+
 ## [1.11.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.10.12...v1.11.0) (2026-01-13)
 
 ### ✨ 新增功能 (Features)
