@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.15.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.14.2...v1.15.0) (2026-06-26)
+
+### ✨ 新增功能 (Features)
+
+* **presence:** expose editable sensor settings ([#92](https://github.com/ppuff1988/smartly-bridge/issues/92)) ([793303e](https://github.com/ppuff1988/smartly-bridge/commit/793303ec0e5349d7019345710015c16c3027205c))
+
 ## [1.14.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.14.1...v1.14.2) (2026-06-26)
 
 ### ⚡ 效能優化 (Performance)
