@@ -14,6 +14,7 @@ from .const import (
 )
 
 SIGNAL_ENTITY_SUFFIXES = {
+    "_signal_strength": "signal_strength",
     "_linkquality": "linkquality",
     "_link_quality": "link_quality",
     "_lqi": "lqi",

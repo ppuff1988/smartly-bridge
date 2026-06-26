@@ -206,6 +206,57 @@ class TestStatePushManager:
         assert event["attributes"]["signal_unit"] == "lqi"
 
     @pytest.mark.asyncio
+    async def test_queue_event_merges_sibling_signal_strength_metadata(
+        self,
+        push_manager,
+        mock_hass,
+    ):
+        """Test pushed light events include sibling signal strength metadata."""
+        mock_new_state = MagicMock()
+        mock_new_state.state = "off"
+        mock_new_state.attributes = {
+            "friendly_name": "智慧燈泡",
+            "supported_color_modes": ["color_temp", "hs"],
+        }
+        mock_new_state.last_changed = datetime(2026, 6, 26, 23, 2, 20)
+        mock_new_state.last_updated = datetime(2026, 6, 26, 23, 2, 20)
+
+        mock_signal_state = MagicMock()
+        mock_signal_state.state = "-58"
+
+        device_id = "tapo-l530"
+        registry = MagicMock()
+        registry.entities = {
+            "light.deng_pao_tapo_l530": MagicMock(
+                entity_id="light.deng_pao_tapo_l530",
+                device_id=device_id,
+            ),
+            "sensor.deng_pao_tapo_l530_signal_strength": MagicMock(
+                entity_id="sensor.deng_pao_tapo_l530_signal_strength",
+                device_id=device_id,
+            ),
+        }
+        registry.async_get.side_effect = lambda entity_id: registry.entities.get(entity_id)
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "sensor.deng_pao_tapo_l530_signal_strength": mock_signal_state,
+        }.get(entity_id)
+
+        with (
+            patch("homeassistant.helpers.entity_registry.async_get", return_value=registry),
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant."
+                "HomeAssistantHistoryGateway.query_states",
+                new_callable=AsyncMock,
+            ) as mock_query_states,
+        ):
+            mock_query_states.return_value = []
+            await push_manager._queue_event("light.deng_pao_tapo_l530", None, mock_new_state)
+
+        event = push_manager._pending_events[0]
+        assert event["attributes"]["signal_strength"] == -58
+        assert event["attributes"]["signal_unit"] == ""
+
+    @pytest.mark.asyncio
     async def test_queue_event_bridge_chart_uses_compressed_recorder_history(self, push_manager):
         """Test pushed chart points include compressed recorder states."""
         mock_new_state = MagicMock()
