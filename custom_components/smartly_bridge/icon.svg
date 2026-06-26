@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128">
+
+<g transform="translate(0 10)">
+  <defs>
+    <linearGradient id="smartlyGradient" x1="8" y1="24" x2="120" y2="96" gradientUnits="userSpaceOnUse">
+      <stop offset="0" stop-color="#6D35F2"/>
+      <stop offset="0.52" stop-color="#7546FF"/>
+      <stop offset="1" stop-color="#27A9F8"/>
+    </linearGradient>
+  </defs>
+
+  <g fill="none" stroke="url(#smartlyGradient)" stroke-width="7.5" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M25.9997 84.75 C16.8475 82.6618 9.98333 75.3529 8.8393 63.8676 C7.69528 51.3382 17.9915 40.8971 32.8639 39.8529 C35.1519 25.2353 48.8803 13.75 63.7526 13.75 C78.625 13.75 92.3533 25.2353 94.6414 39.8529 C109.514 40.8971 119.81 51.3382 118.666 63.8676 C117.522 75.3529 110.658 82.6618 101.5055 84.75" />
+    <path d="M38.7526 96.75 V71.75 L63.7526 53.75 L88.7526 71.75 V96.75" />
+  </g>
+  <g fill="url(#smartlyGradient)">
+    <rect x="53.7526" y="74.75" width="8" height="8" rx="1.7067"/>
+    <rect x="64.7526" y="74.75" width="8" height="8" rx="1.7067"/>
+    <rect x="53.7526" y="85.75" width="8" height="8" rx="1.7067"/>
+    <rect x="64.7526" y="85.75" width="8" height="8" rx="1.7067"/>
+  </g></g>
+</svg>

@@ -184,7 +184,7 @@ BRIDGE_CHART_DEVICE_CLASSES = {
     "pressure",
     "atmospheric_pressure",
 }
-BRIDGE_CHART_LOOKBACK_HOURS = 6
+BRIDGE_CHART_LOOKBACK_HOURS = 2
 
 # 根據單位調整小數點位數：(attribute/device_class, unit) -> decimal places
 UNIT_SPECIFIC_PRECISION_CONFIG = {
