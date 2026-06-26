@@ -10,7 +10,7 @@
     "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
     "source=${localEnv:HOME}/.codex/skills,target=/root/.codex/skills,type=bind,readonly",
     "source=gh-config,target=/root/.config/gh,type=volume",
-    "source=${localEnv:HOME}/Projects/smartly-platform/docs/smartly-device-card-capability-spec.md,target=/workspace/docs/smartly-device-card-capability-spec.md,type=bind,readonly"
+    "source=${localEnv:HOME}/Projects/smartly-platform/docs/smartly-device-card-capability-spec.md,target=/workspace/docs/smartly-device-card-capability-spec.md,type=bind"
   ],
 
   "customizations": {
