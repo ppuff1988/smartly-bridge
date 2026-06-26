@@ -33,6 +33,14 @@ if TYPE_CHECKING:
 _LOGGER = logging.getLogger(__name__)
 
 
+def _service_data_from_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Return service data from the canonical key or frontend data alias."""
+    service_data = body.get("service_data")
+    if service_data is None:
+        service_data = body.get("data", {})
+    return service_data
+
+
 class SmartlyControlView(web.View):
     """Handle POST /api/smartly/control requests."""
 
@@ -119,7 +127,7 @@ class SmartlyControlView(web.View):
 
         entity_id = body.get("entity_id")
         action = body.get("action")
-        service_data = body.get("service_data", {})
+        service_data = _service_data_from_body(body)
         actor = body.get("actor", {})
 
         if not entity_id or not action:

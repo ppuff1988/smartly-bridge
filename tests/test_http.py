@@ -18,6 +18,27 @@ from custom_components.smartly_bridge.const import (
     HEADER_SIGNATURE,
     HEADER_TIMESTAMP,
 )
+from custom_components.smartly_bridge.views.control import _service_data_from_body
+
+
+def test_control_request_accepts_data_alias_for_service_data() -> None:
+    """Control requests accept frontend data payloads as service data."""
+    body = {
+        "action": "set_brightness",
+        "data": {"brightness": 150},
+    }
+
+    assert _service_data_from_body(body) == {"brightness": 150}
+
+
+def test_control_request_prefers_service_data_over_data_alias() -> None:
+    """Explicit service_data wins when both payload keys are present."""
+    body = {
+        "service_data": {"brightness": 120},
+        "data": {"brightness": 150},
+    }
+
+    assert _service_data_from_body(body) == {"brightness": 120}
 
 
 class TestControlEndpoint:
