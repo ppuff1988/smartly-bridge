@@ -161,9 +161,28 @@ NUMERIC_PRECISION_CONFIG = {
     "battery": 0,  # 電池：85%
     "illuminance": 0,  # 照度：500lx
     "pressure": 1,  # 氣壓：1013.2hPa
+    "atmospheric_pressure": 1,  # 大氣壓：1013.2hPa
     "co2": 0,  # CO2：450ppm
+    "carbon_dioxide": 0,  # CO2：450ppm
+    "carbon_monoxide": 1,  # CO：1.2ppm
+    "aqi": 0,  # 空氣品質指數：42
     "pm25": 1,  # PM2.5：12.5
     "pm10": 1,  # PM10：25.5
+}
+
+# Sensor device classes that should expose the compact bridge_chart payload.
+BRIDGE_CHART_DEVICE_CLASSES = {
+    "temperature",
+    "humidity",
+    "carbon_dioxide",
+    "co2",
+    "carbon_monoxide",
+    "aqi",
+    "pm25",
+    "pm10",
+    "illuminance",
+    "pressure",
+    "atmospheric_pressure",
 }
 
 # 根據單位調整小數點位數：(attribute/device_class, unit) -> decimal places
@@ -254,6 +273,13 @@ VIZUALIZATION_CONFIG: dict[str, dict[str, Any]] = {
         "interpolation": "natural",
     },
     "co2": {
+        "type": VIZ_TYPE_CHART,
+        "chart_type": "area",
+        "color": "#78909C",  # 灰藍色
+        "show_points": False,
+        "interpolation": "linear",
+    },
+    "carbon_dioxide": {
         "type": VIZ_TYPE_CHART,
         "chart_type": "area",
         "color": "#78909C",  # 灰藍色

@@ -179,6 +179,84 @@ def test_format_response_adds_pagination_cursor() -> None:
     }
 
 
+def test_format_response_adds_environment_bridge_chart() -> None:
+    """Environment sensor history responses include compact chart points."""
+    formatter = HistoryResponseFormatter()
+    start_time = datetime(2026, 6, 26, 6, 0, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(minutes=20)
+
+    result = formatter.format_response(
+        entity_states=[
+            {"s": "24.567", "lc": 1782453600, "lu": 1782453600},
+            {"s": "24.789", "lc": 1782454200, "lu": 1782454200},
+            {"s": "24.923", "lc": 1782454800, "lu": 1782454800},
+        ],
+        entity_id="sensor.temperature",
+        start_time=start_time,
+        end_time=end_time,
+        limit=3,
+        page_size=3,
+        has_more=False,
+        use_pagination=True,
+        metadata={
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+            "is_numeric": True,
+            "decimal_places": 1,
+        },
+    )
+
+    assert result["device_class"] == "temperature"
+    assert result["unit_of_measurement"] == "°C"
+    assert result["bridge_chart"] == {
+        "metric": "temperature",
+        "unit": "°C",
+        "points": [
+            {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
+            {"at": "2026-06-26T06:10:00+00:00", "value": 24.8},
+            {"at": "2026-06-26T06:20:00+00:00", "value": 24.9},
+        ],
+    }
+
+
+def test_format_response_adds_air_quality_bridge_chart() -> None:
+    """Air quality sensor history responses include compact chart points."""
+    formatter = HistoryResponseFormatter()
+    start_time = datetime(2026, 6, 26, 6, 0, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(minutes=10)
+
+    result = formatter.format_response(
+        entity_states=[
+            {"s": "449.789", "lc": 1782453600, "lu": 1782453600},
+            {"s": "451.2", "lc": 1782454200, "lu": 1782454200},
+        ],
+        entity_id="sensor.co2",
+        start_time=start_time,
+        end_time=end_time,
+        limit=2,
+        page_size=2,
+        has_more=False,
+        use_pagination=True,
+        metadata={
+            "device_class": "carbon_dioxide",
+            "unit_of_measurement": "ppm",
+            "is_numeric": True,
+            "decimal_places": 0,
+        },
+    )
+
+    assert result["device_class"] == "carbon_dioxide"
+    assert result["unit_of_measurement"] == "ppm"
+    assert result["bridge_chart"] == {
+        "metric": "carbon_dioxide",
+        "unit": "ppm",
+        "points": [
+            {"at": "2026-06-26T06:00:00+00:00", "value": 450},
+            {"at": "2026-06-26T06:10:00+00:00", "value": 451},
+        ],
+    }
+
+
 def test_metadata_builder_uses_history_device_class_for_numeric_sensor() -> None:
     """Metadata derives visualization and precision from historical attributes."""
     builder = HistoryMetadataBuilder()
@@ -194,6 +272,23 @@ def test_metadata_builder_uses_history_device_class_for_numeric_sensor() -> None
     assert metadata["is_numeric"] is True
     assert metadata["decimal_places"] == 2
     assert metadata["visualization"]["type"] == "chart"
+
+
+def test_metadata_builder_uses_carbon_dioxide_visualization() -> None:
+    """CO2 device class gets air quality visualization and precision."""
+    builder = HistoryMetadataBuilder()
+
+    metadata = builder.build(
+        "sensor.co2",
+        {
+            "state": "449.789",
+            "attributes": {"device_class": "carbon_dioxide", "unit_of_measurement": "ppm"},
+        },
+    )
+
+    assert metadata["device_class"] == "carbon_dioxide"
+    assert metadata["decimal_places"] == 0
+    assert metadata["visualization"]["chart_type"] == "area"
 
 
 def test_metadata_builder_falls_back_to_current_attributes() -> None:

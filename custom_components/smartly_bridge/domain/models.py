@@ -5,6 +5,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..const import BRIDGE_CHART_DEVICE_CLASSES
+from ..utils import get_decimal_places
+
 
 @dataclass(frozen=True)
 class BridgeResponse:
@@ -34,7 +37,7 @@ class EntityStateSnapshot:
 
     def to_sync_dict(self) -> dict[str, Any]:
         """Serialize for the sync states API."""
-        return {
+        payload = {
             "entity_id": self.entity_id,
             "state": self.state,
             "attributes": self.attributes,
@@ -47,6 +50,45 @@ class EntityStateSnapshot:
             "capabilities": self.capabilities,
             "status": self.status,
             "presentation": self.presentation,
+        }
+        attributes = self.attributes or {}
+        sensor_device_class = attributes.get("device_class")
+        unit = attributes.get("unit_of_measurement")
+
+        if unit:
+            payload["unit_of_measurement"] = unit
+
+        chart = self._bridge_chart(sensor_device_class, unit)
+        if chart is not None:
+            payload["bridge_chart"] = chart
+
+        return payload
+
+    def _bridge_chart(self, device_class: Any, unit: Any) -> dict[str, Any] | None:
+        """Build the compact chart payload for environment sensors."""
+        if device_class not in BRIDGE_CHART_DEVICE_CLASSES:
+            return None
+        if self.state is None or self.last_updated is None:
+            return None
+
+        try:
+            value = float(self.state)
+        except (TypeError, ValueError):
+            return None
+
+        decimal_places = get_decimal_places(str(device_class), str(unit or ""))
+        if decimal_places is not None:
+            value = round(value, decimal_places)
+
+        return {
+            "metric": device_class,
+            "unit": unit or "",
+            "points": [
+                {
+                    "at": self.last_updated,
+                    "value": value,
+                }
+            ],
         }
 
 
