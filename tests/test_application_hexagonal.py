@@ -105,7 +105,7 @@ class FakeSyncGateway:
     def get_structure(self) -> dict[str, Any]:
         return self.structure
 
-    def list_states(self) -> list[EntityStateSnapshot]:
+    async def list_states(self) -> list[EntityStateSnapshot]:
         return self.states
 
 
@@ -247,9 +247,10 @@ def test_sync_structure_use_case_returns_gateway_structure() -> None:
     assert result.body == gateway.structure
 
 
-def test_sync_states_use_case_returns_states_with_count() -> None:
+@pytest.mark.asyncio
+async def test_sync_states_use_case_returns_states_with_count() -> None:
     """State sync serializes state snapshots returned by the port."""
-    result = SyncStatesUseCase(FakeSyncGateway()).execute()
+    result = await SyncStatesUseCase(FakeSyncGateway()).execute()
 
     assert result.status == 200
     assert result.body == {

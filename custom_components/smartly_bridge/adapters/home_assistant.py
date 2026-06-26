@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from ..acl import (
@@ -13,10 +14,14 @@ from ..acl import (
     is_service_allowed,
 )
 from ..audit import log_control, log_deny
-from ..const import DEFAULT_DOMAIN_ICONS
+from ..const import (
+    BRIDGE_CHART_LOOKBACK_HOURS,
+    DEFAULT_DOMAIN_ICONS,
+    MAX_CONCURRENT_HISTORY_QUERIES,
+)
 from ..device_presentation import build_device_card_metadata
 from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
-from ..utils import format_numeric_attributes, format_sensor_state
+from ..utils import build_bridge_chart_from_states, format_numeric_attributes, format_sensor_state
 
 
 def _entry_labels(entry: Any) -> set[str]:
@@ -27,6 +32,15 @@ def _entry_labels(entry: Any) -> set[str]:
     if isinstance(labels, (set, list, tuple)):
         return {label for label in labels if isinstance(label, str)}
     return set()
+
+
+def _history_end_time(value: Any) -> datetime:
+    """Return a timezone-aware history query end time."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    return datetime.now(timezone.utc)
 
 
 class LoggingAuditAdapter:
@@ -170,11 +184,14 @@ class HomeAssistantStateSyncGateway:
         hass: Any,
         *,
         allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+        history_semaphore_factory: Callable[[], Any] | None = None,
     ) -> None:
         self._hass = hass
         self._allowed_entities_fn = allowed_entities_fn
+        self._history_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
+        self._history_semaphore_factory = history_semaphore_factory or self._get_history_semaphore
 
-    def list_states(self) -> list[EntityStateSnapshot]:
+    async def list_states(self) -> list[EntityStateSnapshot]:
         """Return allowed entity state snapshots."""
         from homeassistant.helpers import entity_registry as er
 
@@ -202,6 +219,7 @@ class HomeAssistantStateSyncGateway:
                 attributes,
                 labels,
             )
+            bridge_chart = await self._bridge_chart_for_state(entity_id, state, attributes)
 
             snapshots.append(
                 EntityStateSnapshot(
@@ -211,10 +229,55 @@ class HomeAssistantStateSyncGateway:
                     last_changed=state.last_changed.isoformat() if state.last_changed else None,
                     last_updated=state.last_updated.isoformat() if state.last_updated else None,
                     icon=icon,
+                    bridge_chart=bridge_chart,
                     **card_metadata,
                 )
             )
         return snapshots
+
+    def _get_history_semaphore(self) -> asyncio.Semaphore:
+        """Return the recorder query semaphore for bridge chart preloading."""
+        return self._history_semaphore
+
+    async def _bridge_chart_for_state(
+        self,
+        entity_id: str,
+        state: Any,
+        attributes: dict[str, Any],
+    ) -> dict[str, Any] | None:
+        """Return recent bridge chart history for an eligible sensor."""
+        device_class = attributes.get("device_class")
+        unit = attributes.get("unit_of_measurement")
+        fallback_timestamp = state.last_updated.isoformat() if state.last_updated else None
+        fallback_chart = build_bridge_chart_from_states(
+            [],
+            device_class,
+            unit,
+            fallback_state=state.state,
+            fallback_timestamp=fallback_timestamp,
+        )
+        if fallback_chart is None:
+            return None
+
+        end_time = _history_end_time(getattr(state, "last_updated", None))
+        start_time = end_time - timedelta(hours=BRIDGE_CHART_LOOKBACK_HOURS)
+        history_gateway = HomeAssistantHistoryGateway(self._hass, self._history_semaphore_factory)
+        history_states = await history_gateway.query_states(
+            entity_id,
+            start_time,
+            end_time,
+            significant_changes_only=True,
+        )
+        return (
+            build_bridge_chart_from_states(
+                history_states,
+                device_class,
+                unit,
+                fallback_state=state.state,
+                fallback_timestamp=fallback_timestamp,
+            )
+            or fallback_chart
+        )
 
 
 class HomeAssistantCameraGateway:

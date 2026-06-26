@@ -5,8 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
-from ..const import BRIDGE_CHART_DEVICE_CLASSES
-from ..utils import get_decimal_places
+from ..utils import build_bridge_chart
 
 
 @dataclass(frozen=True)
@@ -34,13 +33,15 @@ class EntityStateSnapshot:
     capabilities: list[str] = field(default_factory=list)
     status: str | None = None
     presentation: dict[str, Any] = field(default_factory=dict)
+    bridge_chart: dict[str, Any] | None = None
 
     def to_sync_dict(self) -> dict[str, Any]:
         """Serialize for the sync states API."""
+        attributes = dict(self.attributes or {})
         payload = {
             "entity_id": self.entity_id,
             "state": self.state,
-            "attributes": self.attributes,
+            "attributes": attributes,
             "last_changed": self.last_changed,
             "last_updated": self.last_updated,
             "icon": self.icon,
@@ -51,45 +52,19 @@ class EntityStateSnapshot:
             "status": self.status,
             "presentation": self.presentation,
         }
-        attributes = self.attributes or {}
         sensor_device_class = attributes.get("device_class")
         unit = attributes.get("unit_of_measurement")
 
-        if unit:
-            payload["unit_of_measurement"] = unit
-
-        chart = self._bridge_chart(sensor_device_class, unit)
+        chart = self.bridge_chart or build_bridge_chart(
+            self.state,
+            self.last_updated,
+            sensor_device_class,
+            unit,
+        )
         if chart is not None:
-            payload["bridge_chart"] = chart
+            attributes["bridge_chart"] = chart
 
         return payload
-
-    def _bridge_chart(self, device_class: Any, unit: Any) -> dict[str, Any] | None:
-        """Build the compact chart payload for environment sensors."""
-        if device_class not in BRIDGE_CHART_DEVICE_CLASSES:
-            return None
-        if self.state is None or self.last_updated is None:
-            return None
-
-        try:
-            value = float(self.state)
-        except (TypeError, ValueError):
-            return None
-
-        decimal_places = get_decimal_places(str(device_class), str(unit or ""))
-        if decimal_places is not None:
-            value = round(value, decimal_places)
-
-        return {
-            "metric": device_class,
-            "unit": unit or "",
-            "points": [
-                {
-                    "at": self.last_updated,
-                    "value": value,
-                }
-            ],
-        }
 
 
 @dataclass(frozen=True)

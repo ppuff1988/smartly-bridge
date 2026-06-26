@@ -60,7 +60,7 @@ class SyncStructurePort(Protocol):
 class SyncStatesPort(Protocol):
     """Provides allowed entity states."""
 
-    def list_states(self) -> list[EntityStateSnapshot]:
+    async def list_states(self) -> list[EntityStateSnapshot]:
         """Return allowed entity state snapshots."""
 
 

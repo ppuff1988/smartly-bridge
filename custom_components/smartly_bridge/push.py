@@ -5,14 +5,17 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING, Any, Callable
 
 import aiohttp
 
 from .acl import get_allowed_entities
+from .adapters.home_assistant import HomeAssistantHistoryGateway
 from .audit import log_push_fail, log_push_success
 from .auth import sign_outgoing_request
 from .const import (
+    BRIDGE_CHART_LOOKBACK_HOURS,
     CONF_CLIENT_ID,
     CONF_CLIENT_SECRET,
     CONF_INSTANCE_ID,
@@ -21,16 +24,31 @@ from .const import (
     DEFAULT_PUSH_BATCH_INTERVAL,
     HEADER_SIGNATURE,
     HEARTBEAT_INTERVAL,
+    MAX_CONCURRENT_HISTORY_QUERIES,
     PUSH_RETRY_BACKOFF_BASE,
     PUSH_RETRY_MAX,
 )
-from .utils import format_numeric_attributes, format_sensor_state
+from .utils import (
+    build_bridge_chart,
+    build_bridge_chart_from_states,
+    format_numeric_attributes,
+    format_sensor_state,
+)
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from homeassistant.core import Event, HomeAssistant, State
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _history_end_time(value: Any) -> datetime:
+    """Return a timezone-aware history query end time."""
+    if isinstance(value, datetime):
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value
+    return datetime.now(timezone.utc)
 
 
 class StatePushManager:
@@ -51,6 +69,7 @@ class StatePushManager:
         self._unsub_state_changed: Callable[[], None] | None = None
         self._session: aiohttp.ClientSession | None = None
         self._lock = asyncio.Lock()
+        self._history_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
 
     async def start(self) -> None:
         """Start listening for state changes."""
@@ -137,15 +156,64 @@ class StatePushManager:
         new_state: State,
     ) -> None:
         """Queue a state change event for batch processing."""
+        new_state_data = self._state_to_dict(new_state)
+        bridge_chart = await self._bridge_chart_for_state(entity_id, new_state)
+        if bridge_chart is not None:
+            new_state_data["attributes"]["bridge_chart"] = bridge_chart
+
         async with self._lock:
             event_data = {
                 "event_type": "state_changed",
                 "entity_id": entity_id,
                 "old_state": self._state_to_dict(old_state) if old_state else None,
-                "new_state": self._state_to_dict(new_state),
+                "new_state": new_state_data,
+                "state": new_state_data["state"],
+                "attributes": new_state_data["attributes"],
+                "last_changed": new_state_data["last_changed"],
+                "last_updated": new_state_data["last_updated"],
                 "timestamp": new_state.last_changed.isoformat() if new_state.last_changed else None,
             }
             self._pending_events.append(event_data)
+
+    def _get_history_semaphore(self) -> asyncio.Semaphore:
+        """Return the recorder query semaphore for bridge chart preloading."""
+        return self._history_semaphore
+
+    async def _bridge_chart_for_state(self, entity_id: str, state: State) -> dict[str, Any] | None:
+        """Return recent bridge chart history for an eligible sensor."""
+        attributes = format_numeric_attributes(dict(state.attributes))
+        device_class = attributes.get("device_class")
+        unit = attributes.get("unit_of_measurement")
+        fallback_timestamp = state.last_updated.isoformat() if state.last_updated else None
+        fallback_chart = build_bridge_chart_from_states(
+            [],
+            device_class,
+            unit,
+            fallback_state=state.state,
+            fallback_timestamp=fallback_timestamp,
+        )
+        if fallback_chart is None:
+            return None
+
+        end_time = _history_end_time(getattr(state, "last_updated", None))
+        start_time = end_time - timedelta(hours=BRIDGE_CHART_LOOKBACK_HOURS)
+        history_gateway = HomeAssistantHistoryGateway(self.hass, self._get_history_semaphore)
+        history_states = await history_gateway.query_states(
+            entity_id,
+            start_time,
+            end_time,
+            significant_changes_only=True,
+        )
+        return (
+            build_bridge_chart_from_states(
+                history_states,
+                device_class,
+                unit,
+                fallback_state=state.state,
+                fallback_timestamp=fallback_timestamp,
+            )
+            or fallback_chart
+        )
 
     def _state_to_dict(self, state: State) -> dict[str, Any]:
         """Convert State object to dictionary."""
@@ -154,12 +222,21 @@ class StatePushManager:
 
         # Format the state value using the shared formatting function
         formatted_state = format_sensor_state(state.state, state.attributes)
+        last_updated = state.last_updated.isoformat() if state.last_updated else None
+        chart = build_bridge_chart(
+            state.state,
+            last_updated,
+            formatted_attrs.get("device_class"),
+            formatted_attrs.get("unit_of_measurement"),
+        )
+        if chart is not None:
+            formatted_attrs["bridge_chart"] = chart
 
         return {
             "state": formatted_state,
             "attributes": formatted_attrs,
             "last_changed": state.last_changed.isoformat() if state.last_changed else None,
-            "last_updated": state.last_updated.isoformat() if state.last_updated else None,
+            "last_updated": last_updated,
         }
 
     async def _batch_loop(self) -> None:

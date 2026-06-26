@@ -6,7 +6,11 @@ import ipaddress
 from datetime import date, datetime
 from typing import Any
 
-from .const import NUMERIC_PRECISION_CONFIG, UNIT_SPECIFIC_PRECISION_CONFIG
+from .const import (
+    BRIDGE_CHART_DEVICE_CLASSES,
+    NUMERIC_PRECISION_CONFIG,
+    UNIT_SPECIFIC_PRECISION_CONFIG,
+)
 
 
 def parse_allowed_networks(
@@ -134,3 +138,110 @@ def format_sensor_state(state_value: str, attributes: dict[str, Any]) -> str:
         return str(round(numeric_value, decimal_places))
 
     return state_value
+
+
+def build_bridge_chart(
+    state_value: Any,
+    timestamp: str | None,
+    device_class: Any,
+    unit: Any,
+) -> dict[str, Any] | None:
+    """Build a compact bridge chart for eligible numeric sensor states."""
+    if device_class not in BRIDGE_CHART_DEVICE_CLASSES:
+        return None
+    point = bridge_chart_point(state_value, timestamp, device_class, unit)
+    if point is None:
+        return None
+
+    return {
+        "metric": device_class,
+        "unit": unit or "",
+        "points": [point],
+    }
+
+
+def build_bridge_chart_from_states(
+    states: list[Any],
+    device_class: Any,
+    unit: Any,
+    *,
+    fallback_state: Any = None,
+    fallback_timestamp: str | None = None,
+) -> dict[str, Any] | None:
+    """Build bridge chart points from recorder states with current-state fallback."""
+    if device_class not in BRIDGE_CHART_DEVICE_CLASSES:
+        return None
+
+    points: list[dict[str, Any]] = []
+    seen_timestamps: set[str] = set()
+    for state in states:
+        timestamp = _state_timestamp(state)
+        point = bridge_chart_point(getattr(state, "state", None), timestamp, device_class, unit)
+        if point is None or point["at"] in seen_timestamps:
+            continue
+        points.append(point)
+        seen_timestamps.add(point["at"])
+
+    fallback_point = bridge_chart_point(
+        fallback_state,
+        fallback_timestamp,
+        device_class,
+        unit,
+    )
+    if fallback_point is not None and fallback_point["at"] not in seen_timestamps:
+        points.append(fallback_point)
+
+    if not points:
+        return None
+
+    return {
+        "metric": device_class,
+        "unit": unit or "",
+        "points": points,
+    }
+
+
+def bridge_chart_point(
+    state_value: Any,
+    timestamp: str | None,
+    device_class: Any,
+    unit: Any,
+) -> dict[str, Any] | None:
+    """Return one numeric chart point if the state can be plotted."""
+    if timestamp is None:
+        return None
+
+    try:
+        value = float(state_value)
+    except (TypeError, ValueError):
+        return None
+
+    decimal_places = get_decimal_places(str(device_class), str(unit or ""))
+    if decimal_places is not None:
+        value = round(value) if decimal_places == 0 else round(value, decimal_places)
+
+    return {
+        "at": timestamp,
+        "value": value,
+    }
+
+
+def _state_timestamp(state: Any) -> str | None:
+    """Return a serializable timestamp for a recorder state."""
+    updated = getattr(state, "last_updated", None)
+    if updated is not None:
+        isoformat = getattr(updated, "isoformat", None)
+        if callable(isoformat):
+            return isoformat()
+        if isinstance(updated, str):
+            return updated
+
+    changed = getattr(state, "last_changed", None)
+    if changed is not None:
+        isoformat = getattr(changed, "isoformat", None)
+        if callable(isoformat):
+            return isoformat()
+        if isinstance(changed, str):
+            return changed
+
+    return None

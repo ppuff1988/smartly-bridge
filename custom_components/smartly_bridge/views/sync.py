@@ -186,7 +186,7 @@ class SmartlySyncStatesView(web.View):
                 },
             )
 
-        result = SyncStatesUseCase(
+        result = await SyncStatesUseCase(
             HomeAssistantStateSyncGateway(
                 self.hass,
                 allowed_entities_fn=get_allowed_entities,

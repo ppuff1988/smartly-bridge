@@ -319,11 +319,50 @@ class TestSmartlySyncStatesView:
 
     @pytest.mark.asyncio
     @pytest.mark.parametrize(
-        ("entity_id", "device_class", "unit", "raw_state", "formatted_value"),
+        ("entity_id", "device_class", "unit", "raw_state", "history_states", "expected_points"),
         [
-            ("sensor.temperature", "temperature", "°C", "24.567", 24.6),
-            ("sensor.humidity", "humidity", "%", "62.345", 62.3),
-            ("sensor.co2", "carbon_dioxide", "ppm", "449.789", 450),
+            (
+                "sensor.temperature",
+                "temperature",
+                "°C",
+                "24.567",
+                [
+                    ("24.1", "2026-06-26T00:00:00Z"),
+                    ("24.567", "2026-06-26T06:00:00Z"),
+                ],
+                [
+                    {"at": "2026-06-26T00:00:00Z", "value": 24.1},
+                    {"at": "2026-06-26T06:00:00Z", "value": 24.6},
+                ],
+            ),
+            (
+                "sensor.humidity",
+                "humidity",
+                "%",
+                "62.345",
+                [
+                    ("61.1", "2026-06-26T00:00:00Z"),
+                    ("62.345", "2026-06-26T06:00:00Z"),
+                ],
+                [
+                    {"at": "2026-06-26T00:00:00Z", "value": 61.1},
+                    {"at": "2026-06-26T06:00:00Z", "value": 62.3},
+                ],
+            ),
+            (
+                "sensor.co2",
+                "carbon_dioxide",
+                "ppm",
+                "449.789",
+                [
+                    ("430.2", "2026-06-26T00:00:00Z"),
+                    ("449.789", "2026-06-26T06:00:00Z"),
+                ],
+                [
+                    {"at": "2026-06-26T00:00:00Z", "value": 430},
+                    {"at": "2026-06-26T06:00:00Z", "value": 450},
+                ],
+            ),
         ],
     )
     async def test_states_sync_environment_sensor_bridge_chart(
@@ -334,7 +373,8 @@ class TestSmartlySyncStatesView:
         device_class,
         unit,
         raw_state,
-        formatted_value,
+        history_states,
+        expected_points,
     ):
         """Test environment sensors expose bridge chart metadata."""
         with patch(
@@ -360,10 +400,25 @@ class TestSmartlySyncStatesView:
                 mock_state.last_updated.isoformat = MagicMock(return_value="2026-06-26T06:00:00Z")
                 mock_hass.states.get = MagicMock(return_value=mock_state)
 
-                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                history = []
+                for state_value, updated in history_states:
+                    history_state = MagicMock()
+                    history_state.state = state_value
+                    history_state.last_updated.isoformat.return_value = updated
+                    history.append(history_state)
+
+                with (
+                    patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get,
+                    patch(
+                        "custom_components.smartly_bridge.adapters.home_assistant."
+                        "HomeAssistantHistoryGateway.query_states",
+                        new_callable=AsyncMock,
+                    ) as mock_query_states,
+                ):
                     mock_registry = MagicMock()
                     mock_registry.async_get = MagicMock(return_value=None)
                     mock_er_get.return_value = mock_registry
+                    mock_query_states.return_value = history
 
                     view = SmartlySyncStatesView(mock_request)
                     response = await view.get()
@@ -375,17 +430,14 @@ class TestSmartlySyncStatesView:
                     sensor_state = data["states"][0]
 
                     assert sensor_state["device_class"] == "environment_sensor"
-                    assert sensor_state["unit_of_measurement"] == unit
-                    assert sensor_state["bridge_chart"] == {
+                    assert "bridge_chart" not in sensor_state
+                    assert sensor_state["attributes"]["unit_of_measurement"] == unit
+                    assert sensor_state["attributes"]["bridge_chart"] == {
                         "metric": device_class,
                         "unit": unit,
-                        "points": [
-                            {
-                                "at": "2026-06-26T06:00:00Z",
-                                "value": formatted_value,
-                            }
-                        ],
+                        "points": expected_points,
                     }
+                    mock_query_states.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_states_sync_with_missing_entity(self, mock_request, mock_hass):
@@ -780,8 +832,16 @@ class TestSmartlySyncStatesView:
             mock_entity_registry.async_get = MagicMock(return_value=None)
             mock_hass.states.get = get_state
 
-            with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+            with (
+                patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get,
+                patch(
+                    "custom_components.smartly_bridge.adapters.home_assistant."
+                    "HomeAssistantHistoryGateway.query_states",
+                    new_callable=AsyncMock,
+                ) as mock_query_states,
+            ):
                 mock_er_get.return_value = mock_entity_registry
+                mock_query_states.return_value = []
 
                 view = SmartlySyncStatesView(mock_request)
                 response = await view.get()
@@ -836,7 +896,7 @@ def _state(
     return mock_state
 
 
-def _state_payload(mock_hass, entity_id: str, state, entry=None):
+async def _state_payload(mock_hass, entity_id: str, state, entry=None):
     if entry is None:
         entry = MagicMock(icon=None, original_icon=None, labels=set())
 
@@ -844,18 +904,28 @@ def _state_payload(mock_hass, entity_id: str, state, entry=None):
     mock_registry = MagicMock()
     mock_registry.async_get.return_value = entry
 
-    with patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry):
-        snapshot = HomeAssistantStateSyncGateway(
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry),
+        patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states,
+    ):
+        mock_query_states.return_value = []
+        snapshots = await HomeAssistantStateSyncGateway(
             mock_hass,
             allowed_entities_fn=MagicMock(return_value=[entity_id]),
-        ).list_states()[0]
+        ).list_states()
+        snapshot = snapshots[0]
 
     return snapshot.to_sync_dict()
 
 
-def test_state_sync_includes_light_card_capability_metadata(mock_hass):
+@pytest.mark.asyncio
+async def test_state_sync_includes_light_card_capability_metadata(mock_hass):
     """Advanced lights expose normalized capabilities and light presentation."""
-    payload = _state_payload(
+    payload = await _state_payload(
         mock_hass,
         "light.living_room",
         _state(
@@ -875,9 +945,10 @@ def test_state_sync_includes_light_card_capability_metadata(mock_hass):
     assert payload["presentation"]["primary_metric"] == "brightness"
 
 
-def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
+@pytest.mark.asyncio
+async def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
     """Environmental sensors expose metric-card metadata."""
-    payload = _state_payload(
+    payload = await _state_payload(
         mock_hass,
         "sensor.living_temperature",
         _state(
@@ -904,9 +975,10 @@ def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
     }
 
 
-def test_state_sync_keeps_high_risk_camera_read_only(mock_hass):
+@pytest.mark.asyncio
+async def test_state_sync_keeps_high_risk_camera_read_only(mock_hass):
     """High-risk domains fall back to unknown read-only cards."""
-    payload = _state_payload(
+    payload = await _state_payload(
         mock_hass,
         "camera.porch",
         _state("idle", {"friendly_name": "Porch Cam"}),
@@ -918,9 +990,10 @@ def test_state_sync_keeps_high_risk_camera_read_only(mock_hass):
     assert payload["presentation"]["card_template"] == "unknown_card"
 
 
-def test_state_sync_respects_safe_smartly_class_label_override(mock_hass):
+@pytest.mark.asyncio
+async def test_state_sync_respects_safe_smartly_class_label_override(mock_hass):
     """smartly.class labels can safely refine switch presentation."""
-    payload = _state_payload(
+    payload = await _state_payload(
         mock_hass,
         "switch.fan",
         _state("off", {"friendly_name": "Fan Switch"}),
