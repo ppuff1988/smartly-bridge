@@ -440,6 +440,64 @@ class TestSmartlySyncStatesView:
                     mock_query_states.assert_awaited_once()
 
     @pytest.mark.asyncio
+    async def test_states_sync_bridge_chart_uses_compressed_recorder_history(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Test sync chart points include compressed recorder states."""
+        entity_id = "sensor.temperature"
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=[entity_id],
+            ):
+                mock_state = MagicMock()
+                mock_state.state = "24.567"
+                mock_state.attributes = {
+                    "device_class": "temperature",
+                    "unit_of_measurement": "°C",
+                }
+                mock_state.last_changed.isoformat.return_value = "2026-06-26T06:00:00Z"
+                mock_state.last_updated.isoformat.return_value = "2026-06-26T06:00:00Z"
+                mock_hass.states.get = MagicMock(return_value=mock_state)
+
+                with (
+                    patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get,
+                    patch(
+                        "custom_components.smartly_bridge.adapters.home_assistant."
+                        "HomeAssistantHistoryGateway.query_states",
+                        new_callable=AsyncMock,
+                    ) as mock_query_states,
+                ):
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = MagicMock(return_value=None)
+                    mock_er_get.return_value = mock_registry
+                    mock_query_states.return_value = [
+                        {"s": "24.1", "lu": 1782432000},
+                        {"s": "24.567", "lu": 1782453600},
+                    ]
+
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    import json
+
+                    data = json.loads(response.body)
+                    chart = data["states"][0]["attributes"]["bridge_chart"]
+
+                    assert chart["points"] == [
+                        {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
+                        {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
+                    ]
+
+    @pytest.mark.asyncio
     async def test_states_sync_with_missing_entity(self, mock_request, mock_hass):
         """Test states sync when some entities don't have states."""
         with patch(

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 from typing import Any
 
 from .const import (
@@ -176,11 +176,14 @@ def build_bridge_chart_from_states(
     seen_timestamps: set[str] = set()
     for state in states:
         timestamp = _state_timestamp(state)
-        point = bridge_chart_point(getattr(state, "state", None), timestamp, device_class, unit)
-        if point is None or point["at"] in seen_timestamps:
+        point = bridge_chart_point(_state_value(state), timestamp, device_class, unit)
+        if point is None:
+            continue
+        point_key = _timestamp_key(point["at"])
+        if point_key in seen_timestamps:
             continue
         points.append(point)
-        seen_timestamps.add(point["at"])
+        seen_timestamps.add(point_key)
 
     fallback_point = bridge_chart_point(
         fallback_state,
@@ -188,7 +191,7 @@ def build_bridge_chart_from_states(
         device_class,
         unit,
     )
-    if fallback_point is not None and fallback_point["at"] not in seen_timestamps:
+    if fallback_point is not None and _timestamp_key(fallback_point["at"]) not in seen_timestamps:
         points.append(fallback_point)
 
     if not points:
@@ -228,20 +231,48 @@ def bridge_chart_point(
 
 def _state_timestamp(state: Any) -> str | None:
     """Return a serializable timestamp for a recorder state."""
+    if isinstance(state, dict):
+        timestamp = state.get("last_updated") or state.get("last_changed")
+        if timestamp is not None:
+            return _serialize_timestamp(timestamp)
+
+        compressed_timestamp = state.get("lu") or state.get("lc")
+        if compressed_timestamp is not None:
+            return _serialize_timestamp(compressed_timestamp)
+
     updated = getattr(state, "last_updated", None)
     if updated is not None:
-        isoformat = getattr(updated, "isoformat", None)
-        if callable(isoformat):
-            return isoformat()
-        if isinstance(updated, str):
-            return updated
+        return _serialize_timestamp(updated)
 
     changed = getattr(state, "last_changed", None)
     if changed is not None:
-        isoformat = getattr(changed, "isoformat", None)
-        if callable(isoformat):
-            return isoformat()
-        if isinstance(changed, str):
-            return changed
+        return _serialize_timestamp(changed)
 
     return None
+
+
+def _state_value(state: Any) -> Any:
+    """Return the numeric state value from recorder state formats."""
+    if isinstance(state, dict):
+        return state.get("state", state.get("s"))
+    return getattr(state, "state", None)
+
+
+def _serialize_timestamp(value: Any) -> str | None:
+    """Serialize object, string, or compressed epoch timestamps."""
+    isoformat = getattr(value, "isoformat", None)
+    if callable(isoformat):
+        return isoformat()
+    if isinstance(value, str):
+        return value
+    if isinstance(value, (int, float)):
+        return datetime.fromtimestamp(value, tz=timezone.utc).isoformat()
+    return None
+
+
+def _timestamp_key(value: str) -> str:
+    """Return a stable key for equivalent ISO timestamps."""
+    try:
+        return str(datetime.fromisoformat(value.replace("Z", "+00:00")).timestamp())
+    except ValueError:
+        return value
