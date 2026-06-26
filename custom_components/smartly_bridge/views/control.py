@@ -41,6 +41,11 @@ def _service_data_from_body(body: dict[str, Any]) -> dict[str, Any]:
     return service_data
 
 
+def _entity_id_from_body(body: dict[str, Any]) -> str | None:
+    """Return target entity ID from canonical key or frontend device_id alias."""
+    return body.get("entity_id") or body.get("device_id")
+
+
 class SmartlyControlView(web.View):
     """Handle POST /api/smartly/control requests."""
 
@@ -125,7 +130,7 @@ class SmartlyControlView(web.View):
                 status=400,
             )
 
-        entity_id = body.get("entity_id")
+        entity_id = _entity_id_from_body(body)
         action = body.get("action")
         service_data = _service_data_from_body(body)
         actor = body.get("actor", {})

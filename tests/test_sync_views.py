@@ -1209,6 +1209,90 @@ async def test_state_sync_merges_sibling_linkquality_signal_metadata(mock_hass):
 
 
 @pytest.mark.asyncio
+async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
+    """Presence cards expose sibling number/select entities as editable settings."""
+    device_id = "zigbee-presence-1"
+    payloads = await _state_payloads(
+        mock_hass,
+        {
+            "binary_sensor.presence": _state(
+                "on",
+                {
+                    "friendly_name": "人體存在感應器",
+                    "device_class": "occupancy",
+                    "illuminance": "bright",
+                },
+            ),
+            "number.presence_detection_delay": _state(
+                "15",
+                {
+                    "friendly_name": "觸發維持秒數",
+                    "min": 1,
+                    "max": 120,
+                    "step": 1,
+                    "unit_of_measurement": "s",
+                },
+            ),
+            "select.presence_occupancy_sensitivity": _state(
+                "low",
+                {
+                    "friendly_name": "感應強度",
+                    "options": ["low", "medium", "high"],
+                },
+            ),
+        },
+        {
+            "binary_sensor.presence": MagicMock(
+                icon=None,
+                original_icon=None,
+                labels={"smartly"},
+                device_id=device_id,
+            ),
+            "number.presence_detection_delay": MagicMock(
+                icon=None,
+                original_icon=None,
+                labels=set(),
+                device_id=device_id,
+            ),
+            "select.presence_occupancy_sensitivity": MagicMock(
+                icon=None,
+                original_icon=None,
+                labels=set(),
+                device_id=device_id,
+            ),
+        },
+        allowed_entity_ids=["binary_sensor.presence"],
+    )
+
+    payload = next(item for item in payloads if item["entity_id"] == "binary_sensor.presence")
+
+    assert payload["device_class"] == "presence_sensor"
+    assert payload["presentation"]["setting_controls"] == [
+        {
+            "key": "trigger_hold_seconds",
+            "entity_id": "number.presence_detection_delay",
+            "domain": "number",
+            "name": "觸發維持秒數",
+            "action": "set_value",
+            "value": 15,
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "unit": "s",
+        },
+        {
+            "key": "occupancy_sensitivity",
+            "entity_id": "select.presence_occupancy_sensitivity",
+            "domain": "select",
+            "name": "感應強度",
+            "action": "select_option",
+            "value": "low",
+            "options": ["low", "medium", "high"],
+        },
+    ]
+
+
+@pytest.mark.asyncio
 async def test_state_sync_keeps_high_risk_camera_read_only(mock_hass):
     """High-risk domains fall back to unknown read-only cards."""
     payload = await _state_payload(
