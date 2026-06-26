@@ -1083,6 +1083,41 @@ async def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
 
 
 @pytest.mark.asyncio
+async def test_state_sync_normalizes_linkquality_signal_metadata(mock_hass):
+    """Linkquality is exposed as normalized signal strength metadata."""
+    payload = await _state_payload(
+        mock_hass,
+        "sensor.living_temperature",
+        _state(
+            "24.6",
+            {
+                "friendly_name": "Living Temperature",
+                "device_class": "temperature",
+                "unit_of_measurement": "°C",
+                "humidity": 61,
+                "battery": 84,
+                "linkquality": 236,
+            },
+        ),
+    )
+
+    assert payload["attributes"]["linkquality"] == 236
+    assert payload["attributes"]["signal_strength"] == 236
+    assert payload["attributes"]["signal_unit"] == "lqi"
+    assert payload["capabilities"] == [
+        "temperature",
+        "humidity",
+        "battery",
+        "signal_strength",
+    ]
+    assert payload["presentation"]["secondary_metrics"] == [
+        "humidity",
+        "battery",
+        "signal_strength",
+    ]
+
+
+@pytest.mark.asyncio
 async def test_state_sync_keeps_high_risk_camera_read_only(mock_hass):
     """High-risk domains fall back to unknown read-only cards."""
     payload = await _state_payload(

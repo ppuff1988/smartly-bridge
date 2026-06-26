@@ -229,6 +229,28 @@ GET /api/smartly/sync/states
 
 #### 常見實體屬性
 
+##### 訊號強度正規化
+
+Bridge 會保留 Home Assistant 原始訊號欄位，並額外提供平台穩定可讀的 `attributes.signal_strength`。
+
+| 原始欄位 | 正規化欄位 | `signal_unit` |
+|---------|------------|---------------|
+| `signal_strength` | `signal_strength` | 保留既有值，若沒有單位則為空字串 |
+| `rssi` | `signal_strength` | `dBm` |
+| `linkquality` | `signal_strength` | `lqi` |
+| `link_quality` | `signal_strength` | `lqi` |
+| `lqi` | `signal_strength` | `lqi` |
+
+例如 Zigbee2MQTT 回傳 `linkquality: 236` 時，Bridge 會回傳：
+
+```json
+{
+  "linkquality": 236,
+  "signal_strength": 236,
+  "signal_unit": "lqi"
+}
+```
+
 ##### Light（燈光）
 
 ```json
@@ -258,6 +280,10 @@ GET /api/smartly/sync/states
     "device_class": "temperature",
     "unit_of_measurement": "°C",
     "friendly_name": "Living Room Temperature",
+    "battery": 84,
+    "linkquality": 236,
+    "signal_strength": 236,
+    "signal_unit": "lqi",
     "bridge_chart": {
       "metric": "temperature",
       "unit": "°C",

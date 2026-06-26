@@ -300,6 +300,7 @@ def _build_presentation(device_class: str, capabilities: list[str]) -> dict[str,
             capabilities,
             primary_metric,
             ("humidity", "battery", "signal_strength", "co2", "pm25", "illuminance"),
+            limit=3,
         )
         presentation["dashboard_priority"] = 40
     elif device_class == "smart_light":
@@ -393,11 +394,13 @@ def _secondary_metrics(
     capabilities: list[str],
     primary_metric: str | None,
     priority: tuple[str, ...],
+    *,
+    limit: int = 2,
 ) -> list[str]:
-    """Return at most two dashboard secondary metrics."""
+    """Return dashboard secondary metrics."""
     capability_set = set(capabilities)
     return [
         capability
         for capability in priority
         if capability in capability_set and capability != primary_metric
-    ][:2]
+    ][:limit]

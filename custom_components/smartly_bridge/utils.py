@@ -85,6 +85,7 @@ def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
     unit = attributes.get("unit_of_measurement", "")
 
     formatted = attributes.copy()
+    _normalize_signal_attributes(formatted)
 
     for attr in NUMERIC_PRECISION_CONFIG:
         if attr in formatted and isinstance(formatted[attr], (int, float)):
@@ -96,6 +97,29 @@ def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
                 pass  # Keep original value if conversion fails
 
     return {key: _json_safe_attribute_value(value) for key, value in formatted.items()}
+
+
+def _normalize_signal_attributes(attributes: dict[str, Any]) -> None:
+    """Expose common signal quality aliases through stable Platform fields."""
+    if "signal_strength" in attributes:
+        attributes.setdefault("signal_unit", _signal_unit_for_key("signal_strength"))
+        return
+
+    for key in ("rssi", "linkquality", "link_quality", "lqi"):
+        if key not in attributes:
+            continue
+        attributes["signal_strength"] = attributes[key]
+        attributes["signal_unit"] = _signal_unit_for_key(key)
+        return
+
+
+def _signal_unit_for_key(key: str) -> str:
+    """Return display unit for known signal aliases."""
+    if key == "rssi":
+        return "dBm"
+    if key in {"linkquality", "link_quality", "lqi"}:
+        return "lqi"
+    return ""
 
 
 def _json_safe_attribute_value(value: Any) -> Any:
