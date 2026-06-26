@@ -300,7 +300,6 @@ def _build_presentation(device_class: str, capabilities: list[str]) -> dict[str,
             capabilities,
             primary_metric,
             ("humidity", "battery", "signal_strength", "co2", "pm25", "illuminance"),
-            limit=3,
         )
         presentation["dashboard_priority"] = 40
     elif device_class == "smart_light":

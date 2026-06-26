@@ -1113,7 +1113,6 @@ async def test_state_sync_normalizes_linkquality_signal_metadata(mock_hass):
     assert payload["presentation"]["secondary_metrics"] == [
         "humidity",
         "battery",
-        "signal_strength",
     ]
 
 

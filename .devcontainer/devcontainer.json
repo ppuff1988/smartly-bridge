@@ -30,7 +30,7 @@
     }
   },
 
-  "postCreateCommand": "apt-get update && apt-get install -y gh bash docker-cli docker-compose && python -m pip install --upgrade pip && python -m pip install pytest black isort",
+  "postCreateCommand": "apt-get update && apt-get install -y gh bash docker-cli docker-compose && python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt",
 
   "remoteUser": "root",
 
