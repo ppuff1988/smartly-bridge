@@ -50,18 +50,18 @@ This lets Smartly support new devices by adding or adjusting a device class mapp
 
 Examples:
 
-| Domain | Meaning |
-| --- | --- |
-| `light` | Light entity |
-| `switch` | On/off switch entity |
-| `sensor` | Numeric or text sensor |
-| `binary_sensor` | Boolean sensor |
-| `fan` | Fan entity |
-| `cover` | Curtain, blind, garage door, or other cover |
-| `climate` | Air conditioner, thermostat, HVAC |
-| `scene` | Scene trigger |
-| `script` | Script trigger |
-| `button` | Stateless button trigger |
+| Domain          | Meaning                                     |
+| --------------- | ------------------------------------------- |
+| `light`         | Light entity                                |
+| `switch`        | On/off switch entity                        |
+| `sensor`        | Numeric or text sensor                      |
+| `binary_sensor` | Boolean sensor                              |
+| `fan`           | Fan entity                                  |
+| `cover`         | Curtain, blind, garage door, or other cover |
+| `climate`       | Air conditioner, thermostat, HVAC           |
+| `scene`         | Scene trigger                               |
+| `script`        | Script trigger                              |
+| `button`        | Stateless button trigger                    |
 
 `domain` is useful but not enough. For example, a `light` may be only on/off, dimmable, color temperature capable, or full RGB capable.
 
@@ -71,25 +71,25 @@ Examples:
 
 Examples:
 
-| Capability | Meaning |
-| --- | --- |
-| `on_off` | Can turn on/off |
-| `brightness` | Supports brightness control |
-| `color_temp` | Supports color temperature |
-| `rgb_color` | Supports color control |
-| `open_close` | Supports open/close |
-| `stop` | Supports stop action |
-| `position` | Supports position percentage |
-| `target_temperature` | Supports target temperature |
-| `fan_speed` | Supports fan speed or preset |
-| `temperature` | Reports temperature |
-| `humidity` | Reports humidity |
-| `battery` | Reports battery level |
-| `signal_strength` | Reports signal strength |
-| `occupancy` | Reports presence or motion |
-| `contact` | Reports open/closed contact |
-| `event` | Reports button or action event |
-| `run` | Can run scene/script |
+| Capability           | Meaning                        |
+| -------------------- | ------------------------------ |
+| `on_off`             | Can turn on/off                |
+| `brightness`         | Supports brightness control    |
+| `color_temp`         | Supports color temperature     |
+| `rgb_color`          | Supports color control         |
+| `open_close`         | Supports open/close            |
+| `stop`               | Supports stop action           |
+| `position`           | Supports position percentage   |
+| `target_temperature` | Supports target temperature    |
+| `fan_speed`          | Supports fan speed or preset   |
+| `temperature`        | Reports temperature            |
+| `humidity`           | Reports humidity               |
+| `battery`            | Reports battery level          |
+| `signal_strength`    | Reports signal strength        |
+| `occupancy`          | Reports presence or motion     |
+| `contact`            | Reports open/closed contact    |
+| `event`              | Reports button or action event |
+| `run`                | Can run scene/script           |
 
 Capabilities are the foundation of UI behavior. A card should render controls only when the capability exists.
 
@@ -99,21 +99,21 @@ Capabilities are the foundation of UI behavior. A card should render controls on
 
 Examples:
 
-| Device Class | Purpose |
-| --- | --- |
-| `smart_light` | Light with dimming, color temperature, or RGB control |
-| `simple_light_switch` | A light controlled by a simple on/off switch |
-| `simple_switch` | Generic on/off switch, plug, relay, or appliance switch |
-| `fan_control` | Fan with on/off and optional speed control |
-| `environment_sensor` | Temperature, humidity, AQI, or similar environment values |
-| `presence_sensor` | Motion, occupancy, or presence detection |
-| `contact_sensor` | Door/window open-close sensor |
-| `button_device` | Stateless button or remote event device |
-| `multi_button_device` | Multi-key switch panel or multi-channel button device |
-| `cover_control` | Curtain, blind, shade, or cover control |
-| `climate_control` | AC, thermostat, or HVAC control |
-| `scene_trigger` | Scene or script run action |
-| `unknown_device` | Fallback read-only device |
+| Device Class          | Purpose                                                   |
+| --------------------- | --------------------------------------------------------- |
+| `smart_light`         | Light with dimming, color temperature, or RGB control     |
+| `simple_light_switch` | A light controlled by a simple on/off switch              |
+| `simple_switch`       | Generic on/off switch, plug, relay, or appliance switch   |
+| `fan_control`         | Fan with on/off and optional speed control                |
+| `environment_sensor`  | Temperature, humidity, AQI, or similar environment values |
+| `presence_sensor`     | Motion, occupancy, or presence detection                  |
+| `contact_sensor`      | Door/window open-close sensor                             |
+| `button_device`       | Stateless button or remote event device                   |
+| `multi_button_device` | Multi-key switch panel or multi-channel button device     |
+| `cover_control`       | Curtain, blind, shade, or cover control                   |
+| `climate_control`     | AC, thermostat, or HVAC control                           |
+| `scene_trigger`       | Scene or script run action                                |
+| `unknown_device`      | Fallback read-only device                                 |
 
 ### 4.4 Card Template
 
@@ -121,18 +121,18 @@ Examples:
 
 Examples:
 
-| Card Template | Used By |
-| --- | --- |
-| `control_card` | One primary action, usually on/off |
-| `light_card` | Light on/off plus optional brightness summary |
-| `metric_card` | Sensor card with one large value and secondary metrics |
-| `binary_state_card` | Open/closed, detected/clear, active/inactive |
-| `event_card` | Latest event from button or remote |
-| `multi_control_card` | Two or more channels in one physical device |
-| `cover_card` | Open/close/stop and optional position |
-| `climate_card` | Current temperature, mode, target temperature |
-| `scene_card` | Run scene/script action |
-| `unknown_card` | Safe read-only fallback |
+| Card Template        | Used By                                                |
+| -------------------- | ------------------------------------------------------ |
+| `control_card`       | One primary action, usually on/off                     |
+| `light_card`         | Light on/off plus optional brightness summary          |
+| `metric_card`        | Sensor card with one large value and secondary metrics |
+| `binary_state_card`  | Open/closed, detected/clear, active/inactive           |
+| `event_card`         | Latest event from button or remote                     |
+| `multi_control_card` | Two or more channels in one physical device            |
+| `cover_card`         | Open/close/stop and optional position                  |
+| `climate_card`       | Current temperature, mode, target temperature          |
+| `scene_card`         | Run scene/script action                                |
+| `unknown_card`       | Safe read-only fallback                                |
 
 ## 5. Data Model Shape
 
@@ -153,12 +153,7 @@ Recommended shape:
     "id": "area-id",
     "name": "Living Room"
   },
-  "capabilities": [
-    "temperature",
-    "humidity",
-    "battery",
-    "signal_strength"
-  ],
+  "capabilities": ["temperature", "humidity", "battery", "signal_strength"],
   "attributes": {
     "unit_of_measurement": "°C",
     "humidity": 61,
@@ -619,14 +614,14 @@ Bridge and Home Assistant labels should be used for exposure, grouping, and opti
 
 Recommended labels:
 
-| Label | Meaning |
-| --- | --- |
-| `smartly` | Expose this entity/device to Smartly |
-| `smartly.favorite` | Suggest dashboard priority |
-| `smartly.hidden` | Sync but hide from normal device lists |
-| `smartly.class.<device_class>` | Manual device class override |
-| `smartly.group.<group_name>` | Group related entities into one logical device |
-| `smartly.dashboard` | Suggest dashboard visibility |
+| Label                          | Meaning                                        |
+| ------------------------------ | ---------------------------------------------- |
+| `smartly`                      | Expose this entity/device to Smartly           |
+| `smartly.favorite`             | Suggest dashboard priority                     |
+| `smartly.hidden`               | Sync but hide from normal device lists         |
+| `smartly.class.<device_class>` | Manual device class override                   |
+| `smartly.group.<group_name>`   | Group related entities into one logical device |
+| `smartly.dashboard`            | Suggest dashboard visibility                   |
 
 Rules:
 
@@ -705,13 +700,13 @@ Device controls must be disabled or read-only when:
 
 Disabled UI must explain why:
 
-| Reason | User Message Direction |
-| --- | --- |
-| Bridge offline | Controls paused until Bridge reconnects |
-| Device unavailable | Device is unavailable |
-| No permission | Your role can view but not control |
-| Unsupported capability | This control is not supported |
-| Unknown device | View-only until Smartly supports this device |
+| Reason                 | User Message Direction                       |
+| ---------------------- | -------------------------------------------- |
+| Bridge offline         | Controls paused until Bridge reconnects      |
+| Device unavailable     | Device is unavailable                        |
+| No permission          | Your role can view but not control           |
+| Unsupported capability | This control is not supported                |
+| Unknown device         | View-only until Smartly supports this device |
 
 ## 13. Example Device Mappings
 
@@ -719,49 +714,49 @@ Disabled UI must explain why:
 
 The exact mapping depends on what Bridge reports. If it is a controllable light or switch:
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `light` or `switch` |
-| Device class | `smart_light`, `simple_light_switch`, or `simple_switch` |
-| Card template | `light_card` or `control_card` |
-| Dashboard | On/off plus brightness if available |
-| Detail | Full capabilities reported by Bridge |
+| Input           | Value                                                    |
+| --------------- | -------------------------------------------------------- |
+| Expected domain | `light` or `switch`                                      |
+| Device class    | `smart_light`, `simple_light_switch`, or `simple_switch` |
+| Card template   | `light_card` or `control_card`                           |
+| Dashboard       | On/off plus brightness if available                      |
+| Detail          | Full capabilities reported by Bridge                     |
 
 ### 13.2 Sonoff SNZB-06P
 
 Likely presence or occupancy sensor.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `binary_sensor` |
-| Device class | `presence_sensor` |
-| Card template | `binary_state_card` |
-| Dashboard | Occupied/clear, last detected, battery |
-| Detail | Occupancy state, last changed, battery, signal, event history |
+| Input           | Value                                                         |
+| --------------- | ------------------------------------------------------------- |
+| Expected domain | `binary_sensor`                                               |
+| Device class    | `presence_sensor`                                             |
+| Card template   | `binary_state_card`                                           |
+| Dashboard       | Occupied/clear, last detected, battery                        |
+| Detail          | Occupancy state, last changed, battery, signal, event history |
 
 ### 13.3 Sonoff SNZB-04P
 
 Likely door/window contact sensor.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `binary_sensor` |
-| Device class | `contact_sensor` |
-| Card template | `binary_state_card` |
-| Dashboard | Open/closed, battery |
-| Detail | State, last changed, battery, signal, event history |
+| Input           | Value                                               |
+| --------------- | --------------------------------------------------- |
+| Expected domain | `binary_sensor`                                     |
+| Device class    | `contact_sensor`                                    |
+| Card template   | `binary_state_card`                                 |
+| Dashboard       | Open/closed, battery                                |
+| Detail          | State, last changed, battery, signal, event history |
 
 ### 13.4 Aqara D1 Two-Key Switch
 
 Multi-channel physical switch.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `switch`, `light`, or event entities |
-| Device class | `multi_button_device` or multiple `simple_light_switch` entities |
-| Card template | `multi_control_card` |
-| Dashboard | Left/right channel states or pinned channel cards |
-| Detail | Physical two-key layout, channel mapping, recent operations |
+| Input           | Value                                                            |
+| --------------- | ---------------------------------------------------------------- |
+| Expected domain | `switch`, `light`, or event entities                             |
+| Device class    | `multi_button_device` or multiple `simple_light_switch` entities |
+| Card template   | `multi_control_card`                                             |
+| Dashboard       | Left/right channel states or pinned channel cards                |
+| Detail          | Physical two-key layout, channel mapping, recent operations      |
 
 Recommendation:
 
@@ -772,49 +767,49 @@ Recommendation:
 
 Environment sensor.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `sensor` |
-| Device class | `environment_sensor` |
-| Card template | `metric_card` |
-| Dashboard | Temperature as primary, humidity and battery as secondary |
-| Detail | Temperature, humidity, battery, signal, last updated |
+| Input           | Value                                                     |
+| --------------- | --------------------------------------------------------- |
+| Expected domain | `sensor`                                                  |
+| Device class    | `environment_sensor`                                      |
+| Card template   | `metric_card`                                             |
+| Dashboard       | Temperature as primary, humidity and battery as secondary |
+| Detail          | Temperature, humidity, battery, signal, last updated      |
 
 ### 13.6 Fan Switch
 
 Simple fan switch unless speed is available.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `switch` or `fan` |
-| Device class | `fan_control` |
-| Card template | `control_card` |
-| Dashboard | On/off, speed if available |
-| Detail | Toggle, speed/preset when available, recent activity |
+| Input           | Value                                                |
+| --------------- | ---------------------------------------------------- |
+| Expected domain | `switch` or `fan`                                    |
+| Device class    | `fan_control`                                        |
+| Card template   | `control_card`                                       |
+| Dashboard       | On/off, speed if available                           |
+| Detail          | Toggle, speed/preset when available, recent activity |
 
 ### 13.7 General Light Switch
 
 Simple light switch.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `switch` |
-| Device class | `simple_light_switch` |
-| Card template | `control_card` |
-| Dashboard | On/off |
-| Detail | Toggle, health metadata, recent activity |
+| Input           | Value                                    |
+| --------------- | ---------------------------------------- |
+| Expected domain | `switch`                                 |
+| Device class    | `simple_light_switch`                    |
+| Card template   | `control_card`                           |
+| Dashboard       | On/off                                   |
+| Detail          | Toggle, health metadata, recent activity |
 
 ### 13.8 Smart Bulb
 
 Advanced light.
 
-| Input | Value |
-| --- | --- |
-| Expected domain | `light` |
-| Device class | `smart_light` |
-| Card template | `light_card` |
-| Dashboard | On/off and brightness |
-| Detail | Toggle, brightness, color temperature, RGB color |
+| Input           | Value                                            |
+| --------------- | ------------------------------------------------ |
+| Expected domain | `light`                                          |
+| Device class    | `smart_light`                                    |
+| Card template   | `light_card`                                     |
+| Dashboard       | On/off and brightness                            |
+| Detail          | Toggle, brightness, color temperature, RGB color |
 
 ## 14. Adding a New Device Class
 
@@ -950,35 +945,35 @@ Smartly 的正式 UI 必須把這些 entity 轉成「一般使用者看得懂的
 
 ### 20.1 Screenshot Entity Type Matrix
 
-| 截圖卡片類型 | Example | Smartly Entity Kind | Dashboard Treatment | Detail Treatment |
-| --- | --- | --- | --- | --- |
-| 溫度 | 氣溫 25.1°C | `temperature_metric` | environment card primary | 主要數值 |
-| 濕度 | 濕度 44.04% | `humidity_metric` | environment card secondary | 主要數值 |
-| 氣壓 | 氣壓 991.00 hPa | `pressure_metric` | secondary only if useful | 主要/進階數值 |
-| 電量百分比 | 電量 100% | `battery_percent_health` | secondary health metric | 裝置健康 |
-| 電量狀態 | 電量 正常 | `battery_status_health` | warning only when abnormal | 裝置健康 |
-| 電壓 | 電壓 3,015 mV | `voltage_diagnostic` | hidden by default | 診斷 |
-| Linkquality | 236 lqi / 255 lqi | `signal_quality_diagnostic` | hidden unless weak | 診斷 |
-| Last seen | 10 分鐘前 / 5 分鐘前 | `last_seen_health` | only if stale/offline | 裝置健康 |
-| 人體存在 | 已觸發 | `presence_state` | presence card primary | 狀態 |
-| Occupancy value | Occupancy 15 | `occupancy_value_diagnostic` | hidden by default | 診斷/進階 |
-| Illuminance | bright | `illuminance_metric` | presence card secondary | 主要/進階數值 |
-| Occupancy sensitivity | low | `presence_setting` | hidden | 設定/診斷 |
-| Update status | 已最新 | `update_status_health` | warning only when update available | 裝置健康 |
-| 門窗狀態 | 門 關閉 | `contact_state` | contact card primary | 狀態 |
-| 風扇燈 | 4 秒前 | `light_control` or `button_event` | depends on capability | 控制/事件 |
-| 風扇按鈕 | 8 秒前 | `button_event` | event card if user-facing | 事件 |
-| 無線雙鍵電量 | 電量 100% | `battery_percent_health` | secondary health metric | 裝置健康 |
-| 無線雙鍵電壓 | 電壓 3,175 mV | `voltage_diagnostic` | hidden by default | 診斷 |
-| 新區塊 | 關閉 / 14 秒前 | `unknown_or_binary_state` | unknown/read-only until classified | raw state + diagnostics |
+| 截圖卡片類型          | Example              | Smartly Entity Kind               | Dashboard Treatment                | Detail Treatment        |
+| --------------------- | -------------------- | --------------------------------- | ---------------------------------- | ----------------------- |
+| 溫度                  | 氣溫 25.1°C          | `temperature_metric`              | environment card primary           | 主要數值                |
+| 濕度                  | 濕度 44.04%          | `humidity_metric`                 | environment card secondary         | 主要數值                |
+| 氣壓                  | 氣壓 991.00 hPa      | `pressure_metric`                 | secondary only if useful           | 主要/進階數值           |
+| 電量百分比            | 電量 100%            | `battery_percent_health`          | secondary health metric            | 裝置健康                |
+| 電量狀態              | 電量 正常            | `battery_status_health`           | warning only when abnormal         | 裝置健康                |
+| 電壓                  | 電壓 3,015 mV        | `voltage_diagnostic`              | hidden by default                  | 診斷                    |
+| Linkquality           | 236 lqi / 255 lqi    | `signal_quality_diagnostic`       | hidden unless weak                 | 診斷                    |
+| Last seen             | 10 分鐘前 / 5 分鐘前 | `last_seen_health`                | only if stale/offline              | 裝置健康                |
+| 人體存在              | 已觸發               | `presence_state`                  | presence card primary              | 狀態                    |
+| Occupancy value       | Occupancy 15         | `occupancy_value_diagnostic`      | hidden by default                  | 診斷/進階               |
+| Illuminance           | bright               | `illuminance_metric`              | presence card secondary            | 主要/進階數值           |
+| Occupancy sensitivity | low                  | `presence_setting`                | hidden                             | 設定/診斷               |
+| Update status         | 已最新               | `update_status_health`            | warning only when update available | 裝置健康                |
+| 門窗狀態              | 門 關閉              | `contact_state`                   | contact card primary               | 狀態                    |
+| 風扇燈                | 4 秒前               | `light_control` or `button_event` | depends on capability              | 控制/事件               |
+| 風扇按鈕              | 8 秒前               | `button_event`                    | event card if user-facing          | 事件                    |
+| 無線雙鍵電量          | 電量 100%            | `battery_percent_health`          | secondary health metric            | 裝置健康                |
+| 無線雙鍵電壓          | 電壓 3,175 mV        | `voltage_diagnostic`              | hidden by default                  | 診斷                    |
+| 新區塊                | 關閉 / 14 秒前       | `unknown_or_binary_state`         | unknown/read-only until classified | raw state + diagnostics |
 
 ### 20.2 Source Entity Card vs Smartly Card
 
-| Card Type | Purpose | Who Sees It | Example |
-| --- | --- | --- | --- |
-| Source entity card | 忠實顯示 Bridge/HA/Zigbee2MQTT 的單一 entity | Owner/support 診斷 | Linkquality 255 lqi |
-| Smartly logical card | 聚合成一般使用者理解的裝置 | 所有一般使用者 | 門窗感應器：關閉 · 電量 100% |
-| Smartly detail section | 顯示完整數值、健康、事件、診斷 | 一般使用者 + owner/support | 電壓、Last seen、更新狀態 |
+| Card Type              | Purpose                                      | Who Sees It                | Example                      |
+| ---------------------- | -------------------------------------------- | -------------------------- | ---------------------------- |
+| Source entity card     | 忠實顯示 Bridge/HA/Zigbee2MQTT 的單一 entity | Owner/support 診斷         | Linkquality 255 lqi          |
+| Smartly logical card   | 聚合成一般使用者理解的裝置                   | 所有一般使用者             | 門窗感應器：關閉 · 電量 100% |
+| Smartly detail section | 顯示完整數值、健康、事件、診斷               | 一般使用者 + owner/support | 電壓、Last seen、更新狀態    |
 
 Rule:
 
@@ -990,11 +985,11 @@ Rule:
 
 截圖中的卡片是橫向 compact entity card。Smartly 可以保留這種視覺密度，但內容要改成 logical card。
 
-| Size | Use | Desktop | Mobile |
-| --- | --- | --- | --- |
-| Compact entity row | 診斷或詳情頁 entity 列表 | 2 columns | 1 column |
-| Standard logical card | dashboard 裝置主卡 | 1-2 grid units | full width |
-| Rich logical card | 優先裝置、多控制裝置、燈光控制 | 2-4 grid units | full width / expandable |
+| Size                  | Use                            | Desktop        | Mobile                  |
+| --------------------- | ------------------------------ | -------------- | ----------------------- |
+| Compact entity row    | 診斷或詳情頁 entity 列表       | 2 columns      | 1 column                |
+| Standard logical card | dashboard 裝置主卡             | 1-2 grid units | full width              |
+| Rich logical card     | 優先裝置、多控制裝置、燈光控制 | 2-4 grid units | full width / expandable |
 
 Standard logical card anatomy:
 
@@ -1022,15 +1017,15 @@ Applies to screenshot group: `溫濕度感應器`.
 
 Source entities:
 
-| Source Entity | Entity Kind | Dashboard Role | Detail Role |
-| --- | --- | --- | --- |
-| 氣溫 | `temperature_metric` | Primary metric | Main metric |
-| 濕度 | `humidity_metric` | Secondary metric | Main metric |
-| 氣壓 | `pressure_metric` | Optional secondary | Extended metric |
-| 電量 | `battery_percent_health` | Secondary health | Health |
-| 電壓 | `voltage_diagnostic` | Hidden | Diagnostic |
-| Last seen | `last_seen_health` | Stale/offline only | Health |
-| Linkquality | `signal_quality_diagnostic` | Warning only if weak | Diagnostic |
+| Source Entity | Entity Kind                 | Dashboard Role       | Detail Role     |
+| ------------- | --------------------------- | -------------------- | --------------- |
+| 氣溫          | `temperature_metric`        | Primary metric       | Main metric     |
+| 濕度          | `humidity_metric`           | Secondary metric     | Main metric     |
+| 氣壓          | `pressure_metric`           | Optional secondary   | Extended metric |
+| 電量          | `battery_percent_health`    | Secondary health     | Health          |
+| 電壓          | `voltage_diagnostic`        | Hidden               | Diagnostic      |
+| Last seen     | `last_seen_health`          | Stale/offline only   | Health          |
+| Linkquality   | `signal_quality_diagnostic` | Warning only if weak | Diagnostic      |
 
 Dashboard card:
 
@@ -1075,15 +1070,15 @@ Applies to screenshot group: `人體存在感應器`.
 
 Source entities:
 
-| Source Entity | Entity Kind | Dashboard Role | Detail Role |
-| --- | --- | --- | --- |
-| 人體存在 | `presence_state` | Primary state | Main state |
-| Occupancy value | `occupancy_value_diagnostic` | Hidden | Diagnostic/advanced |
-| Illuminance | `illuminance_metric` | Secondary metric | Metric |
-| Last seen | `last_seen_health` | Stale/offline only | Health |
-| Linkquality | `signal_quality_diagnostic` | Warning only if weak | Diagnostic |
-| Occupancy sensitivity | `presence_setting` | Hidden | Setting/diagnostic |
-| Update status | `update_status_health` | Warning only if update available | Health |
+| Source Entity         | Entity Kind                  | Dashboard Role                   | Detail Role         |
+| --------------------- | ---------------------------- | -------------------------------- | ------------------- |
+| 人體存在              | `presence_state`             | Primary state                    | Main state          |
+| Occupancy value       | `occupancy_value_diagnostic` | Hidden                           | Diagnostic/advanced |
+| Illuminance           | `illuminance_metric`         | Secondary metric                 | Metric              |
+| Last seen             | `last_seen_health`           | Stale/offline only               | Health              |
+| Linkquality           | `signal_quality_diagnostic`  | Warning only if weak             | Diagnostic          |
+| Occupancy sensitivity | `presence_setting`           | Hidden                           | Setting/diagnostic  |
+| Update status         | `update_status_health`       | Warning only if update available | Health              |
 
 Dashboard card:
 
@@ -1129,14 +1124,14 @@ Applies to screenshot group: `門窗感應器`.
 
 Source entities:
 
-| Source Entity | Entity Kind | Dashboard Role | Detail Role |
-| --- | --- | --- | --- |
-| 門 | `contact_state` | Primary state | Main state |
-| 電量狀態 | `battery_status_health` | Warning only when abnormal | Health |
-| 電量百分比 | `battery_percent_health` | Secondary health | Health |
-| 電壓 | `voltage_diagnostic` | Hidden | Diagnostic |
-| Last seen | `last_seen_health` | Stale/offline only | Health |
-| Linkquality | `signal_quality_diagnostic` | Warning only if weak | Diagnostic |
+| Source Entity | Entity Kind                 | Dashboard Role             | Detail Role |
+| ------------- | --------------------------- | -------------------------- | ----------- |
+| 門            | `contact_state`             | Primary state              | Main state  |
+| 電量狀態      | `battery_status_health`     | Warning only when abnormal | Health      |
+| 電量百分比    | `battery_percent_health`    | Secondary health           | Health      |
+| 電壓          | `voltage_diagnostic`        | Hidden                     | Diagnostic  |
+| Last seen     | `last_seen_health`          | Stale/offline only         | Health      |
+| Linkquality   | `signal_quality_diagnostic` | Warning only if weak       | Diagnostic  |
 
 Dashboard card:
 
@@ -1295,12 +1290,12 @@ Detail rules:
 
 Threshold recommendation:
 
-| Device Type | Dashboard Shows Last Seen When |
-| --- | --- |
-| Battery sensor | Stale beyond expected reporting interval |
-| Contact sensor | Stale or offline |
-| Presence sensor | Useful as secondary event freshness |
-| Button/event device | Always useful as last event time |
+| Device Type         | Dashboard Shows Last Seen When           |
+| ------------------- | ---------------------------------------- |
+| Battery sensor      | Stale beyond expected reporting interval |
+| Contact sensor      | Stale or offline                         |
+| Presence sensor     | Useful as secondary event freshness      |
+| Button/event device | Always useful as last event time         |
 
 ### 20.11 Illuminance Metric Class
 
@@ -1378,10 +1373,10 @@ Applies to screenshot group: `usb-fan`.
 
 Source entities:
 
-| Source Entity | Possible Entity Kind | Dashboard Role |
-| --- | --- | --- |
-| 風扇燈 | `light_control` or `button_event` | Control if light capability exists; event if only timestamp |
-| 風扇按鈕 | `button_event` | Event card or action binding |
+| Source Entity | Possible Entity Kind              | Dashboard Role                                              |
+| ------------- | --------------------------------- | ----------------------------------------------------------- |
+| 風扇燈        | `light_control` or `button_event` | Control if light capability exists; event if only timestamp |
+| 風扇按鈕      | `button_event`                    | Event card or action binding                                |
 
 Classification rule:
 
@@ -1425,19 +1420,19 @@ Applies to screenshot group: `無線雙鍵`.
 
 Visible source entities in screenshot:
 
-| Source Entity | Entity Kind | Dashboard Role | Detail Role |
-| --- | --- | --- | --- |
-| 電量 | `battery_percent_health` | Secondary health if device card exists | Health |
-| 電壓 | `voltage_diagnostic` | Hidden | Diagnostic |
+| Source Entity | Entity Kind              | Dashboard Role                         | Detail Role |
+| ------------- | ------------------------ | -------------------------------------- | ----------- |
+| 電量          | `battery_percent_health` | Secondary health if device card exists | Health      |
+| 電壓          | `voltage_diagnostic`     | Hidden                                 | Diagnostic  |
 
 Expected related entities, if Bridge reports them:
 
-| Expected Entity | Entity Kind | Dashboard Role |
-| --- | --- | --- |
-| Left key event | `button_event` | Event or linked action |
-| Right key event | `button_event` | Event or linked action |
-| Left relay/switch | `on_off` | Channel control |
-| Right relay/switch | `on_off` | Channel control |
+| Expected Entity    | Entity Kind    | Dashboard Role         |
+| ------------------ | -------------- | ---------------------- |
+| Left key event     | `button_event` | Event or linked action |
+| Right key event    | `button_event` | Event or linked action |
+| Left relay/switch  | `on_off`       | Channel control        |
+| Right relay/switch | `on_off`       | Channel control        |
 
 Dashboard card:
 
@@ -1530,12 +1525,12 @@ Only the first 2-3 relevant items should appear on dashboard. The rest goes to d
 
 ### 21.1 Light Capability Levels
 
-| Level | Capabilities | Device Class | Dashboard |
-| --- | --- | --- | --- |
-| L1 Simple light | `on_off` | `simple_light_switch` | Toggle |
-| L2 Dimmable light | `on_off`, `brightness` | `smart_light` | Toggle + brightness summary |
-| L3 Tunable white | `on_off`, `brightness`, `color_temp` | `smart_light` | Toggle + brightness; color temp in detail |
-| L4 Color light | `on_off`, `brightness`, `color_temp`, `rgb_color` | `smart_light` | Toggle + brightness; color in detail |
+| Level             | Capabilities                                      | Device Class          | Dashboard                                 |
+| ----------------- | ------------------------------------------------- | --------------------- | ----------------------------------------- |
+| L1 Simple light   | `on_off`                                          | `simple_light_switch` | Toggle                                    |
+| L2 Dimmable light | `on_off`, `brightness`                            | `smart_light`         | Toggle + brightness summary               |
+| L3 Tunable white  | `on_off`, `brightness`, `color_temp`              | `smart_light`         | Toggle + brightness; color temp in detail |
+| L4 Color light    | `on_off`, `brightness`, `color_temp`, `rgb_color` | `smart_light`         | Toggle + brightness; color in detail      |
 
 ### 21.2 Dashboard Light Card
 
@@ -1611,13 +1606,13 @@ Activity
 
 ### 21.5 Light Control Mapping
 
-| UI Control | Required Capability | Action Payload Direction |
-| --- | --- | --- |
-| Power toggle | `on_off` | `turn_on` / `turn_off` |
-| Brightness slider | `brightness` | `set_brightness` or `turn_on` with brightness |
-| Color temperature | `color_temp` | `set_color_temp` or `turn_on` with color temp |
-| RGB color | `rgb_color` | `set_rgb_color` or `turn_on` with RGB |
-| Preset scene | `run` or scene binding | Run scene/script |
+| UI Control        | Required Capability    | Action Payload Direction           |
+| ----------------- | ---------------------- | ---------------------------------- |
+| Power toggle      | `on_off`               | `turn_on` / `turn_off`             |
+| Brightness slider | `brightness`           | `turn_on` with `brightness`        |
+| Color temperature | `color_temp`           | `turn_on` with `color_temp_kelvin` |
+| Color control     | `hs_color`             | `turn_on` with `hs_color`          |
+| Preset scene      | `run` or scene binding | Run scene/script                   |
 
 Rules:
 
@@ -1625,6 +1620,67 @@ Rules:
 - Failed Bridge actions must not be shown as successful.
 - Optimistic UI is allowed only with rollback and visible error handling.
 - Unsupported controls must be hidden, not disabled, unless hiding would confuse the user.
+
+### 21.6 Light Action Payloads
+
+Smartly light controls should send Home Assistant-compatible action payloads through Platform/Bridge. Brightness, color temperature, and color all use `turn_on` with additional data.
+
+Brightness:
+
+```json
+{
+  "action": "turn_on",
+  "data": {
+    "brightness": 191
+  }
+}
+```
+
+Brightness rules:
+
+- Home Assistant brightness range is `0-255`.
+- UI brightness is displayed as `0-100%`.
+- Convert UI percent to HA brightness with `round(percent / 100 * 255)`.
+- Example: `75%` -> `191`.
+- Clamp values before sending: below `0` becomes `0`, above `100` becomes `100`.
+- If UI uses `0%` as an off gesture, prefer sending `turn_off` instead of `turn_on` with `brightness: 0`.
+
+Color temperature:
+
+```json
+{
+  "action": "turn_on",
+  "data": {
+    "color_temp_kelvin": 3500
+  }
+}
+```
+
+Color temperature rules:
+
+- UI should display Kelvin values or user-friendly presets such as warm, neutral, cool.
+- Send Kelvin using `color_temp_kelvin`.
+- Clamp to the device-supported min/max Kelvin range when Bridge reports it.
+- If min/max is unknown, keep presets conservative.
+
+Color:
+
+```json
+{
+  "action": "turn_on",
+  "data": {
+    "hs_color": [260, 100]
+  }
+}
+```
+
+Color rules:
+
+- Use `hs_color` for color-capable lights.
+- Hue range is `0-360`.
+- Saturation range is `0-100`.
+- Clamp hue and saturation before sending.
+- UI color picker should store/send `[hue, saturation]`, not RGB, unless Bridge explicitly maps RGB to HS.
 
 ## 22. Summary
 
