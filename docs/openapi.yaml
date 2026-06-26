@@ -448,7 +448,8 @@ paths:
         Returns the current state of all entities that have the `smartly` label.
         Useful for initial sync or state reconciliation.
         Eligible numeric sensors include `attributes.bridge_chart.points` with
-        recorder significant states from the previous 2 hours. If recorder
+        recorder significant states from the previous 2 hours, capped at 24
+        evenly sampled points. If recorder
         history is unavailable, Bridge falls back to the current value as one point.
       operationId: syncStates
       responses:
@@ -1507,7 +1508,8 @@ components:
           type: object
           description: |
             Entity attributes. Eligible numeric sensors include `bridge_chart` inside this object.
-            `bridge_chart.points` preloads recorder significant states from the previous 2 hours;
+            `bridge_chart.points` preloads recorder significant states from the previous 2 hours,
+            capped at 24 evenly sampled points;
             if recorder history is unavailable, Bridge falls back to the current value as one point.
             Signal aliases are normalized into `signal_strength` and `signal_unit` while
             preserving the original field, e.g. `linkquality: 236` becomes
@@ -1642,7 +1644,8 @@ components:
         Compact chart payload for eligible numeric environment and air quality sensors.
         Returned only when the sensor has a supported device_class and at least one numeric point.
         In sync states and webhook events this payload is nested under `attributes.bridge_chart`
-        and preloads the previous 2 hours of recorder significant states.
+        and preloads the previous 2 hours of recorder significant states, capped at 24
+        evenly sampled points.
       required:
         - metric
         - unit
@@ -2375,7 +2378,8 @@ components:
           type: object
           description: |
             Current entity attributes. Eligible numeric sensors include `bridge_chart` inside this object.
-            `bridge_chart.points` preloads recorder significant states from the previous 2 hours;
+            `bridge_chart.points` preloads recorder significant states from the previous 2 hours,
+            capped at 24 evenly sampled points;
             if recorder history is unavailable, Bridge falls back to the current value as one point.
             Signal aliases are normalized into `signal_strength` and `signal_unit` while
             preserving the original field, e.g. `rssi: -58` becomes

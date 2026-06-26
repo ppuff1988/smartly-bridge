@@ -8,6 +8,7 @@ from typing import Any
 
 from .const import (
     BRIDGE_CHART_DEVICE_CLASSES,
+    BRIDGE_CHART_MAX_POINTS,
     NUMERIC_PRECISION_CONFIG,
     UNIT_SPECIFIC_PRECISION_CONFIG,
 )
@@ -249,7 +250,7 @@ def build_bridge_chart_from_states(
     return {
         "metric": device_class,
         "unit": unit or "",
-        "points": points,
+        "points": _downsample_bridge_chart_points(points, BRIDGE_CHART_MAX_POINTS),
     }
 
 
@@ -276,6 +277,23 @@ def bridge_chart_point(
         "at": timestamp,
         "value": value,
     }
+
+
+def _downsample_bridge_chart_points(
+    points: list[dict[str, Any]],
+    max_points: int,
+) -> list[dict[str, Any]]:
+    """Limit dense chart payloads while preserving the visible trend endpoints."""
+    if len(points) <= max_points:
+        return points
+    if max_points <= 0:
+        return []
+    if max_points == 1:
+        return [points[-1]]
+
+    last_index = len(points) - 1
+    selected_indices = {round(index * last_index / (max_points - 1)) for index in range(max_points)}
+    return [points[index] for index in sorted(selected_indices)]
 
 
 def _state_timestamp(state: Any) -> str | None:
