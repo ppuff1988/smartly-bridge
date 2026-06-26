@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.14.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.13.3...v1.14.0) (2026-06-26)
+
+### ✨ 新增功能 (Features)
+
+* **sync:** normalize signal strength aliases ([#88](https://github.com/ppuff1988/smartly-bridge/issues/88)) ([5078a43](https://github.com/ppuff1988/smartly-bridge/commit/5078a43c75e6e11f4e48e383659919cded6fedf8))
+
 ## [1.13.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.13.2...v1.13.3) (2026-06-26)
 
 ### 🐛 錯誤修正 (Bug Fixes)
