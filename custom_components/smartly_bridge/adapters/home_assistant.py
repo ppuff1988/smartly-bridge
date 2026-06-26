@@ -21,7 +21,13 @@ from ..const import (
 )
 from ..device_presentation import build_device_card_metadata
 from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
-from ..utils import build_bridge_chart_from_states, format_numeric_attributes, format_sensor_state
+from ..utils import (
+    build_bridge_chart_from_states,
+    format_numeric_attributes,
+    format_sensor_state,
+    numeric_state_value,
+    signal_attribute_key_for_entity,
+)
 
 
 def _entry_labels(entry: Any) -> set[str]:
@@ -197,6 +203,7 @@ class HomeAssistantStateSyncGateway:
 
         entity_registry = er.async_get(self._hass)
         allowed_entities = self._allowed_entities_fn(self._hass, entity_registry)
+        signal_by_device = self._signal_attributes_by_device(allowed_entities, entity_registry)
 
         snapshots: list[EntityStateSnapshot] = []
         for entity_id in allowed_entities:
@@ -211,7 +218,12 @@ class HomeAssistantStateSyncGateway:
             if not icon:
                 icon = DEFAULT_DOMAIN_ICONS.get(get_entity_domain(entity_id))
 
-            attributes = format_numeric_attributes(dict(state.attributes))
+            raw_attributes = dict(state.attributes)
+            device_id = getattr(entry, "device_id", None) if entry else None
+            if device_id and device_id in signal_by_device:
+                for key, value in signal_by_device[device_id].items():
+                    raw_attributes.setdefault(key, value)
+            attributes = format_numeric_attributes(raw_attributes)
             labels = _entry_labels(entry)
             card_metadata = build_device_card_metadata(
                 entity_id,
@@ -234,6 +246,43 @@ class HomeAssistantStateSyncGateway:
                 )
             )
         return snapshots
+
+    def _signal_attributes_by_device(
+        self,
+        entity_ids: list[str],
+        entity_registry: Any,
+    ) -> dict[str, dict[str, int | float]]:
+        """Return signal attributes exposed by diagnostic sibling entities."""
+        allowed_device_ids: set[str] = set()
+        for entity_id in entity_ids:
+            entry = entity_registry.async_get(entity_id)
+            device_id = getattr(entry, "device_id", None) if entry else None
+            if device_id:
+                allowed_device_ids.add(device_id)
+
+        if not allowed_device_ids:
+            return {}
+
+        signal_by_device: dict[str, dict[str, int | float]] = {}
+        for registry_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            entity_id = getattr(sibling, "entity_id", None) or registry_entity_id
+            if not isinstance(entity_id, str):
+                entity_id = registry_entity_id if isinstance(registry_entity_id, str) else None
+            device_id = getattr(sibling, "device_id", None)
+            if not entity_id or device_id not in allowed_device_ids:
+                continue
+
+            key = signal_attribute_key_for_entity(entity_id)
+            if key is None:
+                continue
+
+            state = self._hass.states.get(entity_id)
+            value = numeric_state_value(getattr(state, "state", None) if state else None)
+            if value is None:
+                continue
+
+            signal_by_device.setdefault(device_id, {})[key] = value
+        return signal_by_device
 
     def _get_history_semaphore(self) -> asyncio.Semaphore:
         """Return the recorder query semaphore for bridge chart preloading."""

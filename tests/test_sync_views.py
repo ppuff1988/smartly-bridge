@@ -1029,6 +1029,42 @@ async def _state_payload(mock_hass, entity_id: str, state, entry=None):
     return snapshot.to_sync_dict()
 
 
+async def _state_payloads(
+    mock_hass,
+    states_by_entity: dict[str, object],
+    entries_by_entity: dict,
+    allowed_entity_ids: list[str] | None = None,
+):
+    def get_state(entity_id):
+        return states_by_entity.get(entity_id)
+
+    def get_entry(entity_id):
+        return entries_by_entity.get(entity_id)
+
+    mock_hass.states.get = MagicMock(side_effect=get_state)
+    mock_registry = MagicMock()
+    mock_registry.entities = entries_by_entity
+    mock_registry.async_get = MagicMock(side_effect=get_entry)
+
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry),
+        patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states,
+    ):
+        mock_query_states.return_value = []
+        snapshots = await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(
+                return_value=allowed_entity_ids or list(states_by_entity)
+            ),
+        ).list_states()
+
+    return [snapshot.to_sync_dict() for snapshot in snapshots]
+
+
 @pytest.mark.asyncio
 async def test_state_sync_includes_light_card_capability_metadata(mock_hass):
     """Advanced lights expose normalized capabilities and light presentation."""
@@ -1113,6 +1149,62 @@ async def test_state_sync_normalizes_linkquality_signal_metadata(mock_hass):
     assert payload["presentation"]["secondary_metrics"] == [
         "humidity",
         "battery",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_state_sync_merges_sibling_linkquality_signal_metadata(mock_hass):
+    """Unlabelled sibling Zigbee linkquality sensors are exposed on the primary card."""
+    device_id = "zigbee-device-1"
+    payloads = await _state_payloads(
+        mock_hass,
+        {
+            "sensor.living_temperature": _state(
+                "24.6",
+                {
+                    "friendly_name": "Living Temperature",
+                    "device_class": "temperature",
+                    "unit_of_measurement": "°C",
+                    "humidity": 61,
+                    "battery": 84,
+                },
+            ),
+            "sensor.living_linkquality": _state(
+                "236",
+                {
+                    "friendly_name": "Living Linkquality",
+                    "unit_of_measurement": "lqi",
+                },
+            ),
+        },
+        {
+            "sensor.living_temperature": MagicMock(
+                icon=None,
+                original_icon=None,
+                labels={"smartly"},
+                device_id=device_id,
+            ),
+            "sensor.living_linkquality": MagicMock(
+                icon=None,
+                original_icon=None,
+                labels=set(),
+                device_id=device_id,
+            ),
+        },
+        allowed_entity_ids=["sensor.living_temperature"],
+    )
+
+    assert [item["entity_id"] for item in payloads] == ["sensor.living_temperature"]
+    payload = next(item for item in payloads if item["entity_id"] == "sensor.living_temperature")
+
+    assert payload["attributes"]["linkquality"] == 236
+    assert payload["attributes"]["signal_strength"] == 236
+    assert payload["attributes"]["signal_unit"] == "lqi"
+    assert payload["capabilities"] == [
+        "temperature",
+        "humidity",
+        "battery",
+        "signal_strength",
     ]
 
 
