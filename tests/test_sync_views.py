@@ -355,13 +355,9 @@ class TestSmartlySyncStatesView:
                     "friendly_name": "Living Room Environment",
                 }
                 mock_state.last_changed = MagicMock()
-                mock_state.last_changed.isoformat = MagicMock(
-                    return_value="2026-06-26T06:00:00Z"
-                )
+                mock_state.last_changed.isoformat = MagicMock(return_value="2026-06-26T06:00:00Z")
                 mock_state.last_updated = MagicMock()
-                mock_state.last_updated.isoformat = MagicMock(
-                    return_value="2026-06-26T06:00:00Z"
-                )
+                mock_state.last_updated.isoformat = MagicMock(return_value="2026-06-26T06:00:00Z")
                 mock_hass.states.get = MagicMock(return_value=mock_state)
 
                 with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
