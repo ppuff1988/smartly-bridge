@@ -67,6 +67,11 @@ class TestIsServiceAllowed:
         assert is_service_allowed("lock", "lock") is True
         assert is_service_allowed("lock", "unlock") is True
 
+    def test_allowed_setting_services(self):
+        """Test allowed number and select setting services."""
+        assert is_service_allowed("number", "set_value") is True
+        assert is_service_allowed("select", "select_option") is True
+
     def test_disallowed_service(self):
         """Test disallowed service."""
         assert is_service_allowed("switch", "reload") is False

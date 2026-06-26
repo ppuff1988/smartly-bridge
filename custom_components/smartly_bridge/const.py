@@ -63,6 +63,8 @@ ALLOWED_SERVICES: dict[str, list[str]] = {
     "cover": ["open_cover", "close_cover", "stop_cover", "set_cover_position"],
     "climate": ["set_temperature", "set_hvac_mode", "set_fan_mode"],
     "fan": ["turn_on", "turn_off", "set_percentage", "set_preset_mode"],
+    "number": ["set_value"],
+    "select": ["select_option"],
     "lock": ["lock", "unlock"],
     "scene": ["turn_on"],
     "script": ["turn_on", "turn_off"],

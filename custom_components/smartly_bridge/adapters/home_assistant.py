@@ -49,6 +49,77 @@ def _history_end_time(value: Any) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | None:
+    """Return the Smartly setting key for supported sibling setting entities."""
+    haystack = f"{entity_id} {name}".lower()
+    if domain == "number" and any(
+        token in haystack
+        for token in (
+            "delay",
+            "duration",
+            "hold",
+            "timeout",
+            "occupancy_timeout",
+            "trigger",
+            "second",
+            "秒",
+            "維持",
+        )
+    ):
+        return "trigger_hold_seconds"
+    if domain == "select" and any(
+        token in haystack for token in ("sensitivity", "occupancy_sensitivity", "感應強度")
+    ):
+        return "occupancy_sensitivity"
+    return None
+
+
+def _number_setting_control(
+    entity_id: str,
+    key: str,
+    state: Any,
+    attributes: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a number setting control descriptor."""
+    control: dict[str, Any] = {
+        "key": key,
+        "entity_id": entity_id,
+        "domain": "number",
+        "name": attributes.get("friendly_name", entity_id),
+        "action": "set_value",
+        "value": numeric_state_value(getattr(state, "state", None)),
+    }
+    for source, target in (("min", "min"), ("max", "max"), ("step", "step")):
+        value = numeric_state_value(attributes.get(source))
+        if value is not None:
+            control[target] = value
+    unit = attributes.get("unit_of_measurement")
+    if unit:
+        control["unit"] = unit
+    return control
+
+
+def _select_setting_control(
+    entity_id: str,
+    key: str,
+    state: Any,
+    attributes: dict[str, Any],
+) -> dict[str, Any]:
+    """Build a select setting control descriptor."""
+    control: dict[str, Any] = {
+        "key": key,
+        "entity_id": entity_id,
+        "domain": "select",
+        "name": attributes.get("friendly_name", entity_id),
+        "action": "select_option",
+        "value": getattr(state, "state", None),
+    }
+    options = attributes.get("options")
+    if isinstance(options, list):
+        control["options"] = options
+    return control
+
+
 class LoggingAuditAdapter:
     """Audit adapter backed by the existing logging helpers."""
 
@@ -204,6 +275,10 @@ class HomeAssistantStateSyncGateway:
         entity_registry = er.async_get(self._hass)
         allowed_entities = self._allowed_entities_fn(self._hass, entity_registry)
         signal_by_device = self._signal_attributes_by_device(allowed_entities, entity_registry)
+        setting_controls_by_device = self._setting_controls_by_device(
+            allowed_entities,
+            entity_registry,
+        )
 
         snapshots: list[EntityStateSnapshot] = []
         for entity_id in allowed_entities:
@@ -231,6 +306,14 @@ class HomeAssistantStateSyncGateway:
                 attributes,
                 labels,
             )
+            if (
+                device_id
+                and card_metadata["device_class"] == "presence_sensor"
+                and device_id in setting_controls_by_device
+            ):
+                card_metadata["presentation"]["setting_controls"] = setting_controls_by_device[
+                    device_id
+                ]
             bridge_chart = await self._bridge_chart_for_state(entity_id, state, attributes)
 
             snapshots.append(
@@ -283,6 +366,58 @@ class HomeAssistantStateSyncGateway:
 
             signal_by_device.setdefault(device_id, {})[key] = value
         return signal_by_device
+
+    def _setting_controls_by_device(
+        self,
+        entity_ids: list[str],
+        entity_registry: Any,
+    ) -> dict[str, list[dict[str, Any]]]:
+        """Return editable number/select setting controls from sibling entities."""
+        allowed_device_ids: set[str] = set()
+        for entity_id in entity_ids:
+            entry = entity_registry.async_get(entity_id)
+            device_id = getattr(entry, "device_id", None) if entry else None
+            if device_id:
+                allowed_device_ids.add(device_id)
+
+        if not allowed_device_ids:
+            return {}
+
+        controls_by_device: dict[str, list[dict[str, Any]]] = {}
+        for registry_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            entity_id = getattr(sibling, "entity_id", None) or registry_entity_id
+            if not isinstance(entity_id, str):
+                entity_id = registry_entity_id if isinstance(registry_entity_id, str) else None
+            device_id = getattr(sibling, "device_id", None)
+            domain = get_entity_domain(entity_id or "")
+            if (
+                not entity_id
+                or device_id not in allowed_device_ids
+                or domain not in {"number", "select"}
+            ):
+                continue
+
+            state = self._hass.states.get(entity_id)
+            if state is None:
+                continue
+
+            attributes = format_numeric_attributes(dict(state.attributes))
+            name = str(attributes.get("friendly_name", entity_id))
+            key = _setting_key_for_entity(entity_id, name, domain)
+            if key is None:
+                continue
+
+            if domain == "number":
+                control = _number_setting_control(entity_id, key, state, attributes)
+            else:
+                control = _select_setting_control(entity_id, key, state, attributes)
+
+            controls_by_device.setdefault(device_id, []).append(control)
+
+        order = {"trigger_hold_seconds": 0, "occupancy_sensitivity": 1}
+        for controls in controls_by_device.values():
+            controls.sort(key=lambda control: order.get(str(control.get("key")), 99))
+        return controls_by_device
 
     def _get_history_semaphore(self) -> asyncio.Semaphore:
         """Return the recorder query semaphore for bridge chart preloading."""
