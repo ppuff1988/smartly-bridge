@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.13.3](https://github.com/ppuff1988/smartly-bridge/compare/v1.13.2...v1.13.3) (2026-06-26)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **sync:** shorten bridge chart lookback ([#86](https://github.com/ppuff1988/smartly-bridge/issues/86)) ([37433a4](https://github.com/ppuff1988/smartly-bridge/commit/37433a4ca5c7b22fa05cd2f803f3914ac2b6b165))
+
 ## [1.13.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.13.1...v1.13.2) (2026-06-26)
 
 ### 🐛 錯誤修正 (Bug Fixes)
