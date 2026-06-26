@@ -12,6 +12,13 @@ from .const import (
     UNIT_SPECIFIC_PRECISION_CONFIG,
 )
 
+SIGNAL_ENTITY_SUFFIXES = {
+    "_linkquality": "linkquality",
+    "_link_quality": "link_quality",
+    "_lqi": "lqi",
+    "_rssi": "rssi",
+}
+
 
 def parse_allowed_networks(
     allowed_cidrs: str,
@@ -52,6 +59,24 @@ def _wildcard_to_cidr(ip_range: str) -> str:
     prefix = wildcard_index * 8
     network_parts = parts[:wildcard_index] + ["0"] * (4 - wildcard_index)
     return f"{'.'.join(network_parts)}/{prefix}"
+
+
+def signal_attribute_key_for_entity(entity_id: str) -> str | None:
+    """Return the signal attribute represented by a diagnostic entity id."""
+    object_id = entity_id.split(".", 1)[-1].lower()
+    for suffix, key in SIGNAL_ENTITY_SUFFIXES.items():
+        if object_id.endswith(suffix):
+            return key
+    return None
+
+
+def numeric_state_value(value: Any) -> int | float | None:
+    """Return a numeric state value, preserving integers where possible."""
+    try:
+        number = float(value)
+    except (TypeError, ValueError):
+        return None
+    return int(number) if number.is_integer() else number
 
 
 def get_decimal_places(key: str, unit: str = "") -> int | None:

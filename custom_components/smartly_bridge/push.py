@@ -33,6 +33,8 @@ from .utils import (
     build_bridge_chart_from_states,
     format_numeric_attributes,
     format_sensor_state,
+    numeric_state_value,
+    signal_attribute_key_for_entity,
 )
 
 if TYPE_CHECKING:
@@ -156,7 +158,7 @@ class StatePushManager:
         new_state: State,
     ) -> None:
         """Queue a state change event for batch processing."""
-        new_state_data = self._state_to_dict(new_state)
+        new_state_data = self._state_to_dict(new_state, entity_id)
         bridge_chart = await self._bridge_chart_for_state(entity_id, new_state)
         if bridge_chart is not None:
             new_state_data["attributes"]["bridge_chart"] = bridge_chart
@@ -165,7 +167,7 @@ class StatePushManager:
             event_data = {
                 "event_type": "state_changed",
                 "entity_id": entity_id,
-                "old_state": self._state_to_dict(old_state) if old_state else None,
+                "old_state": self._state_to_dict(old_state, entity_id) if old_state else None,
                 "new_state": new_state_data,
                 "state": new_state_data["state"],
                 "attributes": new_state_data["attributes"],
@@ -215,10 +217,14 @@ class StatePushManager:
             or fallback_chart
         )
 
-    def _state_to_dict(self, state: State) -> dict[str, Any]:
+    def _state_to_dict(self, state: State, entity_id: str | None = None) -> dict[str, Any]:
         """Convert State object to dictionary."""
         # Format attributes (for complex devices with numeric values in attributes)
-        formatted_attrs = format_numeric_attributes(dict(state.attributes))
+        raw_attributes = dict(state.attributes)
+        if entity_id is not None:
+            for key, value in self._sibling_signal_attributes(entity_id).items():
+                raw_attributes.setdefault(key, value)
+        formatted_attrs = format_numeric_attributes(raw_attributes)
 
         # Format the state value using the shared formatting function
         formatted_state = format_sensor_state(state.state, state.attributes)
@@ -238,6 +244,42 @@ class StatePushManager:
             "last_changed": state.last_changed.isoformat() if state.last_changed else None,
             "last_updated": last_updated,
         }
+
+    def _sibling_signal_attributes(self, entity_id: str) -> dict[str, int | float]:
+        """Return signal attributes exposed by sibling diagnostic entities."""
+        from homeassistant.helpers import entity_registry as er
+
+        entity_registry = er.async_get(self.hass)
+        try:
+            entry = entity_registry.async_get(entity_id)
+        except AttributeError:
+            return {}
+        device_id = getattr(entry, "device_id", None) if entry else None
+        if not device_id:
+            return {}
+
+        signal_attributes: dict[str, int | float] = {}
+        for registry_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            sibling_entity_id = getattr(sibling, "entity_id", None)
+            if not isinstance(sibling_entity_id, str):
+                sibling_entity_id = (
+                    registry_entity_id if isinstance(registry_entity_id, str) else None
+                )
+            if not sibling_entity_id or getattr(sibling, "device_id", None) != device_id:
+                continue
+
+            key = signal_attribute_key_for_entity(sibling_entity_id)
+            if key is None:
+                continue
+
+            sibling_state = self.hass.states.get(sibling_entity_id)
+            value = numeric_state_value(
+                getattr(sibling_state, "state", None) if sibling_state else None
+            )
+            if value is not None:
+                signal_attributes[key] = value
+
+        return signal_attributes
 
     async def _batch_loop(self) -> None:
         """Process batched events at intervals."""
