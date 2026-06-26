@@ -1509,11 +1509,18 @@ components:
             Entity attributes. Eligible numeric sensors include `bridge_chart` inside this object.
             `bridge_chart.points` preloads recorder significant states from the previous 2 hours;
             if recorder history is unavailable, Bridge falls back to the current value as one point.
+            Signal aliases are normalized into `signal_strength` and `signal_unit` while
+            preserving the original field, e.g. `linkquality: 236` becomes
+            `signal_strength: 236` and `signal_unit: lqi`.
           additionalProperties: true
           example:
             friendly_name: Living Room Temperature
             device_class: temperature
             unit_of_measurement: "°C"
+            battery: 84
+            linkquality: 236
+            signal_strength: 236
+            signal_unit: lqi
             bridge_chart:
               metric: temperature
               unit: "°C"
@@ -2370,10 +2377,16 @@ components:
             Current entity attributes. Eligible numeric sensors include `bridge_chart` inside this object.
             `bridge_chart.points` preloads recorder significant states from the previous 2 hours;
             if recorder history is unavailable, Bridge falls back to the current value as one point.
+            Signal aliases are normalized into `signal_strength` and `signal_unit` while
+            preserving the original field, e.g. `rssi: -58` becomes
+            `signal_strength: -58` and `signal_unit: dBm`.
           additionalProperties: true
           example:
             device_class: temperature
             unit_of_measurement: "°C"
+            rssi: -58
+            signal_strength: -58
+            signal_unit: dBm
             bridge_chart:
               metric: temperature
               unit: "°C"

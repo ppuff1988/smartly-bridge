@@ -892,6 +892,36 @@ class TestFormatNumericAttributes:
         assert result["battery"] == 86  # 0 decimal places (integer)
         assert result["illuminance"] == 500  # 0 decimal places (integer)
 
+    def test_signal_quality_aliases(self):
+        """Test signal quality attributes are normalized for Platform."""
+        from custom_components.smartly_bridge.utils import format_numeric_attributes
+
+        attrs = {
+            "linkquality": 236,
+            "friendly_name": "Temperature Sensor",
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["linkquality"] == 236
+        assert result["signal_strength"] == 236
+        assert result["signal_unit"] == "lqi"
+
+    def test_rssi_signal_alias(self):
+        """Test RSSI is exposed through the normalized signal attribute."""
+        from custom_components.smartly_bridge.utils import format_numeric_attributes
+
+        attrs = {
+            "rssi": -58,
+            "friendly_name": "Wi-Fi Sensor",
+        }
+
+        result = format_numeric_attributes(attrs)
+
+        assert result["rssi"] == -58
+        assert result["signal_strength"] == -58
+        assert result["signal_unit"] == "dBm"
+
     def test_air_quality_sensors(self):
         """Test air quality sensor formatting."""
         from custom_components.smartly_bridge.utils import format_numeric_attributes

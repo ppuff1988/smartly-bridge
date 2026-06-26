@@ -180,6 +180,179 @@ Rules:
 - `attributes` may preserve raw useful metadata, but the dashboard should not render raw attributes directly.
 - `presentation` may guide UI layout, but should not be required for safe fallback rendering.
 
+### 5.1 Bridge Current Implementation Contract
+
+This section documents what Smartly Bridge currently implements in `/api/smartly/sync/states`.
+
+Implemented endpoint envelope:
+
+```json
+{
+  "states": [],
+  "count": 0
+}
+```
+
+- `states` is the list of allowed entity state objects.
+- `count` is the number of objects in `states`.
+
+Implemented response shape per state:
+
+```json
+{
+  "entity_id": "sensor.living_temperature",
+  "state": "24.6",
+  "attributes": {
+    "device_class": "temperature",
+    "unit_of_measurement": "°C",
+    "friendly_name": "Living Temperature",
+    "humidity": 61,
+    "battery": 84,
+    "linkquality": 236,
+    "signal_strength": 236,
+    "signal_unit": "lqi"
+  },
+  "last_changed": "2026-06-26T04:00:00+00:00",
+  "last_updated": "2026-06-26T04:00:00+00:00",
+  "icon": "mdi:thermometer",
+  "name": "Living Temperature",
+  "domain": "sensor",
+  "device_class": "environment_sensor",
+  "capabilities": ["temperature", "humidity", "battery", "signal_strength"],
+  "status": "online",
+  "presentation": {
+    "card_template": "metric_card",
+    "primary_metric": "temperature",
+    "secondary_metrics": ["humidity", "battery"],
+    "dashboard_priority": 40,
+    "favorite": false
+  }
+}
+```
+
+Top-level `device_class` is the Smartly normalized UI class. Home Assistant's raw sensor `device_class` remains in `attributes.device_class`.
+
+Implemented top-level fields:
+
+| Field | Type | Current behavior |
+| ----- | ---- | ---------------- |
+| `entity_id` | string | Home Assistant entity id. |
+| `state` | string \| null | Formatted state value. Numeric sensor states may be rounded by Bridge precision rules. |
+| `attributes` | object | JSON-safe Home Assistant attributes after Bridge numeric and signal normalization. |
+| `last_changed` | string \| null | Home Assistant `last_changed` ISO timestamp. |
+| `last_updated` | string \| null | Home Assistant `last_updated` ISO timestamp. |
+| `icon` | string \| null | `attributes.icon`, entity registry icon, original icon, or Bridge domain default. |
+| `name` | string | `attributes.friendly_name`; falls back to `entity_id`. |
+| `domain` | string | Domain parsed from `entity_id`. |
+| `device_class` | string | Smartly normalized class inferred by Bridge. |
+| `capabilities` | string[] | Stable capability list inferred by Bridge. |
+| `status` | string | `offline` when state is `null`, `unknown`, or `unavailable`; otherwise `online`. |
+| `presentation` | object | UI hints built from `device_class` and `capabilities`. |
+
+Implemented capability inference:
+
+| Domain | Current capability rules |
+| ------ | ------------------------ |
+| `light` | Always `on_off`; adds `brightness` when `attributes.brightness` exists or `supported_color_modes` contains `brightness`; adds `color_temp` when `attributes.color_temp`, `min_mireds`, `max_mireds`, or `supported_color_modes` indicates color temperature; adds `rgb_color` when RGB-like color modes or `rgb_color`, `hs_color`, `xy_color` exist. |
+| `switch` | Always `on_off`. |
+| `sensor` | Adds `attributes.device_class` when it is one of the implemented environment capabilities; also adds any implemented environment capability that appears as an attribute key. |
+| `binary_sensor` | Adds presence/contact capabilities when `attributes.device_class` matches them or when the capability appears as an attribute key. |
+| `cover` | Always `open_close` and `stop`; adds `position` when `current_position` or `position` exists. |
+| `climate` | Adds `target_temperature` from `temperature`, `target_temp`, or `target_temperature`; adds `hvac_mode` from `hvac_modes` or `hvac_mode`; adds `fan_speed` from `fan_modes` or `fan_mode`. |
+| `fan` | Always `on_off`; adds `fan_speed` when `percentage`, `preset_mode`, or `preset_modes` exists. |
+| `scene` / `script` | Always `run`. |
+| `button` | Always `event`. |
+| Unsupported domains | No capabilities. |
+
+Implemented environment capabilities:
+
+```text
+temperature, humidity, air_quality, aqi, co2, carbon_dioxide,
+carbon_monoxide, pm25, pm10, illuminance, pressure, atmospheric_pressure
+```
+
+Implemented health capabilities:
+
+```text
+battery, signal_strength
+```
+
+`battery` and `signal_strength` are appended to any domain when the normalized attributes contain those keys.
+
+Implemented signal normalization:
+
+| Source attribute | Normalized attributes |
+| ---------------- | --------------------- |
+| `signal_strength` | Keeps `signal_strength`; adds `signal_unit` with empty string when missing. |
+| `rssi` | Adds `signal_strength` from `rssi`; sets `signal_unit` to `dBm`. |
+| `linkquality` | Adds `signal_strength` from `linkquality`; sets `signal_unit` to `lqi`. |
+| `link_quality` | Adds `signal_strength` from `link_quality`; sets `signal_unit` to `lqi`. |
+| `lqi` | Adds `signal_strength` from `lqi`; sets `signal_unit` to `lqi`. |
+
+Implemented Smartly device class classification:
+
+| Condition | Current `device_class` |
+| --------- | ---------------------- |
+| Domain is `alarm_control_panel`, `camera`, or `lock` | `unknown_device` |
+| `light` with `brightness`, `color_temp`, or `rgb_color` | `smart_light` |
+| `light` without advanced light capability | `simple_light_switch` |
+| `switch` with `on_off` | `simple_switch` |
+| `fan` | `fan_control` |
+| `sensor` with any environment capability | `environment_sensor` |
+| `binary_sensor` with `occupancy`, `motion`, or `presence` | `presence_sensor` |
+| `binary_sensor` with `contact`, `opening`, `door`, or `window` | `contact_sensor` |
+| `button` | `button_device` |
+| `cover` with any cover capability | `cover_control` |
+| `climate` with any climate capability | `climate_control` |
+| `scene` or `script` with `run` | `scene_trigger` |
+| Otherwise | `attributes.smartly_device_class` when present, else `unknown_device` |
+
+Implemented `smartly.class.<device_class>` label override:
+
+- Bridge reads labels from the Home Assistant entity registry.
+- The first supported `smartly.class.*` label may override automatic classification only when the domain and capability shape are compatible.
+- `smartly.class.unknown_device` is always allowed.
+- `smartly.class.fan_control` is allowed for `fan` or `switch` entities with `on_off`.
+- `smartly.class.simple_light_switch` and `smartly.class.simple_switch` are currently allowed for `switch` entities with `on_off`.
+- `smartly.class.smart_light` is allowed for `light` entities with `brightness`, `color_temp`, or `rgb_color`.
+- `smartly.class.environment_sensor` is allowed for `sensor` entities with an implemented environment capability.
+- `smartly.class.presence_sensor` is allowed for `binary_sensor` entities with an implemented presence capability.
+- `smartly.class.contact_sensor` is allowed for `binary_sensor` entities with an implemented contact capability.
+- `smartly.class.cover_control` is allowed for `cover` entities with any inferred capability.
+- `smartly.class.climate_control` is allowed for `climate` entities with any inferred capability.
+- `smartly.class.scene_trigger` is allowed for `scene` or `script` entities with `run`.
+- Unsupported or unsafe overrides are ignored.
+
+Implemented card templates:
+
+| `device_class` | Current `presentation.card_template` |
+| -------------- | ------------------------------------ |
+| `smart_light` | `light_card` |
+| `simple_light_switch` | `control_card` |
+| `simple_switch` | `control_card` |
+| `fan_control` | `control_card` |
+| `environment_sensor` | `metric_card` |
+| `presence_sensor` | `binary_state_card` |
+| `contact_sensor` | `binary_state_card` |
+| `button_device` | `event_card` |
+| `multi_button_device` | `multi_control_card` |
+| `cover_control` | `cover_card` |
+| `climate_control` | `climate_card` |
+| `scene_trigger` | `scene_card` |
+| `unknown_device` | `unknown_card` |
+
+Implemented presentation defaults:
+
+- Every presentation includes `card_template`, `dashboard_priority`, and `favorite`.
+- Default `dashboard_priority` is `50`.
+- Default `favorite` is `false`.
+- `environment_sensor` sets `dashboard_priority` to `40`.
+- `environment_sensor.presentation.primary_metric` is the first implemented environment capability present, in the environment capability order listed above.
+- `environment_sensor.presentation.secondary_metrics` chooses up to two values from `humidity`, `battery`, `signal_strength`, `co2`, `pm25`, `illuminance`, excluding the primary metric.
+- `smart_light.presentation.primary_metric` is `brightness` when the capability exists.
+- `smart_light.presentation.secondary_metrics` chooses up to two values from `battery`, `signal_strength`, excluding the primary metric.
+- Other classes use `battery` and `signal_strength` as secondary metrics when present.
+
 ## 6. Dashboard Card Information Rules
 
 A dashboard device card should show:

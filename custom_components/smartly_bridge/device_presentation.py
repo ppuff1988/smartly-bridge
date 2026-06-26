@@ -393,11 +393,13 @@ def _secondary_metrics(
     capabilities: list[str],
     primary_metric: str | None,
     priority: tuple[str, ...],
+    *,
+    limit: int = 2,
 ) -> list[str]:
-    """Return at most two dashboard secondary metrics."""
+    """Return dashboard secondary metrics."""
     capability_set = set(capabilities)
     return [
         capability
         for capability in priority
         if capability in capability_set and capability != primary_metric
-    ][:2]
+    ][:limit]
