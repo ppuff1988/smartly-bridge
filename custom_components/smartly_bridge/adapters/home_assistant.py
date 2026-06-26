@@ -14,8 +14,19 @@ from ..acl import (
 )
 from ..audit import log_control, log_deny
 from ..const import DEFAULT_DOMAIN_ICONS
+from ..device_presentation import build_device_card_metadata
 from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
 from ..utils import format_numeric_attributes, format_sensor_state
+
+
+def _entry_labels(entry: Any) -> set[str]:
+    """Return string labels from a Home Assistant entity registry entry."""
+    labels = getattr(entry, "labels", None)
+    if labels is None:
+        return set()
+    if isinstance(labels, (set, list, tuple)):
+        return {label for label in labels if isinstance(label, str)}
+    return set()
 
 
 class LoggingAuditAdapter:
@@ -183,14 +194,24 @@ class HomeAssistantStateSyncGateway:
             if not icon:
                 icon = DEFAULT_DOMAIN_ICONS.get(get_entity_domain(entity_id))
 
+            attributes = format_numeric_attributes(dict(state.attributes))
+            labels = _entry_labels(entry)
+            card_metadata = build_device_card_metadata(
+                entity_id,
+                state.state,
+                attributes,
+                labels,
+            )
+
             snapshots.append(
                 EntityStateSnapshot(
                     entity_id=entity_id,
                     state=format_sensor_state(state.state, state.attributes),
-                    attributes=format_numeric_attributes(dict(state.attributes)),
+                    attributes=attributes,
                     last_changed=state.last_changed.isoformat() if state.last_changed else None,
                     last_updated=state.last_updated.isoformat() if state.last_updated else None,
                     icon=icon,
+                    **card_metadata,
                 )
             )
         return snapshots

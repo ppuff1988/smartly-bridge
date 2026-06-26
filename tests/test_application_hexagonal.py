@@ -190,6 +190,12 @@ def test_sync_states_use_case_returns_states_with_count() -> None:
                 "last_changed": "2026-06-24T00:00:00+00:00",
                 "last_updated": "2026-06-24T00:00:00+00:00",
                 "icon": "mdi:lightbulb",
+                "name": None,
+                "domain": None,
+                "device_class": None,
+                "capabilities": [],
+                "status": None,
+                "presentation": {},
             }
         ],
         "count": 1,
