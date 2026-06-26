@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.12.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.11.4...v1.12.0) (2026-06-26)
+
+### ✨ 新增功能 (Features)
+
+* **sync:** add device card capability metadata ([#81](https://github.com/ppuff1988/smartly-bridge/issues/81)) ([d107ced](https://github.com/ppuff1988/smartly-bridge/commit/d107cedac7550e9d30d907ac56c7d535ce7ea43f))
+
 ## [1.11.4](https://github.com/ppuff1988/smartly-bridge/compare/v1.11.3...v1.11.4) (2026-06-25)
 
 ### 🐛 錯誤修正 (Bug Fixes)
