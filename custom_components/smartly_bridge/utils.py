@@ -292,10 +292,7 @@ def _downsample_bridge_chart_points(
         return [points[-1]]
 
     last_index = len(points) - 1
-    selected_indices = {
-        round(index * last_index / (max_points - 1))
-        for index in range(max_points)
-    }
+    selected_indices = {round(index * last_index / (max_points - 1)) for index in range(max_points)}
     return [points[index] for index in sorted(selected_indices)]
 
 
