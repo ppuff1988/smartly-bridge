@@ -9,10 +9,12 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.smartly_bridge.const import (
+    BRIDGE_CHART_MAX_POINTS,
     CONF_CLIENT_SECRET,
     CONF_INSTANCE_ID,
     CONF_WEBHOOK_URL,
 )
+from custom_components.smartly_bridge.utils import build_bridge_chart_from_states
 
 
 class TestStatePushManager:
@@ -257,6 +259,31 @@ class TestStatePushManager:
         _, start_time, end_time = mock_query_states.await_args.args
         assert start_time == datetime(2026, 6, 26, 4, 0, 0, tzinfo=timezone.utc)
         assert end_time == datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+
+    def test_bridge_chart_limits_dense_two_hour_points(self):
+        """Dense two-hour chart history is downsampled for compact payloads."""
+        base_time = datetime(2026, 6, 26, 4, 0, 0, tzinfo=timezone.utc)
+        states = [
+            {
+                "s": str(24 + index / 10),
+                "lu": int((base_time.timestamp()) + index * 120),
+            }
+            for index in range(61)
+        ]
+
+        result = build_bridge_chart_from_states(
+            states,
+            "temperature",
+            "°C",
+            fallback_state="30.1",
+            fallback_timestamp="2026-06-26T06:00:00+00:00",
+        )
+
+        assert result is not None
+        points = result["points"]
+        assert len(points) == BRIDGE_CHART_MAX_POINTS
+        assert points[0] == {"at": "2026-06-26T04:00:00+00:00", "value": 24.0}
+        assert points[-1] == {"at": "2026-06-26T06:00:00+00:00", "value": 30.0}
 
     @pytest.mark.asyncio
     async def test_stop_flushes_events(self, push_manager):
