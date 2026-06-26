@@ -81,78 +81,144 @@ def build_device_card_metadata(
 
 def _infer_capabilities(domain: str, attributes: dict[str, Any]) -> list[str]:
     """Infer stable UI capabilities from Home Assistant domain and attributes."""
-    capabilities: list[str] = []
+    by_domain = {
+        "light": _light_capabilities,
+        "switch": _switch_capabilities,
+        "sensor": _sensor_capabilities,
+        "binary_sensor": _binary_sensor_capabilities,
+        "cover": _cover_capabilities,
+        "climate": _climate_capabilities,
+        "fan": _fan_capabilities,
+        "scene": _scene_or_script_capabilities,
+        "script": _scene_or_script_capabilities,
+        "button": _button_capabilities,
+    }
+    capabilities = by_domain.get(domain, _no_capabilities)(attributes)
+    return _with_health_capabilities(capabilities, attributes)
 
-    def add(capability: str) -> None:
-        if capability not in capabilities:
-            capabilities.append(capability)
 
-    if domain in {"light", "switch", "fan"}:
-        add("on_off")
+def _light_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer light capabilities."""
+    capabilities = ["on_off"]
+    color_modes = _normalized_values(attributes.get("supported_color_modes"))
 
-    if domain == "light":
-        color_modes = _normalized_values(attributes.get("supported_color_modes"))
-        if "brightness" in attributes or "brightness" in color_modes:
-            add("brightness")
-        if (
-            "color_temp" in attributes
-            or "color_temp" in color_modes
-            or "min_mireds" in attributes
-            or "max_mireds" in attributes
-        ):
-            add("color_temp")
-        if RGB_COLOR_MODES.intersection(color_modes) or any(
-            key in attributes for key in ("rgb_color", "hs_color", "xy_color")
-        ):
-            add("rgb_color")
-
-    elif domain == "sensor":
-        device_class = str(attributes.get("device_class", "")).lower()
-        if device_class in ENVIRONMENT_CAPABILITIES:
-            add(device_class)
-        for capability in ENVIRONMENT_CAPABILITIES:
-            if capability in attributes:
-                add(capability)
-
-    elif domain == "binary_sensor":
-        device_class = str(attributes.get("device_class", "")).lower()
-        for capability in (*PRESENCE_CAPABILITIES, *CONTACT_CAPABILITIES):
-            if device_class == capability or capability in attributes:
-                add(capability)
-
-    elif domain == "cover":
-        add("open_close")
-        if "current_position" in attributes or "position" in attributes:
-            add("position")
-        add("stop")
-
-    elif domain == "climate":
-        if any(key in attributes for key in ("temperature", "target_temp", "target_temperature")):
-            add("target_temperature")
-        if "hvac_modes" in attributes or "hvac_mode" in attributes:
-            add("hvac_mode")
-        if "fan_modes" in attributes or "fan_mode" in attributes:
-            add("fan_speed")
-
-    elif domain == "fan":
-        if (
-            "percentage" in attributes
-            or "preset_mode" in attributes
-            or "preset_modes" in attributes
-        ):
-            add("fan_speed")
-
-    elif domain in {"scene", "script"}:
-        add("run")
-
-    elif domain == "button":
-        add("event")
-
-    for capability in HEALTH_CAPABILITIES:
-        if capability in attributes:
-            add(capability)
+    if "brightness" in attributes or "brightness" in color_modes:
+        capabilities.append("brightness")
+    if _supports_color_temperature(attributes, color_modes):
+        capabilities.append("color_temp")
+    if _supports_rgb_color(attributes, color_modes):
+        capabilities.append("rgb_color")
 
     return capabilities
+
+
+def _switch_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer switch capabilities."""
+    return ["on_off"]
+
+
+def _sensor_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer numeric or text sensor capabilities."""
+    capabilities: list[str] = []
+    device_class = str(attributes.get("device_class", "")).lower()
+    if device_class in ENVIRONMENT_CAPABILITIES:
+        capabilities.append(device_class)
+    for capability in ENVIRONMENT_CAPABILITIES:
+        if capability in attributes:
+            _append_unique(capabilities, capability)
+    return capabilities
+
+
+def _binary_sensor_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer binary sensor capabilities."""
+    capabilities: list[str] = []
+    device_class = str(attributes.get("device_class", "")).lower()
+    for capability in (*PRESENCE_CAPABILITIES, *CONTACT_CAPABILITIES):
+        if device_class == capability or capability in attributes:
+            capabilities.append(capability)
+    return capabilities
+
+
+def _cover_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer cover capabilities."""
+    capabilities = ["open_close"]
+    if "current_position" in attributes or "position" in attributes:
+        capabilities.append("position")
+    capabilities.append("stop")
+    return capabilities
+
+
+def _climate_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer climate capabilities."""
+    capabilities: list[str] = []
+    if any(key in attributes for key in ("temperature", "target_temp", "target_temperature")):
+        capabilities.append("target_temperature")
+    if "hvac_modes" in attributes or "hvac_mode" in attributes:
+        capabilities.append("hvac_mode")
+    if "fan_modes" in attributes or "fan_mode" in attributes:
+        capabilities.append("fan_speed")
+    return capabilities
+
+
+def _fan_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer fan capabilities."""
+    capabilities = ["on_off"]
+    if "percentage" in attributes or "preset_mode" in attributes or "preset_modes" in attributes:
+        capabilities.append("fan_speed")
+    return capabilities
+
+
+def _scene_or_script_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer scene and script capabilities."""
+    return ["run"]
+
+
+def _button_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer button capabilities."""
+    return ["event"]
+
+
+def _no_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Return no capabilities for unsupported domains."""
+    return []
+
+
+def _with_health_capabilities(
+    capabilities: list[str],
+    attributes: dict[str, Any],
+) -> list[str]:
+    """Append common health capabilities."""
+    for capability in HEALTH_CAPABILITIES:
+        if capability in attributes:
+            _append_unique(capabilities, capability)
+    return capabilities
+
+
+def _supports_color_temperature(
+    attributes: dict[str, Any],
+    color_modes: set[str],
+) -> bool:
+    """Return whether light attributes indicate color-temperature support."""
+    return (
+        "color_temp" in attributes
+        or "color_temp" in color_modes
+        or "min_mireds" in attributes
+        or "max_mireds" in attributes
+    )
+
+
+def _supports_rgb_color(attributes: dict[str, Any], color_modes: set[str]) -> bool:
+    """Return whether light attributes indicate RGB color support."""
+    return bool(
+        RGB_COLOR_MODES.intersection(color_modes)
+        or any(key in attributes for key in ("rgb_color", "hs_color", "xy_color"))
+    )
+
+
+def _append_unique(values: list[str], value: str) -> None:
+    """Append a value if it is not already present."""
+    if value not in values:
+        values.append(value)
 
 
 def _classify_device(
