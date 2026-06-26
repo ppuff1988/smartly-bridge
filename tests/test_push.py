@@ -49,6 +49,31 @@ class TestStatePushManager:
         assert "last_updated" in result
 
     @pytest.mark.asyncio
+    async def test_state_to_dict_adds_bridge_chart_attribute(self, push_manager):
+        """Test eligible sensors include bridge chart in attributes."""
+        mock_state = MagicMock()
+        mock_state.state = "449.789"
+        mock_state.attributes = {
+            "device_class": "carbon_dioxide",
+            "unit_of_measurement": "ppm",
+        }
+        mock_state.last_changed = datetime(2026, 6, 26, 6, 0, 0)
+        mock_state.last_updated = datetime(2026, 6, 26, 6, 0, 0)
+
+        result = push_manager._state_to_dict(mock_state)
+
+        assert result["attributes"]["bridge_chart"] == {
+            "metric": "carbon_dioxide",
+            "unit": "ppm",
+            "points": [
+                {
+                    "at": "2026-06-26T06:00:00",
+                    "value": 450,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_queue_event(self, push_manager):
         """Test queueing state change events."""
         mock_old_state = MagicMock()
@@ -73,6 +98,58 @@ class TestStatePushManager:
         assert event["old_state"]["state"] == "off"
         assert event["new_state"]["state"] == "on"
         assert event["timestamp"] is not None
+
+    @pytest.mark.asyncio
+    async def test_queue_event_exposes_flat_state_for_platform(self, push_manager):
+        """Test pushed events include platform-readable state fields."""
+        mock_new_state = MagicMock()
+        mock_new_state.state = "24.567"
+        mock_new_state.attributes = {
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+        }
+        mock_new_state.last_changed = datetime(2026, 6, 26, 6, 0, 0)
+        mock_new_state.last_updated = datetime(2026, 6, 26, 6, 0, 0)
+
+        history = []
+        for value, updated in [
+            ("24.1", "2026-06-26T00:00:00"),
+            ("24.567", "2026-06-26T06:00:00"),
+        ]:
+            history_state = MagicMock()
+            history_state.state = value
+            history_state.last_updated.isoformat.return_value = updated
+            history.append(history_state)
+
+        with patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states:
+            mock_query_states.return_value = history
+
+            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+
+        event = push_manager._pending_events[0]
+        assert event["entity_id"] == "sensor.temperature"
+        assert event["state"] == "24.6"
+        assert event["attributes"]["bridge_chart"] == {
+            "metric": "temperature",
+            "unit": "°C",
+            "points": [
+                {
+                    "at": "2026-06-26T00:00:00",
+                    "value": 24.1,
+                },
+                {
+                    "at": "2026-06-26T06:00:00",
+                    "value": 24.6,
+                },
+            ],
+        }
+        assert event["last_changed"] == "2026-06-26T06:00:00"
+        assert event["last_updated"] == "2026-06-26T06:00:00"
+        mock_query_states.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_stop_flushes_events(self, push_manager):

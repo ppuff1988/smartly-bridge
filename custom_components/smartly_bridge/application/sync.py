@@ -23,7 +23,7 @@ class SyncStatesUseCase:
     def __init__(self, gateway: SyncStatesPort) -> None:
         self._gateway = gateway
 
-    def execute(self) -> BridgeResponse:
+    async def execute(self) -> BridgeResponse:
         """Return states and count."""
-        states = [state.to_sync_dict() for state in self._gateway.list_states()]
+        states = [state.to_sync_dict() for state in await self._gateway.list_states()]
         return BridgeResponse({"states": states, "count": len(states)}, status=200)

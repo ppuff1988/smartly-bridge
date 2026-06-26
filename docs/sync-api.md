@@ -206,18 +206,16 @@ GET /api/smartly/sync/states
 |------|------|------|
 | `entity_id` | string | 實體 ID |
 | `state` | string | 實體目前狀態（例如：`on`、`off`、`unavailable`） |
-| `attributes` | object | 實體屬性（依實體類型而異） |
+| `attributes` | object | 實體屬性（依實體類型而異）；符合 Bridge chart 規則時包含 `attributes.bridge_chart` |
 | `last_changed` | string \| null | 狀態最後改變時間（ISO 8601 格式） |
 | `last_updated` | string \| null | 最後更新時間（ISO 8601 格式） |
 | `icon` | string \| null | MDI 格式圖示，優先使用使用者自訂圖示，若無則自動使用原始圖示 |
 | `device_class` | string | Smartly normalized 設備類別（例如 `environment_sensor`、`smart_light`） |
-| `unit_of_measurement` | string | 感測器測量單位（例如 `°C`、`%`），有值時回傳 |
-| `bridge_chart` | object | 符合 Bridge chart 規則的感測器簡化圖表資料 |
 | `count` | integer | 實體總數 |
 
 #### Bridge chart 判斷規則
 
-`bridge_chart` 是否回傳由 `attributes.device_class` 和狀態值決定，不根據 `entity_id`、`friendly_name` 或單位文字猜測。Sync state 的 top-level `device_class` 保留給 Smartly normalized 設備類別；Home Assistant sensor 類別會保留在 `attributes.device_class`，並作為 `bridge_chart.metric`。
+`attributes.bridge_chart` 是否回傳由 `attributes.device_class` 和狀態值決定，不根據 `entity_id`、`friendly_name` 或單位文字猜測。Sync state 的 top-level `device_class` 保留給 Smartly normalized 設備類別；Home Assistant sensor 類別會保留在 `attributes.device_class`，並作為 `attributes.bridge_chart.metric`。
 
 回傳條件：
 
@@ -225,7 +223,9 @@ GET /api/smartly/sync/states
 2. `attributes.device_class` 在 Bridge chart allowlist：`temperature`、`humidity`、`carbon_dioxide`、`co2`、`carbon_monoxide`、`aqi`、`pm25`、`pm10`、`illuminance`、`pressure`、`atmospheric_pressure`。
 3. 狀態值可轉成數字，且有可用的 `last_updated` 時間戳。
 
-不符合條件時省略 `bridge_chart`。例如開關、燈光、文字型 sensor、`unknown`、`unavailable` 或沒有 allowlist `device_class` 的 sensor 都不回傳。
+`attributes.bridge_chart.points` 預設回傳最近 6 小時內 Home Assistant recorder 的 significant states，時間窗格以目前 state 的 `last_updated` 為終點往前推 6 小時。每個 point 的 `at` 是 recorder state 的 `last_updated`，`value` 會套用 Smartly Bridge 的數值精度規則。若 recorder 暫時沒有可用歷史點，Bridge 會 fallback 成目前值的一個 point，避免前端沒有圖表資料可畫。
+
+不符合條件時省略 `attributes.bridge_chart`。例如開關、燈光、文字型 sensor、`unknown`、`unavailable` 或沒有 allowlist `device_class` 的 sensor 都不回傳。
 
 #### 常見實體屬性
 
@@ -257,20 +257,21 @@ GET /api/smartly/sync/states
   "attributes": {
     "device_class": "temperature",
     "unit_of_measurement": "°C",
-    "friendly_name": "Living Room Temperature"
+    "friendly_name": "Living Room Temperature",
+    "bridge_chart": {
+      "metric": "temperature",
+      "unit": "°C",
+      "points": [
+        { "at": "2026-06-26T00:00:00Z", "value": 24.1 },
+        { "at": "2026-06-26T03:00:00Z", "value": 24.4 },
+        { "at": "2026-06-26T06:00:00Z", "value": 24.6 }
+      ]
+    }
   },
   "last_changed": "2026-06-26T06:00:00Z",
   "last_updated": "2026-06-26T06:00:00Z",
   "icon": "mdi:thermometer",
-  "device_class": "environment_sensor",
-  "unit_of_measurement": "°C",
-  "bridge_chart": {
-    "metric": "temperature",
-    "unit": "°C",
-    "points": [
-      { "at": "2026-06-26T06:00:00Z", "value": 24.6 }
-    ]
-  }
+  "device_class": "environment_sensor"
 }
 ```
 
@@ -506,7 +507,7 @@ def get_display_icon(entity):
 建議使用 Webhook 接收即時狀態更新，而非輪詢 `/sync/states`：
 
 - **初始化**: 使用 `/sync/structure` 和 `/sync/states` 建立完整快照
-- **即時更新**: 訂閱 `stateChanged` webhook 接收增量更新
+- **即時更新**: 訂閱 `stateChanged` webhook 接收增量更新；符合 Bridge chart 規則時，事件會在 `attributes.bridge_chart` 回傳最近 6 小時圖表資料
 - **定期同步**: 每 5-10 分鐘執行一次完整同步以確保一致性
 
 ---

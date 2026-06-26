@@ -447,6 +447,9 @@ paths:
       description: |
         Returns the current state of all entities that have the `smartly` label.
         Useful for initial sync or state reconciliation.
+        Eligible numeric sensors include `attributes.bridge_chart.points` with
+        recorder significant states from the previous 6 hours. If recorder
+        history is unavailable, Bridge falls back to the current value as one point.
       operationId: syncStates
       responses:
         '200':
@@ -457,14 +460,26 @@ paths:
                 $ref: '#/components/schemas/StatesResponse'
               example:
                 states:
-                  - entity_id: switch.room_101_light
-                    state: "on"
+                  - entity_id: sensor.temperature
+                    state: "24.6"
                     attributes:
-                      friendly_name: Room 101 Light
-                      brightness: 255
-                    last_changed: "2025-12-17T10:30:00+00:00"
-                    last_updated: "2025-12-17T10:30:00+00:00"
-                    icon: mdi:lightbulb
+                      friendly_name: Living Room Temperature
+                      device_class: temperature
+                      unit_of_measurement: "°C"
+                      bridge_chart:
+                        metric: temperature
+                        unit: "°C"
+                        points:
+                          - at: "2026-06-26T00:00:00Z"
+                            value: 24.1
+                          - at: "2026-06-26T03:00:00Z"
+                            value: 24.4
+                          - at: "2026-06-26T06:00:00Z"
+                            value: 24.6
+                    last_changed: "2026-06-26T06:00:00Z"
+                    last_updated: "2026-06-26T06:00:00Z"
+                    icon: mdi:thermometer
+                    device_class: environment_sensor
                 count: 1
         '401':
           $ref: '#/components/responses/UnauthorizedError'
@@ -1490,11 +1505,25 @@ components:
           example: "on"
         attributes:
           type: object
-          description: Entity attributes
+          description: |
+            Entity attributes. Eligible numeric sensors include `bridge_chart` inside this object.
+            `bridge_chart.points` preloads recorder significant states from the previous 6 hours;
+            if recorder history is unavailable, Bridge falls back to the current value as one point.
           additionalProperties: true
           example:
-            friendly_name: Room 101 Light
-            brightness: 255
+            friendly_name: Living Room Temperature
+            device_class: temperature
+            unit_of_measurement: "°C"
+            bridge_chart:
+              metric: temperature
+              unit: "°C"
+              points:
+                - at: "2026-06-26T00:00:00Z"
+                  value: 24.1
+                - at: "2026-06-26T03:00:00Z"
+                  value: 24.4
+                - at: "2026-06-26T06:00:00Z"
+                  value: 24.6
         last_changed:
           type: string
           format: date-time
@@ -1519,12 +1548,6 @@ components:
           nullable: true
           description: Smartly normalized device class used for device cards
           example: environment_sensor
-        unit_of_measurement:
-          type: string
-          description: Sensor measurement unit promoted for chart consumers when present
-          example: "°C"
-        bridge_chart:
-          $ref: '#/components/schemas/BridgeChart'
 
     # History API Schemas
     HistoryResponse:
@@ -1611,6 +1634,8 @@ components:
       description: |
         Compact chart payload for eligible numeric environment and air quality sensors.
         Returned only when the sensor has a supported device_class and at least one numeric point.
+        In sync states and webhook events this payload is nested under `attributes.bridge_chart`
+        and preloads the previous 6 hours of recorder significant states.
       required:
         - metric
         - unit
@@ -2331,8 +2356,43 @@ components:
         event_type:
           type: string
           const: state_changed
+        entity_id:
+          type: string
+          description: Entity ID for platform event ingestion
+          example: sensor.temperature
+        state:
+          type: string
+          description: Current formatted state value
+          example: "24.6"
+        attributes:
+          type: object
+          description: |
+            Current entity attributes. Eligible numeric sensors include `bridge_chart` inside this object.
+            `bridge_chart.points` preloads recorder significant states from the previous 6 hours;
+            if recorder history is unavailable, Bridge falls back to the current value as one point.
+          additionalProperties: true
+          example:
+            device_class: temperature
+            unit_of_measurement: "°C"
+            bridge_chart:
+              metric: temperature
+              unit: "°C"
+              points:
+                - at: "2026-06-26T00:00:00Z"
+                  value: 24.1
+                - at: "2026-06-26T03:00:00Z"
+                  value: 24.4
+                - at: "2026-06-26T06:00:00Z"
+                  value: 24.6
+        last_changed:
+          type: string
+          format: date-time
+        last_updated:
+          type: string
+          format: date-time
         data:
           type: object
+          description: Legacy Home Assistant style state payload
           properties:
             entity_id:
               type: string
@@ -2424,19 +2484,23 @@ webhooks:
             example:
               events:
                 - event_type: state_changed
-                  data:
-                    entity_id: switch.room_101_light
-                    old_state:
-                      state: "off"
-                      attributes: {}
-                      last_changed: "2025-12-17T09:00:00+00:00"
-                      last_updated: "2025-12-17T09:00:00+00:00"
-                    new_state:
-                      state: "on"
-                      attributes:
-                        brightness: 255
-                      last_changed: "2025-12-17T10:30:00+00:00"
-                      last_updated: "2025-12-17T10:30:00+00:00"
+                  entity_id: sensor.temperature
+                  state: "24.6"
+                  attributes:
+                    device_class: temperature
+                    unit_of_measurement: "°C"
+                    bridge_chart:
+                      metric: temperature
+                      unit: "°C"
+                      points:
+                        - at: "2026-06-26T00:00:00Z"
+                          value: 24.1
+                        - at: "2026-06-26T03:00:00Z"
+                          value: 24.4
+                        - at: "2026-06-26T06:00:00Z"
+                          value: 24.6
+                  last_changed: "2026-06-26T06:00:00Z"
+                  last_updated: "2026-06-26T06:00:00Z"
       responses:
         '200':
           description: Events received successfully
