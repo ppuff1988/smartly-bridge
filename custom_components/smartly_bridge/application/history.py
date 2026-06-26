@@ -9,6 +9,7 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
 from ..const import (
+    BRIDGE_CHART_DEVICE_CLASSES,
     DOMAIN_VISUALIZATION_CONFIG,
     HISTORY_DEFAULT_LIMIT,
     HISTORY_MAX_DURATION_DAYS,
@@ -349,8 +350,52 @@ class HistoryResponseFormatter:
 
         if metadata:
             response_data["metadata"] = metadata
+            device_class = metadata.get("device_class")
+            unit = metadata.get("unit_of_measurement", "")
+            if device_class:
+                response_data["device_class"] = device_class
+            if unit:
+                response_data["unit_of_measurement"] = unit
+
+            bridge_chart = self._bridge_chart(history_data, device_class, unit)
+            if bridge_chart is not None:
+                response_data["bridge_chart"] = bridge_chart
 
         return response_data
+
+    def _bridge_chart(
+        self,
+        history_data: list[dict[str, Any]],
+        device_class: Any,
+        unit: Any,
+    ) -> dict[str, Any] | None:
+        if device_class not in BRIDGE_CHART_DEVICE_CLASSES:
+            return None
+
+        decimal_places = get_decimal_places(str(device_class), str(unit or ""))
+        points = []
+        for state in history_data:
+            timestamp = state.get("last_changed") or state.get("last_updated")
+            if timestamp is None:
+                continue
+
+            try:
+                value = float(state.get("state"))
+            except (TypeError, ValueError):
+                continue
+
+            if decimal_places is not None:
+                value = round(value, decimal_places)
+            points.append({"at": timestamp, "value": value})
+
+        if not points:
+            return None
+
+        return {
+            "metric": device_class,
+            "unit": unit or "",
+            "points": points,
+        }
 
     def _format_compressed_state(
         self,

@@ -593,6 +593,16 @@ paths:
                     color: "#EF5350"
                     show_points: false
                     interpolation: natural
+                device_class: temperature
+                unit_of_measurement: "°C"
+                bridge_chart:
+                  metric: temperature
+                  unit: "°C"
+                  points:
+                    - at: "2026-01-10T10:00:00+00:00"
+                      value: 22.5
+                    - at: "2026-01-10T11:00:00+00:00"
+                      value: 23.1
         '400':
           description: Bad request (invalid time range, missing entity_id, invalid cursor)
           content:
@@ -1504,6 +1514,17 @@ components:
             MDI format icon (e.g., mdi:lightbulb). Automatically uses custom icon if set,
             otherwise falls back to original default icon. Null if no icon available.
           example: mdi:lightbulb
+        device_class:
+          type: string
+          nullable: true
+          description: Smartly normalized device class used for device cards
+          example: environment_sensor
+        unit_of_measurement:
+          type: string
+          description: Sensor measurement unit promoted for chart consumers when present
+          example: "°C"
+        bridge_chart:
+          $ref: '#/components/schemas/BridgeChart'
 
     # History API Schemas
     HistoryResponse:
@@ -1552,6 +1573,21 @@ components:
           description: |
             Entity metadata with visualization recommendations (v1.3.0+).
             Provides intelligent suggestions for rendering the data based on device_class and domain.
+        device_class:
+          type: string
+          nullable: true
+          description: |
+            Device class promoted for Bridge chart consumers when the sensor is eligible.
+            Eligibility is based on device_class, not entity_id, friendly_name, or unit text.
+            Supported values include temperature, humidity, carbon_dioxide, co2,
+            carbon_monoxide, aqi, pm25, pm10, illuminance, pressure, and atmospheric_pressure.
+          example: carbon_dioxide
+        unit_of_measurement:
+          type: string
+          description: Measurement unit promoted for Bridge chart consumers
+          example: ppm
+        bridge_chart:
+          $ref: '#/components/schemas/BridgeChart'
         page_size:
           type: integer
           description: |
@@ -1569,6 +1605,42 @@ components:
             **[v1.4.0]** Cursor for fetching the next page (only present when `has_more` is true).
             Pass this value as the `cursor` parameter in the next request.
           example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9"
+
+    BridgeChart:
+      type: object
+      description: |
+        Compact chart payload for eligible numeric environment and air quality sensors.
+        Returned only when the sensor has a supported device_class and at least one numeric point.
+      required:
+        - metric
+        - unit
+        - points
+      properties:
+        metric:
+          type: string
+          description: Sensor device_class used as the chart metric
+          example: carbon_dioxide
+        unit:
+          type: string
+          description: Measurement unit
+          example: ppm
+        points:
+          type: array
+          items:
+            type: object
+            required:
+              - at
+              - value
+            properties:
+              at:
+                type: string
+                format: date-time
+                description: Point timestamp
+                example: "2026-06-26T06:00:00Z"
+              value:
+                type: number
+                description: Numeric sensor value
+                example: 450
 
     HistoryMetadata:
       type: object
@@ -2402,5 +2474,3 @@ webhooks:
                   success:
                     type: boolean
                     example: true
-
-

@@ -299,6 +299,7 @@ class TestSmartlySyncStatesView:
                 }
                 mock_state.last_changed = last_triggered
                 mock_state.last_updated = last_triggered
+
                 mock_hass.states.get = MagicMock(return_value=mock_state)
 
                 with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
@@ -315,6 +316,80 @@ class TestSmartlySyncStatesView:
                     data = json.loads(response.body)
                     state = data["states"][0]
                     assert state["attributes"]["last_triggered"] == last_triggered.isoformat()
+
+    @pytest.mark.asyncio
+    @pytest.mark.parametrize(
+        ("entity_id", "device_class", "unit", "raw_state", "formatted_value"),
+        [
+            ("sensor.temperature", "temperature", "°C", "24.567", 24.6),
+            ("sensor.humidity", "humidity", "%", "62.345", 62.3),
+            ("sensor.co2", "carbon_dioxide", "ppm", "449.789", 450),
+        ],
+    )
+    async def test_states_sync_environment_sensor_bridge_chart(
+        self,
+        mock_request,
+        mock_hass,
+        entity_id,
+        device_class,
+        unit,
+        raw_state,
+        formatted_value,
+    ):
+        """Test environment sensors expose bridge chart metadata."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=[entity_id],
+            ):
+                mock_state = MagicMock()
+                mock_state.state = raw_state
+                mock_state.attributes = {
+                    "device_class": device_class,
+                    "unit_of_measurement": unit,
+                    "friendly_name": "Living Room Environment",
+                }
+                mock_state.last_changed = MagicMock()
+                mock_state.last_changed.isoformat = MagicMock(
+                    return_value="2026-06-26T06:00:00Z"
+                )
+                mock_state.last_updated = MagicMock()
+                mock_state.last_updated.isoformat = MagicMock(
+                    return_value="2026-06-26T06:00:00Z"
+                )
+                mock_hass.states.get = MagicMock(return_value=mock_state)
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = MagicMock(return_value=None)
+                    mock_er_get.return_value = mock_registry
+
+                    view = SmartlySyncStatesView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 200
+                    import json
+
+                    data = json.loads(response.body)
+                    sensor_state = data["states"][0]
+
+                    assert sensor_state["device_class"] == "environment_sensor"
+                    assert sensor_state["unit_of_measurement"] == unit
+                    assert sensor_state["bridge_chart"] == {
+                        "metric": device_class,
+                        "unit": unit,
+                        "points": [
+                            {
+                                "at": "2026-06-26T06:00:00Z",
+                                "value": formatted_value,
+                            }
+                        ],
+                    }
 
     @pytest.mark.asyncio
     async def test_states_sync_with_missing_entity(self, mock_request, mock_hass):

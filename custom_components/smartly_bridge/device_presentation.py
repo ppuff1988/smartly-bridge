@@ -44,9 +44,15 @@ ENVIRONMENT_CAPABILITIES = (
     "temperature",
     "humidity",
     "air_quality",
+    "aqi",
     "co2",
+    "carbon_dioxide",
+    "carbon_monoxide",
     "pm25",
+    "pm10",
     "illuminance",
+    "pressure",
+    "atmospheric_pressure",
 )
 HEALTH_CAPABILITIES = ("battery", "signal_strength")
 PRESENCE_CAPABILITIES = ("occupancy", "motion", "presence")

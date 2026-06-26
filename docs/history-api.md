@@ -320,10 +320,25 @@ X-Signature: computed-hmac-signature
 | `start_time` | string | 查詢開始時間 |
 | `end_time` | string | 查詢結束時間 |
 | `metadata` | object | **[v1.3.0]** 實體元數據與視覺化建議 |
+| `device_class` | string | 符合 Bridge chart 規則的感測器設備類別，有值時回傳 |
+| `unit_of_measurement` | string | 符合 Bridge chart 規則的感測器測量單位，有值時回傳 |
+| `bridge_chart` | object | 符合 Bridge chart 規則的感測器簡化圖表資料 |
 | `page_size` | integer | **[v1.4.0]** 每頁記錄數（僅在 cursor 模式） |
 | `has_more` | boolean | **[v1.4.0]** 是否還有更多數據（僅在 cursor 模式） |
 | `next_cursor` | string | **[v1.4.0]** 下一頁游標（僅在 `has_more=true` 時返回） |
 | `total_count` | integer | **[v1.5.0]** 查詢範圍內的總記錄數（僅在第一頁返回） |
+
+#### Bridge chart 判斷規則
+
+`bridge_chart` 是否回傳由 `device_class` 和歷史狀態值決定，不根據 `entity_id`、`friendly_name` 或單位文字猜測。
+
+回傳條件：
+
+1. metadata 中有 `device_class`。
+2. `device_class` 在 Bridge chart allowlist：`temperature`、`humidity`、`carbon_dioxide`、`co2`、`carbon_monoxide`、`aqi`、`pm25`、`pm10`、`illuminance`、`pressure`、`atmospheric_pressure`。
+3. 歷史狀態值可轉成數字，且該筆資料有 `last_changed` 或 `last_updated` 時間戳。
+
+不符合條件時省略 `bridge_chart`。符合條件但部分歷史點不是數字時，只略過那些點；若沒有任何可用點，則省略整個 `bridge_chart`。
 
 #### 元數據（metadata）欄位說明
 
@@ -395,7 +410,7 @@ X-Signature: computed-hmac-signature
 | `battery` | chart | line | #9CCC65（淺綠） | 電池折線圖 |
 | `illuminance` | chart | area | #FFEE58（黃） | 照度面積圖 |
 | `pressure` | chart | line | #8D6E63（棕） | 氣壓折線圖 |
-| `co2` | chart | area | #78909C（灰藍） | CO2 面積圖 |
+| `carbon_dioxide` / `co2` | chart | area | #78909C（灰藍） | CO2 面積圖 |
 | `pm25` | chart | area | #FF7043（深橘） | PM2.5 面積圖 |
 | `pm10` | chart | area | #BF360C（深紅橘） | PM10 面積圖 |
 | `power_factor` | gauge | - | #7E57C2（深紫） | 功率因數儀表 |
@@ -462,7 +477,16 @@ X-Signature: computed-hmac-signature-1
   "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9",
   "start_time": "2026-01-03T00:00:00Z",
   "end_time": "2026-01-10T00:00:00Z",
-  "metadata": { ... }
+  "metadata": { ... },
+  "device_class": "temperature",
+  "unit_of_measurement": "°C",
+  "bridge_chart": {
+    "metric": "temperature",
+    "unit": "°C",
+    "points": [
+      { "at": "2026-01-03T00:00:00Z", "value": 22.5 }
+    ]
+  }
 }
 ```
 

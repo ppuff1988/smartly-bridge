@@ -210,7 +210,22 @@ GET /api/smartly/sync/states
 | `last_changed` | string \| null | 狀態最後改變時間（ISO 8601 格式） |
 | `last_updated` | string \| null | 最後更新時間（ISO 8601 格式） |
 | `icon` | string \| null | MDI 格式圖示，優先使用使用者自訂圖示，若無則自動使用原始圖示 |
+| `device_class` | string | Smartly normalized 設備類別（例如 `environment_sensor`、`smart_light`） |
+| `unit_of_measurement` | string | 感測器測量單位（例如 `°C`、`%`），有值時回傳 |
+| `bridge_chart` | object | 符合 Bridge chart 規則的感測器簡化圖表資料 |
 | `count` | integer | 實體總數 |
+
+#### Bridge chart 判斷規則
+
+`bridge_chart` 是否回傳由 `attributes.device_class` 和狀態值決定，不根據 `entity_id`、`friendly_name` 或單位文字猜測。Sync state 的 top-level `device_class` 保留給 Smartly normalized 設備類別；Home Assistant sensor 類別會保留在 `attributes.device_class`，並作為 `bridge_chart.metric`。
+
+回傳條件：
+
+1. 實體有 `attributes.device_class`。
+2. `attributes.device_class` 在 Bridge chart allowlist：`temperature`、`humidity`、`carbon_dioxide`、`co2`、`carbon_monoxide`、`aqi`、`pm25`、`pm10`、`illuminance`、`pressure`、`atmospheric_pressure`。
+3. 狀態值可轉成數字，且有可用的 `last_updated` 時間戳。
+
+不符合條件時省略 `bridge_chart`。例如開關、燈光、文字型 sensor、`unknown`、`unavailable` 或沒有 allowlist `device_class` 的 sensor 都不回傳。
 
 #### 常見實體屬性
 
@@ -230,6 +245,32 @@ GET /api/smartly/sync/states
 ```json
 {
   "friendly_name": "Bedroom Switch"
+}
+```
+
+##### Sensor（溫濕度）
+
+```json
+{
+  "entity_id": "sensor.temperature",
+  "state": "24.6",
+  "attributes": {
+    "device_class": "temperature",
+    "unit_of_measurement": "°C",
+    "friendly_name": "Living Room Temperature"
+  },
+  "last_changed": "2026-06-26T06:00:00Z",
+  "last_updated": "2026-06-26T06:00:00Z",
+  "icon": "mdi:thermometer",
+  "device_class": "environment_sensor",
+  "unit_of_measurement": "°C",
+  "bridge_chart": {
+    "metric": "temperature",
+    "unit": "°C",
+    "points": [
+      { "at": "2026-06-26T06:00:00Z", "value": 24.6 }
+    ]
+  }
 }
 ```
 
