@@ -223,7 +223,7 @@ GET /api/smartly/sync/states
 2. `attributes.device_class` 在 Bridge chart allowlist：`temperature`、`humidity`、`carbon_dioxide`、`co2`、`carbon_monoxide`、`aqi`、`pm25`、`pm10`、`illuminance`、`pressure`、`atmospheric_pressure`。
 3. 狀態值可轉成數字，且有可用的 `last_updated` 時間戳。
 
-`attributes.bridge_chart.points` 預設回傳最近 6 小時內 Home Assistant recorder 的 significant states，時間窗格以目前 state 的 `last_updated` 為終點往前推 6 小時。每個 point 的 `at` 是 recorder state 的 `last_updated`，`value` 會套用 Smartly Bridge 的數值精度規則。若 recorder 暫時沒有可用歷史點，Bridge 會 fallback 成目前值的一個 point，避免前端沒有圖表資料可畫。
+`attributes.bridge_chart.points` 預設回傳最近 2 小時內 Home Assistant recorder 的 significant states，時間窗格以目前 state 的 `last_updated` 為終點往前推 2 小時。每個 point 的 `at` 是 recorder state 的 `last_updated`，`value` 會套用 Smartly Bridge 的數值精度規則。若 recorder 暫時沒有可用歷史點，Bridge 會 fallback 成目前值的一個 point，避免前端沒有圖表資料可畫。
 
 不符合條件時省略 `attributes.bridge_chart`。例如開關、燈光、文字型 sensor、`unknown`、`unavailable` 或沒有 allowlist `device_class` 的 sensor 都不回傳。
 
@@ -262,8 +262,8 @@ GET /api/smartly/sync/states
       "metric": "temperature",
       "unit": "°C",
       "points": [
-        { "at": "2026-06-26T00:00:00Z", "value": 24.1 },
-        { "at": "2026-06-26T03:00:00Z", "value": 24.4 },
+        { "at": "2026-06-26T04:00:00Z", "value": 24.1 },
+        { "at": "2026-06-26T05:00:00Z", "value": 24.4 },
         { "at": "2026-06-26T06:00:00Z", "value": 24.6 }
       ]
     }
@@ -507,7 +507,7 @@ def get_display_icon(entity):
 建議使用 Webhook 接收即時狀態更新，而非輪詢 `/sync/states`：
 
 - **初始化**: 使用 `/sync/structure` 和 `/sync/states` 建立完整快照
-- **即時更新**: 訂閱 `stateChanged` webhook 接收增量更新；符合 Bridge chart 規則時，事件會在 `attributes.bridge_chart` 回傳最近 6 小時圖表資料
+- **即時更新**: 訂閱 `stateChanged` webhook 接收增量更新；符合 Bridge chart 規則時，事件會在 `attributes.bridge_chart` 回傳最近 2 小時圖表資料
 - **定期同步**: 每 5-10 分鐘執行一次完整同步以確保一致性
 
 ---

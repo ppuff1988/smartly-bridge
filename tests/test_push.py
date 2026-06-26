@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -180,6 +180,31 @@ class TestStatePushManager:
             {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
             {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
         ]
+
+    @pytest.mark.asyncio
+    async def test_queue_event_bridge_chart_queries_previous_two_hours(self, push_manager):
+        """Test pushed chart history is queried from the previous two hours."""
+        mock_new_state = MagicMock()
+        mock_new_state.state = "24.567"
+        mock_new_state.attributes = {
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+        }
+        mock_new_state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+        mock_new_state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+
+        with patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states:
+            mock_query_states.return_value = []
+
+            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+
+        _, start_time, end_time = mock_query_states.await_args.args
+        assert start_time == datetime(2026, 6, 26, 4, 0, 0, tzinfo=timezone.utc)
+        assert end_time == datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
 
     @pytest.mark.asyncio
     async def test_stop_flushes_events(self, push_manager):

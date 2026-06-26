@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -496,6 +497,54 @@ class TestSmartlySyncStatesView:
                         {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
                         {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
                     ]
+
+    @pytest.mark.asyncio
+    async def test_states_sync_bridge_chart_queries_previous_two_hours(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Test sync chart history is queried from the previous two hours."""
+        entity_id = "sensor.temperature"
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=[entity_id],
+            ):
+                mock_state = MagicMock()
+                mock_state.state = "24.567"
+                mock_state.attributes = {
+                    "device_class": "temperature",
+                    "unit_of_measurement": "°C",
+                }
+                mock_state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+                mock_state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+                mock_hass.states.get = MagicMock(return_value=mock_state)
+
+                with (
+                    patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get,
+                    patch(
+                        "custom_components.smartly_bridge.adapters.home_assistant."
+                        "HomeAssistantHistoryGateway.query_states",
+                        new_callable=AsyncMock,
+                    ) as mock_query_states,
+                ):
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = MagicMock(return_value=None)
+                    mock_er_get.return_value = mock_registry
+                    mock_query_states.return_value = []
+
+                    view = SmartlySyncStatesView(mock_request)
+                    await view.get()
+
+                    _, start_time, end_time = mock_query_states.await_args.args
+                    assert start_time == datetime(2026, 6, 26, 4, 0, 0, tzinfo=timezone.utc)
+                    assert end_time == datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
 
     @pytest.mark.asyncio
     async def test_states_sync_with_missing_entity(self, mock_request, mock_hass):
