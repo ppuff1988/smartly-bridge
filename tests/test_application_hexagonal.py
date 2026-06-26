@@ -22,11 +22,13 @@ class FakeEntityPolicy:
     def __init__(self, *, entity_allowed: bool = True, service_allowed: bool = True) -> None:
         self.entity_allowed = entity_allowed
         self.service_allowed = service_allowed
+        self.service_checks: list[tuple[str, str]] = []
 
     def is_entity_allowed(self, entity_id: str) -> bool:
         return self.entity_allowed
 
     def is_service_allowed(self, entity_id: str, action: str) -> bool:
+        self.service_checks.append((entity_id, action))
         return self.service_allowed
 
 
@@ -165,6 +167,75 @@ async def test_control_use_case_calls_allowed_service_and_returns_new_state() ->
     assert audit.controls == [
         ("client-1", "light.kitchen", "turn_on", "success", {"role": "admin"})
     ]
+
+
+@pytest.mark.asyncio
+async def test_control_use_case_maps_light_brightness_alias_to_turn_on() -> None:
+    """Light brightness commands map to Home Assistant turn_on service data."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 150},
+        )
+    )
+    policy = FakeEntityPolicy()
+    use_case = ControlUseCase(policy, gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "set_brightness", {"brightness": 150}),
+    )
+
+    assert result.status == 200
+    assert gateway.calls == [("light.kitchen", "turn_on", {"brightness": 150})]
+    assert policy.service_checks == [("light.kitchen", "turn_on")]
+    assert result.body["action"] == "set_brightness"
+
+
+@pytest.mark.asyncio
+async def test_control_use_case_maps_light_color_alias_to_turn_on() -> None:
+    """Light color commands map color aliases to rgb_color service data."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"rgb_color": [255, 120, 40]},
+        )
+    )
+    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "set_color", {"color": [255, 120, 40]}),
+    )
+
+    assert result.status == 200
+    assert gateway.calls == [("light.kitchen", "turn_on", {"rgb_color": [255, 120, 40]})]
+
+
+@pytest.mark.asyncio
+async def test_control_use_case_maps_light_color_temp_alias_to_turn_on() -> None:
+    """Light color temperature commands map to turn_on service data."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"color_temp": 370},
+        )
+    )
+    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "set_color_temp", {"color_temperature": 370}),
+    )
+
+    assert result.status == 200
+    assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp": 370})]
 
 
 def test_sync_structure_use_case_returns_gateway_structure() -> None:

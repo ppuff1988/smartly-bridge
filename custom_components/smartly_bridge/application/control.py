@@ -5,8 +5,17 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from ..acl import get_entity_domain
 from ..domain.models import BridgeResponse
 from .ports import AuditPort, ControlGatewayPort, EntityPolicyPort
+
+LIGHT_TURN_ON_ACTIONS = {
+    "set_brightness",
+    "set_color",
+    "set_rgb_color",
+    "set_color_temp",
+    "set_color_temperature",
+}
 
 
 @dataclass(frozen=True)
@@ -44,7 +53,9 @@ class ControlUseCase:
             )
             return BridgeResponse({"error": "entity_not_allowed"}, status=403)
 
-        if not self._policy.is_service_allowed(command.entity_id, command.action):
+        service_action, service_data = _normalize_service_call(command)
+
+        if not self._policy.is_service_allowed(command.entity_id, service_action):
             self._audit.deny(
                 client_id,
                 command.entity_id,
@@ -57,8 +68,8 @@ class ControlUseCase:
         try:
             state = await self._gateway.call_service(
                 command.entity_id,
-                command.action,
-                command.service_data,
+                service_action,
+                service_data,
             )
         except Exception as err:
             self._audit.control(
@@ -87,3 +98,26 @@ class ControlUseCase:
             },
             status=200,
         )
+
+
+def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any]]:
+    """Map Smartly-friendly actions to Home Assistant service calls."""
+    if (
+        get_entity_domain(command.entity_id) != "light"
+        or command.action not in LIGHT_TURN_ON_ACTIONS
+    ):
+        return command.action, command.service_data
+
+    return "turn_on", _normalize_light_service_data(command.service_data)
+
+
+def _normalize_light_service_data(service_data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize light aliases to Home Assistant light.turn_on fields."""
+    normalized = dict(service_data)
+
+    if "color" in normalized and "rgb_color" not in normalized:
+        normalized["rgb_color"] = normalized.pop("color")
+    if "color_temperature" in normalized and "color_temp" not in normalized:
+        normalized["color_temp"] = normalized.pop("color_temperature")
+
+    return normalized
