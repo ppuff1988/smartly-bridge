@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from custom_components.smartly_bridge.adapters.home_assistant import HomeAssistantStateSyncGateway
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView, SmartlySyncView
@@ -747,3 +748,119 @@ class TestSmartlySyncStatesView:
                     s for s in data["states"] if s["entity_id"] == "sensor.temperature"
                 )
                 assert temp_state["state"] == "25.6"
+
+
+def _state(
+    state: str,
+    attributes: dict,
+    *,
+    changed: str = "2026-06-26T10:00:00+00:00",
+    updated: str = "2026-06-26T10:00:00+00:00",
+):
+    mock_state = MagicMock()
+    mock_state.state = state
+    mock_state.attributes = attributes
+    mock_state.last_changed.isoformat.return_value = changed
+    mock_state.last_updated.isoformat.return_value = updated
+    return mock_state
+
+
+def _state_payload(mock_hass, entity_id: str, state, entry=None):
+    if entry is None:
+        entry = MagicMock(icon=None, original_icon=None, labels=set())
+
+    mock_hass.states.get = MagicMock(return_value=state)
+    mock_registry = MagicMock()
+    mock_registry.async_get.return_value = entry
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry):
+        snapshot = HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=[entity_id]),
+        ).list_states()[0]
+
+    return snapshot.to_sync_dict()
+
+
+def test_state_sync_includes_light_card_capability_metadata(mock_hass):
+    """Advanced lights expose normalized capabilities and light presentation."""
+    payload = _state_payload(
+        mock_hass,
+        "light.living_room",
+        _state(
+            "on",
+            {
+                "friendly_name": "Living Light",
+                "brightness": 128,
+                "supported_color_modes": ["brightness", "color_temp"],
+            },
+        ),
+    )
+
+    assert payload["domain"] == "light"
+    assert payload["device_class"] == "smart_light"
+    assert payload["capabilities"] == ["on_off", "brightness", "color_temp"]
+    assert payload["presentation"]["card_template"] == "light_card"
+    assert payload["presentation"]["primary_metric"] == "brightness"
+
+
+def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
+    """Environmental sensors expose metric-card metadata."""
+    payload = _state_payload(
+        mock_hass,
+        "sensor.living_temperature",
+        _state(
+            "24.6",
+            {
+                "friendly_name": "Living Temperature",
+                "device_class": "temperature",
+                "unit_of_measurement": "°C",
+                "humidity": 61,
+                "battery": 84,
+            },
+        ),
+    )
+
+    assert payload["domain"] == "sensor"
+    assert payload["device_class"] == "environment_sensor"
+    assert payload["capabilities"] == ["temperature", "humidity", "battery"]
+    assert payload["presentation"] == {
+        "card_template": "metric_card",
+        "primary_metric": "temperature",
+        "secondary_metrics": ["humidity", "battery"],
+        "dashboard_priority": 40,
+        "favorite": False,
+    }
+
+
+def test_state_sync_keeps_high_risk_camera_read_only(mock_hass):
+    """High-risk domains fall back to unknown read-only cards."""
+    payload = _state_payload(
+        mock_hass,
+        "camera.porch",
+        _state("idle", {"friendly_name": "Porch Cam"}),
+    )
+
+    assert payload["domain"] == "camera"
+    assert payload["device_class"] == "unknown_device"
+    assert payload["capabilities"] == []
+    assert payload["presentation"]["card_template"] == "unknown_card"
+
+
+def test_state_sync_respects_safe_smartly_class_label_override(mock_hass):
+    """smartly.class labels can safely refine switch presentation."""
+    payload = _state_payload(
+        mock_hass,
+        "switch.fan",
+        _state("off", {"friendly_name": "Fan Switch"}),
+        MagicMock(
+            icon=None,
+            original_icon=None,
+            labels={"smartly", "smartly.class.fan_control"},
+        ),
+    )
+
+    assert payload["domain"] == "switch"
+    assert payload["device_class"] == "fan_control"
+    assert payload["capabilities"] == ["on_off"]
+    assert payload["presentation"]["card_template"] == "control_card"

@@ -25,6 +25,12 @@ class EntityStateSnapshot:
     last_changed: str | None = None
     last_updated: str | None = None
     icon: str | None = None
+    name: str | None = None
+    domain: str | None = None
+    device_class: str | None = None
+    capabilities: list[str] = field(default_factory=list)
+    status: str | None = None
+    presentation: dict[str, Any] = field(default_factory=dict)
 
     def to_sync_dict(self) -> dict[str, Any]:
         """Serialize for the sync states API."""
@@ -35,6 +41,12 @@ class EntityStateSnapshot:
             "last_changed": self.last_changed,
             "last_updated": self.last_updated,
             "icon": self.icon,
+            "name": self.name,
+            "domain": self.domain,
+            "device_class": self.device_class,
+            "capabilities": self.capabilities,
+            "status": self.status,
+            "presentation": self.presentation,
         }
 
 
