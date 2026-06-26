@@ -18,7 +18,10 @@ from custom_components.smartly_bridge.const import (
     HEADER_SIGNATURE,
     HEADER_TIMESTAMP,
 )
-from custom_components.smartly_bridge.views.control import _service_data_from_body
+from custom_components.smartly_bridge.views.control import (
+    _entity_id_from_body,
+    _service_data_from_body,
+)
 
 
 def test_control_request_accepts_data_alias_for_service_data() -> None:
@@ -39,6 +42,27 @@ def test_control_request_prefers_service_data_over_data_alias() -> None:
     }
 
     assert _service_data_from_body(body) == {"brightness": 120}
+
+
+def test_control_request_accepts_device_id_alias_for_entity_id() -> None:
+    """Control requests accept frontend device_id as the target entity identifier."""
+    body = {
+        "device_id": "select.presence_occupancy_sensitivity",
+        "action": "select_option",
+        "data": {"option": "low"},
+    }
+
+    assert _entity_id_from_body(body) == "select.presence_occupancy_sensitivity"
+
+
+def test_control_request_prefers_entity_id_over_device_id_alias() -> None:
+    """Canonical entity_id wins when both target identifier keys are present."""
+    body = {
+        "entity_id": "number.presence_detection_delay",
+        "device_id": "binary_sensor.presence",
+    }
+
+    assert _entity_id_from_body(body) == "number.presence_detection_delay"
 
 
 class TestControlEndpoint:
