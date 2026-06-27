@@ -9,7 +9,10 @@ import pytest
 
 from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import API_PATH_DEVICE_EVENTS, DOMAIN
-from custom_components.smartly_bridge.views.device_events import SmartlyDeviceEventsView
+from custom_components.smartly_bridge.views.device_events import (
+    SmartlyDeviceEventsView,
+    SmartlyDeviceEventsViewWrapper,
+)
 
 
 def _request_for_device_event(
@@ -136,3 +139,28 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body)["error"] == "device_event_failed"
+
+    @pytest.mark.asyncio
+    async def test_device_event_wrapper_accepts_route_device_id(self, mock_hass):
+        """Home Assistant passes route variables as keyword arguments to view wrappers."""
+        _configure_integration(mock_hass)
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsViewWrapper().post(
+                request,
+                device_id="device_abc123",
+            )
+
+        assert response.status == 202

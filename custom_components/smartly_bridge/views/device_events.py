@@ -198,7 +198,9 @@ class SmartlyDeviceEventsViewWrapper(HomeAssistantView):
     name = "api:smartly:device_events"
     requires_auth = False
 
-    async def post(self, request: web.Request) -> web.Response:
+    async def post(self, request: web.Request, device_id: str | None = None) -> web.Response:
         """Handle POST request."""
+        if device_id is not None and "device_id" not in request.match_info:
+            request.match_info["device_id"] = device_id
         view = SmartlyDeviceEventsView(request)
         return await view.post()
