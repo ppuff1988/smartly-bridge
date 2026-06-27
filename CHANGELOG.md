@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.2](https://github.com/ppuff1988/smartly-bridge/compare/v1.16.1...v1.16.2) (2026-06-27)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **device-events:** accept route device id ([#96](https://github.com/ppuff1988/smartly-bridge/issues/96)) ([9215e09](https://github.com/ppuff1988/smartly-bridge/commit/9215e0910954d3895d2534fc458e1c1095a0b87e))
+
 ## [1.16.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.16.0...v1.16.1) (2026-06-27)
 
 ### 🐛 錯誤修正 (Bug Fixes)
