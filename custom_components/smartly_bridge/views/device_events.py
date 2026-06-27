@@ -78,6 +78,20 @@ class SmartlyDeviceEventsView(web.View):
 
     async def post(self) -> web.Response:
         """Handle stateless device event request from Platform."""
+        try:
+            return await self._post()
+        except Exception as err:
+            _LOGGER.exception("Failed to handle device event")
+            return web.json_response(
+                {
+                    "error": "device_event_failed",
+                    "message": f"{type(err).__name__}: {err}",
+                },
+                status=500,
+            )
+
+    async def _post(self) -> web.Response:
+        """Handle stateless device event request from Platform."""
         data = self._get_integration_data()
         if data is None:
             return web.json_response(
