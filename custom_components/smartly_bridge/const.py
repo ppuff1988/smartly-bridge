@@ -60,7 +60,6 @@ PLATFORM_CONTROL_LABEL = "smartly"
 ALLOWED_SERVICES: dict[str, list[str]] = {
     "switch": ["turn_on", "turn_off", "toggle"],
     "light": ["turn_on", "turn_off", "toggle"],
-    "button": ["press"],
     "cover": ["open_cover", "close_cover", "stop_cover", "set_cover_position"],
     "climate": ["set_temperature", "set_hvac_mode", "set_fan_mode"],
     "fan": ["turn_on", "turn_off", "set_percentage", "set_preset_mode"],

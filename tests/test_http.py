@@ -21,7 +21,6 @@ from custom_components.smartly_bridge.const import (
 )
 from custom_components.smartly_bridge.views.control import (
     _entity_id_from_body,
-    _normalize_control_body,
     _service_data_from_body,
 )
 
@@ -65,40 +64,6 @@ def test_control_request_prefers_entity_id_over_device_id_alias() -> None:
     }
 
     assert _entity_id_from_body(body) == "number.presence_detection_delay"
-
-
-def test_control_request_normalizes_platform_button_command() -> None:
-    """Platform device commands normalize to canonical Home Assistant control fields."""
-    body = {
-        "device_id": "usb-fan",
-        "capability": "button",
-        "command": "press",
-        "target": "fan_short",
-    }
-
-    normalized = _normalize_control_body(body)
-
-    assert normalized == {
-        "entity_id": "button.usb_fan_fan_short",
-        "action": "press",
-        "service_data": {},
-        "actor": {},
-    }
-
-
-def test_control_request_normalizes_platform_command_with_entity_target() -> None:
-    """Entity targets can be supplied directly in the normalized command format."""
-    body = {
-        "device_id": "usb-fan",
-        "capability": "button",
-        "command": "press",
-        "target": "button.usb_fan_short_press",
-    }
-
-    normalized = _normalize_control_body(body)
-
-    assert normalized["entity_id"] == "button.usb_fan_short_press"
-    assert normalized["action"] == "press"
 
 
 class TestControlEndpoint:
@@ -781,70 +746,6 @@ class TestControlEndpointFullFlow:
                 response = await view.post()
 
                 assert response.status == 500
-
-        await nonce_cache.stop()
-
-    @pytest.mark.asyncio
-    async def test_control_platform_button_command_calls_button_press(
-        self, mock_hass, mock_config_entry
-    ):
-        """Normalized Platform button commands call Home Assistant button.press."""
-        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.const import DOMAIN
-        from custom_components.smartly_bridge.views.control import SmartlyControlView
-
-        nonce_cache = NonceCache()
-        await nonce_cache.start()
-
-        mock_hass.data[DOMAIN] = {
-            "config_entry": mock_config_entry,
-            "nonce_cache": nonce_cache,
-            "rate_limiter": RateLimiter(60, 60),
-        }
-        mock_hass.states.get.return_value = None
-
-        from homeassistant.helpers import entity_registry as er
-
-        with patch.object(er, "async_get") as mock_er:
-            mock_registry = MagicMock()
-            mock_entry = MagicMock()
-            mock_entry.labels = {"smartly"}
-            mock_registry.async_get = MagicMock(return_value=mock_entry)
-            mock_er.return_value = mock_registry
-
-            body = {
-                "device_id": "usb-fan",
-                "capability": "button",
-                "command": "press",
-                "target": "fan_short",
-            }
-
-            mock_request = MagicMock()
-            mock_request.app = {"hass": mock_hass}
-            mock_request.method = "POST"
-            mock_request.path = API_PATH_CONTROL
-            mock_request.json = AsyncMock(return_value=body)
-            mock_request.transport = MagicMock()
-            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-            mock_request.headers = {}
-
-            with patch(
-                "custom_components.smartly_bridge.views.control.verify_request"
-            ) as mock_verify:
-                mock_verify.return_value = MagicMock(
-                    success=True, client_id="test_client", error=None
-                )
-
-                view = SmartlyControlView(mock_request)
-                response = await view.post()
-
-        assert response.status == 200
-        mock_hass.services.async_call.assert_awaited_once_with(
-            "button",
-            "press",
-            {"entity_id": "button.usb_fan_fan_short"},
-            blocking=True,
-        )
 
         await nonce_cache.stop()
 

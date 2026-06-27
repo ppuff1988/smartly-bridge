@@ -157,7 +157,6 @@ class TestAllowedServicesConfig:
         expected_domains = [
             "switch",
             "light",
-            "button",
             "cover",
             "climate",
             "fan",
