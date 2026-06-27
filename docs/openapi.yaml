@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Smartly Bridge API
-  version: 1.5.0
+  version: 1.6.0
   description: |
     Home Assistant Custom Integration API for connecting community-level Home Assistant 
     with central management platform (Smartly Platform).
@@ -17,6 +17,7 @@ info:
     - **Device Control**: Execute service calls on labeled entities
     - **Structure Sync**: Get floor/area/device hierarchy with MDI icons
     - **State Sync**: Query current state of all labeled entities with MDI icons
+    - **Device Events**: Report stateless button actions from scene controllers and multi-key panels
     - **Webhook Push**: Real-time state change notifications (batched)
     - **Heartbeat**: Periodic health check notifications
     - **History API**: Query entity history with intelligent visualization metadata and cursor-based pagination
@@ -24,6 +25,7 @@ info:
     
     ## Version History
     
+    - **v1.6.0** (2026-06-27): Added Device Events API for stateless button actions such as Aqara D1 double rocker events
     - **v1.5.0** (2026-01-12): Added Camera API with snapshot, MJPEG, HLS, and WebRTC streaming support
     - **v1.4.0** (2026-01-11): Added cursor-based pagination to History API for efficient large dataset queries
     - **v1.3.0** (2026-01-10): Added visualization metadata to History API (chart types, colors, interpolation)
@@ -160,6 +162,8 @@ tags:
     description: Device control operations
   - name: Sync
     description: Structure and state synchronization
+  - name: Device Events
+    description: Stateless device event ingestion
   - name: History
     description: Query entity history and statistics
   - name: Camera
@@ -484,6 +488,92 @@ paths:
                 count: 1
         '401':
           $ref: '#/components/responses/UnauthorizedError'
+        '429':
+          $ref: '#/components/responses/RateLimitError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+
+  /api/smartly/devices/{device_id}/events:
+    post:
+      tags:
+        - Device Events
+      summary: Report a stateless device event
+      description: |
+        Report a transient button action from a stateless controller or multi-key switch panel.
+        These events are intended to trigger automation rules and should not be treated as
+        persistent relay state.
+        
+        Aqara D1 double rocker actions are represented by the `action` enum. If the source
+        device also has physical relay state, relay state should be synchronized separately
+        through normal state sync or webhook state change events.
+      operationId: reportDeviceEvent
+      parameters:
+        - name: device_id
+          in: path
+          required: true
+          description: Smartly or Bridge device ID that produced the event
+          schema:
+            type: string
+            example: device_abc123
+      requestBody:
+        description: Stateless button event payload
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DeviceButtonEventRequest'
+            examples:
+              aqaraD1SingleLeft:
+                summary: Aqara D1 left key single press
+                value:
+                  type: button_action
+                  action: single_left
+                  timestamp: "2026-06-27T10:20:00.000Z"
+                  meta:
+                    source: zigbee2mqtt
+                    model: aqara_d1_double
+                    endpoint: left
+                    linkquality: 128
+              aqaraD1HoldBoth:
+                summary: Aqara D1 both keys hold
+                value:
+                  type: button_action
+                  action: hold_both
+                  timestamp: "2026-06-27T10:21:00.000Z"
+                  meta:
+                    source: zha
+                    model: aqara_d1_double
+                    endpoint: both
+      responses:
+        '202':
+          description: Device event accepted for automation processing
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/DeviceEventResponse'
+              example:
+                success: true
+                event_id: evt_01JZABC123
+                device_id: device_abc123
+                action: single_left
+                received_at: "2026-06-27T10:20:01.000Z"
+        '400':
+          description: Invalid event payload or unsupported action
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              examples:
+                invalidAction:
+                  value:
+                    error: invalid_action
+                    message: Unsupported button action
+        '401':
+          $ref: '#/components/responses/UnauthorizedError'
+        '403':
+          description: Device not allowed
+        '404':
+          description: Device not found
         '429':
           $ref: '#/components/responses/RateLimitError'
         '500':
@@ -1310,6 +1400,115 @@ components:
           additionalProperties: true
           example:
             brightness: 255
+
+    DeviceButtonAction:
+      type: string
+      description: |
+        Supported stateless button actions for Aqara D1 double rocker style devices.
+        `release_left` and `release_right` should be sent only when the source integration
+        reports a separate release event after a hold.
+      enum:
+        - single_left
+        - single_right
+        - double_left
+        - double_right
+        - hold_left
+        - hold_right
+        - release_left
+        - release_right
+        - single_both
+        - double_both
+        - hold_both
+      example: single_left
+
+    DeviceButtonEventRequest:
+      type: object
+      description: |
+        Stateless button action event. This payload represents a momentary user operation,
+        not the durable on/off state of a relay or light.
+      required:
+        - type
+        - action
+        - timestamp
+      properties:
+        type:
+          type: string
+          const: button_action
+          description: Event category
+          example: button_action
+        action:
+          $ref: '#/components/schemas/DeviceButtonAction'
+        timestamp:
+          type: string
+          format: date-time
+          description: Source event time in ISO 8601 format
+          example: "2026-06-27T10:20:00.000Z"
+        meta:
+          $ref: '#/components/schemas/DeviceButtonEventMeta'
+
+    DeviceButtonEventMeta:
+      type: object
+      description: Optional source metadata for diagnostics and automation rule matching
+      properties:
+        source:
+          type: string
+          description: Source integration that observed the event
+          enum:
+            - zigbee
+            - zha
+            - zigbee2mqtt
+            - aqara
+            - home_assistant
+          example: zigbee2mqtt
+        model:
+          type: string
+          description: Source model or normalized model key
+          example: aqara_d1_double
+        endpoint:
+          type: string
+          description: Logical button endpoint involved in the event
+          enum:
+            - left
+            - right
+            - both
+          example: left
+        linkquality:
+          type: integer
+          minimum: 0
+          maximum: 255
+          description: Zigbee link quality indicator when available
+          example: 128
+        raw:
+          description: Raw source payload for troubleshooting
+
+    DeviceEventResponse:
+      type: object
+      required:
+        - success
+        - event_id
+        - device_id
+        - action
+        - received_at
+      properties:
+        success:
+          type: boolean
+          description: Whether the event was accepted
+          example: true
+        event_id:
+          type: string
+          description: Platform event ID for tracing automation execution
+          example: evt_01JZABC123
+        device_id:
+          type: string
+          description: Device ID from the request path
+          example: device_abc123
+        action:
+          $ref: '#/components/schemas/DeviceButtonAction'
+        received_at:
+          type: string
+          format: date-time
+          description: Server receive time
+          example: "2026-06-27T10:20:01.000Z"
 
     StructureResponse:
       type: object

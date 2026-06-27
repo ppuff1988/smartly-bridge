@@ -11,6 +11,7 @@ import pytest
 
 from custom_components.smartly_bridge.const import (
     API_PATH_CONTROL,
+    API_PATH_DEVICE_EVENTS,
     API_PATH_SYNC,
     DOMAIN,
     HEADER_CLIENT_ID,
@@ -287,6 +288,10 @@ class TestApiPaths:
         """Test sync API path."""
         assert API_PATH_SYNC == "/api/smartly/sync/structure"
 
+    def test_device_events_path(self):
+        """Test device events API path."""
+        assert API_PATH_DEVICE_EVENTS == "/api/smartly/devices/{device_id}/events"
+
 
 class TestViewRegistration:
     """Tests for HTTP view registration."""
@@ -297,11 +302,11 @@ class TestViewRegistration:
 
         register_views(mock_hass)
 
-        # Control, Sync Structure, Sync States + 5 Camera views
+        # Control, Device Events, Sync Structure, Sync States + 5 Camera views
         # (Snapshot, Stream, List, Config, HLS) + 4 WebRTC views
         # (Token, Offer, ICE, Hangup) + 3 History views
         # (History, History Batch, Statistics)
-        assert mock_hass.http.register_view.call_count == 15
+        assert mock_hass.http.register_view.call_count == 16
 
 
 class TestStatesEndpoint:

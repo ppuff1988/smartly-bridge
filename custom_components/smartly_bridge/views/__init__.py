@@ -10,6 +10,7 @@ from .camera import (
     SmartlyCameraStreamViewWrapper,
 )
 from .control import SmartlyControlViewWrapper
+from .device_events import SmartlyDeviceEventsViewWrapper
 from .history import (
     SmartlyHistoryBatchViewWrapper,
     SmartlyHistoryViewWrapper,
@@ -25,6 +26,7 @@ from .webrtc import (
 
 __all__ = [
     "SmartlyControlViewWrapper",
+    "SmartlyDeviceEventsViewWrapper",
     "SmartlySyncViewWrapper",
     "SmartlySyncStatesViewWrapper",
     "SmartlyCameraSnapshotViewWrapper",
@@ -45,6 +47,7 @@ __all__ = [
 def register_views(hass) -> None:
     """Register all HTTP views."""
     hass.http.register_view(SmartlyControlViewWrapper)
+    hass.http.register_view(SmartlyDeviceEventsViewWrapper)
     hass.http.register_view(SmartlySyncViewWrapper)
     hass.http.register_view(SmartlySyncStatesViewWrapper)
     # Camera views
