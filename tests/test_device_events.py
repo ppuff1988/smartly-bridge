@@ -112,3 +112,27 @@ class TestDeviceEventsEndpoint:
         assert response.status == 400
         assert json.loads(response.body)["error"] == "invalid_action"
         mock_hass.bus.async_fire.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_device_event_returns_json_error_when_dispatch_fails(self, mock_hass):
+        """Unexpected dispatch failures return a structured JSON error."""
+        _configure_integration(mock_hass)
+        mock_hass.bus.async_fire.side_effect = RuntimeError("event bus unavailable")
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body)["error"] == "device_event_failed"
