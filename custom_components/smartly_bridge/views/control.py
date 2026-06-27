@@ -46,9 +46,7 @@ def _service_data_from_body(body: dict[str, Any]) -> dict[str, Any]:
     if service_data is None:
         service_data = body.get("data", {})
         if isinstance(service_data, dict) and "target" in service_data:
-            service_data = {
-                key: value for key, value in service_data.items() if key != "target"
-            }
+            service_data = {key: value for key, value in service_data.items() if key != "target"}
     return service_data
 
 
