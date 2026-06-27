@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [1.16.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.15.1...v1.16.0) (2026-06-27)
+
+### ✨ 新增功能 (Features)
+
+* **device-events:** add stateless button event API ([#94](https://github.com/ppuff1988/smartly-bridge/issues/94)) ([1838aa7](https://github.com/ppuff1988/smartly-bridge/commit/1838aa7bf05613aa76d5724812547237bbcbe3f9))
+
 ## [1.15.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.15.0...v1.15.1) (2026-06-26)
 
 ### 🐛 錯誤修正 (Bug Fixes)
