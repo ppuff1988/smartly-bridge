@@ -101,6 +101,24 @@ def test_control_request_normalizes_platform_command_with_entity_target() -> Non
     assert normalized["action"] == "press"
 
 
+def test_control_request_does_not_forward_routing_target_as_service_data() -> None:
+    """Frontend routing targets are not forwarded to Home Assistant services."""
+    body = {
+        "entity_id": "button.6e0e87b473817f383acf3e41b5fecbd2_fan_short",
+        "action": "press",
+        "data": {"target": "fan_short"},
+    }
+
+    normalized = _normalize_control_body(body)
+
+    assert normalized == {
+        "entity_id": "button.6e0e87b473817f383acf3e41b5fecbd2_fan_short",
+        "action": "press",
+        "service_data": {},
+        "actor": {},
+    }
+
+
 class TestControlEndpoint:
     """Tests for /api/smartly/control endpoint."""
 
