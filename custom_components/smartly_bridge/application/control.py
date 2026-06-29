@@ -189,15 +189,14 @@ class ControlUseCase:
             "success",
             command.actor,
         )
-        return BridgeResponse(
+        return _control_success_response(
             {
                 "success": True,
                 "entity_id": command.entity_id,
                 "action": command.action,
                 "new_state": state.state if state else None,
                 "new_attributes": state.attributes if state else None,
-            },
-            status=200,
+            }
         )
 
 
@@ -689,6 +688,20 @@ def _control_error_response(error: str, *, status: int) -> BridgeResponse:
                     "retryable": error == "service_call_failed",
                 }
             ],
+        },
+        status=status,
+    )
+
+
+def _control_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
+    """Return a legacy-compatible API vNext control success response."""
+    return BridgeResponse(
+        {
+            **body,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
         },
         status=status,
     )

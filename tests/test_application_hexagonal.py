@@ -274,13 +274,22 @@ async def test_control_use_case_calls_allowed_service_and_returns_new_state() ->
     )
 
     assert result.status == 200
-    assert result.body == {
+    legacy_body = {
+        key: value
+        for key, value in result.body.items()
+        if key not in {"schema_version", "data", "warnings", "errors"}
+    }
+    assert legacy_body == {
         "success": True,
         "entity_id": "light.kitchen",
         "action": "turn_on",
         "new_state": "on",
         "new_attributes": {"brightness": 255},
     }
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == legacy_body
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
     assert gateway.calls == [("light.kitchen", "turn_on", {"brightness": 255})]
     assert audit.controls == [
         ("client-1", "light.kitchen", "turn_on", "success", {"role": "admin"})

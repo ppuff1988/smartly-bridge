@@ -52,6 +52,7 @@
 - WebRTC token camera-missing application response 已保留 legacy `error` / `message` 欄位與 404 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - WebRTC offer invalid-token application response 已保留 legacy `error` / `message` 欄位與 401 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - WebRTC offer signaling-failure application response 已保留 legacy `error` / `message` / `session_id` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
+- Legacy control success application response 已保留 legacy `success` / `entity_id` / `action` / new state 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Legacy control entity-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-call-failed application response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -163,6 +164,7 @@
 | 89 | `296da10` | History single-query application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `entity_id` / `history` / `count` / metadata 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; history tests `44 passed`; full suite `558 passed` |
 | 90 | `0e6db58` | History batch application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `history` / `count` / `truncated` / `denied_entities` / metadata 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; history tests `44 passed`; full suite `558 passed` |
 | 91 | `ae03e72` | History statistics application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `entity_id` / `period` / `statistics` / `count` 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; history tests `44 passed`; full suite `558 passed` |
+| 92 | `current slice` | Legacy control success application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `success` / `entity_id` / `action` / new state 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; affected control/http/acl tests `136 passed`; full suite `558 passed` |
 
 ## Completed Slices
 
@@ -172,7 +174,7 @@
 | Devcontainer permissions | devcontainer workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突 | `cf27b15` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control entity/service deny/service failure 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `eaad20a`, `b29cd33`, `d6da427` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `current slice`, `eaad20a`, `b29cd33`, `d6da427` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope 與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae` |
@@ -189,8 +191,8 @@
 
 ## Latest Verification
 
-- Targeted history statistics vNext envelope test: `1 passed`
-- Affected history application/view tests: `44 passed`
+- Targeted legacy control success vNext envelope test: `1 passed`
+- Affected control/http/acl tests: `136 passed`
 - Full suite: `558 passed`
 
 ## Remaining Work
