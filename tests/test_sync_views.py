@@ -110,6 +110,18 @@ class TestSmartlySyncView:
                         "devices": [],
                         "floors": [],
                     },
+                ), patch(
+                    "homeassistant.helpers.entity_registry.async_get",
+                    return_value=MagicMock(),
+                ), patch(
+                    "homeassistant.helpers.device_registry.async_get",
+                    return_value=MagicMock(),
+                ), patch(
+                    "homeassistant.helpers.area_registry.async_get",
+                    return_value=MagicMock(),
+                ), patch(
+                    "homeassistant.helpers.floor_registry.async_get",
+                    return_value=MagicMock(),
                 ):
                     view = SmartlySyncView(mock_request)
                     response = await view.get()
