@@ -42,6 +42,7 @@
 - Device event accepted response 已保留 legacy event fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event duplicate response 已保留 legacy duplicate fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event invalid action response 已保留 legacy `error` / `message`，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` envelope 欄位。
+- Device event HTTP authentication failure response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.device_id/status`、`warnings`、`errors[]` envelope 欄位。
 - Device event HTTP invalid action response 已改用 application error envelope builder，讓 view-level validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
 - Device event HTTP invalid timestamp response 已改用 application error envelope builder，讓 view-level timestamp validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
 - Device event HTTP invalid meta response 已改用 application error envelope builder，讓 view-level metadata validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
@@ -219,6 +220,7 @@
 | 119 | `6f728a1` | local automation rules rate-limit failure 改用 API vNext envelope，保留 legacy `error`、`Retry-After` 與 `X-RateLimit-Remaining` headers | RED failed with legacy-only `{"error": "rate_limited"}`; targeted test `1 passed`; affected automation/event/http tests `93 passed`; full suite `596 passed` |
 | 120 | `9986209` | local automation rules POST/PUT/DELETE invalid JSON failure 改用 API vNext envelope，保留 legacy `error` 並標記 `request.body` target | RED failed with `invalid_rule` instead of `invalid_json`; targeted tests `3 passed`; local automation tests `23 passed`; affected automation/event/http tests `96 passed`; full suite `599 passed` |
 | 121 | `1aaf9e3` | local automation rule update/delete 會區分 rule 不存在與 existing rule persistence failure，避免 adapter 無法寫入時誤回 `rule_not_found` | RED failed with 404 `rule_not_found`; targeted tests `2 passed`; local automation tests `25 passed`; affected automation/event/http tests `98 passed`; full suite `601 passed` |
+| 122 | `b6ded93` | Device event HTTP auth failure 改用 API vNext envelope，保留 legacy `error` 並補上 `data.device_id` 與 structured `errors[]` | RED failed with legacy-only `{"error": "invalid_signature"}`; targeted test `1 passed`; device event tests `26 passed`; affected automation/event/http tests `99 passed`; full suite `602 passed` |
 
 ## Completed Slices
 
@@ -230,7 +232,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press` | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65` |
 | Test harness | Sync structure view test 明確 mock HA registries，讓 Python 3.14 / HA 2026.6 registry setup 下的 full suite 可穩定驗證 view wiring | `82be030` |
-| Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields；accepted non-duplicate event 可交給 local automation port 處理，duplicate event 不會重複觸發 automation；Device event view 已接上 HA runtime rule store / SmartlyCommand executor | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16`, `3a44cc6`, `8d721e5` |
+| Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP auth failure / invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields；accepted non-duplicate event 可交給 local automation port 處理，duplicate event 不會重複觸發 automation；Device event view 已接上 HA runtime rule store / SmartlyCommand executor | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16`, `3a44cc6`, `8d721e5`, `b6ded93` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop/snapshot success application response envelope、snapshot 304 / MJPEG stream 非 JSON response-mode 標記，與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope；保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload/cache headers、streaming headers 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae`, `360bf42`, `cb7bac5` |
 | WebRTC path | WebRTC token response envelope、offer answer envelope、ICE accepted success envelope、hangup closed success envelope 與 token camera-missing、offer invalid-token/signaling-failure、ICE session-not-found/entity-mismatch、hangup session-not-found/entity-mismatch application response envelope，保留 legacy token / endpoint / ICE、`type` / `sdp` / `session_id`、`status` / `candidates`、`message` 與 `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3`, `4e27a90`, `97a13dd`, `3307f29`, `6f88e91`, `8f95180`, `54cedc0`, `d70eab6` |
@@ -248,11 +250,11 @@
 
 ## Latest Verification
 
-- Local automation update/delete persistence RED: targeted tests failed with 404 `rule_not_found`
-- Targeted local automation update/delete persistence tests: `2 passed`
-- Local automation tests: `25 passed`
-- Affected automation/event/http tests: `98 passed`
-- Full suite: `601 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Device event auth failure envelope RED: targeted test failed with legacy-only `{"error": "invalid_signature"}`
+- Targeted device event auth failure envelope test: `1 passed`
+- Device event tests: `26 passed`
+- Affected automation/event/http tests: `99 passed`
+- Full suite: `602 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
