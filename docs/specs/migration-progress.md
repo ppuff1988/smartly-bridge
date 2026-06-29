@@ -40,6 +40,7 @@
 - Camera config register missing-entity application response 已保留 legacy `error` 欄位與 400 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Camera config unregister missing-entity application response 已保留 legacy `error` 欄位與 400 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Camera config unknown-action application response 已保留 legacy `error` 欄位與 400 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
+- Camera snapshot success application response 已保留 legacy `snapshot` 欄位與 cache headers，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Camera snapshot unavailable application response 已保留 legacy `error` 欄位與 404 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - WebRTC ICE session-not-found application response 已保留 legacy `error` 欄位與 404 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - WebRTC ICE entity-mismatch application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -165,6 +166,7 @@
 | 90 | `0e6db58` | History batch application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `history` / `count` / `truncated` / `denied_entities` / metadata 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; history tests `44 passed`; full suite `558 passed` |
 | 91 | `ae03e72` | History statistics application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `entity_id` / `period` / `statistics` / `count` 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; history tests `44 passed`; full suite `558 passed` |
 | 92 | `6ddca2e` | Legacy control success application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `success` / `entity_id` / `action` / new state 欄位 | RED failed with missing `schema_version`; targeted test `1 passed`; affected control/http/acl tests `136 passed`; full suite `558 passed` |
+| 93 | `current slice` | Camera snapshot success application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `snapshot` 欄位與 ETag / cache headers | RED failed with missing `schema_version`; targeted test `1 passed`; camera tests `122 passed`; full suite `558 passed` |
 
 ## Completed Slices
 
@@ -177,7 +179,7 @@
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
-| Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope 與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae` |
+| Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop/snapshot success application response envelope 與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload/cache headers 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae`, `current slice` |
 | WebRTC path | WebRTC token response envelope、offer answer envelope、ICE accepted success envelope、hangup closed success envelope 與 token camera-missing、offer invalid-token/signaling-failure、ICE session-not-found/entity-mismatch、hangup session-not-found/entity-mismatch application response envelope，保留 legacy token / endpoint / ICE、`type` / `sdp` / `session_id`、`status` / `candidates`、`message` 與 `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3`, `4e27a90`, `97a13dd`, `3307f29`, `6f88e91`, `8f95180`, `54cedc0`, `d70eab6` |
 | Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
@@ -191,8 +193,8 @@
 
 ## Latest Verification
 
-- Targeted legacy control success vNext envelope test: `1 passed`
-- Affected control/http/acl tests: `136 passed`
+- Targeted camera snapshot success vNext envelope test: `1 passed`
+- Affected camera tests: `122 passed`
 - Full suite: `558 passed`
 
 ## Remaining Work

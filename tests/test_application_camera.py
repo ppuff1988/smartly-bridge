@@ -501,7 +501,16 @@ async def test_camera_snapshot_use_case_returns_snapshot_payload_and_headers() -
     )
 
     assert result.status == 200
-    assert result.body == {"snapshot": gateway.snapshot}
+    legacy_body = {
+        key: value
+        for key, value in result.body.items()
+        if key not in {"schema_version", "data", "warnings", "errors"}
+    }
+    assert legacy_body == {"snapshot": gateway.snapshot}
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == legacy_body
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
     assert result.headers == {
         "ETag": '"snapshot-etag"',
         "Cache-Control": "private, max-age=10",

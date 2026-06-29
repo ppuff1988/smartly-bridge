@@ -109,7 +109,12 @@ class CameraConfigUseCase:
         return _camera_error_response("unknown_action", status=400)
 
 
-def _camera_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
+def _camera_success_response(
+    body: dict[str, Any],
+    *,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+) -> BridgeResponse:
     """Return a legacy-compatible API vNext camera success response."""
     return BridgeResponse(
         {
@@ -120,6 +125,7 @@ def _camera_success_response(body: dict[str, Any], *, status: int = 200) -> Brid
             "errors": [],
         },
         status=status,
+        headers=headers,
     )
 
 
@@ -177,9 +183,8 @@ class CameraSnapshotUseCase:
         if snapshot is None:
             return _camera_error_response("snapshot_unavailable", status=404)
 
-        return BridgeResponse(
+        return _camera_success_response(
             {"snapshot": snapshot},
-            status=200,
             headers={
                 "ETag": snapshot.etag,
                 "Cache-Control": "private, max-age=10",
