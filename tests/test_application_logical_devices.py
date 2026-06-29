@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from custom_components.smartly_bridge.device_presentation import build_device_card_metadata
 from custom_components.smartly_bridge.application.logical_devices import (
     logical_device_from_state,
     logical_devices_from_states,
@@ -197,6 +198,65 @@ def test_environment_sensor_aliases_use_canonical_measurement_names() -> None:
     assert [device["capabilities"][0]["state"] for device in devices] == [
         {"value": "449.8", "unit": "ppm"},
         {"value": "1013.2", "unit": "hPa"},
+    ]
+
+
+def test_electrical_sensor_metadata_uses_meter_capabilities() -> None:
+    """Electrical sensor device classes are inferred as meter measurements."""
+    metadata = build_device_card_metadata(
+        "sensor.power_consumption",
+        "12.3",
+        {"device_class": "power", "unit_of_measurement": "W"},
+    )
+
+    assert metadata["device_class"] == "environment_sensor"
+    assert metadata["capabilities"] == ["power_meter"]
+    assert metadata["presentation"]["primary_metric"] == "power_meter"
+
+
+def test_electrical_sensor_state_uses_meter_contract() -> None:
+    """Electrical sensor capabilities expose read-only measurement state."""
+    devices = [
+        device.to_dict()
+        for device in logical_devices_from_states(
+            [
+                EntityStateSnapshot(
+                    entity_id="sensor.power_consumption",
+                    state="12.3",
+                    attributes={"unit_of_measurement": "W"},
+                    name="Power Consumption",
+                    domain="sensor",
+                    device_class="environment_sensor",
+                    capabilities=["power_meter"],
+                    status="online",
+                    presentation={"card_template": "metric_card"},
+                ),
+                EntityStateSnapshot(
+                    entity_id="sensor.energy_total",
+                    state="1.23",
+                    attributes={"unit_of_measurement": "kWh"},
+                    name="Energy Total",
+                    domain="sensor",
+                    device_class="environment_sensor",
+                    capabilities=["energy_meter"],
+                    status="online",
+                    presentation={"card_template": "metric_card"},
+                ),
+            ]
+        )
+    ]
+
+    assert [device["capabilities"][0]["type"] for device in devices] == [
+        "power_meter",
+        "energy_meter",
+    ]
+    assert [device["capabilities"][0]["role"] for device in devices] == [
+        "secondary",
+        "secondary",
+    ]
+    assert [device["capabilities"][0]["state"] for device in devices] == [
+        {"value": "12.3", "unit": "W"},
+        {"value": "1.23", "unit": "kWh"},
     ]
 
 

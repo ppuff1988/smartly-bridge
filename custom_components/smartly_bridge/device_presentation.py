@@ -54,6 +54,14 @@ ENVIRONMENT_CAPABILITIES = (
     "pressure",
     "atmospheric_pressure",
 )
+ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS = {
+    "current": "current",
+    "energy": "energy_meter",
+    "power": "power_meter",
+    "voltage": "voltage",
+}
+ELECTRICAL_CAPABILITIES = tuple(ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS.values())
+SENSOR_MEASUREMENT_CAPABILITIES = (*ENVIRONMENT_CAPABILITIES, *ELECTRICAL_CAPABILITIES)
 HEALTH_CAPABILITIES = ("battery", "signal_strength")
 PRESENCE_CAPABILITIES = ("occupancy", "motion", "presence")
 CONTACT_CAPABILITIES = ("contact", "opening", "door", "window")
@@ -129,9 +137,14 @@ def _sensor_capabilities(attributes: dict[str, Any]) -> list[str]:
     device_class = str(attributes.get("device_class", "")).lower()
     if device_class in ENVIRONMENT_CAPABILITIES:
         capabilities.append(device_class)
+    if device_class in ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS:
+        capabilities.append(ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS[device_class])
     for capability in ENVIRONMENT_CAPABILITIES:
         if capability in attributes:
             _append_unique(capabilities, capability)
+    for source, canonical in ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS.items():
+        if source in attributes:
+            _append_unique(capabilities, canonical)
     return capabilities
 
 
@@ -254,7 +267,7 @@ def _classify_device(
         return "fan_control"
 
     if domain == "sensor":
-        if capability_set.intersection(ENVIRONMENT_CAPABILITIES):
+        if capability_set.intersection(SENSOR_MEASUREMENT_CAPABILITIES):
             return "environment_sensor"
         if "event" in capability_set:
             return "button_device"
@@ -294,12 +307,26 @@ def _build_presentation(device_class: str, capabilities: list[str]) -> dict[str,
     }
 
     if device_class == "environment_sensor":
-        primary_metric = _first_present(capabilities, ENVIRONMENT_CAPABILITIES)
+        primary_metric = _first_present(
+            capabilities,
+            SENSOR_MEASUREMENT_CAPABILITIES,
+        )
         presentation["primary_metric"] = primary_metric
         presentation["secondary_metrics"] = _secondary_metrics(
             capabilities,
             primary_metric,
-            ("humidity", "battery", "signal_strength", "co2", "pm25", "illuminance"),
+            (
+                "humidity",
+                "battery",
+                "signal_strength",
+                "co2",
+                "pm25",
+                "illuminance",
+                "power_meter",
+                "energy_meter",
+                "voltage",
+                "current",
+            ),
         )
         presentation["dashboard_priority"] = 40
     elif device_class == "smart_light":
@@ -352,7 +379,9 @@ def _override_allowed(device_class: str, domain: str, capabilities: list[str]) -
             capability_set.intersection({"brightness", "color_temp", "rgb_color"})
         )
     if device_class == "environment_sensor":
-        return domain == "sensor" and bool(capability_set.intersection(ENVIRONMENT_CAPABILITIES))
+        return domain == "sensor" and bool(
+            capability_set.intersection(SENSOR_MEASUREMENT_CAPABILITIES)
+        )
     if device_class == "presence_sensor":
         return domain == "binary_sensor" and bool(
             capability_set.intersection(PRESENCE_CAPABILITIES)

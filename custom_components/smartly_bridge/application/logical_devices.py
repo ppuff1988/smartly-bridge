@@ -30,8 +30,12 @@ _MEASUREMENT_CAPABILITIES = {
     "carbon_monoxide",
     "pm25",
     "pm10",
+    "current",
+    "energy_meter",
+    "power_meter",
     "pressure",
     "atmospheric_pressure",
+    "voltage",
     "illuminance",
 }
 
@@ -210,6 +214,7 @@ def _canonical_capability(capability: str) -> str:
         "hvac_mode": "mode_select",
         "signal_strength": "signal_quality",
         "co2": "carbon_dioxide",
+        "energy": "energy_meter",
         "atmospheric_pressure": "pressure",
         "event": "button_event",
         "occupancy": "presence",
