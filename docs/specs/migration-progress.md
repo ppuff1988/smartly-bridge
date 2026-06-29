@@ -8,6 +8,7 @@
 ## Current Status
 
 - `dev` 已建立 application/domain/adapter/view 分層，並以 ports 讓主要 sync、control、event use case 可以脫離 Home Assistant runtime 測試。
+- Devcontainer 已升到 Python 3.14 bookworm image，以符合 Home Assistant 2026.6 `>=3.14.2` 的 test/runtime 依賴要求。
 - `/api/smartly/sync/structure` application response 已保留 legacy structure 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
 - `/api/smartly/sync/states` 已雙軌輸出既有 entity state 與 shadow `logical_devices`。
 - `/api/smartly/sync/states` application response 已保留 legacy `states` / `logical_devices` 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
@@ -185,13 +186,14 @@
 | 102 | `edf71be` | SmartlyCommand resolved denial audit 改以 source entity 作為 audit target，並在 actor metadata 保留 `logical_device_id` / `source_entity_id`，讓拒絕路徑也能追蹤 canonical command 與 legacy target | RED failed with audit denials missing logical/source trace metadata; targeted tests `3 passed`; affected command/http/acl tests `143 passed`; full suite `568 passed` |
 | 103 | `02e8f66` | SmartlyCommand success audit actor metadata 補上 `source_entity_id`，讓成功路徑也與拒絕路徑一樣同時保留 canonical logical device 與 legacy source target | RED failed with success audit actor missing `source_entity_id`; targeted test `1 passed`; affected command/http/acl tests `143 passed`; full suite `568 passed` |
 | 104 | `82be030` | Sync structure view test 明確 mock Home Assistant entity/device/area/floor registries，避免 Python 3.14 / HA 2026 registry setup 變更讓 view wiring test 依賴真 registry | RED full suite failed with `Device registry not set up`; targeted sync view test `1 passed`; full suite `568 passed` |
+| 105 | `602afb5` | Devcontainer image 升到 Python 3.14 bookworm，並修正 dev dependency 註解，讓 `homeassistant>=2026.6.4` 可在 VS Code devcontainer rebuild / postCreate 階段安裝 | RED failed installing requirements on Python 3.13 with HA requiring `>=3.14.2`; Python 3.14.6 requirements install passed; full suite `568 passed` |
 
 ## Completed Slices
 
 | Area | Done | Evidence |
 |---|---|---|
 | Architecture specs | 新增總體架構、Device Abstraction、Capability Contracts、Adapter Contract、Presentation Contract、API vNext、Migration Plan | `0841be1` |
-| Devcontainer permissions | devcontainer workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突 | `cf27b15` |
+| Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial 與 success audit 都會同時保留 logical device 與 source entity trace metadata | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66` |
@@ -213,10 +215,9 @@
 
 ## Latest Verification
 
-- Targeted SmartlyCommand success audit test: `1 passed`
-- Affected command/http/acl tests: `143 passed`
-- Targeted sync structure view registry test: `1 passed`
-- Full suite: `568 passed` on Python 3.14.2 container
+- Devcontainer Python 3.13 dependency RED: `homeassistant>=2026.6.4` install failed because HA requires Python `>=3.14.2`
+- Devcontainer Python 3.14.6 dependency install: passed
+- Full suite: `568 passed` on `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
