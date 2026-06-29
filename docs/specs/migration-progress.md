@@ -9,6 +9,7 @@
 
 - `dev` 已建立 application/domain/adapter/view 分層，並以 ports 讓主要 sync、control、event use case 可以脫離 Home Assistant runtime 測試。
 - `/api/smartly/sync/states` 已雙軌輸出既有 entity state 與 shadow `logical_devices`。
+- `/api/smartly/sync/states` application response 已保留 legacy `states` / `logical_devices` 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - `use_logical_devices` feature flag 可讓 sync states response 標記 logical-device read path，同時保留 legacy `states` 供 rollback。
 - Canonical `SmartlyCommand` path 已可解析 logical device capability target，並映射回 Home Assistant service call。
 - SmartlyCommand success response 已保留 legacy top-level 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
@@ -75,6 +76,7 @@
 | 45 | `a094b98` | SmartlyCommand error response 補上 API vNext `schema_version`、`data`、`warnings` envelope 欄位，同時保留 legacy top-level error 欄位 | RED failed with missing `schema_version`; affected tests `108 passed`; full suite `528 passed` |
 | 46 | `e01355e` | Device event accepted response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy event response 欄位 | RED failed with missing `schema_version`; affected tests `14 passed`; full suite `529 passed` |
 | 47 | `ddadb62` | Device event duplicate response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy duplicate response 欄位 | RED failed with missing `schema_version`; affected tests `15 passed`; full suite `530 passed` |
+| 48 | current slice | Sync states response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `states` / `logical_devices` 欄位 | RED failed with missing `schema_version`; affected tests `99 passed`; full suite `531 passed` |
 
 ## Completed Slices
 
@@ -86,7 +88,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate event response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62` |
-| Sync aliases, warnings, and read path | logical devices 輸出 migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5` |
+| Sync aliases, warnings, and read path | logical devices 輸出 migration aliases、normalization warnings、API vNext response envelope，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, current slice |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
 | Cover | position、stop merge、tilt position control | `824a555`, `c02479b`, `5e569e5` |
@@ -98,9 +100,9 @@
 
 ## Latest Verification
 
-- Targeted duplicate event response vNext envelope test: `1 passed`
-- Affected event application/view tests: `15 passed`
-- Full suite: `530 passed`
+- Targeted sync states vNext envelope test: `1 passed`
+- Affected sync/application tests: `99 passed`
+- Full suite: `531 passed`
 
 ## Remaining Work
 

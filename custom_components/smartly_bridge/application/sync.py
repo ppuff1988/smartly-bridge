@@ -8,6 +8,8 @@ from ..domain.models import BridgeResponse
 from .logical_devices import logical_devices_from_states
 from .ports import SyncStatesPort, SyncStructurePort
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 
 class SyncStructureUseCase:
     """Return the platform-visible Home Assistant structure."""
@@ -35,10 +37,19 @@ class SyncStatesUseCase:
         logical_devices = [device.to_dict() for device in logical_device_models]
         warnings = _normalization_warnings(logical_devices)
         body: dict[str, Any] = {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "states": states,
             "count": len(states),
             "normalization_warnings": warnings,
             "logical_devices": logical_devices,
+            "data": {
+                "states": states,
+                "count": len(states),
+                "logical_devices": logical_devices,
+                "normalization_warnings": warnings,
+            },
+            "warnings": warnings,
+            "errors": [],
         }
         if self._use_logical_devices:
             body.update(

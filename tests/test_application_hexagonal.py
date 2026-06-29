@@ -1997,99 +1997,123 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
     result = await SyncStatesUseCase(FakeSyncGateway()).execute()
 
     assert result.status == 200
-    assert result.body == {
-        "states": [
-            {
-                "entity_id": "light.kitchen",
-                "state": "on",
-                "attributes": {"brightness": 128},
-                "last_changed": "2026-06-24T00:00:00+00:00",
-                "last_updated": "2026-06-24T00:00:00+00:00",
-                "icon": "mdi:lightbulb",
-                "name": "Kitchen Light",
-                "domain": "light",
-                "device_class": "smart_light",
-                "capabilities": ["on_off", "brightness"],
-                "status": "online",
-                "presentation": {"card_template": "light_card"},
-            }
-        ],
-        "count": 1,
-        "normalization_warnings": [],
-        "logical_devices": [
-            {
-                "id": "ldev_light_kitchen",
-                "name": "Kitchen Light",
-                "primary_type": "light",
-                "device_class": "light_control",
-                "status": "online",
-                "source_entities": ["light.kitchen"],
-                "aliases": [
-                    {
-                        "kind": "home_assistant_entity_id",
-                        "value": "light.kitchen",
-                        "valid_from": None,
-                        "valid_until": None,
-                    }
-                ],
-                "capabilities": [
-                    {
-                        "type": "power",
-                        "role": "primary",
-                        "readable": True,
-                        "writable": True,
-                        "event_only": False,
-                        "state": {"value": True},
-                        "commands": ["turn_on", "turn_off", "toggle"],
-                        "events": [],
-                        "constraints": {},
-                        "presentation": {},
-                        "source_refs": [
-                            {
-                                "source": "home_assistant",
-                                "source_device_id": None,
-                                "source_entity_id": "light.kitchen",
-                                "domain": "light",
-                                "role": "primary_control",
-                                "capability_types": ["power"],
-                            }
-                        ],
-                    },
-                    {
-                        "type": "brightness",
-                        "role": "primary",
-                        "readable": True,
-                        "writable": True,
-                        "event_only": False,
-                        "state": {"value": 50, "unit": "percent"},
-                        "commands": [
-                            "set_brightness",
-                            "increase_brightness",
-                            "decrease_brightness",
-                        ],
-                        "events": [],
-                        "constraints": {"min": 0, "max": 100, "step": 1},
-                        "presentation": {},
-                        "source_refs": [
-                            {
-                                "source": "home_assistant",
-                                "source_device_id": None,
-                                "source_entity_id": "light.kitchen",
-                                "domain": "light",
-                                "role": "primary_control",
-                                "capability_types": ["brightness"],
-                            }
-                        ],
-                    },
-                ],
-                "presentation": {
-                    "template": "light_control",
-                    "primary_controls": ["power", "brightness"],
-                    "status_badges": [],
+    assert result.body["states"] == [
+        {
+            "entity_id": "light.kitchen",
+            "state": "on",
+            "attributes": {"brightness": 128},
+            "last_changed": "2026-06-24T00:00:00+00:00",
+            "last_updated": "2026-06-24T00:00:00+00:00",
+            "icon": "mdi:lightbulb",
+            "name": "Kitchen Light",
+            "domain": "light",
+            "device_class": "smart_light",
+            "capabilities": ["on_off", "brightness"],
+            "status": "online",
+            "presentation": {"card_template": "light_card"},
+        }
+    ]
+    assert result.body["count"] == 1
+    assert result.body["normalization_warnings"] == []
+    assert result.body["logical_devices"] == [
+        {
+            "id": "ldev_light_kitchen",
+            "name": "Kitchen Light",
+            "primary_type": "light",
+            "device_class": "light_control",
+            "status": "online",
+            "source_entities": ["light.kitchen"],
+            "aliases": [
+                {
+                    "kind": "home_assistant_entity_id",
+                    "value": "light.kitchen",
+                    "valid_from": None,
+                    "valid_until": None,
+                }
+            ],
+            "capabilities": [
+                {
+                    "type": "power",
+                    "role": "primary",
+                    "readable": True,
+                    "writable": True,
+                    "event_only": False,
+                    "state": {"value": True},
+                    "commands": ["turn_on", "turn_off", "toggle"],
+                    "events": [],
+                    "constraints": {},
+                    "presentation": {},
+                    "source_refs": [
+                        {
+                            "source": "home_assistant",
+                            "source_device_id": None,
+                            "source_entity_id": "light.kitchen",
+                            "domain": "light",
+                            "role": "primary_control",
+                            "capability_types": ["power"],
+                        }
+                    ],
                 },
-                "schema_version": "2026.06",
-            }
-        ],
+                {
+                    "type": "brightness",
+                    "role": "primary",
+                    "readable": True,
+                    "writable": True,
+                    "event_only": False,
+                    "state": {"value": 50, "unit": "percent"},
+                    "commands": [
+                        "set_brightness",
+                        "increase_brightness",
+                        "decrease_brightness",
+                    ],
+                    "events": [],
+                    "constraints": {"min": 0, "max": 100, "step": 1},
+                    "presentation": {},
+                    "source_refs": [
+                        {
+                            "source": "home_assistant",
+                            "source_device_id": None,
+                            "source_entity_id": "light.kitchen",
+                            "domain": "light",
+                            "role": "primary_control",
+                            "capability_types": ["brightness"],
+                        }
+                    ],
+                },
+            ],
+            "presentation": {
+                "template": "light_control",
+                "primary_controls": ["power", "brightness"],
+                "status_badges": [],
+            },
+            "schema_version": "2026.06",
+        }
+    ]
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "states": result.body["states"],
+        "count": 1,
+        "logical_devices": result.body["logical_devices"],
+        "normalization_warnings": [],
+    }
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_includes_vnext_envelope() -> None:
+    """State sync exposes API vNext envelope fields alongside legacy fields."""
+    result = await SyncStatesUseCase(FakeSyncGateway()).execute()
+
+    assert result.status == 200
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == result.body["normalization_warnings"]
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "states": result.body["states"],
+        "count": 1,
+        "logical_devices": result.body["logical_devices"],
+        "normalization_warnings": [],
     }
 
 
