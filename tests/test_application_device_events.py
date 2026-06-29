@@ -155,6 +155,44 @@ async def test_duplicate_button_action_reuses_event_id_without_republishing() ->
 
 
 @pytest.mark.asyncio
+async def test_rotate_button_action_is_published_with_canonical_event_payload() -> None:
+    """Rotary button actions are normalized to canonical rotate events."""
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_rotate",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_knob",
+            type="button_action",
+            action="rotate_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.status == 202
+    assert result.body["capability"] == "button_event"
+    assert result.body["event"] == "rotate_left"
+    assert result.body["payload"] == {"direction": "left"}
+    assert result.body["events"] == [
+        {
+            "event_id": "evt_rotate",
+            "device_id": "device_knob",
+            "capability": "button_event",
+            "event": "rotate_left",
+            "payload": {"direction": "left"},
+            "occurred_at": "2026-06-27T10:20:00.000Z",
+        }
+    ]
+    assert publisher.events[0]["event"] == "rotate_left"
+    assert publisher.events[0]["payload"] == {"direction": "left"}
+
+
+@pytest.mark.asyncio
 async def test_unsupported_button_action_is_rejected_before_publish() -> None:
     """Unsupported source actions do not reach the event publisher."""
     publisher = FakeDeviceEventPublisher()

@@ -22,6 +22,8 @@ SUPPORTED_BUTTON_ACTIONS = {
     "single_both",
     "double_both",
     "hold_both",
+    "rotate_left",
+    "rotate_right",
 }
 
 _BUTTON_EVENT_BY_ACTION = {
@@ -176,6 +178,12 @@ def _duplicate_event_response(
 def _canonical_button_event(action: str) -> dict[str, Any]:
     """Map legacy source button action to canonical Smartly event fields."""
     source_event, _, button = action.partition("_")
+    if source_event == "rotate":
+        return {
+            "capability": "button_event",
+            "event": action,
+            "payload": {"direction": button},
+        }
     return {
         "capability": "button_event",
         "event": _BUTTON_EVENT_BY_ACTION[source_event],
