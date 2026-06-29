@@ -32,6 +32,7 @@
 - `/api/smartly/automations/local/rules` 已提供 authenticated GET endpoint，以 API vNext envelope 輸出 canonical local automation rules，供 Platform automation editor 讀取。
 - `/api/smartly/automations/local/rules` integration-not-configured response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/automations/local/rules` authentication failure response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
+- `/api/smartly/automations/local/rules` rate-limit response 已保留 legacy `error` 與 rate-limit headers，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated POST create，可將 canonical rule payload 持久化到 config entry。
 - Local automation rule create 現在會在 store 無法持久化時回傳 API vNext `rule_persistence_failed` error，避免 Platform read/write path 誤判 rule 已建立。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated PUT update，可依 `rule_id` 替換 config entry 內既有 canonical rule。
@@ -213,6 +214,7 @@
 | 116 | `e61be04` | local automation rule create port 改為回報 persistence result，讓 store 無法寫入 config entry 時 application 回傳 `rule_persistence_failed` 而不是假成功 | RED failed with create returning 201 and adapter returning `None`; targeted tests `2 passed`; affected automation/event/http tests `90 passed`; full suite `593 passed` |
 | 117 | `db0052b` | local automation rules view-level integration-not-configured error 改用 API vNext envelope，保留 legacy `error` 並補上 structured `errors[]` | RED failed with legacy-only `{"error": "integration_not_configured"}`; targeted test `1 passed`; affected automation/event/http tests `91 passed`; full suite `594 passed` |
 | 118 | `fa2359c` | local automation rules authentication failure 改用 API vNext envelope，保留 legacy auth `error` 並補上 structured `errors[]` | RED failed with legacy-only `{"error": "invalid_signature"}`; targeted test `1 passed`; affected automation/event/http tests `92 passed`; full suite `595 passed` |
+| 119 | `6f728a1` | local automation rules rate-limit failure 改用 API vNext envelope，保留 legacy `error`、`Retry-After` 與 `X-RateLimit-Remaining` headers | RED failed with legacy-only `{"error": "rate_limited"}`; targeted test `1 passed`; affected automation/event/http tests `93 passed`; full suite `596 passed` |
 
 ## Completed Slices
 
@@ -237,15 +239,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor；create path 會在 persistence failure 時回報 `rule_persistence_failed`，避免 Platform 誤判 rule 已建立；view-level integration-not-configured 與 auth failure error 已補上 API vNext envelope | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor；create path 會在 persistence failure 時回報 `rule_persistence_failed`，避免 Platform 誤判 rule 已建立；view-level integration-not-configured、auth failure 與 rate-limit error 已補上 API vNext envelope | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Local automation auth failure envelope RED: targeted test failed with legacy-only `{"error": "invalid_signature"}`
-- Targeted local automation auth failure envelope test: `1 passed`
-- Affected automation/event/http tests: `92 passed`
-- Full suite: `595 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation rate-limit envelope RED: targeted test failed with legacy-only `{"error": "rate_limited"}`
+- Targeted local automation rate-limit envelope test: `1 passed`
+- Affected automation/event/http tests: `93 passed`
+- Full suite: `596 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
