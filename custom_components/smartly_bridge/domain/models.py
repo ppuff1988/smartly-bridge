@@ -18,6 +18,68 @@ class BridgeResponse:
 
 
 @dataclass(frozen=True)
+class SmartlyCapability:
+    """Canonical capability exposed by the new Smartly device abstraction."""
+
+    type: str
+    role: str = "primary"
+    readable: bool = True
+    writable: bool = True
+    event_only: bool = False
+    state: dict[str, Any] = field(default_factory=dict)
+    commands: list[str] = field(default_factory=list)
+    events: list[str] = field(default_factory=list)
+    constraints: dict[str, Any] = field(default_factory=dict)
+    presentation: dict[str, Any] = field(default_factory=dict)
+    source_refs: list[dict[str, Any]] = field(default_factory=list)
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize as the API vNext capability contract."""
+        return {
+            "type": self.type,
+            "role": self.role,
+            "readable": self.readable,
+            "writable": self.writable,
+            "event_only": self.event_only,
+            "state": self.state,
+            "commands": self.commands,
+            "events": self.events,
+            "constraints": self.constraints,
+            "presentation": self.presentation,
+            "source_refs": self.source_refs,
+        }
+
+
+@dataclass(frozen=True)
+class SmartlyLogicalDevice:
+    """Logical device shadow payload used during capability-based migration."""
+
+    id: str
+    name: str
+    primary_type: str
+    device_class: str
+    status: str | None
+    source_entities: list[str]
+    capabilities: list[SmartlyCapability]
+    presentation: dict[str, Any] = field(default_factory=dict)
+    schema_version: str = "2026.06"
+
+    def to_dict(self) -> dict[str, Any]:
+        """Serialize as the logical-device contract."""
+        return {
+            "id": self.id,
+            "name": self.name,
+            "primary_type": self.primary_type,
+            "device_class": self.device_class,
+            "status": self.status,
+            "source_entities": self.source_entities,
+            "capabilities": [capability.to_dict() for capability in self.capabilities],
+            "presentation": self.presentation,
+            "schema_version": self.schema_version,
+        }
+
+
+@dataclass(frozen=True)
 class EntityStateSnapshot:
     """Serializable entity state snapshot."""
 

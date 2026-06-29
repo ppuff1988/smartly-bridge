@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from ..domain.models import BridgeResponse
+from .logical_devices import logical_device_from_state
 from .ports import SyncStatesPort, SyncStructurePort
 
 
@@ -25,5 +26,10 @@ class SyncStatesUseCase:
 
     async def execute(self) -> BridgeResponse:
         """Return states and count."""
-        states = [state.to_sync_dict() for state in await self._gateway.list_states()]
-        return BridgeResponse({"states": states, "count": len(states)}, status=200)
+        snapshots = await self._gateway.list_states()
+        states = [state.to_sync_dict() for state in snapshots]
+        logical_devices = [logical_device_from_state(state).to_dict() for state in snapshots]
+        return BridgeResponse(
+            {"states": states, "count": len(states), "logical_devices": logical_devices},
+            status=200,
+        )

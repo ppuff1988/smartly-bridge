@@ -108,13 +108,17 @@ def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any
     ):
         return command.action, command.service_data
 
-    return "turn_on", _normalize_light_service_data(command.service_data)
+    return "turn_on", _normalize_light_service_data(command.action, command.service_data)
 
 
-def _normalize_light_service_data(service_data: dict[str, Any]) -> dict[str, Any]:
+def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:
     """Normalize light aliases to Home Assistant light.turn_on fields."""
     normalized = dict(service_data)
 
+    if action == "set_brightness" and "value" in normalized:
+        normalized.setdefault("brightness_pct", normalized.pop("value"))
+    if action == "set_color_temperature" and "value" in normalized:
+        normalized.setdefault("color_temp_kelvin", normalized.pop("value"))
     if "color" in normalized and "rgb_color" not in normalized:
         normalized["rgb_color"] = normalized.pop("color")
     if "color_temperature" in normalized and "color_temp" not in normalized:

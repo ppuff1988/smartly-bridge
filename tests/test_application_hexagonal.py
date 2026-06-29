@@ -99,6 +99,12 @@ class FakeSyncGateway:
                 last_changed="2026-06-24T00:00:00+00:00",
                 last_updated="2026-06-24T00:00:00+00:00",
                 icon="mdi:lightbulb",
+                name="Kitchen Light",
+                domain="light",
+                device_class="smart_light",
+                capabilities=["on_off", "brightness"],
+                status="online",
+                presentation={"card_template": "light_card"},
             )
         ]
 
@@ -195,6 +201,30 @@ async def test_control_use_case_maps_light_brightness_alias_to_turn_on() -> None
 
 
 @pytest.mark.asyncio
+async def test_control_use_case_maps_canonical_brightness_value_to_pct() -> None:
+    """Canonical brightness commands use Smartly 0-100 value contract."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 204},
+        )
+    )
+    policy = FakeEntityPolicy()
+    use_case = ControlUseCase(policy, gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "set_brightness", {"value": 80}),
+    )
+
+    assert result.status == 200
+    assert gateway.calls == [("light.kitchen", "turn_on", {"brightness_pct": 80})]
+    assert policy.service_checks == [("light.kitchen", "turn_on")]
+
+
+@pytest.mark.asyncio
 async def test_control_use_case_maps_light_color_alias_to_turn_on() -> None:
     """Light color commands map color aliases to rgb_color service data."""
     audit = FakeAudit()
@@ -238,6 +268,30 @@ async def test_control_use_case_maps_light_color_temp_alias_to_turn_on() -> None
     assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp": 370})]
 
 
+@pytest.mark.asyncio
+async def test_control_use_case_maps_canonical_color_temperature_value_to_kelvin() -> None:
+    """Canonical color temperature commands use Smartly kelvin value contract."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"color_temp": 250},
+        )
+    )
+    policy = FakeEntityPolicy()
+    use_case = ControlUseCase(policy, gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "set_color_temperature", {"value": 4000}),
+    )
+
+    assert result.status == 200
+    assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp_kelvin": 4000})]
+    assert policy.service_checks == [("light.kitchen", "turn_on")]
+
+
 def test_sync_structure_use_case_returns_gateway_structure() -> None:
     """Structure sync uses a sync port instead of reading Home Assistant directly."""
     gateway = FakeSyncGateway()
@@ -262,15 +316,59 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                 "last_changed": "2026-06-24T00:00:00+00:00",
                 "last_updated": "2026-06-24T00:00:00+00:00",
                 "icon": "mdi:lightbulb",
-                "name": None,
-                "domain": None,
-                "device_class": None,
-                "capabilities": [],
-                "status": None,
-                "presentation": {},
+                "name": "Kitchen Light",
+                "domain": "light",
+                "device_class": "smart_light",
+                "capabilities": ["on_off", "brightness"],
+                "status": "online",
+                "presentation": {"card_template": "light_card"},
             }
         ],
         "count": 1,
+        "logical_devices": [
+            {
+                "id": "ldev_light_kitchen",
+                "name": "Kitchen Light",
+                "primary_type": "light",
+                "device_class": "light_control",
+                "status": "online",
+                "source_entities": ["light.kitchen"],
+                "capabilities": [
+                    {
+                        "type": "power",
+                        "role": "primary",
+                        "readable": True,
+                        "writable": True,
+                        "event_only": False,
+                        "state": {"value": True},
+                        "commands": ["turn_on", "turn_off", "toggle"],
+                        "events": [],
+                        "constraints": {},
+                        "presentation": {},
+                        "source_refs": [],
+                    },
+                    {
+                        "type": "brightness",
+                        "role": "primary",
+                        "readable": True,
+                        "writable": True,
+                        "event_only": False,
+                        "state": {"value": 50, "unit": "percent"},
+                        "commands": ["set_brightness"],
+                        "events": [],
+                        "constraints": {"min": 0, "max": 100, "step": 1},
+                        "presentation": {},
+                        "source_refs": [],
+                    },
+                ],
+                "presentation": {
+                    "template": "light_control",
+                    "primary_controls": ["power", "brightness"],
+                    "status_badges": [],
+                },
+                "schema_version": "2026.06",
+            }
+        ],
     }
 
 
@@ -294,6 +392,21 @@ def test_inner_layers_do_not_import_framework_adapters() -> None:
                 assert not forbidden_roots.intersection(
                     name.split(".")[0] for name in imported
                 ), f"{path} imports framework code: {imported}"
+
+
+def test_domain_models_do_not_own_legacy_normalization() -> None:
+    """Domain models stay as data contracts; application services normalize legacy states."""
+    package_root = Path(__file__).resolve().parents[1] / "custom_components/smartly_bridge"
+    models = (package_root / "domain/models.py").read_text()
+
+    forbidden_snippets = [
+        "to_logical_device",
+        "_capability_from_snapshot",
+        "_logical_device_presentation",
+    ]
+
+    for snippet in forbidden_snippets:
+        assert snippet not in models
 
 
 def test_package_init_does_not_import_outer_adapters_at_module_load() -> None:

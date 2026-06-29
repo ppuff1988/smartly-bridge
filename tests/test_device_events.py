@@ -84,12 +84,18 @@ class TestDeviceEventsEndpoint:
         assert payload["device_id"] == "device_abc123"
         assert payload["action"] == "single_left"
         assert payload["event_id"].startswith("evt_")
+        assert payload["capability"] == "button_event"
+        assert payload["event"] == "single_press"
+        assert payload["payload"] == {"button": "left"}
         assert "received_at" in payload
         mock_hass.bus.async_fire.assert_called_once()
         event_type, event_data = mock_hass.bus.async_fire.call_args.args
         assert event_type == "smartly_bridge_device_event"
         assert event_data["device_id"] == "device_abc123"
         assert event_data["action"] == "single_left"
+        assert event_data["capability"] == "button_event"
+        assert event_data["event"] == "single_press"
+        assert event_data["payload"] == {"button": "left"}
         assert event_data["meta"]["endpoint"] == "left"
 
     @pytest.mark.asyncio

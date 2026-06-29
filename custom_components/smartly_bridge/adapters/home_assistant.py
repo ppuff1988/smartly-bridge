@@ -29,6 +29,8 @@ from ..utils import (
     signal_attribute_key_for_entity,
 )
 
+DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
+
 
 def _entry_labels(entry: Any) -> set[str]:
     """Return string labels from a Home Assistant entity registry entry."""
@@ -161,6 +163,17 @@ class LoggingAuditAdapter:
             result=result,
             actor=actor,
         )
+
+
+class HomeAssistantDeviceEventPublisher:
+    """Device event publisher backed by the Home Assistant event bus."""
+
+    def __init__(self, hass: Any) -> None:
+        self._hass = hass
+
+    def publish_device_event(self, event_data: dict[str, Any]) -> None:
+        """Publish a normalized Smartly device event."""
+        self._hass.bus.async_fire(DEVICE_EVENT_TYPE, event_data)
 
 
 class HomeAssistantEntityPolicy:

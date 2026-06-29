@@ -50,6 +50,13 @@ class AuditPort(Protocol):
         """Record a control operation."""
 
 
+class DeviceEventPublisherPort(Protocol):
+    """Publishes canonical device events to the runtime event bus."""
+
+    def publish_device_event(self, event_data: dict[str, Any]) -> None:
+        """Publish a normalized device event."""
+
+
 class SyncStructurePort(Protocol):
     """Provides the allowed entity structure."""
 

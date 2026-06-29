@@ -4,13 +4,18 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
+from ..adapters.home_assistant import DEVICE_EVENT_TYPE, HomeAssistantDeviceEventPublisher
+from ..application.device_events import (
+    DeviceEventCommand,
+    DeviceEventUseCase,
+    SUPPORTED_BUTTON_ACTIONS,
+)
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -27,22 +32,6 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
-
-DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
-
-SUPPORTED_BUTTON_ACTIONS = {
-    "single_left",
-    "single_right",
-    "double_left",
-    "double_right",
-    "hold_left",
-    "hold_right",
-    "release_left",
-    "release_right",
-    "single_both",
-    "double_both",
-    "hold_both",
-}
 
 
 def _is_valid_timestamp(value: Any) -> bool:
@@ -165,30 +154,18 @@ class SmartlyDeviceEventsView(web.View):
         if meta is not None and not isinstance(meta, dict):
             return web.json_response({"error": "invalid_meta"}, status=400)
 
-        event_id = f"evt_{uuid.uuid4().hex}"
-        received_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        event_data = {
-            "event_id": event_id,
-            "device_id": device_id,
-            "type": event_type,
-            "action": action,
-            "timestamp": timestamp,
-            "received_at": received_at,
-            "client_id": auth_result.client_id or "unknown",
-            "meta": meta or {},
-        }
-        self.hass.bus.async_fire(DEVICE_EVENT_TYPE, event_data)
-
-        return web.json_response(
-            {
-                "success": True,
-                "event_id": event_id,
-                "device_id": device_id,
-                "action": action,
-                "received_at": received_at,
-            },
-            status=202,
+        result = await DeviceEventUseCase(HomeAssistantDeviceEventPublisher(self.hass)).execute(
+            auth_result.client_id or "unknown",
+            DeviceEventCommand(
+                device_id=device_id,
+                type=event_type,
+                action=action,
+                timestamp=timestamp,
+                meta=meta or {},
+            ),
         )
+
+        return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
 class SmartlyDeviceEventsViewWrapper(HomeAssistantView):
