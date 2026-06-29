@@ -222,6 +222,23 @@ class HomeAssistantLocalAutomationRuleStore:
             if (parsed := _local_automation_rule_from_config(rule)) is not None
         ]
 
+    def create_rule(self, rule: LocalAutomationRule) -> None:
+        """Persist a local automation rule to the Home Assistant config entry."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        config_entry = integration_data.get("config_entry")
+        if config_entry is None:
+            return
+        data = dict(getattr(config_entry, "data", {}))
+        stored_rules = list(data.get("local_automation_rules", []))
+        stored_rules.append(_local_automation_rule_to_config(rule))
+        data["local_automation_rules"] = stored_rules
+        self._hass.config_entries.async_update_entry(config_entry, data=data)
+        if "local_automation_rules" in integration_data:
+            integration_data["local_automation_rules"] = [
+                *self.list_rules(),
+                rule,
+            ]
+
 
 def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
     """Return a local automation rule from runtime or serialized config data."""
@@ -289,6 +306,30 @@ def _automation_action_from_config(value: Any) -> AutomationAction | None:
         command=command,
         params=params if isinstance(params, dict) else {},
     )
+
+
+def _local_automation_rule_to_config(rule: LocalAutomationRule) -> dict[str, Any]:
+    """Return serialized config entry data for a local automation rule."""
+    return {
+        "rule_id": rule.rule_id,
+        "enabled": rule.enabled,
+        "trigger": {
+            "device_id": rule.trigger.device_id,
+            "capability": rule.trigger.capability,
+            "event": rule.trigger.event,
+            "payload": dict(rule.trigger.payload),
+        },
+        "actions": [
+            {
+                "type": action.type,
+                "device_id": action.device_id,
+                "capability": action.capability,
+                "command": action.command,
+                "params": dict(action.params),
+            }
+            for action in rule.actions
+        ],
+    }
 
 
 class HomeAssistantSmartlyCommandExecutor:

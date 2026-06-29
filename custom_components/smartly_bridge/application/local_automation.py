@@ -72,6 +72,49 @@ class LocalAutomationRulesListUseCase:
         )
 
 
+class LocalAutomationRuleCreateUseCase:
+    """Create a local automation rule from canonical API payloads."""
+
+    def __init__(self, rules: LocalAutomationRuleStorePort) -> None:
+        self._rules = rules
+
+    def execute(self, payload: dict[str, Any]) -> BridgeResponse:
+        """Persist a new local automation rule."""
+        rule = _rule_from_payload(payload)
+        if rule is None:
+            return _rule_error_response(
+                "invalid_rule",
+                message="Invalid local automation rule",
+                status=400,
+                target="rule",
+            )
+        if any(existing.rule_id == rule.rule_id for existing in self._rules.list_rules()):
+            return _rule_error_response(
+                "rule_already_exists",
+                message="Local automation rule already exists",
+                status=409,
+                target="rule.rule_id",
+            )
+        self._rules.create_rule(rule)
+        body_rule = _rule_payload(rule)
+        return BridgeResponse(
+            {
+                "success": True,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "status": "created",
+                "rule_id": rule.rule_id,
+                "rule": body_rule,
+                "data": {
+                    "status": "created",
+                    "rule": body_rule,
+                },
+                "warnings": [],
+                "errors": [],
+            },
+            status=201,
+        )
+
+
 class LocalAutomationUseCase:
     """Run local automation rules for canonical device events."""
 
@@ -172,3 +215,98 @@ def _rule_payload(rule: LocalAutomationRule) -> dict[str, Any]:
             for action in rule.actions
         ],
     }
+
+
+def _rule_from_payload(value: dict[str, Any]) -> LocalAutomationRule | None:
+    """Return a local automation rule from a canonical API payload."""
+    if not isinstance(value, dict):
+        return None
+    rule_id = value.get("rule_id")
+    if not isinstance(rule_id, str) or not rule_id:
+        return None
+    trigger = _trigger_from_payload(value.get("trigger"))
+    if trigger is None:
+        return None
+    actions = [
+        action
+        for item in value.get("actions", [])
+        if (action := _action_from_payload(item)) is not None
+    ]
+    if not actions:
+        return None
+    return LocalAutomationRule(
+        rule_id=rule_id,
+        trigger=trigger,
+        actions=actions,
+        enabled=value.get("enabled", True) is not False,
+    )
+
+
+def _trigger_from_payload(value: Any) -> AutomationTrigger | None:
+    """Return an automation trigger from a canonical API payload."""
+    if not isinstance(value, dict):
+        return None
+    device_id = value.get("device_id")
+    capability = value.get("capability")
+    event = value.get("event")
+    if not all(isinstance(item, str) and item for item in (device_id, capability, event)):
+        return None
+    payload = value.get("payload", {})
+    return AutomationTrigger(
+        device_id=device_id,
+        capability=capability,
+        event=event,
+        payload=payload if isinstance(payload, dict) else {},
+    )
+
+
+def _action_from_payload(value: Any) -> AutomationAction | None:
+    """Return an automation action from a canonical API payload."""
+    if not isinstance(value, dict):
+        return None
+    action_type = value.get("type")
+    device_id = value.get("device_id")
+    capability = value.get("capability")
+    command = value.get("command")
+    if not all(
+        isinstance(item, str) and item
+        for item in (action_type, device_id, capability, command)
+    ):
+        return None
+    params = value.get("params", {})
+    return AutomationAction(
+        type=action_type,
+        device_id=device_id,
+        capability=capability,
+        command=command,
+        params=params if isinstance(params, dict) else {},
+    )
+
+
+def _rule_error_response(
+    error: str,
+    *,
+    message: str,
+    status: int,
+    target: str,
+) -> BridgeResponse:
+    """Return a local automation API vNext error response."""
+    return BridgeResponse(
+        {
+            "error": error,
+            "message": message,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error,
+                    "message": message,
+                    "target": target,
+                }
+            ],
+        },
+        status=status,
+    )

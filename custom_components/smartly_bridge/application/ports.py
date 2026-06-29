@@ -94,6 +94,9 @@ class LocalAutomationRuleStorePort(Protocol):
     def list_rules(self) -> list[Any]:
         """Return configured local automation rules."""
 
+    def create_rule(self, rule: Any) -> None:
+        """Persist a new local automation rule."""
+
 
 class SmartlyCommandExecutorPort(Protocol):
     """Executes canonical Smartly commands."""

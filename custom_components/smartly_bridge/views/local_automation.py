@@ -2,13 +2,17 @@
 
 from __future__ import annotations
 
+import json
 import logging
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import HomeAssistantLocalAutomationRuleStore
-from ..application.local_automation import LocalAutomationRulesListUseCase
+from ..application.local_automation import (
+    LocalAutomationRuleCreateUseCase,
+    LocalAutomationRulesListUseCase,
+)
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -28,8 +32,8 @@ _LOGGER = logging.getLogger(__name__)
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
-    async def get(self) -> web.Response:
-        """Return configured local automation rules."""
+    async def _authorize(self, service: str) -> web.Response | str:
+        """Authorize a local automation rule management request."""
         data = self._get_integration_data()
         if data is None:
             return web.json_response(
@@ -55,7 +59,7 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 _LOGGER,
                 client_id=self.request.headers.get("X-Client-Id", "unknown"),
                 entity_id="",
-                service="local_automation_rules",
+                service=service,
                 reason=auth_result.error or "auth_failed",
             )
             return web.json_response(
@@ -68,7 +72,7 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 _LOGGER,
                 client_id=auth_result.client_id or "unknown",
                 entity_id="",
-                service="local_automation_rules",
+                service=service,
                 reason="rate_limited",
             )
             return web.json_response(
@@ -79,10 +83,30 @@ class SmartlyLocalAutomationRulesView(BaseView):
                     "X-RateLimit-Remaining": "0",
                 },
             )
+        return auth_result.client_id or "unknown"
 
+    async def get(self) -> web.Response:
+        """Return configured local automation rules."""
+        auth = await self._authorize("local_automation_rules")
+        if isinstance(auth, web.Response):
+            return auth
         result = LocalAutomationRulesListUseCase(
             HomeAssistantLocalAutomationRuleStore(self.hass)
         ).execute()
+        return web.json_response(result.body, status=result.status, headers=result.headers)
+
+    async def post(self) -> web.Response:
+        """Create a local automation rule."""
+        auth = await self._authorize("local_automation_rules_create")
+        if isinstance(auth, web.Response):
+            return auth
+        try:
+            payload = await self.request.json()
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
+        result = LocalAutomationRuleCreateUseCase(
+            HomeAssistantLocalAutomationRuleStore(self.hass)
+        ).execute(payload)
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
@@ -97,3 +121,8 @@ class SmartlyLocalAutomationRulesViewWrapper(HomeAssistantView):
         """Handle GET request."""
         view = SmartlyLocalAutomationRulesView(request)
         return await view.get()
+
+    async def post(self, request: web.Request) -> web.Response:
+        """Handle POST request."""
+        view = SmartlyLocalAutomationRulesView(request)
+        return await view.post()

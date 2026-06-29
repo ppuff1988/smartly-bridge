@@ -11,6 +11,7 @@ from custom_components.smartly_bridge.application.local_automation import (
     AutomationAction,
     AutomationTrigger,
     LocalAutomationRule,
+    LocalAutomationRuleCreateUseCase,
     LocalAutomationRulesListUseCase,
     LocalAutomationUseCase,
 )
@@ -25,6 +26,9 @@ class FakeAutomationRuleStore:
 
     def list_rules(self) -> list[LocalAutomationRule]:
         return self.rules
+
+    def create_rule(self, rule: LocalAutomationRule) -> None:
+        self.rules.append(rule)
 
 
 class FakeSmartlyCommandExecutor:
@@ -103,6 +107,58 @@ def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:
         "warnings": [],
         "errors": [],
     }
+
+
+def test_create_rule_persists_canonical_rule_payload() -> None:
+    """Creating a local automation rule persists canonical trigger/action config."""
+    store = FakeAutomationRuleStore([])
+
+    result = LocalAutomationRuleCreateUseCase(store).execute(
+        {
+            "rule_id": "rule-left-single",
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_on",
+                }
+            ],
+        }
+    )
+
+    expected_rule = LocalAutomationRule(
+        rule_id="rule-left-single",
+        enabled=True,
+        trigger=AutomationTrigger(
+            device_id="ldev_button",
+            capability="button_event",
+            event="single_press",
+            payload={"button": "left"},
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_light",
+                capability="power",
+                command="turn_on",
+                params={},
+            )
+        ],
+    )
+    assert store.rules == [expected_rule]
+    assert result.status == 201
+    assert result.body["success"] is True
+    assert result.body["status"] == "created"
+    assert result.body["rule_id"] == "rule-left-single"
+    assert result.body["data"]["rule"]["rule_id"] == "rule-left-single"
+    assert result.body["errors"] == []
 
 
 @pytest.mark.asyncio
