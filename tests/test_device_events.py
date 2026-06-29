@@ -87,6 +87,16 @@ class TestDeviceEventsEndpoint:
         assert payload["capability"] == "button_event"
         assert payload["event"] == "single_press"
         assert payload["payload"] == {"button": "left"}
+        assert payload["events"] == [
+            {
+                "event_id": payload["event_id"],
+                "device_id": "device_abc123",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "occurred_at": "2026-06-27T10:20:00.000Z",
+            }
+        ]
         assert "received_at" in payload
         mock_hass.bus.async_fire.assert_called_once()
         event_type, event_data = mock_hass.bus.async_fire.call_args.args

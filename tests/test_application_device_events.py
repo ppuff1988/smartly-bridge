@@ -53,6 +53,16 @@ async def test_button_action_is_published_with_canonical_event_payload() -> None
         "capability": "button_event",
         "event": "single_press",
         "payload": {"button": "left"},
+        "events": [
+            {
+                "event_id": "evt_fixed",
+                "device_id": "device_abc123",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "occurred_at": "2026-06-27T10:20:00.000Z",
+            }
+        ],
     }
     assert publisher.events == [
         {
@@ -67,6 +77,16 @@ async def test_button_action_is_published_with_canonical_event_payload() -> None
             "capability": "button_event",
             "event": "single_press",
             "payload": {"button": "left"},
+            "events": [
+                {
+                    "event_id": "evt_fixed",
+                    "device_id": "device_abc123",
+                    "capability": "button_event",
+                    "event": "single_press",
+                    "payload": {"button": "left"},
+                    "occurred_at": "2026-06-27T10:20:00.000Z",
+                }
+            ],
         }
     ]
 

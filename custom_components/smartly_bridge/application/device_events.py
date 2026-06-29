@@ -70,6 +70,12 @@ class DeviceEventUseCase:
         event_id = self._event_id_factory()
         received_at = self._received_at_factory()
         canonical = _canonical_button_event(command.action)
+        canonical_event = _event_ingestion_payload(
+            event_id=event_id,
+            device_id=command.device_id,
+            occurred_at=command.timestamp,
+            canonical=canonical,
+        )
         event_data = {
             "event_id": event_id,
             "device_id": command.device_id,
@@ -80,6 +86,7 @@ class DeviceEventUseCase:
             "client_id": client_id,
             "meta": command.meta,
             **canonical,
+            "events": [canonical_event],
         }
         self._publisher.publish_device_event(event_data)
 
@@ -91,6 +98,7 @@ class DeviceEventUseCase:
                 "action": command.action,
                 "received_at": received_at,
                 **canonical,
+                "events": [canonical_event],
             },
             status=202,
         )
@@ -103,6 +111,24 @@ def _canonical_button_event(action: str) -> dict[str, Any]:
         "capability": "button_event",
         "event": _BUTTON_EVENT_BY_ACTION[source_event],
         "payload": {"button": button},
+    }
+
+
+def _event_ingestion_payload(
+    *,
+    event_id: str,
+    device_id: str,
+    occurred_at: str,
+    canonical: dict[str, Any],
+) -> dict[str, Any]:
+    """Return the API vNext event ingestion payload."""
+    return {
+        "event_id": event_id,
+        "device_id": device_id,
+        "capability": canonical["capability"],
+        "event": canonical["event"],
+        "payload": canonical["payload"],
+        "occurred_at": occurred_at,
     }
 
 
