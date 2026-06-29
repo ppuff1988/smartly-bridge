@@ -352,6 +352,26 @@ async def test_camera_hls_info_response_includes_vnext_envelope() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_info_not_found_response_includes_vnext_envelope() -> None:
+    """HLS info not-found responses expose API vNext envelope fields."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "info")
+
+    assert result.status == 404
+    assert result.body["error"] == "camera_not_found"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "CAMERA_NOT_FOUND",
+            "message": "camera not found",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_stats_response_includes_vnext_envelope() -> None:
     """HLS stats responses expose API vNext envelope fields."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stats")
