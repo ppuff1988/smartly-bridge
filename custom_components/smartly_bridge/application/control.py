@@ -11,6 +11,8 @@ from .ports import AuditPort, CommandTargetResolverPort, ControlGatewayPort, Ent
 
 LIGHT_TURN_ON_ACTIONS = {
     "set_brightness",
+    "increase_brightness",
+    "decrease_brightness",
     "set_color",
     "set_rgb_color",
     "set_color_temp",
@@ -47,7 +49,11 @@ RUN_ACTIONS = {
 
 SUPPORTED_SMARTLY_COMMANDS = {
     "power": {"turn_on", "turn_off", "toggle"},
-    "brightness": {"set_brightness"},
+    "brightness": {
+        "set_brightness",
+        "increase_brightness",
+        "decrease_brightness",
+    },
     "color_temperature": {"set_color_temperature"},
     "rgb_color": {"set_rgb_color"},
     "effect": {"set_effect"},
@@ -281,6 +287,12 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     if command.capability == "brightness" and command.command == "set_brightness":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
+    if command.capability == "brightness" and command.command in {
+        "increase_brightness",
+        "decrease_brightness",
+    }:
+        delta = command.params.get("delta")
+        return isinstance(delta, (int, float)) and 1 <= delta <= 100
     if (
         command.capability == "color_temperature"
         and command.command == "set_color_temperature"
@@ -419,6 +431,10 @@ def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> 
 
     if action == "set_brightness" and "value" in normalized:
         normalized.setdefault("brightness_pct", normalized.pop("value"))
+    if action == "increase_brightness" and "delta" in normalized:
+        normalized.setdefault("brightness_step_pct", normalized.pop("delta"))
+    if action == "decrease_brightness" and "delta" in normalized:
+        normalized.setdefault("brightness_step_pct", -normalized.pop("delta"))
     if action == "set_color_temperature" and "value" in normalized:
         normalized.setdefault("color_temp_kelvin", normalized.pop("value"))
     if action == "set_rgb_color" and "rgb_color" not in normalized:

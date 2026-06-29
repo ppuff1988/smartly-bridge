@@ -465,6 +465,49 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
     ]
 
 
+@pytest.mark.parametrize(
+    ("command_name", "delta", "expected_step"),
+    [
+        ("increase_brightness", 12, 12),
+        ("decrease_brightness", 7, -7),
+    ],
+)
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_brightness_delta_commands(
+    command_name: str,
+    delta: int,
+    expected_step: int,
+) -> None:
+    """Brightness delta commands map to Home Assistant step percentages."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 128},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-brightness-delta",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command=command_name,
+            params={"delta": delta},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {}
+    assert gateway.calls == [
+        ("light.kitchen", "turn_on", {"brightness_step_pct": expected_step})
+    ]
+
+
 @pytest.mark.asyncio
 async def test_smartly_command_use_case_returns_power_expected_state() -> None:
     """Power commands expose expected capability state for correlation."""
@@ -1837,7 +1880,11 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                         "writable": True,
                         "event_only": False,
                         "state": {"value": 50, "unit": "percent"},
-                        "commands": ["set_brightness"],
+                        "commands": [
+                            "set_brightness",
+                            "increase_brightness",
+                            "decrease_brightness",
+                        ],
                         "events": [],
                         "constraints": {"min": 0, "max": 100, "step": 1},
                         "presentation": {},

@@ -919,7 +919,11 @@ def test_sibling_entities_with_same_source_device_group_into_one_logical_device(
                     "writable": True,
                     "event_only": False,
                     "state": {"value": 50, "unit": "percent"},
-                    "commands": ["set_brightness"],
+                    "commands": [
+                        "set_brightness",
+                        "increase_brightness",
+                        "decrease_brightness",
+                    ],
                     "events": [],
                     "constraints": {"min": 0, "max": 100, "step": 1},
                     "presentation": {},

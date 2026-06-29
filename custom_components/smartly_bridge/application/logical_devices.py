@@ -652,7 +652,11 @@ def _commands_for_capability(capability: str) -> list[str]:
     """Return command names supported by canonical capabilities."""
     return {
         "power": ["turn_on", "turn_off", "toggle"],
-        "brightness": ["set_brightness"],
+        "brightness": [
+            "set_brightness",
+            "increase_brightness",
+            "decrease_brightness",
+        ],
         "color_temperature": ["set_color_temperature"],
         "rgb_color": ["set_rgb_color"],
         "effect": ["set_effect"],
