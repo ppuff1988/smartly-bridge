@@ -293,7 +293,18 @@ async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_st
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")
 
     assert result.status == 400
-    assert result.body == {"error": "hls_not_supported"}
+    assert result.body["error"] == "hls_not_supported"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "HLS_NOT_SUPPORTED",
+            "message": "hls not supported",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
 
 
 @pytest.mark.asyncio
