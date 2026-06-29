@@ -681,12 +681,14 @@ def _smartly_command_error_response(
     response_status = result.status if result else status
     if response_status is None:
         response_status = 500
+    command_status = "failed" if response_status >= 500 else "rejected"
 
     return BridgeResponse(
         {
             "success": False,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "command_id": command.command_id,
-            "status": "failed" if response_status >= 500 else "rejected",
+            "status": command_status,
             "error": error_code,
             "errors": [_smartly_command_vnext_error(error_code, response_status)],
             "device_id": command.device_id,
@@ -694,6 +696,12 @@ def _smartly_command_error_response(
             "command": command.command,
             "entity_id": entity_id,
             "expected_state": {},
+            "data": {
+                "command_id": command.command_id,
+                "status": command_status,
+                "expected_state": {},
+            },
+            "warnings": [],
         },
         status=response_status,
         headers=result.headers if result else {},

@@ -1224,6 +1224,7 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     assert result.status == 404
     assert result.body == {
         "success": False,
+        "schema_version": "2026.06",
         "command_id": "cmd-404",
         "status": "rejected",
         "error": "command_target_not_found",
@@ -1240,6 +1241,12 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
         "command": "turn_on",
         "entity_id": None,
         "expected_state": {},
+        "data": {
+            "command_id": "cmd-404",
+            "status": "rejected",
+            "expected_state": {},
+        },
+        "warnings": [],
     }
     assert resolver.lookups == [("ldev_unknown", "power")]
     assert gateway.calls == []
@@ -1276,6 +1283,7 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
     assert result.status == 400
     assert result.body == {
         "success": False,
+        "schema_version": "2026.06",
         "command_id": "cmd-unsupported",
         "status": "rejected",
         "error": "command_not_supported",
@@ -1292,6 +1300,12 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
         "command": "turn_on",
         "entity_id": "light.kitchen",
         "expected_state": {},
+        "data": {
+            "command_id": "cmd-unsupported",
+            "status": "rejected",
+            "expected_state": {},
+        },
+        "warnings": [],
     }
     assert resolver.lookups == [("ldev_light_kitchen", "brightness")]
     assert gateway.calls == []
@@ -1328,6 +1342,7 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
     assert result.status == 400
     assert result.body == {
         "success": False,
+        "schema_version": "2026.06",
         "command_id": "cmd-invalid",
         "status": "rejected",
         "error": "invalid_params",
@@ -1344,6 +1359,12 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
         "command": "set_brightness",
         "entity_id": "light.kitchen",
         "expected_state": {},
+        "data": {
+            "command_id": "cmd-invalid",
+            "status": "rejected",
+            "expected_state": {},
+        },
+        "warnings": [],
     }
     assert gateway.calls == []
     assert audit.denials == [
@@ -1386,6 +1407,37 @@ async def test_smartly_command_error_response_includes_vnext_errors_array() -> N
             "retryable": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
+    """Command error responses expose API vNext envelope fields alongside legacy fields."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-envelope",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 150},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["success"] is False
+    assert result.body["error"] == "invalid_params"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["data"] == {
+        "command_id": "cmd-invalid-envelope",
+        "status": "rejected",
+        "expected_state": {},
+    }
 
 
 @pytest.mark.asyncio
@@ -1855,6 +1907,7 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
     assert result.status == 403
     assert result.body == {
         "success": False,
+        "schema_version": "2026.06",
         "command_id": "cmd-denied",
         "status": "rejected",
         "error": "service_not_allowed",
@@ -1871,6 +1924,12 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
         "command": "turn_on",
         "entity_id": "light.kitchen",
         "expected_state": {},
+        "data": {
+            "command_id": "cmd-denied",
+            "status": "rejected",
+            "expected_state": {},
+        },
+        "warnings": [],
     }
     assert gateway.calls == []
 
@@ -1897,6 +1956,7 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
     assert result.status == 500
     assert result.body == {
         "success": False,
+        "schema_version": "2026.06",
         "command_id": "cmd-failed",
         "status": "failed",
         "error": "service_call_failed",
@@ -1913,6 +1973,12 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
         "command": "turn_on",
         "entity_id": "light.kitchen",
         "expected_state": {},
+        "data": {
+            "command_id": "cmd-failed",
+            "status": "failed",
+            "expected_state": {},
+        },
+        "warnings": [],
     }
 
 
