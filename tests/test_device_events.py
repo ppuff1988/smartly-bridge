@@ -133,6 +133,32 @@ class TestDeviceEventsEndpoint:
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_device_event_accepts_button_action_alias_format(self, mock_hass):
+        """Button-action aliases are accepted by the HTTP ingestion path."""
+        _configure_integration(mock_hass)
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "left_single",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 202
+        payload = json.loads(response.body)
+        assert payload["event"] == "single_press"
+        assert payload["payload"] == {"button": "left"}
+        mock_hass.bus.async_fire.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_device_event_duplicate_reuses_event_id_without_refiring(self, mock_hass):
         """Repeated canonical events are idempotent within the integration runtime."""
         _configure_integration(mock_hass)

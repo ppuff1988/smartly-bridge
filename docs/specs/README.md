@@ -20,3 +20,4 @@
 | [Presentation Contract](presentation-contract.md) | 定義 Platform 如何以 primary type、capability 與 presentation hint render UI | Draft |
 | [API vNext Contract](api-vnext-contract.md) | 定義 logical device sync、state sync、event ingestion、command dispatch 與 diagnostic fetch | Draft |
 | [Migration Plan](migration-plan.md) | 定義從 entity-based 架構遷移到 logical-device / capability-based 架構的階段與 gate | Draft |
+| [Migration Progress](migration-progress.md) | 紀錄 `dev` 上已完成的遷移 slices、測試證據與待辦項目 | Active |

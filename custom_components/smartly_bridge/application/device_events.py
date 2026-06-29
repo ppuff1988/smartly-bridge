@@ -10,22 +10,6 @@ from typing import Any, Callable
 from ..domain.models import BridgeResponse
 from .ports import DeviceEventDeduplicatorPort, DeviceEventPublisherPort
 
-SUPPORTED_BUTTON_ACTIONS = {
-    "single_left",
-    "single_right",
-    "double_left",
-    "double_right",
-    "hold_left",
-    "hold_right",
-    "release_left",
-    "release_right",
-    "single_both",
-    "double_both",
-    "hold_both",
-    "rotate_left",
-    "rotate_right",
-}
-
 _BUTTON_EVENT_BY_ACTION = {
     "single": "single_press",
     "double": "double_press",
@@ -65,14 +49,14 @@ class DeviceEventUseCase:
         """Publish a normalized event or return a validation error."""
         if command.type != "button_action":
             return BridgeResponse({"error": "missing_required_fields"}, status=400)
-        if command.action not in SUPPORTED_BUTTON_ACTIONS:
+        canonical = _canonical_button_event(command.action)
+        if canonical is None:
             return BridgeResponse(
                 {"error": "invalid_action", "message": "Unsupported button action"},
                 status=400,
             )
 
         received_at = self._received_at_factory()
-        canonical = _canonical_button_event(command.action)
         dedupe_key = _event_dedupe_key(client_id, command)
         existing_event_id = self._deduplicator.event_id_for_key(dedupe_key)
         if existing_event_id is not None:
@@ -137,6 +121,11 @@ class _NoEventDeduplicator:
         """Ignore remembered events."""
 
 
+def is_supported_button_action(action: Any) -> bool:
+    """Return whether a source button action can be normalized."""
+    return isinstance(action, str) and _canonical_button_event(action) is not None
+
+
 def _event_dedupe_key(client_id: str, command: DeviceEventCommand) -> str:
     """Return the event idempotency key."""
     return "|".join(
@@ -175,15 +164,21 @@ def _duplicate_event_response(
     )
 
 
-def _canonical_button_event(action: str) -> dict[str, Any]:
+def _canonical_button_event(action: str) -> dict[str, Any] | None:
     """Map legacy source button action to canonical Smartly event fields."""
     source_event, _, button = action.partition("_")
     if source_event == "rotate":
+        if button not in {"left", "right"}:
+            return None
         return {
             "capability": "button_event",
             "event": action,
             "payload": {"direction": button},
         }
+    if source_event not in _BUTTON_EVENT_BY_ACTION:
+        button, _, source_event = action.partition("_")
+    if source_event not in _BUTTON_EVENT_BY_ACTION or not button:
+        return None
     return {
         "capability": "button_event",
         "event": _BUTTON_EVENT_BY_ACTION[source_event],

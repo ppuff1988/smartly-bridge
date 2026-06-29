@@ -192,6 +192,43 @@ async def test_rotate_button_action_is_published_with_canonical_event_payload() 
     assert publisher.events[0]["payload"] == {"direction": "left"}
 
 
+@pytest.mark.parametrize(
+    ("action", "expected_button"),
+    [
+        ("left_single", "left"),
+        ("1_single", "1"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_button_action_alias_formats_are_normalized_to_canonical_events(
+    action: str,
+    expected_button: str,
+) -> None:
+    """Brand-specific button action aliases normalize to canonical events."""
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_alias",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_abc123",
+            type="button_action",
+            action=action,
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.status == 202
+    assert result.body["event"] == "single_press"
+    assert result.body["payload"] == {"button": expected_button}
+    assert publisher.events[0]["event"] == "single_press"
+    assert publisher.events[0]["payload"] == {"button": expected_button}
+
+
 @pytest.mark.asyncio
 async def test_unsupported_button_action_is_rejected_before_publish() -> None:
     """Unsupported source actions do not reach the event publisher."""
@@ -208,6 +245,31 @@ async def test_unsupported_button_action_is_rejected_before_publish() -> None:
             device_id="device_abc123",
             type="button_action",
             action="triple_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body == {"error": "invalid_action", "message": "Unsupported button action"}
+    assert publisher.events == []
+
+
+@pytest.mark.asyncio
+async def test_unsupported_rotate_direction_is_rejected_before_publish() -> None:
+    """Rotate events only accept canonical left/right directions."""
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_fixed",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_abc123",
+            type="button_action",
+            action="rotate_up",
             timestamp="2026-06-27T10:20:00.000Z",
         ),
     )
