@@ -74,6 +74,45 @@ def test_light_rgb_color_state_uses_channel_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
 
 
+def test_light_effect_metadata_and_state_use_effect_contract() -> None:
+    """Home Assistant light effects are exposed as canonical effect controls."""
+    metadata = build_device_card_metadata(
+        "light.desk",
+        "on",
+        {
+            "effect": "rainbow",
+            "effect_list": ["rainbow", "pulse"],
+        },
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="light.desk",
+        state="on",
+        attributes={
+            "effect": "rainbow",
+            "effect_list": ["rainbow", "pulse"],
+        },
+        name="Desk Light",
+        domain="light",
+        device_class="smart_light",
+        capabilities=metadata["capabilities"],
+        status="online",
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    effect = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "effect"
+    )
+
+    assert metadata["capabilities"] == ["on_off", "effect"]
+    assert effect["role"] == "primary"
+    assert effect["state"] == {"value": "rainbow"}
+    assert effect["commands"] == ["set_effect"]
+    assert effect["constraints"] == {"values": ["rainbow", "pulse"]}
+
+
 def test_lqi_signal_strength_uses_signal_quality_contract() -> None:
     """Legacy LQI signal strength is normalized to canonical signal quality."""
     snapshot = EntityStateSnapshot(

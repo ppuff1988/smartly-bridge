@@ -15,6 +15,7 @@ LIGHT_TURN_ON_ACTIONS = {
     "set_rgb_color",
     "set_color_temp",
     "set_color_temperature",
+    "set_effect",
 }
 
 COVER_ACTIONS = {
@@ -43,6 +44,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "brightness": {"set_brightness"},
     "color_temperature": {"set_color_temperature"},
     "rgb_color": {"set_rgb_color"},
+    "effect": {"set_effect"},
     "target_temperature": {"set_temperature"},
     "position": {"set_position", "open", "close", "stop"},
     "fan_speed": {"set_fan_speed"},
@@ -278,6 +280,8 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         if rgb_color is None:
             return False
         return all(0 <= channel <= 255 for channel in rgb_color.values())
+    if command.capability == "effect" and command.command == "set_effect":
+        return isinstance(command.params.get("effect"), str)
     if (
         command.capability == "target_temperature"
         and command.command == "set_temperature"
@@ -417,6 +421,13 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         rgb_color = _rgb_color_state(command.params)
         if rgb_color is not None:
             return {"rgb_color": {"value": rgb_color}}
+
+    if (
+        command.capability == "effect"
+        and command.command == "set_effect"
+        and isinstance(command.params.get("effect"), str)
+    ):
+        return {"effect": {"value": command.params["effect"]}}
 
     if (
         command.capability == "target_temperature"

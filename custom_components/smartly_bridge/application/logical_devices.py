@@ -13,6 +13,7 @@ _WRITABLE_CAPABILITIES = {
     "brightness",
     "color_temperature",
     "rgb_color",
+    "effect",
     "target_temperature",
     "position",
     "fan_speed",
@@ -504,6 +505,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "brightness": ["set_brightness"],
         "color_temperature": ["set_color_temperature"],
         "rgb_color": ["set_rgb_color"],
+        "effect": ["set_effect"],
         "target_temperature": ["set_temperature"],
         "position": ["set_position", "open", "close", "stop"],
         "fan_speed": ["set_fan_speed"],
@@ -522,6 +524,10 @@ def _constraints_for_capability(
         return {"min": 0, "max": 100, "step": 1}
     if capability == "color_temperature":
         return _color_temperature_constraints(snapshot.attributes or {})
+    if capability == "effect":
+        effects = (snapshot.attributes or {}).get("effect_list")
+        if isinstance(effects, list) and all(isinstance(effect, str) for effect in effects):
+            return {"values": effects}
     if capability == "target_temperature":
         return _target_temperature_constraints(snapshot.attributes or {})
     if capability == "fan_speed":

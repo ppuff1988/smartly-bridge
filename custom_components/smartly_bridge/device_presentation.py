@@ -122,6 +122,8 @@ def _light_capabilities(attributes: dict[str, Any]) -> list[str]:
         capabilities.append("color_temp")
     if _supports_rgb_color(attributes, color_modes):
         capabilities.append("rgb_color")
+    if "effect" in attributes or "effect_list" in attributes:
+        capabilities.append("effect")
 
     return capabilities
 

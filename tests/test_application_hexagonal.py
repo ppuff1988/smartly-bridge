@@ -353,6 +353,36 @@ async def test_control_use_case_maps_canonical_color_temperature_value_to_kelvin
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_light_effect_command() -> None:
+    """Effect commands map canonical effect values to Home Assistant light services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"effect": "rainbow"},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "effect"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-effect",
+            device_id="ldev_light_kitchen",
+            capability="effect",
+            command="set_effect",
+            params={"effect": "rainbow"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"effect": {"value": "rainbow"}}
+    assert gateway.calls == [("light.kitchen", "turn_on", {"effect": "rainbow"})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_dispatches_canonical_brightness_command() -> None:
     """SmartlyCommand resolves logical devices before invoking source control."""
     audit = FakeAudit()
@@ -998,6 +1028,40 @@ async def test_smartly_command_use_case_rejects_invalid_rgb_params() -> None:
             "set_rgb_color",
             "invalid_params",
             {"command_id": "cmd-invalid-rgb", "capability": "rgb_color"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_effect_params() -> None:
+    """Effect commands require a string effect name."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "effect"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-effect",
+            device_id="ldev_light_kitchen",
+            capability="effect",
+            command="set_effect",
+            params={"effect": 12},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "light.kitchen"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_light_kitchen",
+            "set_effect",
+            "invalid_params",
+            {"command_id": "cmd-invalid-effect", "capability": "effect"},
         )
     ]
 
