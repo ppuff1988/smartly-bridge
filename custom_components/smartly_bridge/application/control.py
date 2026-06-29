@@ -180,7 +180,7 @@ class ControlUseCase:
                 f"error: {type(err).__name__}",
                 command.actor,
             )
-            return BridgeResponse({"error": "service_call_failed"}, status=500)
+            return _control_error_response("service_call_failed", status=500)
 
         self._audit.control(
             client_id,

@@ -288,6 +288,43 @@ async def test_control_use_case_calls_allowed_service_and_returns_new_state() ->
 
 
 @pytest.mark.asyncio
+async def test_control_use_case_reports_service_call_failure() -> None:
+    """Source service failures use API vNext error envelope fields."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(exc=RuntimeError("source unavailable"))
+    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "turn_on", {}, {"role": "admin"}),
+    )
+
+    assert result.status == 500
+    assert result.body["error"] == "service_call_failed"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SERVICE_CALL_FAILED",
+            "message": "Source service call failed.",
+            "target": "source.service",
+            "retryable": True,
+        }
+    ]
+    assert gateway.calls == []
+    assert audit.controls == [
+        (
+            "client-1",
+            "light.kitchen",
+            "turn_on",
+            "error: RuntimeError",
+            {"role": "admin"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_control_use_case_maps_light_brightness_alias_to_turn_on() -> None:
     """Light brightness commands map to Home Assistant turn_on service data."""
     audit = FakeAudit()
