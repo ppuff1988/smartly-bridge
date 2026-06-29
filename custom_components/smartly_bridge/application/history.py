@@ -783,7 +783,7 @@ class BatchHistoryUseCase:
         if metadata_data:
             body["metadata"] = metadata_data
 
-        return BridgeResponse(body, status=200)
+        return _history_success_response(body)
 
     def _format_entity_history(
         self,

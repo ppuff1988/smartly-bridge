@@ -528,6 +528,11 @@ async def test_batch_history_use_case_formats_multiple_entities() -> None:
     )
 
     assert result.status == 200
+    legacy_body = {
+        key: value
+        for key, value in result.body.items()
+        if key not in {"schema_version", "data", "warnings", "errors"}
+    }
     assert result.body["history"]["sensor.temperature"][0]["state"] == 11.0
     assert result.body["history"]["binary_sensor.door"][0]["state"] == "off"
     assert result.body["count"] == {"sensor.temperature": 4, "binary_sensor.door": 2}
@@ -537,6 +542,10 @@ async def test_batch_history_use_case_formats_multiple_entities() -> None:
     }
     assert result.body["denied_entities"] == ["sensor.denied"]
     assert result.body["metadata"]["sensor.temperature"]["device_class"] == "temperature"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == legacy_body
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
 
 
 @pytest.mark.asyncio
