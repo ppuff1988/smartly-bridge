@@ -533,6 +533,7 @@ async def test_camera_snapshot_use_case_returns_not_modified() -> None:
 
     assert result.status == 304
     assert result.body == {}
+    assert result.headers == {"X-Smartly-Response-Mode": "empty"}
 
 
 @pytest.mark.asyncio
@@ -571,4 +572,5 @@ def test_camera_stream_use_case_returns_mjpeg_headers() -> None:
         "Pragma": "no-cache",
         "Expires": "0",
         "Connection": "close",
+        "X-Smartly-Response-Mode": "stream",
     }

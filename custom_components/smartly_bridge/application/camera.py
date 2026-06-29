@@ -178,7 +178,11 @@ class CameraSnapshotUseCase:
         )
 
         if not_modified:
-            return BridgeResponse({}, status=304)
+            return BridgeResponse(
+                {},
+                status=304,
+                headers={"X-Smartly-Response-Mode": "empty"},
+            )
 
         if snapshot is None:
             return _camera_error_response("snapshot_unavailable", status=404)
@@ -207,6 +211,7 @@ class CameraStreamUseCase:
                 "Pragma": "no-cache",
                 "Expires": "0",
                 "Connection": "close",
+                "X-Smartly-Response-Mode": "stream",
             },
         )
 

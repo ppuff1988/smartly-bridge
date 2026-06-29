@@ -175,6 +175,7 @@ class TestSmartlyCameraSnapshotView:
                 response = await view.get()
 
                 assert response.status == 304
+                assert response.headers["X-Smartly-Response-Mode"] == "empty"
 
     @pytest.mark.asyncio
     async def test_successful_snapshot(self, mock_request, mock_hass):

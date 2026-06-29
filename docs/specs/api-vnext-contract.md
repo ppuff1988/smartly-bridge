@@ -23,7 +23,7 @@ API 必須支援：
 
 ## 2. 通用 Envelope
 
-所有 API response 應有一致 envelope：
+所有 JSON API response 應有一致 envelope：
 
 ```json
 {
@@ -35,6 +35,11 @@ API 必須支援：
   "errors": []
 }
 ```
+
+例外：
+
+- `304 Not Modified` / empty HTTP responses 不得包含 JSON body，需以 `X-Smartly-Response-Mode: empty` 標示。
+- MJPEG / binary / streaming responses 不得包成 JSON envelope，需以 `X-Smartly-Response-Mode: stream` 標示並保留原始 streaming headers。
 
 錯誤：
 
@@ -205,4 +210,3 @@ API versioning 原則：
 - 改變既有欄位語意：不允許，必須升版。
 - 移除欄位：只允許在 migration window 後。
 - command schema breaking change：必須新增 command version 或新 command name。
-

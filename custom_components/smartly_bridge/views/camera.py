@@ -147,7 +147,7 @@ class SmartlyCameraSnapshotView(BaseView):
         )
 
         if result.status == 304:
-            return web.Response(status=304)
+            return web.Response(status=304, headers=result.headers)
 
         if result.status == 404:
             return web.json_response(
