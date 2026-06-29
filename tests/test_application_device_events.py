@@ -35,6 +35,30 @@ class FakeEventDeduplicator:
         self.events[key] = event_id
 
 
+class FakeLocalAutomation:
+    """Fake local automation port."""
+
+    def __init__(self) -> None:
+        self.events: list[tuple[str, dict[str, Any]]] = []
+
+    async def handle_device_event(
+        self,
+        client_id: str,
+        event: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        self.events.append((client_id, event))
+        return [
+            {
+                "rule_id": "rule-left-single",
+                "action_index": 0,
+                "type": "device_command",
+                "command_id": "cmd-auto",
+                "status": "completed",
+                "response_status": 200,
+            }
+        ]
+
+
 @pytest.mark.asyncio
 async def test_button_action_is_published_with_canonical_event_payload() -> None:
     """Legacy button action events are normalized to canonical button_event payloads."""
@@ -227,6 +251,84 @@ async def test_duplicate_button_action_reuses_event_id_without_republishing() ->
         "errors": [],
     }
     assert len(publisher.events) == 1
+
+
+@pytest.mark.asyncio
+async def test_button_action_triggers_local_automation_once() -> None:
+    """Accepted canonical button events are dispatched to local automation."""
+    publisher = FakeDeviceEventPublisher()
+    automation = FakeLocalAutomation()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_fixed",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+        automation=automation,
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="ldev_button",
+            type="button_action",
+            action="single_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.status == 202
+    assert automation.events == [
+        (
+            "client-1",
+            {
+                "event_id": "evt_fixed",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "occurred_at": "2026-06-27T10:20:00.000Z",
+            },
+        )
+    ]
+    assert result.body["automations"] == [
+        {
+            "rule_id": "rule-left-single",
+            "action_index": 0,
+            "type": "device_command",
+            "command_id": "cmd-auto",
+            "status": "completed",
+            "response_status": 200,
+        }
+    ]
+    assert result.body["data"]["automations"] == result.body["automations"]
+
+
+@pytest.mark.asyncio
+async def test_duplicate_button_action_does_not_trigger_local_automation() -> None:
+    """Duplicate canonical button events are not dispatched to local automation."""
+    publisher = FakeDeviceEventPublisher()
+    deduplicator = FakeEventDeduplicator()
+    automation = FakeLocalAutomation()
+    event_ids = iter(["evt_first", "evt_second"])
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: next(event_ids),
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+        deduplicator=deduplicator,
+        automation=automation,
+    )
+    command = DeviceEventCommand(
+        device_id="ldev_button",
+        type="button_action",
+        action="single_left",
+        timestamp="2026-06-27T10:20:00.000Z",
+    )
+
+    await use_case.execute("client-1", command)
+    duplicate = await use_case.execute("client-1", command)
+
+    assert duplicate.status == 200
+    assert len(automation.events) == 1
+    assert duplicate.body["data"].get("automations") is None
 
 
 @pytest.mark.asyncio

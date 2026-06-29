@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
-from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
+from ..domain.models import BridgeResponse, CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
+
+if TYPE_CHECKING:
+    from .control import SmartlyCommand
 
 
 class EntityPolicyPort(Protocol):
@@ -72,6 +75,31 @@ class DeviceEventDeduplicatorPort(Protocol):
 
     def remember_event(self, key: str, event_id: str) -> None:
         """Remember the event ID for an idempotency key."""
+
+
+class LocalAutomationPort(Protocol):
+    """Handles canonical device events with local automation rules."""
+
+    async def handle_device_event(
+        self,
+        client_id: str,
+        event: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Run matching local automations for a canonical event."""
+
+
+class LocalAutomationRuleStorePort(Protocol):
+    """Provides local automation rules."""
+
+    def list_rules(self) -> list[Any]:
+        """Return configured local automation rules."""
+
+
+class SmartlyCommandExecutorPort(Protocol):
+    """Executes canonical Smartly commands."""
+
+    async def execute(self, client_id: str, command: "SmartlyCommand") -> BridgeResponse:
+        """Execute a canonical Smartly command."""
 
 
 class SyncStructurePort(Protocol):

@@ -8,7 +8,11 @@ import uuid
 from typing import Any, Callable
 
 from ..domain.models import BridgeResponse
-from .ports import DeviceEventDeduplicatorPort, DeviceEventPublisherPort
+from .ports import (
+    DeviceEventDeduplicatorPort,
+    DeviceEventPublisherPort,
+    LocalAutomationPort,
+)
 
 _BUTTON_EVENT_BY_ACTION = {
     "single": "single_press",
@@ -41,11 +45,13 @@ class DeviceEventUseCase:
         event_id_factory: Callable[[], str] | None = None,
         received_at_factory: Callable[[], str] | None = None,
         deduplicator: DeviceEventDeduplicatorPort | None = None,
+        automation: LocalAutomationPort | None = None,
     ) -> None:
         self._publisher = publisher
         self._event_id_factory = event_id_factory or _new_event_id
         self._received_at_factory = received_at_factory or _utc_now
         self._deduplicator = deduplicator or _NoEventDeduplicator()
+        self._automation = automation
 
     async def execute(self, client_id: str, command: DeviceEventCommand) -> BridgeResponse:
         """Publish a normalized event or return a validation error."""
@@ -104,27 +110,34 @@ class DeviceEventUseCase:
         }
         self._publisher.publish_device_event(event_data)
         self._deduplicator.remember_event(dedupe_key, event_id)
+        automation_results: list[dict[str, Any]] = []
+        if self._automation is not None:
+            automation_results = await self._automation.handle_device_event(
+                client_id,
+                canonical_event,
+            )
 
-        return BridgeResponse(
-            {
-                "success": True,
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+        body = {
+            "success": True,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "event_id": event_id,
+            "device_id": command.device_id,
+            "action": command.action,
+            "received_at": received_at,
+            **canonical,
+            "events": [canonical_event],
+            "data": {
                 "event_id": event_id,
-                "device_id": command.device_id,
-                "action": command.action,
-                "received_at": received_at,
-                **canonical,
+                "status": "accepted",
                 "events": [canonical_event],
-                "data": {
-                    "event_id": event_id,
-                    "status": "accepted",
-                    "events": [canonical_event],
-                },
-                "warnings": [],
-                "errors": [],
             },
-            status=202,
-        )
+            "warnings": [],
+            "errors": [],
+        }
+        if self._automation is not None:
+            body["automations"] = automation_results
+            body["data"]["automations"] = automation_results
+        return BridgeResponse(body, status=202)
 
 
 class _NoEventDeduplicator:
