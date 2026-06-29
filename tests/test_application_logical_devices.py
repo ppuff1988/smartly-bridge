@@ -131,6 +131,54 @@ def test_rssi_signal_strength_uses_signal_quality_contract() -> None:
     }
 
 
+def test_fan_percentage_state_uses_fan_speed_contract() -> None:
+    """Home Assistant fan percentage is normalized to canonical fan speed."""
+    snapshot = EntityStateSnapshot(
+        entity_id="fan.bedroom",
+        state="on",
+        attributes={"percentage": 75},
+        name="Bedroom Fan",
+        domain="fan",
+        device_class="fan_control",
+        capabilities=["on_off", "fan_speed"],
+        status="online",
+        presentation={"card_template": "fan_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    fan_speed = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "fan_speed"
+    )
+
+    assert fan_speed["state"] == {
+        "percentage": 75,
+        "unit": "percent",
+    }
+    assert fan_speed["constraints"] == {"min": 0, "max": 100, "step": 1}
+    assert fan_speed["commands"] == ["set_fan_speed"]
+
+
+def test_fan_preset_state_uses_fan_speed_contract() -> None:
+    """Home Assistant fan preset mode is retained as canonical fan speed state."""
+    snapshot = EntityStateSnapshot(
+        entity_id="fan.bedroom",
+        state="on",
+        attributes={"preset_mode": "sleep"},
+        name="Bedroom Fan",
+        domain="fan",
+        device_class="fan_control",
+        capabilities=["fan_speed"],
+        status="online",
+        presentation={"card_template": "fan_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["state"] == {"speed": "sleep"}
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

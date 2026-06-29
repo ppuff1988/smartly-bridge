@@ -243,6 +243,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _numeric_state(snapshot, default_unit="percent")
     if capability == "signal_quality":
         return _signal_quality_state(snapshot)
+    if capability == "fan_speed":
+        return _fan_speed_state(snapshot)
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -342,6 +344,16 @@ def _signal_raw_kind(signal_unit: Any) -> str:
     return "signal_strength"
 
 
+def _fan_speed_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical fan speed state from Home Assistant fan metadata."""
+    attributes = snapshot.attributes or {}
+    percentage = _numeric_value(attributes.get("percentage"))
+    if percentage is None:
+        preset_mode = attributes.get("preset_mode")
+        return {"speed": preset_mode} if isinstance(preset_mode, str) else {}
+    return {"percentage": max(0, min(100, percentage)), "unit": "percent"}
+
+
 def _source_ref(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:
     """Return source reference metadata for a capability."""
     return {
@@ -408,6 +420,8 @@ def _constraints_for_capability(
         return {"min": 0, "max": 100, "step": 1}
     if capability == "color_temperature":
         return _color_temperature_constraints(snapshot.attributes or {})
+    if capability == "fan_speed":
+        return {"min": 0, "max": 100, "step": 1}
     return {}
 
 
