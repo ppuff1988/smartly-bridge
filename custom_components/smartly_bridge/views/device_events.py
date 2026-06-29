@@ -72,6 +72,15 @@ def _missing_event_field_target(
     return "event"
 
 
+def _has_local_automation_rules(integration_data: dict[str, Any]) -> bool:
+    """Return whether local automation rules are configured."""
+    if "local_automation_rules" in integration_data:
+        return bool(integration_data.get("local_automation_rules"))
+    config_entry = integration_data.get("config_entry")
+    data = getattr(config_entry, "data", {}) if config_entry else {}
+    return bool(data.get("local_automation_rules"))
+
+
 class SmartlyDeviceEventsView(web.View):
     """Handle POST /api/smartly/devices/{device_id}/events requests."""
 
@@ -242,7 +251,7 @@ class SmartlyDeviceEventsView(web.View):
             InMemoryDeviceEventDeduplicator(),
         )
         automation = None
-        if self.hass.data[DOMAIN].get("local_automation_rules"):
+        if _has_local_automation_rules(self.hass.data[DOMAIN]):
             automation = LocalAutomationUseCase(
                 HomeAssistantLocalAutomationRuleStore(self.hass),
                 HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
