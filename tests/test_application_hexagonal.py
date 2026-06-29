@@ -574,6 +574,38 @@ async def test_smartly_command_use_case_dispatches_cover_open_command() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_fan_speed_command() -> None:
+    """Fan speed commands map canonical percentage to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="fan.bedroom",
+            state="on",
+            attributes={"percentage": 75},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_speed"): "fan.bedroom"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-fan-speed",
+            device_id="ldev_fan_bedroom",
+            capability="fan_speed",
+            command="set_fan_speed",
+            params={"percentage": 75},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "fan_speed": {"percentage": 75, "unit": "percent"}
+    }
+    assert gateway.calls == [("fan.bedroom", "set_percentage", {"percentage": 75})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     """Canonical commands fail before source control when no source target exists."""
     audit = FakeAudit()
@@ -806,6 +838,40 @@ async def test_smartly_command_use_case_rejects_invalid_position_params() -> Non
             "set_position",
             "invalid_params",
             {"command_id": "cmd-invalid-position", "capability": "position"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_fan_speed_params() -> None:
+    """Fan speed commands require a percentage value in range."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_speed"): "fan.bedroom"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-fan-speed",
+            device_id="ldev_fan_bedroom",
+            capability="fan_speed",
+            command="set_fan_speed",
+            params={"percentage": 125},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "fan.bedroom"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_fan_bedroom",
+            "set_fan_speed",
+            "invalid_params",
+            {"command_id": "cmd-invalid-fan-speed", "capability": "fan_speed"},
         )
     ]
 

@@ -24,6 +24,10 @@ COVER_ACTIONS = {
     "stop": "stop_cover",
 }
 
+FAN_ACTIONS = {
+    "set_fan_speed": "set_percentage",
+}
+
 SUPPORTED_SMARTLY_COMMANDS = {
     "power": {"turn_on", "turn_off", "toggle"},
     "brightness": {"set_brightness"},
@@ -265,11 +269,17 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     if command.capability == "position" and command.command == "set_position":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
+    if command.capability == "fan_speed" and command.command == "set_fan_speed":
+        percentage = command.params.get("percentage")
+        return isinstance(percentage, (int, float)) and 0 <= percentage <= 100
     return True
 
 
 def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any]]:
     """Map Smartly-friendly actions to Home Assistant service calls."""
+    if get_entity_domain(command.entity_id) == "fan" and command.action in FAN_ACTIONS:
+        return FAN_ACTIONS[command.action], command.service_data
+
     if get_entity_domain(command.entity_id) == "cover" and command.action in COVER_ACTIONS:
         service_action = COVER_ACTIONS[command.action]
         return service_action, _normalize_cover_service_data(command.action, command.service_data)
@@ -365,6 +375,18 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
             return {"position": {"value": 100, "unit": "percent"}}
         if command.command == "close":
             return {"position": {"value": 0, "unit": "percent"}}
+
+    if (
+        command.capability == "fan_speed"
+        and command.command == "set_fan_speed"
+        and isinstance(command.params.get("percentage"), (int, float))
+    ):
+        return {
+            "fan_speed": {
+                "percentage": command.params["percentage"],
+                "unit": "percent",
+            }
+        }
 
     return {}
 
