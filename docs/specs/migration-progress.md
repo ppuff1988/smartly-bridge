@@ -31,6 +31,7 @@
 - Device event view 現在也會在只有 config entry stored local automation rules、沒有 runtime override 時啟用 local automation。
 - `/api/smartly/automations/local/rules` 已提供 authenticated GET endpoint，以 API vNext envelope 輸出 canonical local automation rules，供 Platform automation editor 讀取。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated POST create，可將 canonical rule payload 持久化到 config entry。
+- `/api/smartly/automations/local/rules` 現在支援 authenticated PUT update，可依 `rule_id` 替換 config entry 內既有 canonical rule。
 - Device event accepted response 已保留 legacy event fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event duplicate response 已保留 legacy duplicate fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event invalid action response 已保留 legacy `error` / `message`，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` envelope 欄位。
@@ -203,6 +204,7 @@
 | 111 | `8d030b1` | Device event view 啟用 config entry stored local automation rules，避免只有 serialized rules、沒有 runtime override 時 accepted event 不觸發 automation | RED failed with missing `automations` for stored rules; targeted test `1 passed`; affected automation/event tests `29 passed`; full suite `579 passed` with existing `Unclosed client session` cleanup warning |
 | 112 | `7504a72` | 新增 local automation rules list use case 與 authenticated GET endpoint，讓 Platform 可讀取 canonical trigger/action rule payload | RED failed with missing list use case/path/view; targeted tests `4 passed`; affected automation/event/http tests `79 passed`; full suite `582 passed` with existing `Unclosed client session` cleanup warning |
 | 113 | `b3e83fe` | 新增 local automation rule create use case、POST endpoint 與 Home Assistant config entry persistence，讓 Platform 可建立 canonical trigger/action rule | RED failed with missing create use case; targeted tests `3 passed`; affected automation/event/http tests `82 passed`; full suite `585 passed` |
+| 114 | `6e1027d` | 新增 local automation rule update use case、PUT endpoint 與 Home Assistant config entry replacement，讓 Platform 可依 `rule_id` 更新 canonical trigger/action rule | RED failed with missing update use case; targeted tests `3 passed`; affected automation/event/http tests `85 passed`; full suite `588 passed` |
 
 ## Completed Slices
 
@@ -227,15 +229,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST endpoint 可輸出與建立 canonical rule payload 給 Platform editor | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT endpoint 可輸出、建立與更新 canonical rule payload 給 Platform editor | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Local automation rule create RED: targeted test failed because create use case did not exist
-- Targeted local automation rule create tests: `3 passed`
-- Affected automation/event/http tests: `82 passed`
-- Full suite: `585 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation rule update RED: targeted test failed because update use case did not exist
+- Targeted local automation rule update tests: `3 passed`
+- Affected automation/event/http tests: `85 passed`
+- Full suite: `588 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
@@ -243,5 +245,5 @@
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
-- Continue adding local automation rule update/delete APIs and cleanup remaining adapter persistence gaps before Platform read/write path cutover.
+- Continue adding local automation rule delete API and cleanup remaining adapter persistence gaps before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.
