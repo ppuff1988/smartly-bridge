@@ -18,10 +18,10 @@ types-aiofiles>=25.1.0.20260409
 # HTTP testing
 # aiohttp version is managed by homeassistant dependency
 aioresponses>=0.7.8
-# Fix for Python 3.13 compatibility
+# DNS resolver stack used by Home Assistant tests
 aiodns>=4.0.4,<5.0.0
 pycares>=5.0.1,<6.0.0
 
 # Home Assistant (required for testing)
-# Using 2025.x for Python 3.13 compatibility
+# Home Assistant 2026.6 requires Python 3.14.2+
 homeassistant>=2026.6.4
