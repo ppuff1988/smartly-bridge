@@ -645,8 +645,8 @@ class TestSmartlyStatisticsView:
         return request
 
     @pytest.mark.asyncio
-    async def test_invalid_period(self, mock_request, mock_hass):
-        """Test invalid period parameter."""
+    async def test_invalid_period_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test invalid period returns API vNext envelope."""
         mock_request.query = {"period": "invalid"}
 
         with patch(
@@ -667,7 +667,21 @@ class TestSmartlyStatisticsView:
 
                 assert response.status == 400
                 data = json.loads(response.body)
-                assert data["error"] == "invalid_period"
+                assert data == {
+                    "error": "invalid_period",
+                    "valid_periods": ["hour", "day", "week", "month"],
+                    "schema_version": "2026.06",
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "INVALID_PERIOD",
+                            "message": "invalid period",
+                            "target": "statistics.period",
+                            "retryable": False,
+                        }
+                    ],
+                }
 
     @pytest.mark.asyncio
     async def test_successful_statistics_query(self, mock_request, mock_hass):

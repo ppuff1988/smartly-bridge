@@ -842,10 +842,13 @@ class SmartlyStatisticsView(web.View):
         # Parse period parameter (hour, day, week, month)
         period = query.get("period", "hour")
         if period not in ("hour", "day", "week", "month"):
-            return web.json_response(
-                {"error": "invalid_period", "valid_periods": ["hour", "day", "week", "month"]},
+            result = _history_error_response(
+                "invalid_period",
                 status=400,
+                target="statistics.period",
+                legacy_fields={"valid_periods": ["hour", "day", "week", "month"]},
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         try:
             result = await StatisticsUseCase(
