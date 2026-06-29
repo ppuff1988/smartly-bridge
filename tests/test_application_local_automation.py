@@ -11,6 +11,7 @@ from custom_components.smartly_bridge.application.local_automation import (
     AutomationAction,
     AutomationTrigger,
     LocalAutomationRule,
+    LocalAutomationRulesListUseCase,
     LocalAutomationUseCase,
 )
 from custom_components.smartly_bridge.domain.models import BridgeResponse
@@ -42,6 +43,66 @@ class FakeSmartlyCommandExecutor:
             },
             status=200,
         )
+
+
+def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:
+    """Local automation rules list exposes canonical trigger/action payloads."""
+    store = FakeAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="stored-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+
+    result = LocalAutomationRulesListUseCase(store).execute()
+
+    expected_rule = {
+        "rule_id": "stored-left-single",
+        "enabled": True,
+        "trigger": {
+            "device_id": "ldev_button",
+            "capability": "button_event",
+            "event": "single_press",
+            "payload": {"button": "left"},
+        },
+        "actions": [
+            {
+                "type": "device_command",
+                "device_id": "ldev_light",
+                "capability": "power",
+                "command": "turn_on",
+                "params": {},
+            }
+        ],
+    }
+    assert result.status == 200
+    assert result.body == {
+        "success": True,
+        "schema_version": "2026.06",
+        "rules": [expected_rule],
+        "count": 1,
+        "data": {
+            "rules": [expected_rule],
+            "count": 1,
+        },
+        "warnings": [],
+        "errors": [],
+    }
 
 
 @pytest.mark.asyncio

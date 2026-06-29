@@ -5,8 +5,11 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Callable
 
+from ..domain.models import BridgeResponse
 from .control import SmartlyCommand
 from .ports import LocalAutomationRuleStorePort, SmartlyCommandExecutorPort
+
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
 
 @dataclass(frozen=True)
@@ -41,6 +44,32 @@ class LocalAutomationRule:
 
 
 CommandIdFactory = Callable[[dict[str, Any], LocalAutomationRule, int], str]
+
+
+class LocalAutomationRulesListUseCase:
+    """List local automation rules as canonical API payloads."""
+
+    def __init__(self, rules: LocalAutomationRuleStorePort) -> None:
+        self._rules = rules
+
+    def execute(self) -> BridgeResponse:
+        """Return configured local automation rules."""
+        rules = [_rule_payload(rule) for rule in self._rules.list_rules()]
+        return BridgeResponse(
+            {
+                "success": True,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "rules": rules,
+                "count": len(rules),
+                "data": {
+                    "rules": rules,
+                    "count": len(rules),
+                },
+                "warnings": [],
+                "errors": [],
+            },
+            status=200,
+        )
 
 
 class LocalAutomationUseCase:
@@ -119,3 +148,27 @@ def _automation_command_id(
 ) -> str:
     """Return a deterministic command ID for an automation action."""
     return f"auto_{event['event_id']}_{rule.rule_id}_{index}"
+
+
+def _rule_payload(rule: LocalAutomationRule) -> dict[str, Any]:
+    """Return a serializable canonical automation rule payload."""
+    return {
+        "rule_id": rule.rule_id,
+        "enabled": rule.enabled,
+        "trigger": {
+            "device_id": rule.trigger.device_id,
+            "capability": rule.trigger.capability,
+            "event": rule.trigger.event,
+            "payload": dict(rule.trigger.payload),
+        },
+        "actions": [
+            {
+                "type": action.type,
+                "device_id": action.device_id,
+                "capability": action.capability,
+                "command": action.command,
+                "params": dict(action.params),
+            }
+            for action in rule.actions
+        ],
+    }
