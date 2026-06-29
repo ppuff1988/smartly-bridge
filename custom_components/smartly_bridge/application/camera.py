@@ -8,6 +8,8 @@ from typing import Any
 from ..domain.models import BridgeResponse
 from .ports import CameraGatewayPort
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 
 @dataclass(frozen=True)
 class CameraConfigCommand:
@@ -40,12 +42,19 @@ class CameraListUseCase:
 
             cameras.append(camera_info)
 
+        body = {
+            "cameras": cameras,
+            "count": len(cameras),
+            "cache_stats": self._gateway.get_cache_stats(),
+            "hls_stats": self._gateway.get_hls_stats(),
+        }
         return BridgeResponse(
             {
-                "cameras": cameras,
-                "count": len(cameras),
-                "cache_stats": self._gateway.get_cache_stats(),
-                "hls_stats": self._gateway.get_hls_stats(),
+                **body,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": body,
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )

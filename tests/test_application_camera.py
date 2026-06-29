@@ -148,6 +148,26 @@ async def test_camera_list_adds_capabilities_when_requested() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_list_response_includes_vnext_envelope() -> None:
+    """Camera list responses expose API vNext envelope fields."""
+    result = await CameraListUseCase(FakeCameraGateway()).execute(include_capabilities=False)
+
+    assert result.status == 200
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "cameras": result.body["cameras"],
+        "count": 2,
+        "cache_stats": {"cached_snapshots": 0},
+        "hls_stats": {"active_streams": 0},
+    }
+    assert result.body["count"] == 2
+    assert result.body["cache_stats"] == {"cached_snapshots": 0}
+    assert result.body["hls_stats"] == {"active_streams": 0}
+
+
+@pytest.mark.asyncio
 async def test_camera_config_registers_camera() -> None:
     """Register command is translated to a camera gateway config."""
     gateway = FakeCameraGateway()
