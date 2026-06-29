@@ -41,7 +41,19 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
 
     assert too_large is not None
     assert too_large.status == 400
-    assert too_large.body == {"error": "time_range_too_large", "max_days": 30}
+    assert too_large.body["error"] == "time_range_too_large"
+    assert too_large.body["max_days"] == 30
+    assert too_large.body["schema_version"] == "2026.06"
+    assert too_large.body["data"] == {"status": "rejected"}
+    assert too_large.body["warnings"] == []
+    assert too_large.body["errors"] == [
+        {
+            "code": "TIME_RANGE_TOO_LARGE",
+            "message": "time range too large",
+            "target": "history.time_range",
+            "retryable": False,
+        }
+    ]
     assert reversed_range is not None
     assert reversed_range.status == 400
     assert reversed_range.body["error"] == "invalid_time_range"

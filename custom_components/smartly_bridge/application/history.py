@@ -124,12 +124,11 @@ class HistoryQueryPlanner:
     ) -> BridgeResponse | None:
         """Validate public history time range rules."""
         if end_time - start_time > timedelta(days=self._max_duration_days):
-            return BridgeResponse(
-                {
-                    "error": "time_range_too_large",
-                    "max_days": self._max_duration_days,
-                },
+            return _history_error_response(
+                "time_range_too_large",
                 status=400,
+                target="history.time_range",
+                legacy_fields={"max_days": self._max_duration_days},
             )
 
         if start_time > end_time:
@@ -217,11 +216,18 @@ def _ensure_timezone(value: datetime) -> datetime:
     return value
 
 
-def _history_error_response(error: str, *, status: int, target: str = "history") -> BridgeResponse:
+def _history_error_response(
+    error: str,
+    *,
+    status: int,
+    target: str = "history",
+    legacy_fields: dict[str, Any] | None = None,
+) -> BridgeResponse:
     """Return a legacy-compatible API vNext history error response."""
     return BridgeResponse(
         {
             "error": error,
+            **(legacy_fields or {}),
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
