@@ -147,7 +147,7 @@ class WebRTCHangupUseCase:
         """Close a matching WebRTC session."""
         session = self._gateway.get_session_by_partial_token(session_id)
         if session is None:
-            return BridgeResponse({"error": "session_not_found"}, status=404)
+            return _webrtc_error_response("session_not_found", status=404)
 
         if entity_id and session.entity_id != entity_id:
             return BridgeResponse({"error": "session_entity_mismatch"}, status=403)
