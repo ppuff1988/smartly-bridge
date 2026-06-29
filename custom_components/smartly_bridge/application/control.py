@@ -17,6 +17,17 @@ LIGHT_TURN_ON_ACTIONS = {
     "set_color_temperature",
 }
 
+SUPPORTED_SMARTLY_COMMANDS = {
+    "power": {"turn_on", "turn_off", "toggle"},
+    "brightness": {"set_brightness"},
+    "color_temperature": {"set_color_temperature"},
+    "rgb_color": {"set_rgb_color"},
+    "position": {"set_position", "open", "close", "stop"},
+    "fan_speed": {"set_fan_speed"},
+    "mode_select": {"set_mode"},
+    "lock": {"lock", "unlock"},
+}
+
 
 @dataclass(frozen=True)
 class ControlCommand:
@@ -151,6 +162,24 @@ class SmartlyCommandUseCase:
                 404,
             )
 
+        if not _is_supported_smartly_command(command):
+            self._audit.deny(
+                client_id,
+                command.device_id,
+                command.command,
+                "command_not_supported",
+                {
+                    "command_id": command.command_id,
+                    "capability": command.capability,
+                },
+            )
+            return _smartly_command_error_response(
+                command,
+                entity_id,
+                "command_not_supported",
+                400,
+            )
+
         actor = {
             **(command.source or {}),
             "command_id": command.command_id,
@@ -185,6 +214,11 @@ class SmartlyCommandUseCase:
             status=200,
             headers=result.headers,
         )
+
+
+def _is_supported_smartly_command(command: SmartlyCommand) -> bool:
+    """Return whether a canonical command is valid for its capability."""
+    return command.command in SUPPORTED_SMARTLY_COMMANDS.get(command.capability, set())
 
 
 def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any]]:

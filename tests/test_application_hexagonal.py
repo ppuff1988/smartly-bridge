@@ -550,6 +550,50 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
+    """Canonical commands fail before source control when unsupported by capability."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-unsupported",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="turn_on",
+            params={},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body == {
+        "success": False,
+        "command_id": "cmd-unsupported",
+        "status": "rejected",
+        "error": "command_not_supported",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "turn_on",
+        "entity_id": "light.kitchen",
+        "expected_state": {},
+    }
+    assert resolver.lookups == [("ldev_light_kitchen", "brightness")]
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_light_kitchen",
+            "turn_on",
+            "command_not_supported",
+            {"command_id": "cmd-unsupported", "capability": "brightness"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_returns_rejected_service_error() -> None:
     """Denied source services use the canonical command error shape."""
     audit = FakeAudit()
