@@ -17,7 +17,7 @@ types-aiofiles>=25.1.0.20260518
 
 # HTTP testing
 # aiohttp version is managed by homeassistant dependency
-aioresponses>=0.7.8
+aioresponses>=0.7.9
 # Fix for Python 3.13 compatibility
 aiodns>=3.0.0,<5.0.0
 pycares>=5.0.1,<6.0.0
