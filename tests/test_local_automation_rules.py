@@ -153,6 +153,44 @@ async def test_local_automation_rules_get_not_configured_uses_vnext_error(
 
 
 @pytest.mark.asyncio
+async def test_local_automation_rules_get_auth_failure_uses_vnext_error(
+    mock_hass,
+) -> None:
+    """GET local automation rules auth failure returns API vNext error."""
+    _configure_integration(mock_hass)
+    request = _request_for_rules(mock_hass)
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=False,
+            client_id=None,
+            error="invalid_signature",
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).get()
+
+    assert response.status == 401
+    assert json.loads(response.body) == {
+        "error": "invalid_signature",
+        "message": "Local automation rule request authentication failed",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "invalid_signature",
+                "message": "Local automation rule request authentication failed",
+                "target": "request.auth",
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
 async def test_local_automation_rules_post_creates_stored_rule(mock_hass) -> None:
     """POST local automation rules persists a canonical rule."""
     _configure_integration(mock_hass)

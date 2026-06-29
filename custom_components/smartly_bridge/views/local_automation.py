@@ -65,16 +65,24 @@ class SmartlyLocalAutomationRulesView(BaseView):
             trust_proxy_mode,
         )
         if not auth_result.success:
+            error = auth_result.error or "auth_failed"
             log_deny(
                 _LOGGER,
                 client_id=self.request.headers.get("X-Client-Id", "unknown"),
                 entity_id="",
                 service=service,
-                reason=auth_result.error or "auth_failed",
+                reason=error,
+            )
+            result = local_automation_rule_error_response(
+                error,
+                message="Local automation rule request authentication failed",
+                status=401,
+                target="request.auth",
             )
             return web.json_response(
-                {"error": auth_result.error},
-                status=401,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         if not await rate_limiter.check(auth_result.client_id or ""):
