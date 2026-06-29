@@ -282,6 +282,56 @@ async def test_local_automation_rules_post_creates_stored_rule(mock_hass) -> Non
     mock_hass.config_entries.async_update_entry.assert_called_once()
 
 
+@pytest.mark.parametrize(
+    ("method_name", "http_method"),
+    [
+        ("post", "POST"),
+        ("put", "PUT"),
+        ("delete", "DELETE"),
+    ],
+)
+@pytest.mark.asyncio
+async def test_local_automation_rules_invalid_json_uses_vnext_error(
+    mock_hass,
+    method_name: str,
+    http_method: str,
+) -> None:
+    """Mutating local automation rules invalid JSON returns API vNext error."""
+    _configure_integration(mock_hass)
+    request = _request_for_rules(mock_hass, method=http_method)
+    request.json = AsyncMock(side_effect=json.JSONDecodeError("bad json", "{", 0))
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        view = SmartlyLocalAutomationRulesView(request)
+        response = await getattr(view, method_name)()
+
+    assert response.status == 400
+    assert json.loads(response.body) == {
+        "error": "invalid_json",
+        "message": "Request body must be valid JSON",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "invalid_json",
+                "message": "Request body must be valid JSON",
+                "target": "request.body",
+            }
+        ],
+    }
+
+
 @pytest.mark.asyncio
 async def test_local_automation_rules_put_updates_stored_rule(mock_hass) -> None:
     """PUT local automation rules updates an existing canonical rule."""

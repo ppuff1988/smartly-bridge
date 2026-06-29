@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -125,10 +126,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
         auth = await self._authorize("local_automation_rules_create")
         if isinstance(auth, web.Response):
             return auth
-        try:
-            payload = await self.request.json()
-        except (json.JSONDecodeError, ValueError):
-            payload = {}
+        payload = await self._json_payload()
+        if isinstance(payload, web.Response):
+            return payload
         result = LocalAutomationRuleCreateUseCase(
             HomeAssistantLocalAutomationRuleStore(self.hass)
         ).execute(payload)
@@ -139,10 +139,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
         auth = await self._authorize("local_automation_rules_update")
         if isinstance(auth, web.Response):
             return auth
-        try:
-            payload = await self.request.json()
-        except (json.JSONDecodeError, ValueError):
-            payload = {}
+        payload = await self._json_payload()
+        if isinstance(payload, web.Response):
+            return payload
         rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
         result = LocalAutomationRuleUpdateUseCase(
             HomeAssistantLocalAutomationRuleStore(self.hass)
@@ -154,15 +153,32 @@ class SmartlyLocalAutomationRulesView(BaseView):
         auth = await self._authorize("local_automation_rules_delete")
         if isinstance(auth, web.Response):
             return auth
-        try:
-            payload = await self.request.json()
-        except (json.JSONDecodeError, ValueError):
-            payload = {}
+        payload = await self._json_payload()
+        if isinstance(payload, web.Response):
+            return payload
         rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
         result = LocalAutomationRuleDeleteUseCase(
             HomeAssistantLocalAutomationRuleStore(self.hass)
         ).execute(rule_id if isinstance(rule_id, str) else "")
         return web.json_response(result.body, status=result.status, headers=result.headers)
+
+    async def _json_payload(self) -> dict[str, Any] | web.Response:
+        """Return request JSON payload or an API vNext invalid JSON response."""
+        try:
+            payload = await self.request.json()
+        except (json.JSONDecodeError, ValueError):
+            result = local_automation_rule_error_response(
+                "invalid_json",
+                message="Request body must be valid JSON",
+                status=400,
+                target="request.body",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
+            )
+        return payload if isinstance(payload, dict) else {}
 
 
 class SmartlyLocalAutomationRulesViewWrapper(HomeAssistantView):
