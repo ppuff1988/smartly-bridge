@@ -14,7 +14,12 @@ from custom_components.smartly_bridge.views.local_automation import (
 )
 
 
-def _request_for_rules(mock_hass: MagicMock, body: dict | None = None) -> MagicMock:
+def _request_for_rules(
+    mock_hass: MagicMock,
+    body: dict | None = None,
+    *,
+    method: str | None = None,
+) -> MagicMock:
     body = body or {}
     request = MagicMock()
     request.app = {"hass": mock_hass}
@@ -24,7 +29,7 @@ def _request_for_rules(mock_hass: MagicMock, body: dict | None = None) -> MagicM
         "X-Nonce": "nonce",
         "X-Signature": "sig",
     }
-    request.method = "POST" if body else "GET"
+    request.method = method or ("POST" if body else "GET")
     request.path = API_PATH_LOCAL_AUTOMATION_RULES
     request.match_info = {}
     request.json = AsyncMock(return_value=body)
@@ -164,5 +169,58 @@ async def test_local_automation_rules_post_creates_stored_rule(mock_hass) -> Non
         "capability": "button_event",
         "event": "double_press",
         "payload": {"button": "left"},
+    }
+    mock_hass.config_entries.async_update_entry.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_local_automation_rules_put_updates_stored_rule(mock_hass) -> None:
+    """PUT local automation rules updates an existing canonical rule."""
+    _configure_integration(mock_hass)
+    request = _request_for_rules(
+        mock_hass,
+        {
+            "rule_id": "stored-left-single",
+            "enabled": False,
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "double_press",
+                "payload": {"button": "right"},
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_off",
+                }
+            ],
+        },
+        method="PUT",
+    )
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).put()
+
+    assert response.status == 200
+    payload = json.loads(response.body)
+    assert payload["success"] is True
+    assert payload["status"] == "updated"
+    assert payload["rule_id"] == "stored-left-single"
+    assert payload["data"]["rule"]["enabled"] is False
+    assert payload["data"]["rule"]["trigger"] == {
+        "device_id": "ldev_button",
+        "capability": "button_event",
+        "event": "double_press",
+        "payload": {"button": "right"},
     }
     mock_hass.config_entries.async_update_entry.assert_called_once()

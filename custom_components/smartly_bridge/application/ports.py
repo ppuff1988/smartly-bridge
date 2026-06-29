@@ -97,6 +97,9 @@ class LocalAutomationRuleStorePort(Protocol):
     def create_rule(self, rule: Any) -> None:
         """Persist a new local automation rule."""
 
+    def update_rule(self, rule: Any) -> bool:
+        """Replace an existing local automation rule."""
+
 
 class SmartlyCommandExecutorPort(Protocol):
     """Executes canonical Smartly commands."""

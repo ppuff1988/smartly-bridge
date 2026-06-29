@@ -203,3 +203,100 @@ def test_local_automation_rule_store_creates_config_entry_rule() -> None:
             ],
         },
     )
+
+
+def test_local_automation_rule_store_updates_config_entry_rule() -> None:
+    """Updating a rule replaces serialized config entry data by rule ID."""
+    config_entry = MagicMock(
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": [
+                {
+                    "rule_id": "target-rule",
+                    "trigger": {
+                        "device_id": "ldev_old_button",
+                        "capability": "button_event",
+                        "event": "single_press",
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_old_light",
+                            "capability": "power",
+                            "command": "turn_on",
+                        }
+                    ],
+                },
+                {
+                    "rule_id": "other-rule",
+                    "trigger": {
+                        "device_id": "ldev_other_button",
+                        "capability": "button_event",
+                        "event": "single_press",
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_other_light",
+                            "capability": "power",
+                            "command": "turn_on",
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"config_entry": config_entry}}
+
+    updated = HomeAssistantLocalAutomationRuleStore(hass).update_rule(
+        LocalAutomationRule(
+            rule_id="target-rule",
+            enabled=False,
+            trigger=AutomationTrigger(
+                device_id="ldev_button",
+                capability="button_event",
+                event="double_press",
+                payload={"button": "right"},
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_light",
+                    capability="power",
+                    command="turn_off",
+                    params={},
+                )
+            ],
+        )
+    )
+
+    assert updated is True
+    hass.config_entries.async_update_entry.assert_called_once_with(
+        config_entry,
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": [
+                {
+                    "rule_id": "target-rule",
+                    "enabled": False,
+                    "trigger": {
+                        "device_id": "ldev_button",
+                        "capability": "button_event",
+                        "event": "double_press",
+                        "payload": {"button": "right"},
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_light",
+                            "capability": "power",
+                            "command": "turn_off",
+                            "params": {},
+                        }
+                    ],
+                },
+                config_entry.data["local_automation_rules"][1],
+            ],
+        },
+    )

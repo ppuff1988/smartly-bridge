@@ -115,6 +115,50 @@ class LocalAutomationRuleCreateUseCase:
         )
 
 
+class LocalAutomationRuleUpdateUseCase:
+    """Update a local automation rule from canonical API payloads."""
+
+    def __init__(self, rules: LocalAutomationRuleStorePort) -> None:
+        self._rules = rules
+
+    def execute(self, rule_id: str, payload: dict[str, Any]) -> BridgeResponse:
+        """Replace an existing local automation rule."""
+        rule_payload = dict(payload)
+        rule_payload["rule_id"] = rule_id
+        rule = _rule_from_payload(rule_payload)
+        if rule is None:
+            return _rule_error_response(
+                "invalid_rule",
+                message="Invalid local automation rule",
+                status=400,
+                target="rule",
+            )
+        if not self._rules.update_rule(rule):
+            return _rule_error_response(
+                "rule_not_found",
+                message="Local automation rule not found",
+                status=404,
+                target="rule.rule_id",
+            )
+        body_rule = _rule_payload(rule)
+        return BridgeResponse(
+            {
+                "success": True,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "status": "updated",
+                "rule_id": rule.rule_id,
+                "rule": body_rule,
+                "data": {
+                    "status": "updated",
+                    "rule": body_rule,
+                },
+                "warnings": [],
+                "errors": [],
+            },
+            status=200,
+        )
+
+
 class LocalAutomationUseCase:
     """Run local automation rules for canonical device events."""
 

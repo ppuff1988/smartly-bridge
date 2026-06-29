@@ -11,6 +11,7 @@ from homeassistant.components.http import HomeAssistantView
 from ..adapters.home_assistant import HomeAssistantLocalAutomationRuleStore
 from ..application.local_automation import (
     LocalAutomationRuleCreateUseCase,
+    LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
 )
 from ..audit import log_deny
@@ -109,6 +110,21 @@ class SmartlyLocalAutomationRulesView(BaseView):
         ).execute(payload)
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
+    async def put(self) -> web.Response:
+        """Update a local automation rule."""
+        auth = await self._authorize("local_automation_rules_update")
+        if isinstance(auth, web.Response):
+            return auth
+        try:
+            payload = await self.request.json()
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
+        rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
+        result = LocalAutomationRuleUpdateUseCase(
+            HomeAssistantLocalAutomationRuleStore(self.hass)
+        ).execute(rule_id if isinstance(rule_id, str) else "", payload)
+        return web.json_response(result.body, status=result.status, headers=result.headers)
+
 
 class SmartlyLocalAutomationRulesViewWrapper(HomeAssistantView):
     """Wrapper for SmartlyLocalAutomationRulesView to work with HA registration."""
@@ -126,3 +142,8 @@ class SmartlyLocalAutomationRulesViewWrapper(HomeAssistantView):
         """Handle POST request."""
         view = SmartlyLocalAutomationRulesView(request)
         return await view.post()
+
+    async def put(self, request: web.Request) -> web.Response:
+        """Handle PUT request."""
+        view = SmartlyLocalAutomationRulesView(request)
+        return await view.put()

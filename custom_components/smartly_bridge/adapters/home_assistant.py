@@ -239,6 +239,32 @@ class HomeAssistantLocalAutomationRuleStore:
                 rule,
             ]
 
+    def update_rule(self, rule: LocalAutomationRule) -> bool:
+        """Replace a local automation rule in the Home Assistant config entry."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        config_entry = integration_data.get("config_entry")
+        if config_entry is None:
+            return False
+        data = dict(getattr(config_entry, "data", {}))
+        stored_rules = list(data.get("local_automation_rules", []))
+        updated = False
+        serialized_rule = _local_automation_rule_to_config(rule)
+        for index, stored_rule in enumerate(stored_rules):
+            if isinstance(stored_rule, dict) and stored_rule.get("rule_id") == rule.rule_id:
+                stored_rules[index] = serialized_rule
+                updated = True
+                break
+        if not updated:
+            return False
+        data["local_automation_rules"] = stored_rules
+        self._hass.config_entries.async_update_entry(config_entry, data=data)
+        if "local_automation_rules" in integration_data:
+            integration_data["local_automation_rules"] = [
+                rule if existing.rule_id == rule.rule_id else existing
+                for existing in self.list_rules()
+            ]
+        return True
+
 
 def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
     """Return a local automation rule from runtime or serialized config data."""

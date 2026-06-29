@@ -12,6 +12,7 @@ from custom_components.smartly_bridge.application.local_automation import (
     AutomationTrigger,
     LocalAutomationRule,
     LocalAutomationRuleCreateUseCase,
+    LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
     LocalAutomationUseCase,
 )
@@ -29,6 +30,13 @@ class FakeAutomationRuleStore:
 
     def create_rule(self, rule: LocalAutomationRule) -> None:
         self.rules.append(rule)
+
+    def update_rule(self, rule: LocalAutomationRule) -> bool:
+        for index, existing in enumerate(self.rules):
+            if existing.rule_id == rule.rule_id:
+                self.rules[index] = rule
+                return True
+        return False
 
 
 class FakeSmartlyCommandExecutor:
@@ -158,6 +166,80 @@ def test_create_rule_persists_canonical_rule_payload() -> None:
     assert result.body["status"] == "created"
     assert result.body["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["rule_id"] == "rule-left-single"
+    assert result.body["errors"] == []
+
+
+def test_update_rule_replaces_existing_canonical_rule() -> None:
+    """Updating a local automation rule replaces the existing stored rule."""
+    store = FakeAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+
+    result = LocalAutomationRuleUpdateUseCase(store).execute(
+        "rule-left-single",
+        {
+            "rule_id": "ignored-client-rule-id",
+            "enabled": False,
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "double_press",
+                "payload": {"button": "right"},
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_off",
+                }
+            ],
+        },
+    )
+
+    expected_rule = LocalAutomationRule(
+        rule_id="rule-left-single",
+        enabled=False,
+        trigger=AutomationTrigger(
+            device_id="ldev_button",
+            capability="button_event",
+            event="double_press",
+            payload={"button": "right"},
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_light",
+                capability="power",
+                command="turn_off",
+                params={},
+            )
+        ],
+    )
+    assert store.rules == [expected_rule]
+    assert result.status == 200
+    assert result.body["success"] is True
+    assert result.body["status"] == "updated"
+    assert result.body["rule_id"] == "rule-left-single"
+    assert result.body["data"]["rule"]["enabled"] is False
     assert result.body["errors"] == []
 
 
