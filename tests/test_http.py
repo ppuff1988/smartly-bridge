@@ -266,6 +266,63 @@ class TestControlEndpoint:
         assert response.status == 401
 
     @pytest.mark.asyncio
+    async def test_control_auth_failure_response_includes_vnext_error_envelope(self):
+        """Control auth failures expose API vNext error envelope fields."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        request = MagicMock()
+        request.headers = {
+            HEADER_CLIENT_ID: "test_client",
+            HEADER_TIMESTAMP: "0",
+            HEADER_NONCE: "nonce",
+            HEADER_SIGNATURE: "sig",
+        }
+        request.method = "POST"
+        request.path = API_PATH_CONTROL
+        request.app = {"hass": MagicMock()}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+
+        request.app["hass"].data = {
+            DOMAIN: {
+                "config_entry": MagicMock(
+                    data={
+                        "client_secret": "test_secret",
+                        "allowed_cidrs": "",
+                    }
+                ),
+                "nonce_cache": NonceCache(),
+                "rate_limiter": RateLimiter(60, 60),
+            }
+        }
+
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=False,
+                client_id=None,
+                error="invalid_signature",
+            )
+
+            response = await SmartlyControlView(request).post()
+
+        assert response.status == 401
+        assert json.loads(response.body) == {
+            "error": "invalid_signature",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_SIGNATURE",
+                    "message": "invalid signature",
+                    "target": "control",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_control_rate_limited(self):
         """Test control endpoint enforces rate limiting."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
