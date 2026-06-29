@@ -222,12 +222,12 @@ class HomeAssistantLocalAutomationRuleStore:
             if (parsed := _local_automation_rule_from_config(rule)) is not None
         ]
 
-    def create_rule(self, rule: LocalAutomationRule) -> None:
+    def create_rule(self, rule: LocalAutomationRule) -> bool:
         """Persist a local automation rule to the Home Assistant config entry."""
         integration_data = self._hass.data.get(DOMAIN, {})
         config_entry = integration_data.get("config_entry")
         if config_entry is None:
-            return
+            return False
         data = dict(getattr(config_entry, "data", {}))
         stored_rules = list(data.get("local_automation_rules", []))
         stored_rules.append(_local_automation_rule_to_config(rule))
@@ -238,6 +238,7 @@ class HomeAssistantLocalAutomationRuleStore:
                 *self.list_rules(),
                 rule,
             ]
+        return True
 
     def update_rule(self, rule: LocalAutomationRule) -> bool:
         """Replace a local automation rule in the Home Assistant config entry."""

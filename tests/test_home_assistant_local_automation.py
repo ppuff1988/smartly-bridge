@@ -205,6 +205,34 @@ def test_local_automation_rule_store_creates_config_entry_rule() -> None:
     )
 
 
+def test_local_automation_rule_store_create_returns_false_without_config_entry() -> None:
+    """Creating a rule reports failure when no config entry can be persisted."""
+    hass = MagicMock()
+    hass.data = {DOMAIN: {}}
+
+    created = HomeAssistantLocalAutomationRuleStore(hass).create_rule(
+        LocalAutomationRule(
+            rule_id="new-rule",
+            trigger=AutomationTrigger(
+                device_id="ldev_button",
+                capability="button_event",
+                event="single_press",
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_light",
+                    capability="power",
+                    command="turn_on",
+                )
+            ],
+        )
+    )
+
+    assert created is False
+    hass.config_entries.async_update_entry.assert_not_called()
+
+
 def test_local_automation_rule_store_updates_config_entry_rule() -> None:
     """Updating a rule replaces serialized config entry data by rule ID."""
     config_entry = MagicMock(

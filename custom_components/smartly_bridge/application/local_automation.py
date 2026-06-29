@@ -95,7 +95,13 @@ class LocalAutomationRuleCreateUseCase:
                 status=409,
                 target="rule.rule_id",
             )
-        self._rules.create_rule(rule)
+        if not self._rules.create_rule(rule):
+            return _rule_error_response(
+                "rule_persistence_failed",
+                message="Local automation rule could not be persisted",
+                status=500,
+                target="rule",
+            )
         body_rule = _rule_payload(rule)
         return BridgeResponse(
             {

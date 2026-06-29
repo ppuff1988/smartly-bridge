@@ -94,7 +94,7 @@ class LocalAutomationRuleStorePort(Protocol):
     def list_rules(self) -> list[Any]:
         """Return configured local automation rules."""
 
-    def create_rule(self, rule: Any) -> None:
+    def create_rule(self, rule: Any) -> bool:
         """Persist a new local automation rule."""
 
     def update_rule(self, rule: Any) -> bool:

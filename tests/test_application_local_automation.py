@@ -23,14 +23,23 @@ from custom_components.smartly_bridge.domain.models import BridgeResponse
 class FakeAutomationRuleStore:
     """Fake local automation rule store."""
 
-    def __init__(self, rules: list[LocalAutomationRule]) -> None:
+    def __init__(
+        self,
+        rules: list[LocalAutomationRule],
+        *,
+        fail_create: bool = False,
+    ) -> None:
         self.rules = rules
+        self.fail_create = fail_create
 
     def list_rules(self) -> list[LocalAutomationRule]:
         return self.rules
 
-    def create_rule(self, rule: LocalAutomationRule) -> None:
+    def create_rule(self, rule: LocalAutomationRule) -> bool:
+        if self.fail_create:
+            return False
         self.rules.append(rule)
+        return True
 
     def update_rule(self, rule: LocalAutomationRule) -> bool:
         for index, existing in enumerate(self.rules):
@@ -175,6 +184,49 @@ def test_create_rule_persists_canonical_rule_payload() -> None:
     assert result.body["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["rule_id"] == "rule-left-single"
     assert result.body["errors"] == []
+
+
+def test_create_rule_rejects_when_store_cannot_persist() -> None:
+    """Creating a local automation rule reports persistence failures."""
+    store = FakeAutomationRuleStore([], fail_create=True)
+
+    result = LocalAutomationRuleCreateUseCase(store).execute(
+        {
+            "rule_id": "rule-left-single",
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_on",
+                }
+            ],
+        }
+    )
+
+    assert store.rules == []
+    assert result.status == 500
+    assert result.body == {
+        "error": "rule_persistence_failed",
+        "message": "Local automation rule could not be persisted",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "rule_persistence_failed",
+                "message": "Local automation rule could not be persisted",
+                "target": "rule",
+            }
+        ],
+    }
 
 
 def test_update_rule_replaces_existing_canonical_rule() -> None:
