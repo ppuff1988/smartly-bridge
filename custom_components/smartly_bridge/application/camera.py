@@ -83,9 +83,8 @@ class CameraConfigUseCase:
                 "extra_headers": command.data.get("extra_headers", {}),
             }
             self._gateway.register_camera(config)
-            return BridgeResponse(
-                {"success": True, "action": "registered", "entity_id": command.entity_id},
-                status=200,
+            return _camera_success_response(
+                {"success": True, "action": "registered", "entity_id": command.entity_id}
             )
 
         if command.action == "unregister":
@@ -110,6 +109,20 @@ class CameraConfigUseCase:
             return BridgeResponse({"cameras": cameras, "count": len(cameras)}, status=200)
 
         return BridgeResponse({"error": "unknown_action"}, status=400)
+
+
+def _camera_success_response(body: dict[str, Any]) -> BridgeResponse:
+    """Return a legacy-compatible API vNext camera success response."""
+    return BridgeResponse(
+        {
+            **body,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
+        },
+        status=200,
+    )
 
 
 class CameraSnapshotUseCase:

@@ -180,8 +180,35 @@ async def test_camera_config_registers_camera() -> None:
     )
 
     assert result.status == 200
-    assert result.body == {"success": True, "action": "registered", "entity_id": "camera.new"}
+    assert result.body["success"] is True
+    assert result.body["action"] == "registered"
+    assert result.body["entity_id"] == "camera.new"
     assert gateway.registered["camera.new"]["snapshot_url"] == "http://cam/snapshot"
+
+
+@pytest.mark.asyncio
+async def test_camera_config_register_response_includes_vnext_envelope() -> None:
+    """Camera register responses expose API vNext envelope fields."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(
+            action="register",
+            entity_id="camera.new",
+            data={"name": "New"},
+        )
+    )
+
+    assert result.status == 200
+    assert result.body["success"] is True
+    assert result.body["action"] == "registered"
+    assert result.body["entity_id"] == "camera.new"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "success": True,
+        "action": "registered",
+        "entity_id": "camera.new",
+    }
 
 
 @pytest.mark.asyncio
