@@ -685,10 +685,8 @@ class SmartlyHistoryBatchView(web.View):
             )
         except asyncio.TimeoutError:
             _LOGGER.error("Batch history query timeout for %d entities", len(allowed_entity_ids))
-            return web.json_response(
-                {"error": "query_timeout"},
-                status=504,
-            )
+            result = _history_error_response("query_timeout", status=504, target="history.batch")
+            return web.json_response(result.body, status=result.status, headers=result.headers)
         except Exception as err:
             _LOGGER.error("Failed to query batch history: %s", err)
             return web.json_response(
