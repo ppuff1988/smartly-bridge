@@ -20,11 +20,15 @@ class SyncStructureUseCase:
     def execute(self) -> BridgeResponse:
         """Return the structure payload."""
         structure = self._gateway.get_structure()
+        data = {
+            **structure,
+            "device_count": len(structure.get("devices", [])),
+        }
         return BridgeResponse(
             {
                 **structure,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": structure,
+                "data": data,
                 "warnings": [],
                 "errors": [],
             },

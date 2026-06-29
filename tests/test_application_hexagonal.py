@@ -2090,7 +2090,7 @@ def test_sync_structure_use_case_returns_gateway_structure() -> None:
     assert result.body["devices"] == gateway.structure["devices"]
     assert result.body["entities"] == gateway.structure["entities"]
     assert result.body["schema_version"] == "2026.06"
-    assert result.body["data"] == gateway.structure
+    assert result.body["data"] == {**gateway.structure, "device_count": 0}
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
 
@@ -2104,8 +2104,20 @@ def test_sync_structure_use_case_includes_vnext_envelope() -> None:
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
-    assert result.body["data"] == gateway.structure
+    assert result.body["data"] == {**gateway.structure, "device_count": 0}
     assert result.body["entities"] == gateway.structure["entities"]
+
+
+def test_sync_structure_use_case_matches_current_sync_vnext_data_fixture() -> None:
+    """Structure sync vNext data matches the current-sync contract snapshot."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "current-sync" / "structure-vnext-data.json"
+    )
+    expected_data = json.loads(fixture_path.read_text())
+
+    result = SyncStructureUseCase(FakeSyncGateway()).execute()
+
+    assert result.body["data"] == expected_data
 
 
 @pytest.mark.asyncio
