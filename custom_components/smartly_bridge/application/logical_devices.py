@@ -226,7 +226,7 @@ def _capability_role(capability: str) -> str:
         return "health"
     if capability == "button_event":
         return "event_source"
-    if capability in {*_MEASUREMENT_CAPABILITIES, "presence", "open_close"}:
+    if capability in {*_MEASUREMENT_CAPABILITIES, "motion", "presence", "open_close"}:
         return "secondary"
     return "primary"
 
@@ -261,6 +261,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _fan_speed_state(snapshot)
     if capability == "position":
         return _position_state(snapshot)
+    if capability in {"motion", "presence"}:
+        return _binary_boolean_state(snapshot)
     if capability == "open_close":
         return _open_close_state(snapshot)
     if capability == "lock":
@@ -415,10 +417,19 @@ def _position_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
 
 def _open_close_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     """Return canonical open/close state from cover or contact metadata."""
-    if snapshot.state in {"open", "opening"}:
+    if snapshot.state in {"open", "opening", "on"}:
         return {"value": "open"}
-    if snapshot.state in {"closed", "closing"}:
+    if snapshot.state in {"closed", "closing", "off"}:
         return {"value": "closed"}
+    return {}
+
+
+def _binary_boolean_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical boolean state from Home Assistant binary sensors."""
+    if snapshot.state == "on":
+        return {"value": True}
+    if snapshot.state == "off":
+        return {"value": False}
     return {}
 
 

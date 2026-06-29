@@ -200,6 +200,71 @@ def test_environment_sensor_aliases_use_canonical_measurement_names() -> None:
     ]
 
 
+def test_motion_binary_sensor_state_uses_motion_contract() -> None:
+    """Home Assistant motion binary sensors expose canonical boolean state."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.hall_motion",
+        state="on",
+        attributes={"device_class": "motion"},
+        name="Hall Motion",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["motion"],
+        status="online",
+        presentation={"card_template": "binary_state_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "motion"
+    assert device["capabilities"][0]["role"] == "secondary"
+    assert device["capabilities"][0]["state"] == {"value": True}
+    assert device["capabilities"][0]["commands"] == []
+
+
+def test_occupancy_binary_sensor_state_uses_presence_contract() -> None:
+    """Legacy occupancy binary sensors are normalized to presence state."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.office_presence",
+        state="off",
+        attributes={"device_class": "occupancy"},
+        name="Office Presence",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["occupancy"],
+        status="online",
+        presentation={"card_template": "binary_state_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "presence"
+    assert device["capabilities"][0]["role"] == "secondary"
+    assert device["capabilities"][0]["state"] == {"value": False}
+
+
+def test_contact_binary_sensor_state_uses_open_close_contract() -> None:
+    """Home Assistant contact binary sensors map on/off to open/closed."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.front_door",
+        state="on",
+        attributes={"device_class": "door"},
+        name="Front Door",
+        domain="binary_sensor",
+        device_class="contact_sensor",
+        capabilities=["door"],
+        status="online",
+        presentation={"card_template": "binary_state_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "open_close"
+    assert device["capabilities"][0]["role"] == "secondary"
+    assert device["capabilities"][0]["state"] == {"value": "open"}
+    assert device["capabilities"][0]["commands"] == []
+
+
 def test_fan_percentage_state_uses_fan_speed_contract() -> None:
     """Home Assistant fan percentage is normalized to canonical fan speed."""
     snapshot = EntityStateSnapshot(
