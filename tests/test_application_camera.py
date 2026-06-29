@@ -413,6 +413,26 @@ async def test_camera_hls_stop_not_found_response_includes_vnext_envelope() -> N
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_unknown_action_response_includes_vnext_envelope() -> None:
+    """HLS unknown-action responses expose API vNext envelope fields."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "bad_action")
+
+    assert result.status == 400
+    assert result.body["error"] == "unknown_action"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "UNKNOWN_ACTION",
+            "message": "unknown action",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_camera_snapshot_use_case_returns_snapshot_payload_and_headers() -> None:
     """Snapshot use case translates a camera snapshot into an application response."""
     gateway = FakeCameraGateway()
