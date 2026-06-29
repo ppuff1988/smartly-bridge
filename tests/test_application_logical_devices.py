@@ -223,6 +223,26 @@ def test_cover_open_close_state_uses_open_close_contract() -> None:
     assert device["capabilities"][0]["state"] == {"value": "closed"}
 
 
+def test_lock_state_uses_lock_contract() -> None:
+    """Home Assistant lock state is normalized to canonical lock state."""
+    snapshot = EntityStateSnapshot(
+        entity_id="lock.front_door",
+        state="locked",
+        attributes={},
+        name="Front Door",
+        domain="lock",
+        device_class="lock_control",
+        capabilities=["lock"],
+        status="online",
+        presentation={"card_template": "lock_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["state"] == {"value": "locked"}
+    assert device["capabilities"][0]["commands"] == ["lock", "unlock"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

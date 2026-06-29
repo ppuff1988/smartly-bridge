@@ -388,6 +388,12 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
             }
         }
 
+    if command.capability == "lock":
+        if command.command == "lock":
+            return {"lock": {"value": "locked"}}
+        if command.command == "unlock":
+            return {"lock": {"value": "unlocked"}}
+
     return {}
 
 

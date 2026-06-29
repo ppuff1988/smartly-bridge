@@ -606,6 +606,36 @@ async def test_smartly_command_use_case_dispatches_fan_speed_command() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_returns_lock_expected_state() -> None:
+    """Lock commands expose expected lock state for correlation."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="lock.front_door",
+            state="locked",
+            attributes={},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_lock_front_door", "lock"): "lock.front_door"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-lock",
+            device_id="ldev_lock_front_door",
+            capability="lock",
+            command="lock",
+            params={},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"lock": {"value": "locked"}}
+    assert gateway.calls == [("lock.front_door", "lock", {})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     """Canonical commands fail before source control when no source target exists."""
     audit = FakeAudit()

@@ -249,6 +249,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _position_state(snapshot)
     if capability == "open_close":
         return _open_close_state(snapshot)
+    if capability == "lock":
+        return _lock_state(snapshot)
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -375,6 +377,13 @@ def _open_close_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
         return {"value": "open"}
     if snapshot.state in {"closed", "closing"}:
         return {"value": "closed"}
+    return {}
+
+
+def _lock_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical lock state from Home Assistant lock metadata."""
+    if snapshot.state in {"locked", "unlocked"}:
+        return {"value": snapshot.state}
     return {}
 
 
