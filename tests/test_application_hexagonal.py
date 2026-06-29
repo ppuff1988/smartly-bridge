@@ -2298,6 +2298,25 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
         "logical_devices": result.body["logical_devices"],
         "normalization_warnings": [],
         "device_count": 1,
+        "updates": [
+            {
+                "device_id": "ldev_light_kitchen",
+                "capability": "power",
+                "state": {
+                    "value": True,
+                    "updated_at": "2026-06-24T00:00:00+00:00",
+                },
+            },
+            {
+                "device_id": "ldev_light_kitchen",
+                "capability": "brightness",
+                "state": {
+                    "value": 50,
+                    "unit": "percent",
+                    "updated_at": "2026-06-24T00:00:00+00:00",
+                },
+            },
+        ],
     }
 
 
@@ -2316,7 +2335,52 @@ async def test_sync_states_use_case_includes_vnext_envelope() -> None:
         "logical_devices": result.body["logical_devices"],
         "normalization_warnings": [],
         "device_count": 1,
+        "updates": [
+            {
+                "device_id": "ldev_light_kitchen",
+                "capability": "power",
+                "state": {
+                    "value": True,
+                    "updated_at": "2026-06-24T00:00:00+00:00",
+                },
+            },
+            {
+                "device_id": "ldev_light_kitchen",
+                "capability": "brightness",
+                "state": {
+                    "value": 50,
+                    "unit": "percent",
+                    "updated_at": "2026-06-24T00:00:00+00:00",
+                },
+            },
+        ],
     }
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_includes_vnext_state_updates() -> None:
+    """State sync vNext data exposes capability state updates for Platform read path."""
+    result = await SyncStatesUseCase(FakeSyncGateway()).execute()
+
+    assert result.body["data"]["updates"] == [
+        {
+            "device_id": "ldev_light_kitchen",
+            "capability": "power",
+            "state": {
+                "value": True,
+                "updated_at": "2026-06-24T00:00:00+00:00",
+            },
+        },
+        {
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "state": {
+                "value": 50,
+                "unit": "percent",
+                "updated_at": "2026-06-24T00:00:00+00:00",
+            },
+        },
+    ]
 
 
 @pytest.mark.asyncio

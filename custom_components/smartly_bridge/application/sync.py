@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from ..domain.models import BridgeResponse
+from ..domain.models import BridgeResponse, EntityStateSnapshot
 from .logical_devices import logical_devices_from_states
 from .ports import SyncStatesPort, SyncStructurePort
 
@@ -50,6 +50,7 @@ class SyncStatesUseCase:
         logical_device_models = logical_devices_from_states(snapshots)
         logical_devices = [device.to_dict() for device in logical_device_models]
         warnings = _normalization_warnings(logical_devices)
+        updates = _state_updates(logical_devices, snapshots)
         body: dict[str, Any] = {
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "states": states,
@@ -62,6 +63,7 @@ class SyncStatesUseCase:
                 "logical_devices": logical_devices,
                 "normalization_warnings": warnings,
                 "device_count": len(logical_devices),
+                "updates": updates,
             },
             "warnings": warnings,
             "errors": [],
@@ -92,3 +94,47 @@ def _normalization_warnings(logical_devices: list[dict[str, Any]]) -> list[dict[
             }
         )
     return warnings
+
+
+def _state_updates(
+    logical_devices: list[dict[str, Any]],
+    snapshots: list[EntityStateSnapshot],
+) -> list[dict[str, Any]]:
+    """Return API vNext capability state updates from logical-device state."""
+    updated_at_by_entity = {
+        snapshot.entity_id: snapshot.last_updated or snapshot.last_changed
+        for snapshot in snapshots
+    }
+    updates: list[dict[str, Any]] = []
+    for device in logical_devices:
+        for capability in device.get("capabilities", []):
+            state = capability.get("state") or {}
+            if not capability.get("readable", True) or capability.get("event_only") or not state:
+                continue
+            update_state = dict(state)
+            updated_at = _capability_updated_at(capability, updated_at_by_entity)
+            if updated_at:
+                update_state["updated_at"] = updated_at
+            updates.append(
+                {
+                    "device_id": device["id"],
+                    "capability": capability["type"],
+                    "state": update_state,
+                }
+            )
+    return updates
+
+
+def _capability_updated_at(
+    capability: dict[str, Any],
+    updated_at_by_entity: dict[str, str | None],
+) -> str | None:
+    """Return the first source timestamp available for a capability."""
+    for source_ref in capability.get("source_refs", []):
+        entity_id = source_ref.get("source_entity_id")
+        if not isinstance(entity_id, str):
+            continue
+        updated_at = updated_at_by_entity.get(entity_id)
+        if updated_at:
+            return updated_at
+    return None
