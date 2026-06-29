@@ -215,6 +215,45 @@ async def test_control_use_case_denies_entity_before_service_call() -> None:
 
 
 @pytest.mark.asyncio
+async def test_control_use_case_denies_service_before_service_call() -> None:
+    """Disallowed services are denied by the use case without touching HA services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    policy = FakeEntityPolicy(service_allowed=False)
+    use_case = ControlUseCase(policy, gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "turn_on", {}, {"role": "viewer"}),
+    )
+
+    assert result.status == 403
+    assert result.body["error"] == "service_not_allowed"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SERVICE_NOT_ALLOWED",
+            "message": "Resolved source service is not allowed.",
+            "target": "source.service",
+            "retryable": False,
+        }
+    ]
+    assert policy.service_checks == [("light.kitchen", "turn_on")]
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "light.kitchen",
+            "turn_on",
+            "service_not_allowed",
+            {"role": "viewer"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_control_use_case_calls_allowed_service_and_returns_new_state() -> None:
     """Allowed commands go through the control port and return the resulting state."""
     audit = FakeAudit()

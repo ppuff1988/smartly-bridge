@@ -164,7 +164,7 @@ class ControlUseCase:
                 "service_not_allowed",
                 command.actor,
             )
-            return BridgeResponse({"error": "service_not_allowed"}, status=403)
+            return _control_error_response("service_not_allowed", status=403)
 
         try:
             state = await self._gateway.call_service(
