@@ -1424,7 +1424,11 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
             "ldev_unknown",
             "turn_on",
             "command_target_not_found",
-            {"command_id": "cmd-404", "capability": "power"},
+            {
+                "command_id": "cmd-404",
+                "logical_device_id": "ldev_unknown",
+                "capability": "power",
+            },
         )
     ]
 
@@ -1480,10 +1484,15 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
     assert audit.denials == [
         (
             "client-1",
-            "ldev_light_kitchen",
+            "light.kitchen",
             "turn_on",
             "command_not_supported",
-            {"command_id": "cmd-unsupported", "capability": "brightness"},
+            {
+                "command_id": "cmd-unsupported",
+                "logical_device_id": "ldev_light_kitchen",
+                "source_entity_id": "light.kitchen",
+                "capability": "brightness",
+            },
         )
     ]
 
@@ -1538,10 +1547,15 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
     assert audit.denials == [
         (
             "client-1",
-            "ldev_light_kitchen",
+            "light.kitchen",
             "set_brightness",
             "invalid_params",
-            {"command_id": "cmd-invalid", "capability": "brightness"},
+            {
+                "command_id": "cmd-invalid",
+                "logical_device_id": "ldev_light_kitchen",
+                "source_entity_id": "light.kitchen",
+                "capability": "brightness",
+            },
         )
     ]
 
@@ -1634,10 +1648,15 @@ async def test_smartly_command_use_case_rejects_invalid_rgb_params() -> None:
     assert audit.denials == [
         (
             "client-1",
-            "ldev_light_kitchen",
+            "light.kitchen",
             "set_rgb_color",
             "invalid_params",
-            {"command_id": "cmd-invalid-rgb", "capability": "rgb_color"},
+            {
+                "command_id": "cmd-invalid-rgb",
+                "logical_device_id": "ldev_light_kitchen",
+                "source_entity_id": "light.kitchen",
+                "capability": "rgb_color",
+            },
         )
     ]
 
@@ -1668,10 +1687,15 @@ async def test_smartly_command_use_case_rejects_invalid_effect_params() -> None:
     assert audit.denials == [
         (
             "client-1",
-            "ldev_light_kitchen",
+            "light.kitchen",
             "set_effect",
             "invalid_params",
-            {"command_id": "cmd-invalid-effect", "capability": "effect"},
+            {
+                "command_id": "cmd-invalid-effect",
+                "logical_device_id": "ldev_light_kitchen",
+                "source_entity_id": "light.kitchen",
+                "capability": "effect",
+            },
         )
     ]
 
@@ -1704,10 +1728,15 @@ async def test_smartly_command_use_case_rejects_invalid_color_temperature_params
     assert audit.denials == [
         (
             "client-1",
-            "ldev_light_kitchen",
+            "light.kitchen",
             "set_color_temperature",
             "invalid_params",
-            {"command_id": "cmd-invalid-color-temp", "capability": "color_temperature"},
+            {
+                "command_id": "cmd-invalid-color-temp",
+                "logical_device_id": "ldev_light_kitchen",
+                "source_entity_id": "light.kitchen",
+                "capability": "color_temperature",
+            },
         )
     ]
 
@@ -1740,11 +1769,13 @@ async def test_smartly_command_use_case_rejects_invalid_target_temperature_param
     assert audit.denials == [
         (
             "client-1",
-            "ldev_climate_living_room",
+            "climate.living_room",
             "set_temperature",
             "invalid_params",
             {
                 "command_id": "cmd-invalid-target-temperature",
+                "logical_device_id": "ldev_climate_living_room",
+                "source_entity_id": "climate.living_room",
                 "capability": "target_temperature",
             },
         )
@@ -1784,11 +1815,13 @@ async def test_smartly_command_use_case_rejects_invalid_temperature_range_params
     assert audit.denials == [
         (
             "client-1",
-            "ldev_climate_living_room",
+            "climate.living_room",
             "set_temperature_range",
             "invalid_params",
             {
                 "command_id": "cmd-invalid-temperature-range",
+                "logical_device_id": "ldev_climate_living_room",
+                "source_entity_id": "climate.living_room",
                 "capability": "target_temperature_range",
             },
         )
@@ -1823,10 +1856,15 @@ async def test_smartly_command_use_case_rejects_invalid_position_params() -> Non
     assert audit.denials == [
         (
             "client-1",
-            "ldev_cover_living_curtain",
+            "cover.living_curtain",
             "set_position",
             "invalid_params",
-            {"command_id": "cmd-invalid-position", "capability": "position"},
+            {
+                "command_id": "cmd-invalid-position",
+                "logical_device_id": "ldev_cover_living_curtain",
+                "source_entity_id": "cover.living_curtain",
+                "capability": "position",
+            },
         )
     ]
 
@@ -1859,10 +1897,15 @@ async def test_smartly_command_use_case_rejects_invalid_tilt_position_params() -
     assert audit.denials == [
         (
             "client-1",
-            "ldev_cover_living_blind",
+            "cover.living_blind",
             "set_tilt_position",
             "invalid_params",
-            {"command_id": "cmd-invalid-tilt-position", "capability": "tilt_position"},
+            {
+                "command_id": "cmd-invalid-tilt-position",
+                "logical_device_id": "ldev_cover_living_blind",
+                "source_entity_id": "cover.living_blind",
+                "capability": "tilt_position",
+            },
         )
     ]
 
@@ -1893,10 +1936,15 @@ async def test_smartly_command_use_case_rejects_invalid_fan_speed_params() -> No
     assert audit.denials == [
         (
             "client-1",
-            "ldev_fan_bedroom",
+            "fan.bedroom",
             "set_fan_speed",
             "invalid_params",
-            {"command_id": "cmd-invalid-fan-speed", "capability": "fan_speed"},
+            {
+                "command_id": "cmd-invalid-fan-speed",
+                "logical_device_id": "ldev_fan_bedroom",
+                "source_entity_id": "fan.bedroom",
+                "capability": "fan_speed",
+            },
         )
     ]
 
@@ -1929,10 +1977,15 @@ async def test_smartly_command_use_case_rejects_invalid_fan_direction_params() -
     assert audit.denials == [
         (
             "client-1",
-            "ldev_fan_bedroom",
+            "fan.bedroom",
             "set_direction",
             "invalid_params",
-            {"command_id": "cmd-invalid-fan-direction", "capability": "fan_direction"},
+            {
+                "command_id": "cmd-invalid-fan-direction",
+                "logical_device_id": "ldev_fan_bedroom",
+                "source_entity_id": "fan.bedroom",
+                "capability": "fan_direction",
+            },
         )
     ]
 
@@ -1965,11 +2018,13 @@ async def test_smartly_command_use_case_rejects_invalid_fan_oscillation_params()
     assert audit.denials == [
         (
             "client-1",
-            "ldev_fan_bedroom",
+            "fan.bedroom",
             "set_oscillation",
             "invalid_params",
             {
                 "command_id": "cmd-invalid-fan-oscillation",
+                "logical_device_id": "ldev_fan_bedroom",
+                "source_entity_id": "fan.bedroom",
                 "capability": "fan_oscillation",
             },
         )
@@ -2004,10 +2059,15 @@ async def test_smartly_command_use_case_rejects_invalid_preset_mode_params() -> 
     assert audit.denials == [
         (
             "client-1",
-            "ldev_climate_living_room",
+            "climate.living_room",
             "set_preset_mode",
             "invalid_params",
-            {"command_id": "cmd-invalid-preset-mode", "capability": "preset_mode"},
+            {
+                "command_id": "cmd-invalid-preset-mode",
+                "logical_device_id": "ldev_climate_living_room",
+                "source_entity_id": "climate.living_room",
+                "capability": "preset_mode",
+            },
         )
     ]
 
@@ -2040,10 +2100,15 @@ async def test_smartly_command_use_case_rejects_invalid_swing_mode_params() -> N
     assert audit.denials == [
         (
             "client-1",
-            "ldev_climate_living_room",
+            "climate.living_room",
             "set_swing_mode",
             "invalid_params",
-            {"command_id": "cmd-invalid-swing-mode", "capability": "swing_mode"},
+            {
+                "command_id": "cmd-invalid-swing-mode",
+                "logical_device_id": "ldev_climate_living_room",
+                "source_entity_id": "climate.living_room",
+                "capability": "swing_mode",
+            },
         )
     ]
 

@@ -229,10 +229,7 @@ class SmartlyCommandUseCase:
                 command.device_id,
                 command.command,
                 "command_target_not_found",
-                {
-                    "command_id": command.command_id,
-                    "capability": command.capability,
-                },
+                _smartly_command_audit_actor(command, None),
             )
             return _smartly_command_error_response(
                 command,
@@ -244,13 +241,10 @@ class SmartlyCommandUseCase:
         if not _is_supported_smartly_command(command):
             self._audit.deny(
                 client_id,
-                command.device_id,
+                entity_id,
                 command.command,
                 "command_not_supported",
-                {
-                    "command_id": command.command_id,
-                    "capability": command.capability,
-                },
+                _smartly_command_audit_actor(command, entity_id),
             )
             return _smartly_command_error_response(
                 command,
@@ -262,13 +256,10 @@ class SmartlyCommandUseCase:
         if not _has_valid_smartly_params(command):
             self._audit.deny(
                 client_id,
-                command.device_id,
+                entity_id,
                 command.command,
                 "invalid_params",
-                {
-                    "command_id": command.command_id,
-                    "capability": command.capability,
-                },
+                _smartly_command_audit_actor(command, entity_id),
             )
             return _smartly_command_error_response(
                 command,
@@ -325,6 +316,21 @@ class SmartlyCommandUseCase:
 def _is_supported_smartly_command(command: SmartlyCommand) -> bool:
     """Return whether a canonical command is valid for its capability."""
     return command.command in SUPPORTED_SMARTLY_COMMANDS.get(command.capability, set())
+
+
+def _smartly_command_audit_actor(
+    command: SmartlyCommand,
+    source_entity_id: str | None,
+) -> dict[str, Any]:
+    """Return audit actor metadata for canonical command migration tracing."""
+    actor = {
+        "command_id": command.command_id,
+        "logical_device_id": command.device_id,
+        "capability": command.capability,
+    }
+    if source_entity_id is not None:
+        actor["source_entity_id"] = source_entity_id
+    return actor
 
 
 def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
