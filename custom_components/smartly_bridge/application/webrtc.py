@@ -94,9 +94,10 @@ class WebRTCOfferUseCase:
         """Consume a token, create an SDP answer, and update session state."""
         session = await self._gateway.consume_token(token, entity_id)
         if session is None:
-            return BridgeResponse(
-                {"error": "invalid_or_expired_token", "message": "Token is invalid or expired"},
+            return _webrtc_error_response(
+                "invalid_or_expired_token",
                 status=401,
+                legacy_fields={"message": "Token is invalid or expired"},
             )
 
         await self._gateway.update_session_state(

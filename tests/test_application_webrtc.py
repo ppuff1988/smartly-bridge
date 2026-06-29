@@ -376,10 +376,19 @@ async def test_webrtc_offer_use_case_rejects_invalid_token() -> None:
     )
 
     assert result.status == 401
-    assert result.body == {
-        "error": "invalid_or_expired_token",
-        "message": "Token is invalid or expired",
-    }
+    assert result.body["error"] == "invalid_or_expired_token"
+    assert result.body["message"] == "Token is invalid or expired"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "INVALID_OR_EXPIRED_TOKEN",
+            "message": "invalid or expired token",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
 
 
 @pytest.mark.asyncio
