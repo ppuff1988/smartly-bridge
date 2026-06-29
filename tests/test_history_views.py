@@ -315,6 +315,49 @@ class TestSmartlyHistoryView:
                         ],
                     }
 
+    @pytest.mark.asyncio
+    async def test_query_failure_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test history query failure returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "custom_components.smartly_bridge.views.history.SingleHistoryUseCase.execute",
+                    new_callable=AsyncMock,
+                ) as mock_execute:
+                    mock_execute.side_effect = RuntimeError("recorder unavailable")
+
+                    view = SmartlyHistoryView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 500
+                    data = json.loads(response.body)
+                    assert data == {
+                        "error": "history_query_failed",
+                        "message": "recorder unavailable",
+                        "schema_version": "2026.06",
+                        "data": {"status": "rejected"},
+                        "warnings": [],
+                        "errors": [
+                            {
+                                "code": "HISTORY_QUERY_FAILED",
+                                "message": "history query failed",
+                                "target": "history",
+                                "retryable": False,
+                            }
+                        ],
+                    }
+
 
 class TestSmartlyHistoryBatchView:
     """Tests for SmartlyHistoryBatchView."""

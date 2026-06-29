@@ -455,10 +455,12 @@ class SmartlyHistoryView(web.View):
                 err,
                 exc_info=True,
             )
-            return web.json_response(
-                {"error": "history_query_failed", "message": str(err)},
+            result = _history_error_response(
+                "history_query_failed",
                 status=500,
+                legacy_fields={"message": str(err)},
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
