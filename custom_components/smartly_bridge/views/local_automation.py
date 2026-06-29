@@ -14,6 +14,7 @@ from ..application.local_automation import (
     LocalAutomationRuleDeleteUseCase,
     LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
+    local_automation_rule_error_response,
 )
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
@@ -38,9 +39,16 @@ class SmartlyLocalAutomationRulesView(BaseView):
         """Authorize a local automation rule management request."""
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = local_automation_rule_error_response(
+                "integration_not_configured",
+                message="Smartly Bridge integration is not configured",
                 status=500,
+                target="integration",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)

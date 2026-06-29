@@ -380,6 +380,22 @@ def _rule_error_response(
     target: str,
 ) -> BridgeResponse:
     """Return a local automation API vNext error response."""
+    return local_automation_rule_error_response(
+        error,
+        message=message,
+        status=status,
+        target=target,
+    )
+
+
+def local_automation_rule_error_response(
+    error: str,
+    *,
+    message: str,
+    status: int,
+    target: str,
+) -> BridgeResponse:
+    """Return a local automation API vNext error response."""
     return BridgeResponse(
         {
             "error": error,

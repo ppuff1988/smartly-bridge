@@ -124,6 +124,35 @@ async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
 
 
 @pytest.mark.asyncio
+async def test_local_automation_rules_get_not_configured_uses_vnext_error(
+    mock_hass,
+) -> None:
+    """GET local automation rules returns API vNext error when unconfigured."""
+    mock_hass.data = {}
+    request = _request_for_rules(mock_hass)
+
+    response = await SmartlyLocalAutomationRulesView(request).get()
+
+    assert response.status == 500
+    assert json.loads(response.body) == {
+        "error": "integration_not_configured",
+        "message": "Smartly Bridge integration is not configured",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "integration_not_configured",
+                "message": "Smartly Bridge integration is not configured",
+                "target": "integration",
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
 async def test_local_automation_rules_post_creates_stored_rule(mock_hass) -> None:
     """POST local automation rules persists a canonical rule."""
     _configure_integration(mock_hass)
