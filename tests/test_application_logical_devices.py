@@ -243,6 +243,30 @@ def test_lock_state_uses_lock_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["lock", "unlock"]
 
 
+def test_climate_hvac_mode_uses_mode_select_contract() -> None:
+    """Home Assistant climate HVAC mode is normalized to canonical mode select."""
+    snapshot = EntityStateSnapshot(
+        entity_id="climate.living_room",
+        state="cool",
+        attributes={"hvac_mode": "cool", "hvac_modes": ["off", "heat", "cool", "auto"]},
+        name="Living Room AC",
+        domain="climate",
+        device_class="climate_control",
+        capabilities=["hvac_mode"],
+        status="online",
+        presentation={"card_template": "climate_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "mode_select"
+    assert device["capabilities"][0]["state"] == {"value": "cool"}
+    assert device["capabilities"][0]["constraints"] == {
+        "values": ["off", "heat", "cool", "auto"]
+    }
+    assert device["capabilities"][0]["commands"] == ["set_mode"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

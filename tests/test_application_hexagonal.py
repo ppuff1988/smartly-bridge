@@ -636,6 +636,38 @@ async def test_smartly_command_use_case_returns_lock_expected_state() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_climate_mode_command() -> None:
+    """Mode select commands map canonical mode to Home Assistant climate services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="climate.living_room",
+            state="cool",
+            attributes={"hvac_mode": "cool"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_climate_living_room", "mode_select"): "climate.living_room"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-mode",
+            device_id="ldev_climate_living_room",
+            capability="mode_select",
+            command="set_mode",
+            params={"mode": "cool"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"mode_select": {"value": "cool"}}
+    assert gateway.calls == [("climate.living_room", "set_hvac_mode", {"hvac_mode": "cool"})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     """Canonical commands fail before source control when no source target exists."""
     audit = FakeAudit()

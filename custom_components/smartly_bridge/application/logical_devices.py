@@ -191,6 +191,7 @@ def _canonical_capability(capability: str) -> str:
     return {
         "on_off": "power",
         "color_temp": "color_temperature",
+        "hvac_mode": "mode_select",
         "signal_strength": "signal_quality",
         "event": "button_event",
         "occupancy": "presence",
@@ -251,6 +252,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _open_close_state(snapshot)
     if capability == "lock":
         return _lock_state(snapshot)
+    if capability == "mode_select":
+        return _mode_select_state(snapshot)
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -387,6 +390,15 @@ def _lock_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     return {}
 
 
+def _mode_select_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical mode state from Home Assistant mode metadata."""
+    attributes = snapshot.attributes or {}
+    mode = attributes.get("hvac_mode")
+    if mode is None:
+        mode = snapshot.state
+    return {"value": mode} if isinstance(mode, str) else {}
+
+
 def _source_ref(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:
     """Return source reference metadata for a capability."""
     return {
@@ -457,6 +469,10 @@ def _constraints_for_capability(
         return {"min": 0, "max": 100, "step": 1}
     if capability == "position":
         return {"min": 0, "max": 100, "step": 1}
+    if capability == "mode_select":
+        modes = (snapshot.attributes or {}).get("hvac_modes")
+        if isinstance(modes, list) and all(isinstance(mode, str) for mode in modes):
+            return {"values": modes}
     return {}
 
 

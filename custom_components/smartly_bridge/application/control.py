@@ -28,6 +28,10 @@ FAN_ACTIONS = {
     "set_fan_speed": "set_percentage",
 }
 
+CLIMATE_ACTIONS = {
+    "set_mode": "set_hvac_mode",
+}
+
 SUPPORTED_SMARTLY_COMMANDS = {
     "power": {"turn_on", "turn_off", "toggle"},
     "brightness": {"set_brightness"},
@@ -272,11 +276,17 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     if command.capability == "fan_speed" and command.command == "set_fan_speed":
         percentage = command.params.get("percentage")
         return isinstance(percentage, (int, float)) and 0 <= percentage <= 100
+    if command.capability == "mode_select" and command.command == "set_mode":
+        return isinstance(command.params.get("mode"), str)
     return True
 
 
 def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any]]:
     """Map Smartly-friendly actions to Home Assistant service calls."""
+    if get_entity_domain(command.entity_id) == "climate" and command.action in CLIMATE_ACTIONS:
+        service_action = CLIMATE_ACTIONS[command.action]
+        return service_action, _normalize_climate_service_data(command.action, command.service_data)
+
     if get_entity_domain(command.entity_id) == "fan" and command.action in FAN_ACTIONS:
         return FAN_ACTIONS[command.action], command.service_data
 
@@ -291,6 +301,14 @@ def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any
         return command.action, command.service_data
 
     return "turn_on", _normalize_light_service_data(command.action, command.service_data)
+
+
+def _normalize_climate_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize canonical climate params to Home Assistant climate service data."""
+    normalized = dict(service_data)
+    if action == "set_mode" and "mode" in normalized:
+        normalized.setdefault("hvac_mode", normalized.pop("mode"))
+    return normalized
 
 
 def _normalize_cover_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:
@@ -393,6 +411,13 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
             return {"lock": {"value": "locked"}}
         if command.command == "unlock":
             return {"lock": {"value": "unlocked"}}
+
+    if (
+        command.capability == "mode_select"
+        and command.command == "set_mode"
+        and isinstance(command.params.get("mode"), str)
+    ):
+        return {"mode_select": {"value": command.params["mode"]}}
 
     return {}
 
