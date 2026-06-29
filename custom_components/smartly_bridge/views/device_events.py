@@ -51,6 +51,24 @@ def _is_valid_timestamp(value: Any) -> bool:
     return True
 
 
+def _missing_event_field_target(
+    device_id: Any,
+    event_type: Any,
+    action: Any,
+    timestamp: Any,
+) -> str:
+    """Return the first missing or invalid required event field target."""
+    if not device_id:
+        return "event.device_id"
+    if event_type != "button_action":
+        return "event.type"
+    if not action:
+        return "event.action"
+    if not timestamp:
+        return "event.timestamp"
+    return "event"
+
+
 class SmartlyDeviceEventsView(web.View):
     """Handle POST /api/smartly/devices/{device_id}/events requests."""
 
@@ -145,7 +163,19 @@ class SmartlyDeviceEventsView(web.View):
         meta = body.get("meta", {})
 
         if not device_id or event_type != "button_action" or not action or not timestamp:
-            return web.json_response({"error": "missing_required_fields"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id or "",
+                    type=event_type or "",
+                    action=action or "",
+                    timestamp=timestamp or "",
+                    meta=meta if isinstance(meta, dict) else {},
+                ),
+                error="missing_required_fields",
+                message="Missing required event fields",
+                target=_missing_event_field_target(device_id, event_type, action, timestamp),
+            )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if not is_supported_button_action(action):
             result = device_event_error_response(
