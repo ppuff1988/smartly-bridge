@@ -14,6 +14,7 @@
 - `/api/smartly/sync/states` API vNext `data` 現在同步輸出 capability state `updates`，讓 Platform read path 可直接讀 `device_id` / `capability` / `state.updated_at`。
 - `use_logical_devices` feature flag 可讓 sync states response 在 top-level 與 vNext `data` 內同步標記 logical-device read path，同時保留 legacy `states` 供 rollback。
 - Canonical `SmartlyCommand` path 已可解析 logical device capability target，並映射回 Home Assistant service call。
+- SmartlyCommand resolved denial audit 現在同時記錄 logical device ID 與 source entity ID，讓 command path 切換期間可追蹤 canonical command 與 legacy target。
 - Presence sensor sibling `number` setting 已開始從 presentation-only control 升格為 canonical `numeric_setting` capability，可透過 SmartlyCommand `set_value` 控制。
 - Presence sensor sibling `select` setting 已開始從 presentation-only control 升格為 canonical `option_setting` capability，可透過 SmartlyCommand `select_option` 控制。
 - 重複同類型 editable setting capability 現在會保留所有 sibling source refs，避免權限追蹤與後續切換時遺失來源。
@@ -180,6 +181,7 @@
 | 99 | `de481d6` | Presence sibling `select` setting 升格為 canonical `option_setting` capability，SmartlyCommand `select_option` 可解析同 device group 的 select sibling 並映射到 HA `select.select_option` | RED failed with missing `option_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `185 passed`; full suite `566 passed` |
 | 100 | `584c1bc` | 重複同類型 editable setting capability 保留所有 source refs，避免 `numeric_setting` 合併時遺失第二個 sibling number 來源 | RED failed with only first `number` source ref retained; targeted test `1 passed`; affected logical/hexagonal/http/sync tests `186 passed`; full suite `567 passed` |
 | 101 | `a6b4057` | Sync states API vNext `data` 補上 capability state `updates` array，讓 Platform read path 可直接消費 `device_id` / `capability` / `state.updated_at` 而不必解析 legacy entity state | RED failed with missing `data.updates`; targeted tests `2 passed`; affected hexagonal/sync tests `107 passed`; full suite `568 passed` |
+| 102 | `edf71be` | SmartlyCommand resolved denial audit 改以 source entity 作為 audit target，並在 actor metadata 保留 `logical_device_id` / `source_entity_id`，讓拒絕路徑也能追蹤 canonical command 與 legacy target | RED failed with audit denials missing logical/source trace metadata; targeted tests `3 passed`; affected command/http/acl tests `143 passed`; full suite `568 passed` |
 
 ## Completed Slices
 
@@ -189,7 +191,7 @@
 | Devcontainer permissions | devcontainer workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突 | `cf27b15` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial audit 會同時保留 logical device 與 source entity trace metadata | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop/snapshot success application response envelope、snapshot 304 / MJPEG stream 非 JSON response-mode 標記，與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope；保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload/cache headers、streaming headers 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae`, `360bf42`, `cb7bac5` |
@@ -207,8 +209,8 @@
 
 ## Latest Verification
 
-- Targeted vNext state updates tests: `2 passed`
-- Affected hexagonal/sync tests: `107 passed`
+- Targeted SmartlyCommand denial audit tests: `3 passed`
+- Affected command/http/acl tests: `143 passed`
 - Full suite: `568 passed` (仍有既有 `Unclosed client session` 提示)
 
 ## Remaining Work
