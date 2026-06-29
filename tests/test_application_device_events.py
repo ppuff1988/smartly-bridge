@@ -369,7 +369,64 @@ async def test_unsupported_button_action_is_rejected_before_publish() -> None:
     )
 
     assert result.status == 400
-    assert result.body == {"error": "invalid_action", "message": "Unsupported button action"}
+    assert result.body == {
+        "error": "invalid_action",
+        "message": "Unsupported button action",
+        "schema_version": "2026.06",
+        "data": {
+            "device_id": "device_abc123",
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "INVALID_ACTION",
+                "message": "Unsupported button action",
+                "target": "event.action",
+                "retryable": False,
+            }
+        ],
+    }
+    assert publisher.events == []
+
+
+@pytest.mark.asyncio
+async def test_unsupported_button_action_response_includes_vnext_error_envelope() -> None:
+    """Unsupported device event actions expose API vNext error envelope fields."""
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_fixed",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_abc123",
+            type="button_action",
+            action="triple_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_action"
+    assert result.body["message"] == "Unsupported button action"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {
+        "device_id": "device_abc123",
+        "status": "rejected",
+    }
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "INVALID_ACTION",
+            "message": "Unsupported button action",
+            "target": "event.action",
+            "retryable": False,
+        }
+    ]
     assert publisher.events == []
 
 
@@ -394,5 +451,22 @@ async def test_unsupported_rotate_direction_is_rejected_before_publish() -> None
     )
 
     assert result.status == 400
-    assert result.body == {"error": "invalid_action", "message": "Unsupported button action"}
+    assert result.body == {
+        "error": "invalid_action",
+        "message": "Unsupported button action",
+        "schema_version": "2026.06",
+        "data": {
+            "device_id": "device_abc123",
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "INVALID_ACTION",
+                "message": "Unsupported button action",
+                "target": "event.action",
+                "retryable": False,
+            }
+        ],
+    }
     assert publisher.events == []

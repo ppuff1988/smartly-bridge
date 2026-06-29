@@ -50,12 +50,19 @@ class DeviceEventUseCase:
     async def execute(self, client_id: str, command: DeviceEventCommand) -> BridgeResponse:
         """Publish a normalized event or return a validation error."""
         if command.type != "button_action":
-            return BridgeResponse({"error": "missing_required_fields"}, status=400)
+            return _event_error_response(
+                command=command,
+                error="missing_required_fields",
+                message="Missing required event fields",
+                target="event.type",
+            )
         canonical = _canonical_button_event(command.action)
         if canonical is None:
-            return BridgeResponse(
-                {"error": "invalid_action", "message": "Unsupported button action"},
-                status=400,
+            return _event_error_response(
+                command=command,
+                error="invalid_action",
+                message="Unsupported button action",
+                target="event.action",
             )
 
         received_at = self._received_at_factory()
@@ -179,6 +186,37 @@ def _duplicate_event_response(
             "errors": [],
         },
         status=200,
+    )
+
+
+def _event_error_response(
+    *,
+    command: DeviceEventCommand,
+    error: str,
+    message: str,
+    target: str,
+) -> BridgeResponse:
+    """Return a legacy-compatible API vNext event error response."""
+    return BridgeResponse(
+        {
+            "error": error,
+            "message": message,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {
+                "device_id": command.device_id,
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": message,
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=400,
     )
 
 
