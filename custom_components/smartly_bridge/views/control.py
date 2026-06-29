@@ -189,10 +189,8 @@ class SmartlyControlView(web.View):
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "invalid_json"},
-                status=400,
-            )
+            result = control_error_response("invalid_json", status=400)
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         smartly_command = _smartly_command_from_body(body)
         if smartly_command is not None:

@@ -658,6 +658,21 @@ class TestControlEndpointFullFlow:
             response = await view.post()
 
             assert response.status == 400
+            body = json.loads(response.text)
+            assert body == {
+                "error": "invalid_json",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_JSON",
+                        "message": "invalid json",
+                        "target": "control",
+                        "retryable": False,
+                    }
+                ],
+            }
 
         await nonce_cache.stop()
 
