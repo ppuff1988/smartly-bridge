@@ -174,12 +174,14 @@ class SmartlyControlView(web.View):
                 service="",
                 reason="rate_limited",
             )
+            result = control_error_response("rate_limited", status=429)
             return web.json_response(
-                {"error": "rate_limited"},
-                status=429,
+                result.body,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
+                    **result.headers,
                 },
             )
 

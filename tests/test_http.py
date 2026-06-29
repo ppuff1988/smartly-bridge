@@ -370,6 +370,22 @@ class TestControlEndpoint:
             response = await view.post()
 
         assert response.status == 429
+        assert response.headers["Retry-After"] == "60"
+        assert response.headers["X-RateLimit-Remaining"] == "0"
+        assert json.loads(response.body) == {
+            "error": "rate_limited",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "RATE_LIMITED",
+                    "message": "rate limited",
+                    "target": "control",
+                    "retryable": False,
+                }
+            ],
+        }
 
 
 class TestSyncEndpoint:
