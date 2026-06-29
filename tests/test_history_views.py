@@ -645,6 +645,33 @@ class TestSmartlyStatisticsView:
         return request
 
     @pytest.mark.asyncio
+    async def test_integration_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test missing integration data returns API vNext envelope."""
+        mock_hass.data = {}
+
+        view = SmartlyStatisticsView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "statistics.integration",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_invalid_period_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test invalid period returns API vNext envelope."""
         mock_request.query = {"period": "invalid"}
