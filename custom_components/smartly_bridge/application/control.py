@@ -298,11 +298,12 @@ class SmartlyCommandUseCase:
                 "expected_state": expected_state,
                 "new_state": result.body.get("new_state"),
                 "new_attributes": result.body.get("new_attributes"),
-                "data": {
-                    "command_id": command.command_id,
-                    "status": "completed",
-                    "expected_state": expected_state,
-                },
+                "data": _smartly_command_vnext_data(
+                    command,
+                    "completed",
+                    expected_state,
+                    entity_id,
+                ),
                 "warnings": [],
                 "errors": [],
             },
@@ -329,6 +330,26 @@ def _smartly_command_audit_actor(
     if source_entity_id is not None:
         actor["source_entity_id"] = source_entity_id
     return actor
+
+
+def _smartly_command_vnext_data(
+    command: SmartlyCommand,
+    status: str,
+    expected_state: dict[str, Any],
+    source_entity_id: str | None,
+) -> dict[str, Any]:
+    """Return API vNext command data without requiring legacy top-level fields."""
+    data = {
+        "command_id": command.command_id,
+        "status": status,
+        "device_id": command.device_id,
+        "capability": command.capability,
+        "command": command.command,
+        "expected_state": expected_state,
+    }
+    if source_entity_id is not None:
+        data["source_entity_id"] = source_entity_id
+    return data
 
 
 def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
@@ -760,11 +781,7 @@ def _smartly_command_error_response(
             "command": command.command,
             "entity_id": entity_id,
             "expected_state": {},
-            "data": {
-                "command_id": command.command_id,
-                "status": command_status,
-                "expected_state": {},
-            },
+            "data": _smartly_command_vnext_data(command, command_status, {}, entity_id),
             "warnings": [],
         },
         status=response_status,

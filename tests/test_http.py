@@ -980,6 +980,10 @@ class TestControlEndpointFullFlow:
             "data": {
                 "command_id": "cmd-1",
                 "status": "completed",
+                "device_id": "ldev_ha_device_1",
+                "capability": "brightness",
+                "command": "set_brightness",
+                "source_entity_id": "light.kitchen",
                 "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
             },
             "warnings": [],

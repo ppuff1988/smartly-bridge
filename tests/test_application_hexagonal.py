@@ -547,6 +547,10 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
         "data": {
             "command_id": "cmd-1",
             "status": "completed",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "source_entity_id": "light.kitchen",
             "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
         },
         "warnings": [],
@@ -604,6 +608,10 @@ async def test_smartly_command_success_response_includes_vnext_envelope() -> Non
     assert result.body["data"] == {
         "command_id": "cmd-vnext",
         "status": "completed",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "set_brightness",
+        "source_entity_id": "light.kitchen",
         "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
     }
 
@@ -1413,6 +1421,9 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
         "data": {
             "command_id": "cmd-404",
             "status": "rejected",
+            "device_id": "ldev_unknown",
+            "capability": "power",
+            "command": "turn_on",
             "expected_state": {},
         },
         "warnings": [],
@@ -1476,6 +1487,10 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
         "data": {
             "command_id": "cmd-unsupported",
             "status": "rejected",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "turn_on",
+            "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
         "warnings": [],
@@ -1540,6 +1555,10 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
         "data": {
             "command_id": "cmd-invalid",
             "status": "rejected",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
         "warnings": [],
@@ -1619,6 +1638,10 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
     assert result.body["data"] == {
         "command_id": "cmd-invalid-envelope",
         "status": "rejected",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "set_brightness",
+        "source_entity_id": "light.kitchen",
         "expected_state": {},
     }
 
@@ -2161,6 +2184,10 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
         "data": {
             "command_id": "cmd-denied",
             "status": "rejected",
+            "device_id": "ldev_light_kitchen",
+            "capability": "power",
+            "command": "turn_on",
+            "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
         "warnings": [],
@@ -2210,6 +2237,10 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
         "data": {
             "command_id": "cmd-failed",
             "status": "failed",
+            "device_id": "ldev_light_kitchen",
+            "capability": "power",
+            "command": "turn_on",
+            "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
         "warnings": [],
