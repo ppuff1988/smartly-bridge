@@ -21,6 +21,7 @@ from .ports import HistoryGatewayPort
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 1000
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
 
 @dataclass(frozen=True)
@@ -132,7 +133,11 @@ class HistoryQueryPlanner:
             )
 
         if start_time > end_time:
-            return BridgeResponse({"error": "invalid_time_range"}, status=400)
+            return _history_error_response(
+                "invalid_time_range",
+                status=400,
+                target="history.time_range",
+            )
 
         return None
 
@@ -210,6 +215,27 @@ def _ensure_timezone(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value
+
+
+def _history_error_response(error: str, *, status: int, target: str = "history") -> BridgeResponse:
+    """Return a legacy-compatible API vNext history error response."""
+    return BridgeResponse(
+        {
+            "error": error,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error.replace("_", " "),
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )
 
 
 class HistoryResponseFormatter:

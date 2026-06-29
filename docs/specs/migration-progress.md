@@ -48,6 +48,7 @@
 - Legacy control entity-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-call-failed application response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
+- History invalid-time-range application response 已保留 legacy `error` 欄位與 400 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control body 與既有 endpoint 仍保留，尚未進入 legacy cleanup。
 
 ## Recording Rule
@@ -139,6 +140,7 @@
 | 77 | `eaad20a` | Legacy control entity-not-allowed application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 403 status | RED failed with missing `schema_version`; affected tests `110 passed`; full suite `556 passed` |
 | 78 | `b29cd33` | Legacy control service-not-allowed application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 403 status | RED failed with missing `schema_version`; affected tests `111 passed`; full suite `557 passed` |
 | 79 | `d6da427` | Legacy control service-call-failed application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 500 status | RED failed with missing `schema_version`; affected tests `112 passed`; full suite `558 passed` |
+| 80 | `current slice` | History invalid-time-range application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 400 status | RED failed with missing `schema_version`; history tests `44 passed`; full suite `558 passed` |
 
 ## Completed Slices
 
@@ -150,6 +152,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control entity/service deny/service failure 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `eaad20a`, `b29cd33`, `d6da427` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
+| History path | history invalid-time-range application response envelope，保留 legacy `error` 欄位 | `current slice` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope 與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae` |
 | WebRTC path | WebRTC ICE session-not-found/entity-mismatch 與 hangup session-not-found/entity-mismatch application response envelope，保留 legacy `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3` |
 | Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2` |
@@ -164,8 +167,8 @@
 
 ## Latest Verification
 
-- Targeted legacy control service-call-failed vNext error envelope test: `1 passed`
-- Affected control application/HTTP tests: `112 passed`
+- Targeted history invalid-time-range vNext error envelope test: `1 passed`
+- Affected history application/view tests: `44 passed`
 - Full suite: `558 passed`
 
 ## Remaining Work
