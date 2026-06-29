@@ -65,7 +65,7 @@
 | 39 | `74fc92c` | brightness delta commands：`increase_brightness` / `decrease_brightness` 映射 `brightness_step_pct` | RED failed as `command_not_supported`; full suite `518 passed` |
 | 40 | `ed729a1` | rotary button events：`rotate_left/right` 正規化成 canonical button events | RED failed as `invalid_action`; full suite `519 passed` |
 | 41 | `3347735` | button action alias formats：`left_single`、`1_single` 正規化成 `single_press`，HTTP ingestion 使用同一 parser validation | RED failed as `invalid_action`; full suite `522 passed` |
-| 42 | current slice | `use_logical_devices` read-path feature flag：sync states response 加上 logical `read_path`、`devices`、`device_count`，但保留 legacy `states` | RED failed with missing constructor flag / missing `read_path`; full suite `525 passed` |
+| 42 | `4527bd5` | `use_logical_devices` read-path feature flag：sync states response 加上 logical `read_path`、`devices`、`device_count`，但保留 legacy `states` | RED failed with missing constructor flag / missing `read_path`; full suite `525 passed` |
 
 ## Completed Slices
 
@@ -77,7 +77,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape | `564c8c4`, `2dd37ac`, `edb4a68` |
 | Event path | 新增 canonical event envelope 與 event deduplication | `3b54b65`, `42e0c61` |
-| Sync aliases, warnings, and read path | logical devices 輸出 migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, current slice |
+| Sync aliases, warnings, and read path | logical devices 輸出 migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
 | Cover | position、stop merge、tilt position control | `824a555`, `c02479b`, `5e569e5` |
