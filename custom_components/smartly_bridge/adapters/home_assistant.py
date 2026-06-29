@@ -265,6 +265,32 @@ class HomeAssistantLocalAutomationRuleStore:
             ]
         return True
 
+    def delete_rule(self, rule_id: str) -> bool:
+        """Remove a local automation rule from the Home Assistant config entry."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        config_entry = integration_data.get("config_entry")
+        if config_entry is None:
+            return False
+        data = dict(getattr(config_entry, "data", {}))
+        stored_rules = list(data.get("local_automation_rules", []))
+        remaining_rules = [
+            stored_rule
+            for stored_rule in stored_rules
+            if not (
+                isinstance(stored_rule, dict)
+                and stored_rule.get("rule_id") == rule_id
+            )
+        ]
+        if len(remaining_rules) == len(stored_rules):
+            return False
+        data["local_automation_rules"] = remaining_rules
+        self._hass.config_entries.async_update_entry(config_entry, data=data)
+        if "local_automation_rules" in integration_data:
+            integration_data["local_automation_rules"] = [
+                rule for rule in self.list_rules() if rule.rule_id != rule_id
+            ]
+        return True
+
 
 def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
     """Return a local automation rule from runtime or serialized config data."""

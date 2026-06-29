@@ -100,6 +100,9 @@ class LocalAutomationRuleStorePort(Protocol):
     def update_rule(self, rule: Any) -> bool:
         """Replace an existing local automation rule."""
 
+    def delete_rule(self, rule_id: str) -> bool:
+        """Delete an existing local automation rule."""
+
 
 class SmartlyCommandExecutorPort(Protocol):
     """Executes canonical Smartly commands."""

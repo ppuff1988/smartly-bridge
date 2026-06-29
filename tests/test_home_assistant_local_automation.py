@@ -300,3 +300,61 @@ def test_local_automation_rule_store_updates_config_entry_rule() -> None:
             ],
         },
     )
+
+
+def test_local_automation_rule_store_deletes_config_entry_rule() -> None:
+    """Deleting a rule removes serialized config entry data by rule ID."""
+    config_entry = MagicMock(
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": [
+                {
+                    "rule_id": "target-rule",
+                    "trigger": {
+                        "device_id": "ldev_button",
+                        "capability": "button_event",
+                        "event": "single_press",
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_light",
+                            "capability": "power",
+                            "command": "turn_on",
+                        }
+                    ],
+                },
+                {
+                    "rule_id": "other-rule",
+                    "trigger": {
+                        "device_id": "ldev_other_button",
+                        "capability": "button_event",
+                        "event": "single_press",
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_other_light",
+                            "capability": "power",
+                            "command": "turn_on",
+                        }
+                    ],
+                },
+            ],
+        }
+    )
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"config_entry": config_entry}}
+
+    deleted = HomeAssistantLocalAutomationRuleStore(hass).delete_rule("target-rule")
+
+    assert deleted is True
+    hass.config_entries.async_update_entry.assert_called_once_with(
+        config_entry,
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": [
+                config_entry.data["local_automation_rules"][1],
+            ],
+        },
+    )

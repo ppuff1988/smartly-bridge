@@ -12,6 +12,7 @@ from custom_components.smartly_bridge.application.local_automation import (
     AutomationTrigger,
     LocalAutomationRule,
     LocalAutomationRuleCreateUseCase,
+    LocalAutomationRuleDeleteUseCase,
     LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
     LocalAutomationUseCase,
@@ -35,6 +36,13 @@ class FakeAutomationRuleStore:
         for index, existing in enumerate(self.rules):
             if existing.rule_id == rule.rule_id:
                 self.rules[index] = rule
+                return True
+        return False
+
+    def delete_rule(self, rule_id: str) -> bool:
+        for index, existing in enumerate(self.rules):
+            if existing.rule_id == rule_id:
+                del self.rules[index]
                 return True
         return False
 
@@ -241,6 +249,47 @@ def test_update_rule_replaces_existing_canonical_rule() -> None:
     assert result.body["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["enabled"] is False
     assert result.body["errors"] == []
+
+
+def test_delete_rule_removes_existing_rule() -> None:
+    """Deleting a local automation rule removes the stored rule."""
+    store = FakeAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+
+    result = LocalAutomationRuleDeleteUseCase(store).execute("rule-left-single")
+
+    assert store.rules == []
+    assert result.status == 200
+    assert result.body == {
+        "success": True,
+        "schema_version": "2026.06",
+        "status": "deleted",
+        "rule_id": "rule-left-single",
+        "data": {
+            "status": "deleted",
+            "rule_id": "rule-left-single",
+        },
+        "warnings": [],
+        "errors": [],
+    }
 
 
 @pytest.mark.asyncio

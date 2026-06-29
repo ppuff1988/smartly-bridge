@@ -159,6 +159,45 @@ class LocalAutomationRuleUpdateUseCase:
         )
 
 
+class LocalAutomationRuleDeleteUseCase:
+    """Delete a local automation rule by canonical rule ID."""
+
+    def __init__(self, rules: LocalAutomationRuleStorePort) -> None:
+        self._rules = rules
+
+    def execute(self, rule_id: str) -> BridgeResponse:
+        """Remove an existing local automation rule."""
+        if not rule_id:
+            return _rule_error_response(
+                "invalid_rule",
+                message="Invalid local automation rule",
+                status=400,
+                target="rule.rule_id",
+            )
+        if not self._rules.delete_rule(rule_id):
+            return _rule_error_response(
+                "rule_not_found",
+                message="Local automation rule not found",
+                status=404,
+                target="rule.rule_id",
+            )
+        return BridgeResponse(
+            {
+                "success": True,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "status": "deleted",
+                "rule_id": rule_id,
+                "data": {
+                    "status": "deleted",
+                    "rule_id": rule_id,
+                },
+                "warnings": [],
+                "errors": [],
+            },
+            status=200,
+        )
+
+
 class LocalAutomationUseCase:
     """Run local automation rules for canonical device events."""
 

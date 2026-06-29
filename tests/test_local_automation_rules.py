@@ -224,3 +224,41 @@ async def test_local_automation_rules_put_updates_stored_rule(mock_hass) -> None
         "payload": {"button": "right"},
     }
     mock_hass.config_entries.async_update_entry.assert_called_once()
+
+
+@pytest.mark.asyncio
+async def test_local_automation_rules_delete_removes_stored_rule(mock_hass) -> None:
+    """DELETE local automation rules removes an existing canonical rule."""
+    _configure_integration(mock_hass)
+    request = _request_for_rules(
+        mock_hass,
+        {"rule_id": "stored-left-single"},
+        method="DELETE",
+    )
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).delete()
+
+    assert response.status == 200
+    payload = json.loads(response.body)
+    assert payload == {
+        "success": True,
+        "schema_version": "2026.06",
+        "status": "deleted",
+        "rule_id": "stored-left-single",
+        "data": {
+            "status": "deleted",
+            "rule_id": "stored-left-single",
+        },
+        "warnings": [],
+        "errors": [],
+    }
+    mock_hass.config_entries.async_update_entry.assert_called_once()

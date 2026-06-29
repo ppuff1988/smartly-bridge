@@ -11,6 +11,7 @@ from homeassistant.components.http import HomeAssistantView
 from ..adapters.home_assistant import HomeAssistantLocalAutomationRuleStore
 from ..application.local_automation import (
     LocalAutomationRuleCreateUseCase,
+    LocalAutomationRuleDeleteUseCase,
     LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
 )
@@ -125,6 +126,21 @@ class SmartlyLocalAutomationRulesView(BaseView):
         ).execute(rule_id if isinstance(rule_id, str) else "", payload)
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
+    async def delete(self) -> web.Response:
+        """Delete a local automation rule."""
+        auth = await self._authorize("local_automation_rules_delete")
+        if isinstance(auth, web.Response):
+            return auth
+        try:
+            payload = await self.request.json()
+        except (json.JSONDecodeError, ValueError):
+            payload = {}
+        rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
+        result = LocalAutomationRuleDeleteUseCase(
+            HomeAssistantLocalAutomationRuleStore(self.hass)
+        ).execute(rule_id if isinstance(rule_id, str) else "")
+        return web.json_response(result.body, status=result.status, headers=result.headers)
+
 
 class SmartlyLocalAutomationRulesViewWrapper(HomeAssistantView):
     """Wrapper for SmartlyLocalAutomationRulesView to work with HA registration."""
@@ -147,3 +163,8 @@ class SmartlyLocalAutomationRulesViewWrapper(HomeAssistantView):
         """Handle PUT request."""
         view = SmartlyLocalAutomationRulesView(request)
         return await view.put()
+
+    async def delete(self, request: web.Request) -> web.Response:
+        """Handle DELETE request."""
+        view = SmartlyLocalAutomationRulesView(request)
+        return await view.delete()
