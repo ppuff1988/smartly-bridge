@@ -71,6 +71,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "option_setting": {"select_option"},
     "lock": {"lock", "unlock"},
     "run": {"run"},
+    "button_press": {"press"},
 }
 
 SMARTLY_API_SCHEMA_VERSION = "2026.06"

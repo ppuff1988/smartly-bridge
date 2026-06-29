@@ -1192,6 +1192,47 @@ async def test_smartly_command_use_case_dispatches_script_run_command() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_button_press_command() -> None:
+    """Button press commands map canonical button triggers to Home Assistant button.press."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="button.desk_scene",
+            state="idle",
+            attributes={},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_button_desk_scene", "button_press"): "button.desk_scene"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-button-press",
+            device_id="ldev_button_desk_scene",
+            capability="button_press",
+            command="press",
+            params={},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {}
+    assert result.body["data"] == {
+        "command_id": "cmd-button-press",
+        "status": "completed",
+        "device_id": "ldev_button_desk_scene",
+        "capability": "button_press",
+        "command": "press",
+        "source_entity_id": "button.desk_scene",
+        "expected_state": {},
+    }
+    assert gateway.calls == [("button.desk_scene", "press", {})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_dispatches_climate_mode_command() -> None:
     """Mode select commands map canonical mode to Home Assistant climate services."""
     audit = FakeAudit()

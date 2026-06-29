@@ -407,6 +407,7 @@ class TestSmartlySyncStatesView:
             "power",
             "brightness",
             "button_event",
+            "button_press",
         ]
         assert logical_device["capabilities"][2]["source_refs"] == [
             {
@@ -416,6 +417,16 @@ class TestSmartlySyncStatesView:
                 "domain": "button",
                 "role": "event_source",
                 "capability_types": ["button_event"],
+            }
+        ]
+        assert logical_device["capabilities"][3]["source_refs"] == [
+            {
+                "source": "home_assistant",
+                "source_device_id": shared_device_id,
+                "source_entity_id": "button.desk_scene",
+                "domain": "button",
+                "role": "primary_control",
+                "capability_types": ["button_press"],
             }
         ]
 

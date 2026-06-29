@@ -29,6 +29,7 @@ _WRITABLE_CAPABILITIES = {
     "option_setting",
     "lock",
     "run",
+    "button_press",
 }
 
 _MEASUREMENT_CAPABILITIES = {
@@ -226,7 +227,7 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
     return SmartlyCapability(
         type=canonical,
         role=_capability_role(canonical),
-        readable=canonical not in {"button_event", "run"},
+        readable=canonical not in {"button_event", "run", "button_press"},
         writable=canonical in _WRITABLE_CAPABILITIES,
         event_only=canonical == "button_event",
         state=state,
@@ -775,6 +776,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "option_setting": ["select_option"],
         "lock": ["lock", "unlock"],
         "run": ["run"],
+        "button_press": ["press"],
     }.get(capability, [])
 
 

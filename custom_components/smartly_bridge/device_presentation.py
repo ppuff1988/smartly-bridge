@@ -208,7 +208,7 @@ def _scene_or_script_capabilities(attributes: dict[str, Any]) -> list[str]:
 
 def _button_capabilities(attributes: dict[str, Any]) -> list[str]:
     """Infer button capabilities."""
-    return ["event"]
+    return ["event", "button_press"]
 
 
 def _no_capabilities(attributes: dict[str, Any]) -> list[str]:

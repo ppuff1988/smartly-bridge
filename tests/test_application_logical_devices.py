@@ -1021,6 +1021,52 @@ def test_scene_run_capability_uses_command_only_contract() -> None:
     }
 
 
+def test_button_entity_exposes_press_command_capability() -> None:
+    """Home Assistant button entities expose a canonical press command capability."""
+    snapshot = EntityStateSnapshot(
+        entity_id="button.desk_scene",
+        state="idle",
+        attributes={},
+        name="Desk Scene",
+        domain="button",
+        device_class="button_device",
+        capabilities=["event", "button_press"],
+        status="online",
+        presentation={"card_template": "event_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert [capability["type"] for capability in device["capabilities"]] == [
+        "button_event",
+        "button_press",
+    ]
+    button_press = device["capabilities"][1]
+    assert button_press == {
+        "type": "button_press",
+        "role": "primary",
+        "readable": False,
+        "writable": True,
+        "event_only": False,
+        "state": {},
+        "commands": ["press"],
+        "events": [],
+        "constraints": {},
+        "presentation": {},
+        "source_refs": [
+            {
+                "source": "home_assistant",
+                "source_device_id": None,
+                "source_entity_id": "button.desk_scene",
+                "domain": "button",
+                "role": "primary_control",
+                "capability_types": ["button_press"],
+            }
+        ],
+    }
+    assert device["presentation"]["primary_controls"] == ["button_press"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [
