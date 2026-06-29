@@ -175,7 +175,7 @@ class CameraSnapshotUseCase:
             return BridgeResponse({}, status=304)
 
         if snapshot is None:
-            return BridgeResponse({"error": "snapshot_unavailable"}, status=404)
+            return _camera_error_response("snapshot_unavailable", status=404)
 
         return BridgeResponse(
             {"snapshot": snapshot},

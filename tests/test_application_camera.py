@@ -528,7 +528,7 @@ async def test_camera_snapshot_use_case_returns_not_modified() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_snapshot_use_case_returns_unavailable_for_missing_snapshot() -> None:
-    """Snapshot use case reports unavailable cameras as not found."""
+    """Snapshot use case reports unavailable snapshots with API vNext errors."""
     result = await CameraSnapshotUseCase(FakeCameraGateway()).execute(
         "camera.missing",
         force_refresh=False,
@@ -536,7 +536,18 @@ async def test_camera_snapshot_use_case_returns_unavailable_for_missing_snapshot
     )
 
     assert result.status == 404
-    assert result.body == {"error": "snapshot_unavailable"}
+    assert result.body["error"] == "snapshot_unavailable"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SNAPSHOT_UNAVAILABLE",
+            "message": "snapshot unavailable",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
 
 
 def test_camera_stream_use_case_returns_mjpeg_headers() -> None:
