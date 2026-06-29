@@ -7,6 +7,8 @@ from typing import Any
 from ..domain.models import BridgeResponse
 from .ports import WebRTCGatewayPort
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 
 class WebRTCTokenUseCase:
     """Generate a WebRTC token response."""
@@ -65,7 +67,7 @@ class WebRTCICEUseCase:
         """Add an ICE candidate to a session."""
         session = self._gateway.get_session_by_partial_token(session_id)
         if session is None:
-            return BridgeResponse({"error": "session_not_found"}, status=404)
+            return _webrtc_error_response("session_not_found", status=404)
 
         if session.entity_id != entity_id:
             return BridgeResponse({"error": "session_entity_mismatch"}, status=403)
@@ -152,3 +154,24 @@ class WebRTCHangupUseCase:
 
         await self._gateway.close_session(session.token)
         return BridgeResponse({"status": "closed"}, status=200)
+
+
+def _webrtc_error_response(error: str, *, status: int) -> BridgeResponse:
+    """Return a legacy-compatible API vNext WebRTC error response."""
+    return BridgeResponse(
+        {
+            "error": error,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error.replace("_", " "),
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )

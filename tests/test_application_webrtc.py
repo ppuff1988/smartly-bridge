@@ -164,6 +164,33 @@ async def test_webrtc_ice_use_case_adds_candidate() -> None:
 
 
 @pytest.mark.asyncio
+async def test_webrtc_ice_use_case_returns_vnext_error_for_missing_session() -> None:
+    """ICE use case reports missing sessions with API vNext errors."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 404
+    assert result.body["error"] == "session_not_found"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SESSION_NOT_FOUND",
+            "message": "session not found",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+    assert gateway.session.ice_candidates == []
+
+
+@pytest.mark.asyncio
 async def test_webrtc_hangup_use_case_closes_matching_session() -> None:
     """Hangup use case closes the session through the gateway."""
     gateway = FakeWebRTCGateway()
