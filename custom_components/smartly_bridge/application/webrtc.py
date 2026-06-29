@@ -25,9 +25,10 @@ class WebRTCTokenUseCase:
     ) -> BridgeResponse:
         """Generate token and connection metadata."""
         if not self._gateway.camera_exists(entity_id):
-            return BridgeResponse(
-                {"error": "entity_not_found", "message": f"Camera {entity_id} not found"},
+            return _webrtc_error_response(
+                "entity_not_found",
                 status=404,
+                legacy_fields={"message": f"Camera {entity_id} not found"},
             )
 
         token = await self._gateway.generate_token(entity_id, client_id)
@@ -154,11 +155,17 @@ class WebRTCHangupUseCase:
         return _webrtc_success_response({"status": "closed"})
 
 
-def _webrtc_error_response(error: str, *, status: int) -> BridgeResponse:
+def _webrtc_error_response(
+    error: str,
+    *,
+    status: int,
+    legacy_fields: dict[str, Any] | None = None,
+) -> BridgeResponse:
     """Return a legacy-compatible API vNext WebRTC error response."""
     return BridgeResponse(
         {
             "error": error,
+            **(legacy_fields or {}),
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],

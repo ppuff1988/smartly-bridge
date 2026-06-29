@@ -164,6 +164,18 @@ async def test_webrtc_token_use_case_rejects_missing_camera() -> None:
 
     assert result.status == 404
     assert result.body["error"] == "entity_not_found"
+    assert result.body["message"] == "Camera camera.missing not found"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "ENTITY_NOT_FOUND",
+            "message": "entity not found",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
 
 
 @pytest.mark.asyncio
