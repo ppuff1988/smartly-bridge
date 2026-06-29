@@ -369,6 +369,9 @@ def _fan_speed_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     attributes = snapshot.attributes or {}
     percentage = _numeric_value(attributes.get("percentage"))
     if percentage is None:
+        fan_mode = attributes.get("fan_mode")
+        if isinstance(fan_mode, str):
+            return {"speed": fan_mode}
         preset_mode = attributes.get("preset_mode")
         return {"speed": preset_mode} if isinstance(preset_mode, str) else {}
     return {"percentage": max(0, min(100, percentage)), "unit": "percent"}
@@ -497,6 +500,9 @@ def _constraints_for_capability(
     if capability == "target_temperature":
         return _target_temperature_constraints(snapshot.attributes or {})
     if capability == "fan_speed":
+        modes = (snapshot.attributes or {}).get("fan_modes")
+        if isinstance(modes, list) and all(isinstance(mode, str) for mode in modes):
+            return {"values": modes}
         return {"min": 0, "max": 100, "step": 1}
     if capability == "position":
         return {"min": 0, "max": 100, "step": 1}

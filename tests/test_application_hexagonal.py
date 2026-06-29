@@ -606,6 +606,70 @@ async def test_smartly_command_use_case_dispatches_fan_speed_command() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_fan_preset_speed_command() -> None:
+    """Fan speed commands map canonical speed to Home Assistant preset mode."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="fan.bedroom",
+            state="on",
+            attributes={"preset_mode": "sleep"},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_speed"): "fan.bedroom"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-fan-preset",
+            device_id="ldev_fan_bedroom",
+            capability="fan_speed",
+            command="set_fan_speed",
+            params={"speed": "sleep"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"fan_speed": {"speed": "sleep"}}
+    assert gateway.calls == [("fan.bedroom", "set_preset_mode", {"preset_mode": "sleep"})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_climate_fan_speed_command() -> None:
+    """Climate fan speed commands map canonical speed to Home Assistant fan mode."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="climate.living_room",
+            state="cool",
+            attributes={"fan_mode": "auto"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_climate_living_room", "fan_speed"): "climate.living_room"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-climate-fan-speed",
+            device_id="ldev_climate_living_room",
+            capability="fan_speed",
+            command="set_fan_speed",
+            params={"speed": "auto"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"fan_speed": {"speed": "auto"}}
+    assert gateway.calls == [
+        ("climate.living_room", "set_fan_mode", {"fan_mode": "auto"})
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_returns_lock_expected_state() -> None:
     """Lock commands expose expected lock state for correlation."""
     audit = FakeAudit()

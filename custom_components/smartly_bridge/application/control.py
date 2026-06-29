@@ -31,6 +31,7 @@ FAN_ACTIONS = {
 CLIMATE_ACTIONS = {
     "set_mode": "set_hvac_mode",
     "set_temperature": "set_temperature",
+    "set_fan_speed": "set_fan_mode",
 }
 
 RUN_ACTIONS = {
@@ -287,7 +288,11 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         return isinstance(value, (int, float)) and 0 <= value <= 100
     if command.capability == "fan_speed" and command.command == "set_fan_speed":
         percentage = command.params.get("percentage")
-        return isinstance(percentage, (int, float)) and 0 <= percentage <= 100
+        speed = command.params.get("speed")
+        return (
+            isinstance(percentage, (int, float))
+            and 0 <= percentage <= 100
+        ) or isinstance(speed, str)
     if command.capability == "mode_select" and command.command == "set_mode":
         return isinstance(command.params.get("mode"), str)
     return True
@@ -306,7 +311,7 @@ def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any
         return RUN_ACTIONS[command.action], command.service_data
 
     if get_entity_domain(command.entity_id) == "fan" and command.action in FAN_ACTIONS:
-        return FAN_ACTIONS[command.action], command.service_data
+        return _normalize_fan_service_call(command.action, command.service_data)
 
     if get_entity_domain(command.entity_id) == "cover" and command.action in COVER_ACTIONS:
         service_action = COVER_ACTIONS[command.action]
@@ -328,6 +333,8 @@ def _normalize_climate_service_data(action: str, service_data: dict[str, Any]) -
         normalized.setdefault("hvac_mode", normalized.pop("mode"))
     if action == "set_temperature" and "value" in normalized:
         normalized.setdefault("temperature", normalized.pop("value"))
+    if action == "set_fan_speed" and "speed" in normalized:
+        normalized.setdefault("fan_mode", normalized.pop("speed"))
     return normalized
 
 
@@ -337,6 +344,18 @@ def _normalize_cover_service_data(action: str, service_data: dict[str, Any]) -> 
     if action == "set_position" and "value" in normalized:
         normalized.setdefault("position", normalized.pop("value"))
     return normalized
+
+
+def _normalize_fan_service_call(
+    action: str,
+    service_data: dict[str, Any],
+) -> tuple[str, dict[str, Any]]:
+    """Normalize canonical fan params to Home Assistant fan service calls."""
+    normalized = dict(service_data)
+    if action == "set_fan_speed" and "speed" in normalized:
+        normalized.setdefault("preset_mode", normalized.pop("speed"))
+        return "set_preset_mode", normalized
+    return FAN_ACTIONS[action], normalized
 
 
 def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:
@@ -429,8 +448,11 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
     if (
         command.capability == "fan_speed"
         and command.command == "set_fan_speed"
-        and isinstance(command.params.get("percentage"), (int, float))
     ):
+        if isinstance(command.params.get("speed"), str):
+            return {"fan_speed": {"speed": command.params["speed"]}}
+        if not isinstance(command.params.get("percentage"), (int, float)):
+            return {}
         return {
             "fan_speed": {
                 "percentage": command.params["percentage"],
