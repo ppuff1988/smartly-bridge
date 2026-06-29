@@ -213,11 +213,40 @@ class HomeAssistantEntityPolicy:
         """Return whether an entity can be accessed by Platform."""
         from homeassistant.helpers import entity_registry as er
 
-        return self._entity_allowed_fn(self._hass, entity_id, er.async_get(self._hass))
+        entity_registry = er.async_get(self._hass)
+        if self._entity_allowed_fn(self._hass, entity_id, entity_registry):
+            return True
+        return self._is_allowed_numeric_setting_sibling(entity_id, entity_registry)
 
     def is_service_allowed(self, entity_id: str, action: str) -> bool:
         """Return whether an action is allowed for the entity domain."""
         return self._service_allowed_fn(get_entity_domain(entity_id), action)
+
+    def _is_allowed_numeric_setting_sibling(
+        self,
+        entity_id: str,
+        entity_registry: Any,
+    ) -> bool:
+        """Return whether a number setting belongs to an allowed primary entity."""
+        if get_entity_domain(entity_id) != "number":
+            return False
+        entry = entity_registry.async_get(entity_id)
+        device_id = getattr(entry, "device_id", None) if entry else None
+        if not device_id:
+            return False
+        state = self._hass.states.get(entity_id)
+        if state is None:
+            return False
+        attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
+        name = str(attributes.get("friendly_name", entity_id))
+        if _setting_key_for_entity(entity_id, name, "number") is None:
+            return False
+        for sibling_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            if getattr(sibling, "device_id", None) != device_id:
+                continue
+            if self._entity_allowed_fn(self._hass, sibling_entity_id, entity_registry):
+                return True
+        return False
 
 
 class HomeAssistantControlGateway:
@@ -268,6 +297,7 @@ class HomeAssistantCommandTargetResolver:
 
         entity_registry = er.async_get(self._hass)
         allowed_entities = self._allowed_entities_fn(self._hass, entity_registry)
+        matched_device_ids: set[str] = set()
         for entity_id in allowed_entities:
             entry = entity_registry.async_get(entity_id)
             source_device_id = getattr(entry, "device_id", None) if entry else None
@@ -275,6 +305,7 @@ class HomeAssistantCommandTargetResolver:
                 source_device_id = entity_id
             if logical_device_id_for_source_id(source_device_id) != device_id:
                 continue
+            matched_device_ids.add(source_device_id)
 
             state = self._hass.states.get(entity_id)
             attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
@@ -288,6 +319,34 @@ class HomeAssistantCommandTargetResolver:
                 canonical_capability_name(item) for item in metadata["capabilities"]
             }
             if capability in canonical_capabilities:
+                return entity_id
+        if capability == "numeric_setting":
+            return self._resolve_numeric_setting_target(entity_registry, matched_device_ids)
+        return None
+
+    def _resolve_numeric_setting_target(
+        self,
+        entity_registry: Any,
+        matched_device_ids: set[str],
+    ) -> str | None:
+        """Return a sibling number entity from an allowed logical-device group."""
+        if not matched_device_ids:
+            return None
+        for registry_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            entity_id = getattr(sibling, "entity_id", None) or registry_entity_id
+            if not isinstance(entity_id, str):
+                entity_id = registry_entity_id if isinstance(registry_entity_id, str) else None
+            if not entity_id or get_entity_domain(entity_id) != "number":
+                continue
+            source_device_id = getattr(sibling, "device_id", None)
+            if source_device_id not in matched_device_ids:
+                continue
+            state = self._hass.states.get(entity_id)
+            if state is None:
+                continue
+            attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
+            name = str(attributes.get("friendly_name", entity_id))
+            if _setting_key_for_entity(entity_id, name, "number") is not None:
                 return entity_id
         return None
 

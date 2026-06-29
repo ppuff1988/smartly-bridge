@@ -724,6 +724,72 @@ def test_climate_hvac_mode_uses_mode_select_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_mode"]
 
 
+def test_presence_sibling_number_setting_uses_numeric_setting_contract() -> None:
+    """Editable sibling number settings are exposed as canonical numeric settings."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.presence",
+        state="on",
+        attributes={"device_class": "occupancy"},
+        name="Presence Sensor",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["presence"],
+        status="online",
+        presentation={
+            "card_template": "binary_state_card",
+            "setting_controls": [
+                {
+                    "key": "trigger_hold_seconds",
+                    "entity_id": "number.presence_detection_delay",
+                    "domain": "number",
+                    "name": "Trigger hold seconds",
+                    "action": "set_value",
+                    "value": 15,
+                    "min": 1,
+                    "max": 120,
+                    "step": 1,
+                    "unit": "s",
+                }
+            ],
+        },
+        source_device_id="zigbee-presence-1",
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    numeric_setting = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "numeric_setting"
+    )
+
+    assert numeric_setting == {
+        "type": "numeric_setting",
+        "role": "setting",
+        "readable": True,
+        "writable": True,
+        "event_only": False,
+        "state": {"value": 15, "unit": "s"},
+        "commands": ["set_value"],
+        "events": [],
+        "constraints": {"min": 1, "max": 120, "step": 1},
+        "presentation": {
+            "key": "trigger_hold_seconds",
+            "name": "Trigger hold seconds",
+        },
+        "source_refs": [
+            {
+                "source": "home_assistant",
+                "source_device_id": "zigbee-presence-1",
+                "source_entity_id": "number.presence_detection_delay",
+                "domain": "number",
+                "role": "setting",
+                "capability_types": ["numeric_setting"],
+            }
+        ],
+    }
+    assert "numeric_setting" in device["presentation"]["primary_controls"]
+
+
 def test_climate_target_temperature_uses_target_temperature_contract() -> None:
     """Home Assistant climate temperature is normalized to target temperature."""
     snapshot = EntityStateSnapshot(

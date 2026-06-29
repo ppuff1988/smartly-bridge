@@ -1215,6 +1215,38 @@ async def test_smartly_command_use_case_dispatches_climate_mode_command() -> Non
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_numeric_setting_command() -> None:
+    """Numeric setting commands map canonical setting values to number services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="number.presence_detection_delay",
+            state="20",
+            attributes={"unit_of_measurement": "s"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_zigbee_presence_1", "numeric_setting"): "number.presence_detection_delay"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-delay",
+            device_id="ldev_zigbee_presence_1",
+            capability="numeric_setting",
+            command="set_value",
+            params={"value": 20},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"numeric_setting": {"value": 20}}
+    assert gateway.calls == [("number.presence_detection_delay", "set_value", {"value": 20})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_dispatches_climate_temperature_command() -> None:
     """Target temperature commands map canonical values to climate services."""
     audit = FakeAudit()

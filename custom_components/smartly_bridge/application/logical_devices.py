@@ -25,6 +25,7 @@ _WRITABLE_CAPABILITIES = {
     "mode_select",
     "preset_mode",
     "swing_mode",
+    "numeric_setting",
     "lock",
     "run",
 }
@@ -142,6 +143,8 @@ def _capabilities_from_group(snapshots: list[EntityStateSnapshot]) -> list[Smart
                 presentation=existing.presentation,
                 source_refs=[*existing.source_refs, *capability.source_refs],
             )
+    for capability in _setting_capabilities_from_presentation(_primary_snapshot(snapshots)):
+        capabilities.setdefault(capability.type, capability)
     return list(capabilities.values())
 
 
@@ -240,6 +243,8 @@ def _capability_role(capability: str) -> str:
         return "health"
     if capability == "button_event":
         return "event_source"
+    if capability == "numeric_setting":
+        return "setting"
     if capability in {*_MEASUREMENT_CAPABILITIES, "motion", "presence", "open_close"}:
         return "secondary"
     return "primary"
@@ -316,6 +321,50 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
             state["unit"] = unit
         return state
     return {}
+
+
+def _setting_capabilities_from_presentation(
+    snapshot: EntityStateSnapshot,
+) -> list[SmartlyCapability]:
+    """Return canonical capabilities for editable sibling setting controls."""
+    capabilities: list[SmartlyCapability] = []
+    for control in snapshot.presentation.get("setting_controls", []):
+        if control.get("domain") != "number" or control.get("action") != "set_value":
+            continue
+        state: dict[str, Any] = {"value": control.get("value")}
+        if control.get("unit"):
+            state["unit"] = control["unit"]
+        constraints = {
+            key: control[key]
+            for key in ("min", "max", "step")
+            if key in control
+        }
+        capabilities.append(
+            SmartlyCapability(
+                type="numeric_setting",
+                role="setting",
+                readable=True,
+                writable=True,
+                state=state,
+                commands=["set_value"],
+                constraints=constraints,
+                presentation={
+                    "key": control.get("key"),
+                    "name": control.get("name"),
+                },
+                source_refs=[
+                    {
+                        "source": "home_assistant",
+                        "source_device_id": snapshot.source_device_id,
+                        "source_entity_id": control["entity_id"],
+                        "domain": "number",
+                        "role": "setting",
+                        "capability_types": ["numeric_setting"],
+                    }
+                ],
+            )
+        )
+    return capabilities
 
 
 def _numeric_state(
@@ -670,6 +719,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "mode_select": ["set_mode"],
         "preset_mode": ["set_preset_mode"],
         "swing_mode": ["set_swing_mode"],
+        "numeric_setting": ["set_value"],
         "lock": ["lock", "unlock"],
         "run": ["run"],
     }.get(capability, [])

@@ -253,6 +253,41 @@ State：
 - `raw_metric` 只做診斷。
 - RSSI、LQI、Wi-Fi RSSI percentage 必須映射到 `0-100`。
 
+### 5.7 `numeric_setting`
+
+用途：表示可編輯的數值型裝置設定，例如 presence sensor 的觸發維持秒數。來源可為 Home Assistant `number` sibling entity 或其他 adapter 的數值設定欄位。
+
+State：
+
+```json
+{
+  "value": 15,
+  "unit": "s"
+}
+```
+
+Constraints：
+
+```json
+{
+  "min": 1,
+  "max": 120,
+  "step": 1
+}
+```
+
+Commands：
+
+| Command | Params | 說明 |
+|---|---|---|
+| `set_value` | `{ "value": number }` | 設定數值 |
+
+規則：
+
+- `source_refs` 必須指向實際 setting source，例如 `number.presence_detection_delay`。
+- Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
+- `presentation.key` 可保留穩定 setting key，例如 `trigger_hold_seconds`。
+
 ## 6. Capability Extension Policy
 
 新增 capability 時必須提供：
@@ -285,4 +320,3 @@ Capability command 錯誤必須回傳標準錯誤碼：
 | `TIMEOUT` | 控制逾時 |
 
 錯誤 response 必須帶 `command_id`、`device_id`、`capability`、`adapter_id` 與可追蹤的 `correlation_id`。
-
