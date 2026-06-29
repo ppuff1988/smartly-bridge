@@ -20,6 +20,7 @@ LIGHT_TURN_ON_ACTIONS = {
 
 COVER_ACTIONS = {
     "set_position": "set_cover_position",
+    "set_tilt_position": "set_cover_tilt_position",
     "open": "open_cover",
     "close": "close_cover",
     "stop": "stop_cover",
@@ -47,6 +48,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "effect": {"set_effect"},
     "target_temperature": {"set_temperature"},
     "position": {"set_position", "open", "close", "stop"},
+    "tilt_position": {"set_tilt_position"},
     "fan_speed": {"set_fan_speed"},
     "mode_select": {"set_mode"},
     "lock": {"lock", "unlock"},
@@ -290,6 +292,12 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     if command.capability == "position" and command.command == "set_position":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
+    if (
+        command.capability == "tilt_position"
+        and command.command == "set_tilt_position"
+    ):
+        value = command.params.get("value")
+        return isinstance(value, (int, float)) and 0 <= value <= 100
     if command.capability == "fan_speed" and command.command == "set_fan_speed":
         percentage = command.params.get("percentage")
         speed = command.params.get("speed")
@@ -347,6 +355,8 @@ def _normalize_cover_service_data(action: str, service_data: dict[str, Any]) -> 
     normalized = dict(service_data)
     if action == "set_position" and "value" in normalized:
         normalized.setdefault("position", normalized.pop("value"))
+    if action == "set_tilt_position" and "value" in normalized:
+        normalized.setdefault("tilt_position", normalized.pop("value"))
     return normalized
 
 
@@ -455,6 +465,18 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
             return {"position": {"value": 100, "unit": "percent"}}
         if command.command == "close":
             return {"position": {"value": 0, "unit": "percent"}}
+
+    if (
+        command.capability == "tilt_position"
+        and command.command == "set_tilt_position"
+        and isinstance(command.params.get("value"), (int, float))
+    ):
+        return {
+            "tilt_position": {
+                "value": command.params["value"],
+                "unit": "percent",
+            }
+        }
 
     if (
         command.capability == "fan_speed"

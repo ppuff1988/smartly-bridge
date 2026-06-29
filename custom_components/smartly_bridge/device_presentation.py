@@ -165,6 +165,8 @@ def _cover_capabilities(attributes: dict[str, Any]) -> list[str]:
     capabilities = ["open_close"]
     if "current_position" in attributes or "position" in attributes:
         capabilities.append("position")
+    if "current_tilt_position" in attributes or "tilt_position" in attributes:
+        capabilities.append("tilt_position")
     capabilities.append("stop")
     return capabilities
 
@@ -285,7 +287,9 @@ def _classify_device(
     if domain == "button":
         return "button_device"
 
-    if domain == "cover" and capability_set.intersection({"open_close", "position", "stop"}):
+    if domain == "cover" and capability_set.intersection(
+        {"open_close", "position", "tilt_position", "stop"}
+    ):
         return "cover_control"
 
     if domain == "climate" and capability_set.intersection(

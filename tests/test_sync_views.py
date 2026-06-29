@@ -1174,6 +1174,33 @@ async def test_state_sync_includes_light_card_capability_metadata(mock_hass):
 
 
 @pytest.mark.asyncio
+async def test_state_sync_includes_cover_tilt_capability_metadata(mock_hass):
+    """Covers with tilt metadata expose tilt position as a control capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "cover.living_blind",
+        _state(
+            "open",
+            {
+                "friendly_name": "Living Blind",
+                "current_position": 80,
+                "current_tilt_position": 35,
+            },
+        ),
+    )
+
+    assert payload["domain"] == "cover"
+    assert payload["device_class"] == "cover_control"
+    assert payload["capabilities"] == [
+        "open_close",
+        "position",
+        "tilt_position",
+        "stop",
+    ]
+    assert payload["presentation"]["card_template"] == "cover_card"
+
+
+@pytest.mark.asyncio
 async def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
     """Environmental sensors expose metric-card metadata."""
     payload = await _state_payload(

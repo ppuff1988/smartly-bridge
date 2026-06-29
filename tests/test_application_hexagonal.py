@@ -18,6 +18,7 @@ from custom_components.smartly_bridge.application.sync import (
     SyncStatesUseCase,
     SyncStructureUseCase,
 )
+from custom_components.smartly_bridge.acl import is_service_allowed
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 
 
@@ -96,6 +97,11 @@ class FakeAudit:
         actor: dict[str, Any] | None = None,
     ) -> None:
         self.controls.append((client_id, entity_id, service, result, actor))
+
+
+def test_cover_tilt_position_service_is_allowed() -> None:
+    """Cover tilt commands are allowed by the real service whitelist."""
+    assert is_service_allowed("cover", "set_cover_tilt_position") is True
 
 
 class FakeSyncGateway:
@@ -568,6 +574,42 @@ async def test_smartly_command_use_case_dispatches_cover_position_command() -> N
     }
     assert gateway.calls == [
         ("cover.living_curtain", "set_cover_position", {"position": 55})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_cover_tilt_position_command() -> None:
+    """Cover tilt commands map canonical tilt position to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="cover.living_blind",
+            state="open",
+            attributes={"current_tilt_position": 35},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_cover_living_blind", "tilt_position"): "cover.living_blind"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-cover-tilt-position",
+            device_id="ldev_cover_living_blind",
+            capability="tilt_position",
+            command="set_tilt_position",
+            params={"value": 35},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "tilt_position": {"value": 35, "unit": "percent"}
+    }
+    assert gateway.calls == [
+        ("cover.living_blind", "set_cover_tilt_position", {"tilt_position": 35})
     ]
 
 
@@ -1173,6 +1215,42 @@ async def test_smartly_command_use_case_rejects_invalid_position_params() -> Non
             "set_position",
             "invalid_params",
             {"command_id": "cmd-invalid-position", "capability": "position"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_tilt_position_params() -> None:
+    """Tilt position commands require a percentage value in range."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_cover_living_blind", "tilt_position"): "cover.living_blind"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-tilt-position",
+            device_id="ldev_cover_living_blind",
+            capability="tilt_position",
+            command="set_tilt_position",
+            params={"value": 120},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "cover.living_blind"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_cover_living_blind",
+            "set_tilt_position",
+            "invalid_params",
+            {"command_id": "cmd-invalid-tilt-position", "capability": "tilt_position"},
         )
     ]
 

@@ -16,6 +16,7 @@ _WRITABLE_CAPABILITIES = {
     "effect",
     "target_temperature",
     "position",
+    "tilt_position",
     "fan_speed",
     "mode_select",
     "lock",
@@ -268,6 +269,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _fan_speed_state(snapshot)
     if capability == "position":
         return _position_state(snapshot)
+    if capability == "tilt_position":
+        return _tilt_position_state(snapshot)
     if capability in {"motion", "presence"}:
         return _binary_boolean_state(snapshot)
     if capability == "open_close":
@@ -422,6 +425,17 @@ def _position_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     return {"value": max(0, min(100, position)), "unit": "percent"}
 
 
+def _tilt_position_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical percentage tilt position from cover metadata."""
+    attributes = snapshot.attributes or {}
+    position = _numeric_value(attributes.get("current_tilt_position"))
+    if position is None:
+        position = _numeric_value(attributes.get("tilt_position"))
+    if position is None:
+        return {}
+    return {"value": max(0, min(100, position)), "unit": "percent"}
+
+
 def _open_close_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     """Return canonical open/close state from cover or contact metadata."""
     if snapshot.state in {"open", "opening", "on"}:
@@ -509,6 +523,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "effect": ["set_effect"],
         "target_temperature": ["set_temperature"],
         "position": ["set_position", "open", "close", "stop"],
+        "tilt_position": ["set_tilt_position"],
         "fan_speed": ["set_fan_speed"],
         "mode_select": ["set_mode"],
         "lock": ["lock", "unlock"],
@@ -537,6 +552,8 @@ def _constraints_for_capability(
             return {"values": modes}
         return {"min": 0, "max": 100, "step": 1}
     if capability == "position":
+        return {"min": 0, "max": 100, "step": 1}
+    if capability == "tilt_position":
         return {"min": 0, "max": 100, "step": 1}
     if capability == "mode_select":
         modes = (snapshot.attributes or {}).get("hvac_modes")

@@ -460,6 +460,32 @@ def test_cover_position_state_uses_position_contract() -> None:
     assert position["constraints"] == {"min": 0, "max": 100, "step": 1}
 
 
+def test_cover_tilt_position_state_uses_tilt_position_contract() -> None:
+    """Home Assistant cover tilt is normalized to canonical tilt position."""
+    snapshot = EntityStateSnapshot(
+        entity_id="cover.living_blind",
+        state="open",
+        attributes={"current_tilt_position": 35},
+        name="Living Blind",
+        domain="cover",
+        device_class="cover_control",
+        capabilities=["open_close", "tilt_position"],
+        status="online",
+        presentation={"card_template": "cover_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    tilt_position = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "tilt_position"
+    )
+
+    assert tilt_position["state"] == {"value": 35, "unit": "percent"}
+    assert tilt_position["constraints"] == {"min": 0, "max": 100, "step": 1}
+    assert tilt_position["commands"] == ["set_tilt_position"]
+
+
 def test_cover_open_close_state_uses_open_close_contract() -> None:
     """Home Assistant cover state is normalized to canonical open/closed state."""
     snapshot = EntityStateSnapshot(
