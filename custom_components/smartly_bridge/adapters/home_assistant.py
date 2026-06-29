@@ -14,6 +14,8 @@ from ..acl import (
     is_service_allowed,
 )
 from ..audit import log_control, log_deny
+from ..application.control import SmartlyCommand, SmartlyCommandUseCase
+from ..application.local_automation import LocalAutomationRule
 from ..application.logical_devices import (
     canonical_capability_name,
     logical_device_id_for_source_id,
@@ -21,6 +23,7 @@ from ..application.logical_devices import (
 from ..const import (
     BRIDGE_CHART_LOOKBACK_HOURS,
     DEFAULT_DOMAIN_ICONS,
+    DOMAIN,
     MAX_CONCURRENT_HISTORY_QUERIES,
 )
 from ..device_presentation import build_device_card_metadata
@@ -193,6 +196,35 @@ class InMemoryDeviceEventDeduplicator:
     def remember_event(self, key: str, event_id: str) -> None:
         """Remember the event ID for the idempotency key."""
         self._event_ids_by_key.setdefault(key, event_id)
+
+
+class HomeAssistantLocalAutomationRuleStore:
+    """Local automation rule store backed by Home Assistant runtime data."""
+
+    def __init__(self, hass: Any) -> None:
+        self._hass = hass
+
+    def list_rules(self) -> list[LocalAutomationRule]:
+        """Return local automation rules registered in the integration runtime."""
+        rules = self._hass.data.get(DOMAIN, {}).get("local_automation_rules", [])
+        return [rule for rule in rules if isinstance(rule, LocalAutomationRule)]
+
+
+class HomeAssistantSmartlyCommandExecutor:
+    """SmartlyCommand executor backed by Home Assistant control adapters."""
+
+    def __init__(self, hass: Any, logger: Any) -> None:
+        self._hass = hass
+        self._logger = logger
+
+    async def execute(self, client_id: str, command: SmartlyCommand) -> Any:
+        """Execute a canonical Smartly command through Home Assistant."""
+        return await SmartlyCommandUseCase(
+            HomeAssistantEntityPolicy(self._hass),
+            HomeAssistantControlGateway(self._hass),
+            LoggingAuditAdapter(self._logger),
+            HomeAssistantCommandTargetResolver(self._hass),
+        ).execute(client_id, command)
 
 
 class HomeAssistantEntityPolicy:

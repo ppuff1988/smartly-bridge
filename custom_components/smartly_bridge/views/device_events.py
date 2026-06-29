@@ -13,6 +13,8 @@ from homeassistant.components.http import HomeAssistantView
 from ..adapters.home_assistant import (
     DEVICE_EVENT_TYPE,
     HomeAssistantDeviceEventPublisher,
+    HomeAssistantLocalAutomationRuleStore,
+    HomeAssistantSmartlyCommandExecutor,
     InMemoryDeviceEventDeduplicator,
 )
 from ..application.device_events import (
@@ -21,6 +23,7 @@ from ..application.device_events import (
     device_event_error_response,
     is_supported_button_action,
 )
+from ..application.local_automation import LocalAutomationUseCase
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -238,9 +241,16 @@ class SmartlyDeviceEventsView(web.View):
             "device_event_deduplicator",
             InMemoryDeviceEventDeduplicator(),
         )
+        automation = None
+        if self.hass.data[DOMAIN].get("local_automation_rules"):
+            automation = LocalAutomationUseCase(
+                HomeAssistantLocalAutomationRuleStore(self.hass),
+                HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
+            )
         result = await DeviceEventUseCase(
             HomeAssistantDeviceEventPublisher(self.hass),
             deduplicator=deduplicator,
+            automation=automation,
         ).execute(
             auth_result.client_id or "unknown",
             DeviceEventCommand(

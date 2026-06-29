@@ -8,6 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+from custom_components.smartly_bridge.application.local_automation import (
+    AutomationAction,
+    AutomationTrigger,
+    LocalAutomationRule,
+)
 from custom_components.smartly_bridge.const import API_PATH_DEVICE_EVENTS, DOMAIN
 from custom_components.smartly_bridge.views.device_events import (
     SmartlyDeviceEventsView,
@@ -402,6 +407,85 @@ class TestDeviceEventsEndpoint:
         assert second_payload["event_id"] == first_payload["event_id"]
         assert second_payload["events"][0]["event_id"] == first_payload["event_id"]
         mock_hass.bus.async_fire.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_device_event_triggers_local_automation_device_command(self, mock_hass):
+        """Accepted device events execute matching local automation device commands."""
+        _configure_integration(mock_hass)
+        mock_hass.data[DOMAIN]["local_automation_rules"] = [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light_kitchen",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+
+        mock_light_state = MagicMock()
+        mock_light_state.state = "on"
+        mock_light_state.attributes = {"friendly_name": "Kitchen Light"}
+        mock_hass.states.get.return_value = mock_light_state
+
+        body = {
+            "type": "button_action",
+            "action": "single_left",
+            "timestamp": "2026-06-27T10:20:00.000Z",
+        }
+        request = _request_for_device_event(mock_hass, body, device_id="ldev_button")
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.device_events.verify_request"
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["light.kitchen"],
+            ),
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get,
+        ):
+            mock_verify.return_value = MagicMock(
+                success=True,
+                client_id="test_client",
+                error=None,
+            )
+            mock_entry = MagicMock(labels={"smartly"}, device_id="light-kitchen")
+            mock_registry = MagicMock()
+            mock_registry.async_get = MagicMock(return_value=mock_entry)
+            mock_registry.entities = {"light.kitchen": mock_entry}
+            mock_er_get.return_value = mock_registry
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 202
+        payload = json.loads(response.body)
+        assert payload["automations"] == [
+            {
+                "rule_id": "rule-left-single",
+                "action_index": 0,
+                "type": "device_command",
+                "command_id": f"auto_{payload['event_id']}_rule-left-single_0",
+                "status": "completed",
+                "response_status": 200,
+            }
+        ]
+        assert payload["data"]["automations"] == payload["automations"]
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "light",
+            "turn_on",
+            {"entity_id": "light.kitchen"},
+            blocking=True,
+        )
 
     @pytest.mark.asyncio
     async def test_device_event_returns_json_error_when_dispatch_fails(self, mock_hass):
