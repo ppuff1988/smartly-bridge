@@ -109,7 +109,7 @@ class CameraConfigUseCase:
         return BridgeResponse({"error": "unknown_action"}, status=400)
 
 
-def _camera_success_response(body: dict[str, Any]) -> BridgeResponse:
+def _camera_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
     """Return a legacy-compatible API vNext camera success response."""
     return BridgeResponse(
         {
@@ -119,7 +119,7 @@ def _camera_success_response(body: dict[str, Any]) -> BridgeResponse:
             "warnings": [],
             "errors": [],
         },
-        status=200,
+        status=status,
     )
 
 
@@ -196,7 +196,7 @@ class CameraHLSUseCase:
             stopped = await self._gateway.stop_hls_stream(entity_id)
             if stopped:
                 return _camera_success_response({"success": True, "action": "stopped"})
-            return BridgeResponse(
+            return _camera_success_response(
                 {"success": stopped, "action": "stopped"},
                 status=404,
             )
