@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import colorsys
 import re
 from collections import OrderedDict
 from typing import Any
@@ -262,6 +263,10 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
             return {"value": kelvin, "unit": "kelvin"}
     if capability == "rgb_color" and "rgb_color" in attributes:
         rgb_color = _rgb_color_value(attributes["rgb_color"])
+        if rgb_color is not None:
+            return {"value": rgb_color}
+    if capability == "rgb_color" and "hs_color" in attributes:
+        rgb_color = _hs_color_value(attributes["hs_color"])
         if rgb_color is not None:
             return {"value": rgb_color}
     if capability == "battery":
@@ -564,6 +569,23 @@ def _rgb_color_value(value: Any) -> dict[str, int] | None:
     if not all(isinstance(channel, (int, float)) for channel in (red, green, blue)):
         return None
     return {"r": int(red), "g": int(green), "b": int(blue)}
+
+
+def _hs_color_value(value: Any) -> dict[str, int] | None:
+    """Return canonical RGB channel values from Home Assistant HS color data."""
+    if not isinstance(value, list | tuple) or len(value) != 2:
+        return None
+    hue, saturation = value
+    if not all(isinstance(channel, (int, float)) for channel in (hue, saturation)):
+        return None
+    hue = hue % 360
+    saturation = max(0, min(100, saturation)) / 100
+    red, green, blue = colorsys.hsv_to_rgb(hue / 360, saturation, 1)
+    return {
+        "r": round(red * 255),
+        "g": round(green * 255),
+        "b": round(blue * 255),
+    }
 
 
 def _commands_for_capability(capability: str) -> list[str]:
