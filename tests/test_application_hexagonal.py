@@ -1182,6 +1182,14 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
         "command_id": "cmd-404",
         "status": "rejected",
         "error": "command_target_not_found",
+        "errors": [
+            {
+                "code": "COMMAND_TARGET_NOT_FOUND",
+                "message": "Command target could not be resolved.",
+                "target": "command.device_id",
+                "retryable": False,
+            }
+        ],
         "device_id": "ldev_unknown",
         "capability": "power",
         "command": "turn_on",
@@ -1226,6 +1234,14 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
         "command_id": "cmd-unsupported",
         "status": "rejected",
         "error": "command_not_supported",
+        "errors": [
+            {
+                "code": "COMMAND_NOT_SUPPORTED",
+                "message": "Command is not supported by this capability.",
+                "target": "command.command",
+                "retryable": False,
+            }
+        ],
         "device_id": "ldev_light_kitchen",
         "capability": "brightness",
         "command": "turn_on",
@@ -1270,6 +1286,14 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
         "command_id": "cmd-invalid",
         "status": "rejected",
         "error": "invalid_params",
+        "errors": [
+            {
+                "code": "INVALID_PARAMS",
+                "message": "Command params are invalid for this capability.",
+                "target": "command.params",
+                "retryable": False,
+            }
+        ],
         "device_id": "ldev_light_kitchen",
         "capability": "brightness",
         "command": "set_brightness",
@@ -1285,6 +1309,37 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
             "invalid_params",
             {"command_id": "cmd-invalid", "capability": "brightness"},
         )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_error_response_includes_vnext_errors_array() -> None:
+    """Command errors expose API vNext structured errors without dropping legacy error."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-vnext",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 150},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["errors"] == [
+        {
+            "code": "INVALID_PARAMS",
+            "message": "Command params are invalid for this capability.",
+            "target": "command.params",
+            "retryable": False,
+        }
     ]
 
 
@@ -1758,6 +1813,14 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
         "command_id": "cmd-denied",
         "status": "rejected",
         "error": "service_not_allowed",
+        "errors": [
+            {
+                "code": "SERVICE_NOT_ALLOWED",
+                "message": "Resolved source service is not allowed.",
+                "target": "source.service",
+                "retryable": False,
+            }
+        ],
         "device_id": "ldev_light_kitchen",
         "capability": "power",
         "command": "turn_on",
@@ -1792,6 +1855,14 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
         "command_id": "cmd-failed",
         "status": "failed",
         "error": "service_call_failed",
+        "errors": [
+            {
+                "code": "SERVICE_CALL_FAILED",
+                "message": "Source service call failed.",
+                "target": "source.service",
+                "retryable": True,
+            }
+        ],
         "device_id": "ldev_light_kitchen",
         "capability": "power",
         "command": "turn_on",

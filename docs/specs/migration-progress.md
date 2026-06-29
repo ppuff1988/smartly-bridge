@@ -11,6 +11,7 @@
 - `/api/smartly/sync/states` 已雙軌輸出既有 entity state 與 shadow `logical_devices`。
 - `use_logical_devices` feature flag 可讓 sync states response 標記 logical-device read path，同時保留 legacy `states` 供 rollback。
 - Canonical `SmartlyCommand` path 已可解析 logical device capability target，並映射回 Home Assistant service call。
+- SmartlyCommand error response 已保留 legacy `error`，並同步輸出 API vNext `errors[]` structured error。
 - Device event ingestion 已輸出 canonical `button_event` envelope，支援去重與多種來源 action alias。
 - Legacy control body 與既有 endpoint 仍保留，尚未進入 legacy cleanup。
 
@@ -66,6 +67,7 @@
 | 40 | `ed729a1` | rotary button events：`rotate_left/right` 正規化成 canonical button events | RED failed as `invalid_action`; full suite `519 passed` |
 | 41 | `3347735` | button action alias formats：`left_single`、`1_single` 正規化成 `single_press`，HTTP ingestion 使用同一 parser validation | RED failed as `invalid_action`; full suite `522 passed` |
 | 42 | `4527bd5` | `use_logical_devices` read-path feature flag：sync states response 加上 logical `read_path`、`devices`、`device_count`，但保留 legacy `states` | RED failed with missing constructor flag / missing `read_path`; full suite `525 passed` |
+| 43 | current slice | SmartlyCommand error response 補上 API vNext `errors[]` structured error，同時保留 legacy `error` 相容欄位 | RED failed with missing `errors`; affected tests `106 passed`; full suite `526 passed` |
 
 ## Completed Slices
 
@@ -75,7 +77,7 @@
 | Devcontainer permissions | devcontainer workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突 | `cf27b15` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape | `564c8c4`, `2dd37ac`, `edb4a68` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command error 補上 API vNext `errors[]` | `564c8c4`, `2dd37ac`, `edb4a68`, current slice |
 | Event path | 新增 canonical event envelope 與 event deduplication | `3b54b65`, `42e0c61` |
 | Sync aliases, warnings, and read path | logical devices 輸出 migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
@@ -89,14 +91,15 @@
 
 ## Latest Verification
 
-- Targeted sync feature-flag tests: `3 passed`
-- Affected migration tests: `95 passed`
-- Full suite: `525 passed`
+- Targeted command error vNext test: `1 passed`
+- Affected command/application tests: `106 passed`
+- Full suite: `526 passed`
 
 ## Remaining Work
 
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
+- Continue API vNext envelope migration beyond command `errors[]`, including response-level `schema_version`, `data`, `warnings`, and `errors`.
 - Decide whether editable sibling `number` / `select` setting controls should remain presentation-only or become canonical command capabilities.
 - Continue filling P0 command mapping and event automation gaps before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.

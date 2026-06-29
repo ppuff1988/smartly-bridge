@@ -71,6 +71,39 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "run": {"run"},
 }
 
+SMARTLY_COMMAND_ERROR_DETAILS = {
+    "command_target_not_found": (
+        "COMMAND_TARGET_NOT_FOUND",
+        "Command target could not be resolved.",
+        "command.device_id",
+    ),
+    "command_not_supported": (
+        "COMMAND_NOT_SUPPORTED",
+        "Command is not supported by this capability.",
+        "command.command",
+    ),
+    "invalid_params": (
+        "INVALID_PARAMS",
+        "Command params are invalid for this capability.",
+        "command.params",
+    ),
+    "entity_not_allowed": (
+        "ENTITY_NOT_ALLOWED",
+        "Resolved source entity is not allowed.",
+        "source.entity_id",
+    ),
+    "service_not_allowed": (
+        "SERVICE_NOT_ALLOWED",
+        "Resolved source service is not allowed.",
+        "source.service",
+    ),
+    "service_call_failed": (
+        "SERVICE_CALL_FAILED",
+        "Source service call failed.",
+        "source.service",
+    ),
+}
+
 
 @dataclass(frozen=True)
 class ControlCommand:
@@ -644,6 +677,7 @@ def _smartly_command_error_response(
             "command_id": command.command_id,
             "status": "failed" if response_status >= 500 else "rejected",
             "error": error_code,
+            "errors": [_smartly_command_vnext_error(error_code, response_status)],
             "device_id": command.device_id,
             "capability": command.capability,
             "command": command.command,
@@ -653,3 +687,22 @@ def _smartly_command_error_response(
         status=response_status,
         headers=result.headers if result else {},
     )
+
+
+def _smartly_command_vnext_error(error_code: Any, status: int) -> dict[str, Any]:
+    """Return API vNext structured error while preserving legacy error codes."""
+    legacy_code = str(error_code)
+    code, message, target = SMARTLY_COMMAND_ERROR_DETAILS.get(
+        legacy_code,
+        (
+            legacy_code.upper(),
+            legacy_code.replace("_", " "),
+            "command",
+        ),
+    )
+    return {
+        "code": code,
+        "message": message,
+        "target": target,
+        "retryable": status >= 500,
+    }
