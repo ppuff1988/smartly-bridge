@@ -139,7 +139,17 @@ class LocalAutomationRuleUpdateUseCase:
                 status=400,
                 target="rule",
             )
+        rule_exists = any(
+            existing.rule_id == rule.rule_id for existing in self._rules.list_rules()
+        )
         if not self._rules.update_rule(rule):
+            if rule_exists:
+                return _rule_error_response(
+                    "rule_persistence_failed",
+                    message="Local automation rule could not be persisted",
+                    status=500,
+                    target="rule",
+                )
             return _rule_error_response(
                 "rule_not_found",
                 message="Local automation rule not found",
@@ -180,7 +190,17 @@ class LocalAutomationRuleDeleteUseCase:
                 status=400,
                 target="rule.rule_id",
             )
+        rule_exists = any(
+            existing.rule_id == rule_id for existing in self._rules.list_rules()
+        )
         if not self._rules.delete_rule(rule_id):
+            if rule_exists:
+                return _rule_error_response(
+                    "rule_persistence_failed",
+                    message="Local automation rule could not be persisted",
+                    status=500,
+                    target="rule",
+                )
             return _rule_error_response(
                 "rule_not_found",
                 message="Local automation rule not found",

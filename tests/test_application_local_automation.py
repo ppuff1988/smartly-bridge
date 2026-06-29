@@ -28,9 +28,13 @@ class FakeAutomationRuleStore:
         rules: list[LocalAutomationRule],
         *,
         fail_create: bool = False,
+        fail_update: bool = False,
+        fail_delete: bool = False,
     ) -> None:
         self.rules = rules
         self.fail_create = fail_create
+        self.fail_update = fail_update
+        self.fail_delete = fail_delete
 
     def list_rules(self) -> list[LocalAutomationRule]:
         return self.rules
@@ -42,6 +46,8 @@ class FakeAutomationRuleStore:
         return True
 
     def update_rule(self, rule: LocalAutomationRule) -> bool:
+        if self.fail_update:
+            return False
         for index, existing in enumerate(self.rules):
             if existing.rule_id == rule.rule_id:
                 self.rules[index] = rule
@@ -49,6 +55,8 @@ class FakeAutomationRuleStore:
         return False
 
     def delete_rule(self, rule_id: str) -> bool:
+        if self.fail_delete:
+            return False
         for index, existing in enumerate(self.rules):
             if existing.rule_id == rule_id:
                 del self.rules[index]
@@ -303,6 +311,65 @@ def test_update_rule_replaces_existing_canonical_rule() -> None:
     assert result.body["errors"] == []
 
 
+def test_update_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
+    """Updating an existing local automation rule reports persistence failures."""
+    existing_rule = LocalAutomationRule(
+        rule_id="rule-left-single",
+        trigger=AutomationTrigger(
+            device_id="ldev_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    store = FakeAutomationRuleStore([existing_rule], fail_update=True)
+
+    result = LocalAutomationRuleUpdateUseCase(store).execute(
+        "rule-left-single",
+        {
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "double_press",
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_off",
+                }
+            ],
+        },
+    )
+
+    assert store.rules == [existing_rule]
+    assert result.status == 500
+    assert result.body == {
+        "error": "rule_persistence_failed",
+        "message": "Local automation rule could not be persisted",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "rule_persistence_failed",
+                "message": "Local automation rule could not be persisted",
+                "target": "rule",
+            }
+        ],
+    }
+
+
 def test_delete_rule_removes_existing_rule() -> None:
     """Deleting a local automation rule removes the stored rule."""
     store = FakeAutomationRuleStore(
@@ -341,6 +408,48 @@ def test_delete_rule_removes_existing_rule() -> None:
         },
         "warnings": [],
         "errors": [],
+    }
+
+
+def test_delete_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
+    """Deleting an existing local automation rule reports persistence failures."""
+    existing_rule = LocalAutomationRule(
+        rule_id="rule-left-single",
+        trigger=AutomationTrigger(
+            device_id="ldev_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    store = FakeAutomationRuleStore([existing_rule], fail_delete=True)
+
+    result = LocalAutomationRuleDeleteUseCase(store).execute("rule-left-single")
+
+    assert store.rules == [existing_rule]
+    assert result.status == 500
+    assert result.body == {
+        "error": "rule_persistence_failed",
+        "message": "Local automation rule could not be persisted",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "rule_persistence_failed",
+                "message": "Local automation rule could not be persisted",
+                "target": "rule",
+            }
+        ],
     }
 
 
