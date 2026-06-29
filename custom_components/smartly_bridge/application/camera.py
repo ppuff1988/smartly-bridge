@@ -104,7 +104,7 @@ class CameraConfigUseCase:
 
         if command.action == "list":
             cameras = self._gateway.list_registered_cameras()
-            return BridgeResponse({"cameras": cameras, "count": len(cameras)}, status=200)
+            return _camera_success_response({"cameras": cameras, "count": len(cameras)})
 
         return BridgeResponse({"error": "unknown_action"}, status=400)
 

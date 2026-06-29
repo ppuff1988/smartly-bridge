@@ -269,6 +269,25 @@ async def test_camera_config_clear_cache_response_includes_vnext_envelope() -> N
 
 
 @pytest.mark.asyncio
+async def test_camera_config_list_response_includes_vnext_envelope() -> None:
+    """Camera config-list responses expose API vNext envelope fields."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="list", entity_id=None, data={})
+    )
+
+    assert result.status == 200
+    assert result.body["cameras"] == [{"entity_id": "camera.front", "name": "Front"}]
+    assert result.body["count"] == 1
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "cameras": [{"entity_id": "camera.front", "name": "Front"}],
+        "count": 1,
+    }
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_stream() -> None:
     """HLS start reports unsupported when the gateway cannot start a stream."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")
