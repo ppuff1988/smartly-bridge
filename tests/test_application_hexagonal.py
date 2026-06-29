@@ -2270,6 +2270,9 @@ async def test_sync_states_use_case_marks_logical_device_read_path() -> None:
     assert result.body["read_path"] == "logical_devices"
     assert result.body["device_count"] == 1
     assert result.body["devices"] == result.body["logical_devices"]
+    assert result.body["data"]["read_path"] == "logical_devices"
+    assert result.body["data"]["device_count"] == 1
+    assert result.body["data"]["devices"] == result.body["logical_devices"]
     assert result.body["states"][0]["entity_id"] == "light.kitchen"
 
 

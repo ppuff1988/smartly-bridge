@@ -62,13 +62,13 @@ class SyncStatesUseCase:
             "errors": [],
         }
         if self._use_logical_devices:
-            body.update(
-                {
-                    "read_path": "logical_devices",
-                    "devices": logical_devices,
-                    "device_count": len(logical_devices),
-                }
-            )
+            logical_read_path = {
+                "read_path": "logical_devices",
+                "devices": logical_devices,
+                "device_count": len(logical_devices),
+            }
+            body.update(logical_read_path)
+            body["data"].update(logical_read_path)
         return BridgeResponse(body, status=200)
 
 

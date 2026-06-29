@@ -318,6 +318,9 @@ class TestSmartlySyncStatesView:
         assert data["read_path"] == "logical_devices"
         assert data["device_count"] == 1
         assert data["devices"] == data["logical_devices"]
+        assert data["data"]["read_path"] == "logical_devices"
+        assert data["data"]["device_count"] == 1
+        assert data["data"]["devices"] == data["logical_devices"]
         assert data["states"][0]["entity_id"] == "light.desk"
 
     @pytest.mark.asyncio
