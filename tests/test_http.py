@@ -157,6 +157,36 @@ class TestControlEndpoint:
     """Tests for /api/smartly/control endpoint."""
 
     @pytest.mark.asyncio
+    async def test_control_not_configured_response_includes_vnext_error_envelope(self):
+        """Control setup failures expose API vNext error envelope fields."""
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        request = MagicMock()
+        request.headers = {}
+        request.method = "POST"
+        request.path = API_PATH_CONTROL
+        request.app = {"hass": MagicMock()}
+        request.app["hass"].data = {}
+
+        response = await SmartlyControlView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "integration_not_configured",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "control",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_control_missing_headers(self):
         """Test control endpoint rejects request without auth headers."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter

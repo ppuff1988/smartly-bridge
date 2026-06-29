@@ -21,6 +21,7 @@ from ..application.control import (
     ControlUseCase,
     SmartlyCommand,
     SmartlyCommandUseCase,
+    control_error_response,
 )
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
@@ -134,10 +135,8 @@ class SmartlyControlView(web.View):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
-                status=500,
-            )
+            result = control_error_response("integration_not_configured", status=500)
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")

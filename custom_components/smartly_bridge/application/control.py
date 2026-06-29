@@ -155,7 +155,7 @@ class ControlUseCase:
                 "entity_not_allowed",
                 command.actor,
             )
-            return _control_error_response("entity_not_allowed", status=403)
+            return control_error_response("entity_not_allowed", status=403)
 
         service_action, service_data = _normalize_service_call(command)
 
@@ -167,7 +167,7 @@ class ControlUseCase:
                 "service_not_allowed",
                 command.actor,
             )
-            return _control_error_response("service_not_allowed", status=403)
+            return control_error_response("service_not_allowed", status=403)
 
         try:
             state = await self._gateway.call_service(
@@ -183,7 +183,7 @@ class ControlUseCase:
                 f"error: {type(err).__name__}",
                 command.actor,
             )
-            return _control_error_response("service_call_failed", status=500)
+            return control_error_response("service_call_failed", status=500)
 
         self._audit.control(
             client_id,
@@ -716,7 +716,7 @@ def _rgb_color_state(params: dict[str, Any]) -> dict[str, int] | None:
     return {"r": int(red), "g": int(green), "b": int(blue)}
 
 
-def _control_error_response(error: str, *, status: int) -> BridgeResponse:
+def control_error_response(error: str, *, status: int) -> BridgeResponse:
     """Return a legacy-compatible API vNext control error response."""
     code, message, target = SMARTLY_COMMAND_ERROR_DETAILS.get(
         error,
