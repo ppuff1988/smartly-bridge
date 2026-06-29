@@ -790,6 +790,65 @@ def test_presence_sibling_number_setting_uses_numeric_setting_contract() -> None
     assert "numeric_setting" in device["presentation"]["primary_controls"]
 
 
+def test_multiple_number_settings_keep_all_numeric_setting_source_refs() -> None:
+    """Repeated numeric setting controls retain every source entity reference."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.presence",
+        state="on",
+        attributes={"device_class": "occupancy"},
+        name="Presence Sensor",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["presence"],
+        status="online",
+        presentation={
+            "card_template": "binary_state_card",
+            "setting_controls": [
+                {
+                    "key": "trigger_hold_seconds",
+                    "entity_id": "number.presence_detection_delay",
+                    "domain": "number",
+                    "name": "Trigger hold seconds",
+                    "action": "set_value",
+                    "value": 15,
+                    "min": 1,
+                    "max": 120,
+                    "step": 1,
+                    "unit": "s",
+                },
+                {
+                    "key": "cooldown_seconds",
+                    "entity_id": "number.presence_cooldown",
+                    "domain": "number",
+                    "name": "Cooldown seconds",
+                    "action": "set_value",
+                    "value": 5,
+                    "min": 1,
+                    "max": 60,
+                    "step": 1,
+                    "unit": "s",
+                },
+            ],
+        },
+        source_device_id="zigbee-presence-1",
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    numeric_setting = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "numeric_setting"
+    )
+
+    assert [
+        source_ref["source_entity_id"]
+        for source_ref in numeric_setting["source_refs"]
+    ] == [
+        "number.presence_detection_delay",
+        "number.presence_cooldown",
+    ]
+
+
 def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
     """Editable sibling select settings are exposed as canonical option settings."""
     snapshot = EntityStateSnapshot(

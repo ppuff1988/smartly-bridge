@@ -131,22 +131,40 @@ def _capabilities_from_group(snapshots: list[EntityStateSnapshot]) -> list[Smart
             if existing is None:
                 capabilities[capability.type] = capability
                 continue
-            capabilities[capability.type] = SmartlyCapability(
-                type=existing.type,
-                role=existing.role,
-                readable=existing.readable,
-                writable=existing.writable,
-                event_only=existing.event_only,
-                state=existing.state,
-                commands=existing.commands,
-                events=existing.events,
-                constraints=existing.constraints,
-                presentation=existing.presentation,
-                source_refs=[*existing.source_refs, *capability.source_refs],
+            capabilities[capability.type] = _merge_capability_source_refs(
+                existing,
+                capability,
             )
     for capability in _setting_capabilities_from_presentation(_primary_snapshot(snapshots)):
-        capabilities.setdefault(capability.type, capability)
+        existing = capabilities.get(capability.type)
+        if existing is None:
+            capabilities[capability.type] = capability
+            continue
+        capabilities[capability.type] = _merge_capability_source_refs(
+            existing,
+            capability,
+        )
     return list(capabilities.values())
+
+
+def _merge_capability_source_refs(
+    existing: SmartlyCapability,
+    incoming: SmartlyCapability,
+) -> SmartlyCapability:
+    """Return an existing capability with the incoming source refs appended."""
+    return SmartlyCapability(
+        type=existing.type,
+        role=existing.role,
+        readable=existing.readable,
+        writable=existing.writable,
+        event_only=existing.event_only,
+        state=existing.state,
+        commands=existing.commands,
+        events=existing.events,
+        constraints=existing.constraints,
+        presentation=existing.presentation,
+        source_refs=[*existing.source_refs, *incoming.source_refs],
+    )
 
 
 def _aliases_for_group(snapshots: list[EntityStateSnapshot]) -> list[dict[str, Any]]:
