@@ -594,6 +594,119 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> None:
+    """Canonical commands fail before source control when params violate schema."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 150},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body == {
+        "success": False,
+        "command_id": "cmd-invalid",
+        "status": "rejected",
+        "error": "invalid_params",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "set_brightness",
+        "entity_id": "light.kitchen",
+        "expected_state": {},
+    }
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_light_kitchen",
+            "set_brightness",
+            "invalid_params",
+            {"command_id": "cmd-invalid", "capability": "brightness"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_rgb_params() -> None:
+    """RGB color commands require all channels to satisfy the channel range."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "rgb_color"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-rgb",
+            device_id="ldev_light_kitchen",
+            capability="rgb_color",
+            command="set_rgb_color",
+            params={"r": 255, "g": 120, "b": 300},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "light.kitchen"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_light_kitchen",
+            "set_rgb_color",
+            "invalid_params",
+            {"command_id": "cmd-invalid-rgb", "capability": "rgb_color"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_color_temperature_params() -> None:
+    """Color temperature commands require a positive kelvin value."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_light_kitchen", "color_temperature"): "light.kitchen"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-color-temp",
+            device_id="ldev_light_kitchen",
+            capability="color_temperature",
+            command="set_color_temperature",
+            params={"value": 0},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "light.kitchen"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_light_kitchen",
+            "set_color_temperature",
+            "invalid_params",
+            {"command_id": "cmd-invalid-color-temp", "capability": "color_temperature"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_returns_rejected_service_error() -> None:
     """Denied source services use the canonical command error shape."""
     audit = FakeAudit()

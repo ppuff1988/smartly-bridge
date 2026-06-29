@@ -180,6 +180,24 @@ class SmartlyCommandUseCase:
                 400,
             )
 
+        if not _has_valid_smartly_params(command):
+            self._audit.deny(
+                client_id,
+                command.device_id,
+                command.command,
+                "invalid_params",
+                {
+                    "command_id": command.command_id,
+                    "capability": command.capability,
+                },
+            )
+            return _smartly_command_error_response(
+                command,
+                entity_id,
+                "invalid_params",
+                400,
+            )
+
         actor = {
             **(command.source or {}),
             "command_id": command.command_id,
@@ -219,6 +237,25 @@ class SmartlyCommandUseCase:
 def _is_supported_smartly_command(command: SmartlyCommand) -> bool:
     """Return whether a canonical command is valid for its capability."""
     return command.command in SUPPORTED_SMARTLY_COMMANDS.get(command.capability, set())
+
+
+def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
+    """Return whether canonical command params satisfy the capability schema."""
+    if command.capability == "brightness" and command.command == "set_brightness":
+        value = command.params.get("value")
+        return isinstance(value, (int, float)) and 0 <= value <= 100
+    if (
+        command.capability == "color_temperature"
+        and command.command == "set_color_temperature"
+    ):
+        value = command.params.get("value")
+        return isinstance(value, (int, float)) and value > 0
+    if command.capability == "rgb_color" and command.command == "set_rgb_color":
+        rgb_color = _rgb_color_state(command.params)
+        if rgb_color is None:
+            return False
+        return all(0 <= channel <= 255 for channel in rgb_color.values())
+    return True
 
 
 def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any]]:
