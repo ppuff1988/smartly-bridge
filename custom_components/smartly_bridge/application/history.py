@@ -244,6 +244,20 @@ def _history_error_response(
     )
 
 
+def _history_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
+    """Return a legacy-compatible API vNext history success response."""
+    return BridgeResponse(
+        {
+            **body,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
+        },
+        status=status,
+    )
+
+
 class HistoryResponseFormatter:
     """Framework-independent history response formatting."""
 
@@ -668,7 +682,7 @@ class SingleHistoryUseCase:
             metadata=metadata,
             total_count=total_count,
         )
-        return BridgeResponse(body, status=200)
+        return _history_success_response(body)
 
     def _build_metadata(
         self,

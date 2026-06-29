@@ -493,11 +493,20 @@ async def test_single_history_use_case_formats_gateway_states() -> None:
     )
 
     assert result.status == 200
+    legacy_body = {
+        key: value
+        for key, value in result.body.items()
+        if key not in {"schema_version", "data", "warnings", "errors"}
+    }
     assert result.body["entity_id"] == "sensor.temperature"
     assert result.body["count"] >= 2
     assert result.body["metadata"]["device_class"] == "temperature"
     assert result.body["metadata"]["friendly_name"] == "Room Temperature"
     assert result.body["truncated"] is False
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == legacy_body
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
 
 
 @pytest.mark.asyncio
