@@ -479,6 +479,37 @@ def test_cover_open_close_state_uses_open_close_contract() -> None:
     assert device["capabilities"][0]["state"] == {"value": "closed"}
 
 
+def test_cover_stop_capability_merges_into_position_commands() -> None:
+    """Legacy cover stop support is exposed through canonical position commands."""
+    snapshot = EntityStateSnapshot(
+        entity_id="cover.garage",
+        state="open",
+        attributes={},
+        name="Garage Door",
+        domain="cover",
+        device_class="cover_control",
+        capabilities=["open_close", "stop"],
+        status="online",
+        presentation={"card_template": "cover_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert [capability["type"] for capability in device["capabilities"]] == [
+        "open_close",
+        "position",
+    ]
+    assert device["capabilities"][0]["state"] == {"value": "open"}
+    assert device["capabilities"][0]["commands"] == []
+    assert device["capabilities"][1]["state"] == {}
+    assert device["capabilities"][1]["commands"] == [
+        "set_position",
+        "open",
+        "close",
+        "stop",
+    ]
+
+
 def test_lock_state_uses_lock_contract() -> None:
     """Home Assistant lock state is normalized to canonical lock state."""
     snapshot = EntityStateSnapshot(

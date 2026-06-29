@@ -223,6 +223,7 @@ def _canonical_capability(capability: str) -> str:
         "opening": "open_close",
         "door": "open_close",
         "window": "open_close",
+        "stop": "position",
     }.get(capability, capability)
 
 
