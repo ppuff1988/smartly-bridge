@@ -152,7 +152,7 @@ class WebRTCHangupUseCase:
             return _webrtc_error_response("session_entity_mismatch", status=403)
 
         await self._gateway.close_session(session.token)
-        return BridgeResponse({"status": "closed"}, status=200)
+        return _webrtc_success_response({"status": "closed"})
 
 
 def _webrtc_error_response(error: str, *, status: int) -> BridgeResponse:

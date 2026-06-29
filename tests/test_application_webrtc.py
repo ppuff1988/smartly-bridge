@@ -253,7 +253,11 @@ async def test_webrtc_hangup_use_case_closes_matching_session() -> None:
     )
 
     assert result.status == 200
-    assert result.body == {"status": "closed"}
+    assert result.body["status"] == "closed"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {"status": "closed"}
     assert gateway.closed == ["abcdef1234567890-full"]
 
 
