@@ -241,6 +241,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
             return {"value": rgb_color}
     if capability == "battery":
         return _numeric_state(snapshot, default_unit="percent")
+    if capability == "signal_quality":
+        return _signal_quality_state(snapshot)
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -300,6 +302,44 @@ def _normalized_unit(value: Any, *, default_unit: str | None = None) -> str | No
     if isinstance(value, str) and value:
         return value
     return default_unit
+
+
+def _signal_quality_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical signal quality state from legacy signal metadata."""
+    attributes = snapshot.attributes or {}
+    raw_value = _numeric_value(attributes.get("signal_strength"))
+    if raw_value is None:
+        raw_value = _numeric_value(attributes.get("linkquality"))
+    if raw_value is None:
+        raw_value = _numeric_value(attributes.get("link_quality"))
+    if raw_value is None:
+        raw_value = _numeric_value(attributes.get("lqi"))
+    if raw_value is None:
+        return {}
+
+    signal_unit = attributes.get("signal_unit")
+    raw_kind = _signal_raw_kind(signal_unit)
+    if raw_kind == "lqi":
+        value = round(max(0, min(255, raw_value)) / 255 * 100)
+    elif raw_kind == "rssi":
+        value = round(max(0, min(100, (raw_value + 100) * 2)))
+    else:
+        value = max(0, min(100, raw_value))
+
+    return {
+        "value": value,
+        "unit": "percent",
+        "raw_metric": {"kind": raw_kind, "value": raw_value},
+    }
+
+
+def _signal_raw_kind(signal_unit: Any) -> str:
+    """Return the raw signal metric kind from legacy signal metadata."""
+    if signal_unit == "lqi":
+        return "lqi"
+    if signal_unit == "dBm":
+        return "rssi"
+    return "signal_strength"
 
 
 def _source_ref(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:

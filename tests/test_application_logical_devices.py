@@ -73,6 +73,64 @@ def test_light_rgb_color_state_uses_channel_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
 
 
+def test_lqi_signal_strength_uses_signal_quality_contract() -> None:
+    """Legacy LQI signal strength is normalized to canonical signal quality."""
+    snapshot = EntityStateSnapshot(
+        entity_id="sensor.living_temperature",
+        state="24.6",
+        attributes={
+            "unit_of_measurement": "°C",
+            "signal_strength": 236,
+            "signal_unit": "lqi",
+        },
+        name="Living Temperature",
+        domain="sensor",
+        device_class="environment_sensor",
+        capabilities=["temperature", "signal_strength"],
+        status="online",
+        presentation={"card_template": "metric_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    signal_quality = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "signal_quality"
+    )
+
+    assert signal_quality["state"] == {
+        "value": 93,
+        "unit": "percent",
+        "raw_metric": {"kind": "lqi", "value": 236},
+    }
+
+
+def test_rssi_signal_strength_uses_signal_quality_contract() -> None:
+    """Legacy RSSI signal strength is normalized to canonical signal quality."""
+    snapshot = EntityStateSnapshot(
+        entity_id="sensor.router_signal",
+        state="-58",
+        attributes={
+            "signal_strength": -58,
+            "signal_unit": "dBm",
+        },
+        name="Router Signal",
+        domain="sensor",
+        device_class="environment_sensor",
+        capabilities=["signal_strength"],
+        status="online",
+        presentation={"card_template": "metric_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["state"] == {
+        "value": 84,
+        "unit": "percent",
+        "raw_metric": {"kind": "rssi", "value": -58},
+    }
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [
