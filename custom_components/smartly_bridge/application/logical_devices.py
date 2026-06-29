@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import re
+from collections import OrderedDict
 from typing import Any
 
 from ..domain.models import EntityStateSnapshot, SmartlyCapability, SmartlyLogicalDevice
@@ -21,22 +22,88 @@ _WRITABLE_CAPABILITIES = {
 
 def logical_device_from_state(snapshot: EntityStateSnapshot) -> SmartlyLogicalDevice:
     """Build a shadow logical device from normalized entity metadata."""
-    canonical_capabilities = [
-        _capability_from_snapshot(snapshot, capability) for capability in snapshot.capabilities
-    ]
+    return _logical_device_from_group([snapshot])
+
+
+def logical_devices_from_states(
+    snapshots: list[EntityStateSnapshot],
+) -> list[SmartlyLogicalDevice]:
+    """Build grouped logical devices from normalized entity state snapshots."""
+    grouped: OrderedDict[str, list[EntityStateSnapshot]] = OrderedDict()
+    for snapshot in snapshots:
+        grouped.setdefault(_group_key(snapshot), []).append(snapshot)
+
+    return [_logical_device_from_group(group) for group in grouped.values()]
+
+
+def _logical_device_from_group(snapshots: list[EntityStateSnapshot]) -> SmartlyLogicalDevice:
+    """Build a logical device from one source-device group."""
+    primary = _primary_snapshot(snapshots)
+    canonical_capabilities = _capabilities_from_group(snapshots)
     return SmartlyLogicalDevice(
-        id=_logical_device_id(snapshot.entity_id),
-        name=snapshot.name or snapshot.entity_id,
-        primary_type=_primary_type_for_snapshot(snapshot),
-        device_class=_logical_device_class(snapshot),
-        status=snapshot.status,
-        source_entities=[snapshot.entity_id],
+        id=_logical_device_id(primary.source_device_id or primary.entity_id),
+        name=primary.name or primary.entity_id,
+        primary_type=_primary_type_for_snapshot(primary),
+        device_class=_logical_device_class(primary),
+        status=_group_status(snapshots),
+        source_entities=[snapshot.entity_id for snapshot in snapshots],
         capabilities=canonical_capabilities,
         presentation=_logical_device_presentation(
-            snapshot.presentation,
+            primary.presentation,
             canonical_capabilities,
         ),
     )
+
+
+def _group_key(snapshot: EntityStateSnapshot) -> str:
+    """Return the logical-device grouping key for a snapshot."""
+    return snapshot.source_device_id or snapshot.entity_id
+
+
+def _primary_snapshot(snapshots: list[EntityStateSnapshot]) -> EntityStateSnapshot:
+    """Select the primary source entity for grouped presentation metadata."""
+    for snapshot in snapshots:
+        has_writable_capability = any(
+            _canonical_capability(capability) in _WRITABLE_CAPABILITIES
+            for capability in snapshot.capabilities
+        )
+        if has_writable_capability:
+            return snapshot
+    return snapshots[0]
+
+
+def _group_status(snapshots: list[EntityStateSnapshot]) -> str | None:
+    """Return the best aggregate status for a logical-device group."""
+    statuses = [snapshot.status for snapshot in snapshots if snapshot.status]
+    if "online" in statuses:
+        return "online"
+    return statuses[0] if statuses else None
+
+
+def _capabilities_from_group(snapshots: list[EntityStateSnapshot]) -> list[SmartlyCapability]:
+    """Return de-duplicated capabilities while retaining all source references."""
+    capabilities: OrderedDict[str, SmartlyCapability] = OrderedDict()
+    for snapshot in snapshots:
+        for legacy_capability in snapshot.capabilities:
+            capability = _capability_from_snapshot(snapshot, legacy_capability)
+            existing = capabilities.get(capability.type)
+            if existing is None:
+                capabilities[capability.type] = capability
+                continue
+            capabilities[capability.type] = SmartlyCapability(
+                type=existing.type,
+                role=existing.role,
+                readable=existing.readable,
+                writable=existing.writable,
+                event_only=existing.event_only,
+                state=existing.state,
+                commands=existing.commands,
+                events=existing.events,
+                constraints=existing.constraints,
+                presentation=existing.presentation,
+                source_refs=[*existing.source_refs, *capability.source_refs],
+            )
+    return list(capabilities.values())
 
 
 def _logical_device_id(entity_id: str) -> str:
@@ -80,17 +147,7 @@ def _logical_device_class(snapshot: EntityStateSnapshot) -> str:
 
 def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) -> SmartlyCapability:
     """Map legacy presentation capabilities to canonical capability contracts."""
-    canonical = {
-        "on_off": "power",
-        "color_temp": "color_temperature",
-        "signal_strength": "signal_quality",
-        "event": "button_event",
-        "occupancy": "presence",
-        "contact": "open_close",
-        "opening": "open_close",
-        "door": "open_close",
-        "window": "open_close",
-    }.get(capability, capability)
+    canonical = _canonical_capability(capability)
     state = _capability_state(snapshot, canonical)
     return SmartlyCapability(
         type=canonical,
@@ -101,7 +158,23 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
         state=state,
         commands=_commands_for_capability(canonical),
         constraints=_constraints_for_capability(canonical),
+        source_refs=[_source_ref(snapshot, canonical)],
     )
+
+
+def _canonical_capability(capability: str) -> str:
+    """Return the canonical capability name for a legacy capability."""
+    return {
+        "on_off": "power",
+        "color_temp": "color_temperature",
+        "signal_strength": "signal_quality",
+        "event": "button_event",
+        "occupancy": "presence",
+        "contact": "open_close",
+        "opening": "open_close",
+        "door": "open_close",
+        "window": "open_close",
+    }.get(capability, capability)
 
 
 def _capability_role(capability: str) -> str:
@@ -140,6 +213,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
             return {"value": kelvin, "unit": "kelvin"}
     if capability == "rgb_color" and "rgb_color" in attributes:
         return {"value": attributes["rgb_color"]}
+    if capability == "battery":
+        return _numeric_state(snapshot, default_unit="percent")
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -153,6 +228,78 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
             state["unit"] = unit
         return state
     return {}
+
+
+def _numeric_state(
+    snapshot: EntityStateSnapshot,
+    *,
+    default_unit: str | None = None,
+) -> dict[str, Any]:
+    """Return a normalized numeric state payload when possible."""
+    value = _numeric_value(snapshot.attributes.get("battery") if snapshot.attributes else None)
+    if value is None:
+        value = _numeric_value(snapshot.state)
+    if value is None:
+        return {}
+
+    state: dict[str, Any] = {"value": value}
+    unit = _normalized_unit(
+        (snapshot.attributes or {}).get("unit_of_measurement"),
+        default_unit=default_unit,
+    )
+    if unit:
+        state["unit"] = unit
+    return state
+
+
+def _numeric_value(value: Any) -> int | float | None:
+    """Return int or float for numeric values."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int | float):
+        return value
+    if not isinstance(value, str):
+        return None
+    try:
+        number = float(value)
+    except ValueError:
+        return None
+    return int(number) if number.is_integer() else number
+
+
+def _normalized_unit(value: Any, *, default_unit: str | None = None) -> str | None:
+    """Return a canonical unit name for capability state."""
+    if value == "%":
+        return "percent"
+    if isinstance(value, str) and value:
+        return value
+    return default_unit
+
+
+def _source_ref(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:
+    """Return source reference metadata for a capability."""
+    return {
+        "source": "home_assistant",
+        "source_device_id": snapshot.source_device_id,
+        "source_entity_id": snapshot.entity_id,
+        "domain": snapshot.domain or snapshot.entity_id.split(".", 1)[0],
+        "role": _source_entity_role(snapshot, capability),
+        "capability_types": [capability],
+    }
+
+
+def _source_entity_role(snapshot: EntityStateSnapshot, capability: str) -> str:
+    """Return the source entity role for a capability mapping."""
+    if capability in {"battery", "signal_quality"}:
+        return "health"
+    if capability == "button_event":
+        return "event_source"
+    if capability in _WRITABLE_CAPABILITIES:
+        return "primary_control"
+    domain = snapshot.domain or snapshot.entity_id.split(".", 1)[0]
+    if domain in {"sensor", "binary_sensor"}:
+        return "sensor"
+    return "secondary_control"
 
 
 def _mired_to_kelvin(value: Any) -> int | None:

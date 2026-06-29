@@ -345,7 +345,16 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                         "events": [],
                         "constraints": {},
                         "presentation": {},
-                        "source_refs": [],
+                        "source_refs": [
+                            {
+                                "source": "home_assistant",
+                                "source_device_id": None,
+                                "source_entity_id": "light.kitchen",
+                                "domain": "light",
+                                "role": "primary_control",
+                                "capability_types": ["power"],
+                            }
+                        ],
                     },
                     {
                         "type": "brightness",
@@ -358,7 +367,16 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                         "events": [],
                         "constraints": {"min": 0, "max": 100, "step": 1},
                         "presentation": {},
-                        "source_refs": [],
+                        "source_refs": [
+                            {
+                                "source": "home_assistant",
+                                "source_device_id": None,
+                                "source_entity_id": "light.kitchen",
+                                "domain": "light",
+                                "role": "primary_control",
+                                "capability_types": ["brightness"],
+                            }
+                        ],
                     },
                 ],
                 "presentation": {

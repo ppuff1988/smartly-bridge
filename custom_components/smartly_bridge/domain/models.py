@@ -96,6 +96,7 @@ class EntityStateSnapshot:
     status: str | None = None
     presentation: dict[str, Any] = field(default_factory=dict)
     bridge_chart: dict[str, Any] | None = None
+    source_device_id: str | None = None
 
     def to_sync_dict(self) -> dict[str, Any]:
         """Serialize for the sync states API."""

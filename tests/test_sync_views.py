@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -274,6 +275,90 @@ class TestSmartlySyncStatesView:
                     state2 = next(s for s in data["states"] if s["entity_id"] == "switch.bedroom")
                     assert state2["state"] == "off"
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
+
+    @pytest.mark.asyncio
+    async def test_states_sync_groups_logical_devices_by_registry_device_id(
+        self, mock_request, mock_hass
+    ):
+        """Shadow logical devices group sibling entities by HA registry device ID."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["light.desk", "button.desk_scene"],
+            ):
+                shared_device_id = "ha-device-1"
+                mock_light_entry = MagicMock(
+                    icon=None,
+                    original_icon=None,
+                    labels={"smartly"},
+                    device_id=shared_device_id,
+                )
+                mock_button_entry = MagicMock(
+                    icon=None,
+                    original_icon=None,
+                    labels={"smartly"},
+                    device_id=shared_device_id,
+                )
+                mock_light_state = MagicMock(
+                    state="on",
+                    attributes={
+                        "friendly_name": "Desk Light",
+                        "brightness": 128,
+                    },
+                    last_changed=datetime(2026, 1, 8, 10, 0, 0, tzinfo=timezone.utc),
+                    last_updated=datetime(2026, 1, 8, 10, 5, 0, tzinfo=timezone.utc),
+                )
+                mock_button_state = MagicMock(
+                    state="idle",
+                    attributes={"friendly_name": "Desk Scene"},
+                    last_changed=datetime(2026, 1, 8, 10, 1, 0, tzinfo=timezone.utc),
+                    last_updated=datetime(2026, 1, 8, 10, 1, 0, tzinfo=timezone.utc),
+                )
+
+                states = {
+                    "light.desk": mock_light_state,
+                    "button.desk_scene": mock_button_state,
+                }
+                entries = {
+                    "light.desk": mock_light_entry,
+                    "button.desk_scene": mock_button_entry,
+                }
+                mock_hass.states.get = lambda entity_id: states.get(entity_id)
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = lambda entity_id: entries.get(entity_id)
+                    mock_registry.entities = entries
+                    mock_er_get.return_value = mock_registry
+
+                    response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+
+        assert [device["id"] for device in data["logical_devices"]] == ["ldev_ha_device_1"]
+        logical_device = data["logical_devices"][0]
+        assert logical_device["source_entities"] == ["light.desk", "button.desk_scene"]
+        assert [capability["type"] for capability in logical_device["capabilities"]] == [
+            "power",
+            "brightness",
+            "button_event",
+        ]
+        assert logical_device["capabilities"][2]["source_refs"] == [
+            {
+                "source": "home_assistant",
+                "source_device_id": shared_device_id,
+                "source_entity_id": "button.desk_scene",
+                "domain": "button",
+                "role": "event_source",
+                "capability_types": ["button_event"],
+            }
+        ]
 
     @pytest.mark.asyncio
     async def test_states_sync_serializes_datetime_attributes(self, mock_request, mock_hass):

@@ -308,6 +308,8 @@ class HomeAssistantStateSyncGateway:
 
             raw_attributes = dict(state.attributes)
             device_id = getattr(entry, "device_id", None) if entry else None
+            if not isinstance(device_id, str):
+                device_id = None
             if device_id and device_id in signal_by_device:
                 for key, value in signal_by_device[device_id].items():
                     raw_attributes.setdefault(key, value)
@@ -338,6 +340,7 @@ class HomeAssistantStateSyncGateway:
                     last_updated=state.last_updated.isoformat() if state.last_updated else None,
                     icon=icon,
                     bridge_chart=bridge_chart,
+                    source_device_id=device_id,
                     **card_metadata,
                 )
             )

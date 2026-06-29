@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from ..domain.models import BridgeResponse
-from .logical_devices import logical_device_from_state
+from .logical_devices import logical_devices_from_states
 from .ports import SyncStatesPort, SyncStructurePort
 
 
@@ -28,7 +28,7 @@ class SyncStatesUseCase:
         """Return states and count."""
         snapshots = await self._gateway.list_states()
         states = [state.to_sync_dict() for state in snapshots]
-        logical_devices = [logical_device_from_state(state).to_dict() for state in snapshots]
+        logical_devices = [device.to_dict() for device in logical_devices_from_states(snapshots)]
         return BridgeResponse(
             {"states": states, "count": len(states), "logical_devices": logical_devices},
             status=200,
