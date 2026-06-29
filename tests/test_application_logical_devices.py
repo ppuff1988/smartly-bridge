@@ -462,6 +462,33 @@ def test_climate_preset_mode_uses_preset_mode_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_preset_mode"]
 
 
+def test_climate_swing_mode_uses_swing_mode_contract() -> None:
+    """Home Assistant climate swing mode is normalized to canonical swing mode."""
+    snapshot = EntityStateSnapshot(
+        entity_id="climate.living_room",
+        state="cool",
+        attributes={
+            "swing_mode": "vertical",
+            "swing_modes": ["off", "vertical", "horizontal"],
+        },
+        name="Living Room AC",
+        domain="climate",
+        device_class="climate_control",
+        capabilities=["swing_mode"],
+        status="online",
+        presentation={"card_template": "climate_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "swing_mode"
+    assert device["capabilities"][0]["state"] == {"value": "vertical"}
+    assert device["capabilities"][0]["constraints"] == {
+        "values": ["off", "vertical", "horizontal"]
+    }
+    assert device["capabilities"][0]["commands"] == ["set_swing_mode"]
+
+
 def test_cover_position_state_uses_position_contract() -> None:
     """Home Assistant cover current position is normalized to canonical position."""
     snapshot = EntityStateSnapshot(

@@ -73,6 +73,7 @@ ALLOWED_SERVICES: dict[str, list[str]] = {
         "set_hvac_mode",
         "set_fan_mode",
         "set_preset_mode",
+        "set_swing_mode",
     ],
     "fan": ["turn_on", "turn_off", "set_percentage", "set_preset_mode"],
     "number": ["set_value"],

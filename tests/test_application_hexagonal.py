@@ -109,6 +109,11 @@ def test_climate_preset_mode_service_is_allowed() -> None:
     assert is_service_allowed("climate", "set_preset_mode") is True
 
 
+def test_climate_swing_mode_service_is_allowed() -> None:
+    """Climate swing commands are allowed by the real service whitelist."""
+    assert is_service_allowed("climate", "set_swing_mode") is True
+
+
 class FakeSyncGateway:
     """Fake sync port."""
 
@@ -781,6 +786,40 @@ async def test_smartly_command_use_case_dispatches_climate_preset_mode_command()
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_climate_swing_mode_command() -> None:
+    """Climate swing commands map canonical swing mode to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="climate.living_room",
+            state="cool",
+            attributes={"swing_mode": "vertical"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_climate_living_room", "swing_mode"): "climate.living_room"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-climate-swing-mode",
+            device_id="ldev_climate_living_room",
+            capability="swing_mode",
+            command="set_swing_mode",
+            params={"mode": "vertical"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"swing_mode": {"value": "vertical"}}
+    assert gateway.calls == [
+        ("climate.living_room", "set_swing_mode", {"swing_mode": "vertical"})
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_returns_lock_expected_state() -> None:
     """Lock commands expose expected lock state for correlation."""
     audit = FakeAudit()
@@ -1360,6 +1399,42 @@ async def test_smartly_command_use_case_rejects_invalid_preset_mode_params() -> 
             "set_preset_mode",
             "invalid_params",
             {"command_id": "cmd-invalid-preset-mode", "capability": "preset_mode"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_swing_mode_params() -> None:
+    """Swing mode commands require a string mode value."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_climate_living_room", "swing_mode"): "climate.living_room"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-swing-mode",
+            device_id="ldev_climate_living_room",
+            capability="swing_mode",
+            command="set_swing_mode",
+            params={"mode": 123},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "climate.living_room"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_climate_living_room",
+            "set_swing_mode",
+            "invalid_params",
+            {"command_id": "cmd-invalid-swing-mode", "capability": "swing_mode"},
         )
     ]
 

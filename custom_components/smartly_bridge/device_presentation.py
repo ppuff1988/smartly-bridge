@@ -182,6 +182,8 @@ def _climate_capabilities(attributes: dict[str, Any]) -> list[str]:
         capabilities.append("fan_speed")
     if "preset_modes" in attributes or "preset_mode" in attributes:
         capabilities.append("preset_mode")
+    if "swing_modes" in attributes or "swing_mode" in attributes:
+        capabilities.append("swing_mode")
     return capabilities
 
 
@@ -295,7 +297,7 @@ def _classify_device(
         return "cover_control"
 
     if domain == "climate" and capability_set.intersection(
-        {"target_temperature", "hvac_mode", "fan_speed", "preset_mode"}
+        {"target_temperature", "hvac_mode", "fan_speed", "preset_mode", "swing_mode"}
     ):
         return "climate_control"
 
