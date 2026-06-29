@@ -23,8 +23,9 @@ class SyncStructureUseCase:
 class SyncStatesUseCase:
     """Return platform-visible entity states."""
 
-    def __init__(self, gateway: SyncStatesPort) -> None:
+    def __init__(self, gateway: SyncStatesPort, *, use_logical_devices: bool = False) -> None:
         self._gateway = gateway
+        self._use_logical_devices = use_logical_devices
 
     async def execute(self) -> BridgeResponse:
         """Return states and count."""
@@ -33,15 +34,21 @@ class SyncStatesUseCase:
         logical_device_models = logical_devices_from_states(snapshots)
         logical_devices = [device.to_dict() for device in logical_device_models]
         warnings = _normalization_warnings(logical_devices)
-        return BridgeResponse(
-            {
-                "states": states,
-                "count": len(states),
-                "normalization_warnings": warnings,
-                "logical_devices": logical_devices,
-            },
-            status=200,
-        )
+        body: dict[str, Any] = {
+            "states": states,
+            "count": len(states),
+            "normalization_warnings": warnings,
+            "logical_devices": logical_devices,
+        }
+        if self._use_logical_devices:
+            body.update(
+                {
+                    "read_path": "logical_devices",
+                    "devices": logical_devices,
+                    "device_count": len(logical_devices),
+                }
+            )
+        return BridgeResponse(body, status=200)
 
 
 def _normalization_warnings(logical_devices: list[dict[str, Any]]) -> list[dict[str, Any]]:

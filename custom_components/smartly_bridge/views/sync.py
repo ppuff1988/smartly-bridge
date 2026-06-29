@@ -18,6 +18,7 @@ from ..const import (
     CONF_ALLOWED_CIDRS,
     CONF_CLIENT_SECRET,
     CONF_TRUST_PROXY,
+    CONF_USE_LOGICAL_DEVICES,
     DEFAULT_TRUST_PROXY,
     DOMAIN,
     RATE_WINDOW,
@@ -190,7 +191,8 @@ class SmartlySyncStatesView(web.View):
             HomeAssistantStateSyncGateway(
                 self.hass,
                 allowed_entities_fn=get_allowed_entities,
-            )
+            ),
+            use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
         ).execute()
         return web.json_response(result.body, status=result.status, headers=result.headers)
 

@@ -9,6 +9,7 @@
 
 - `dev` 已建立 application/domain/adapter/view 分層，並以 ports 讓主要 sync、control、event use case 可以脫離 Home Assistant runtime 測試。
 - `/api/smartly/sync/states` 已雙軌輸出既有 entity state 與 shadow `logical_devices`。
+- `use_logical_devices` feature flag 可讓 sync states response 標記 logical-device read path，同時保留 legacy `states` 供 rollback。
 - Canonical `SmartlyCommand` path 已可解析 logical device capability target，並映射回 Home Assistant service call。
 - Device event ingestion 已輸出 canonical `button_event` envelope，支援去重與多種來源 action alias。
 - Legacy control body 與既有 endpoint 仍保留，尚未進入 legacy cleanup。
@@ -63,7 +64,8 @@
 | 38 | `ddac6bb` | XY color fallback 正規化成 canonical RGB state | RED failed with `{}` state; full suite `516 passed` |
 | 39 | `74fc92c` | brightness delta commands：`increase_brightness` / `decrease_brightness` 映射 `brightness_step_pct` | RED failed as `command_not_supported`; full suite `518 passed` |
 | 40 | `ed729a1` | rotary button events：`rotate_left/right` 正規化成 canonical button events | RED failed as `invalid_action`; full suite `519 passed` |
-| 41 | current slice | button action alias formats：`left_single`、`1_single` 正規化成 `single_press`，HTTP ingestion 使用同一 parser validation | RED failed as `invalid_action`; full suite `522 passed` |
+| 41 | `3347735` | button action alias formats：`left_single`、`1_single` 正規化成 `single_press`，HTTP ingestion 使用同一 parser validation | RED failed as `invalid_action`; full suite `522 passed` |
+| 42 | current slice | `use_logical_devices` read-path feature flag：sync states response 加上 logical `read_path`、`devices`、`device_count`，但保留 legacy `states` | RED failed with missing constructor flag / missing `read_path`; full suite `525 passed` |
 
 ## Completed Slices
 
@@ -75,7 +77,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape | `564c8c4`, `2dd37ac`, `edb4a68` |
 | Event path | 新增 canonical event envelope 與 event deduplication | `3b54b65`, `42e0c61` |
-| Sync aliases and warnings | logical devices 輸出 migration aliases 與 normalization warnings | `e47050c`, `040f769` |
+| Sync aliases, warnings, and read path | logical devices 輸出 migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, current slice |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
 | Cover | position、stop merge、tilt position control | `824a555`, `c02479b`, `5e569e5` |
@@ -83,13 +85,13 @@
 | Climate | mode select、target temperature、fan modes、preset mode、swing mode、temperature range | `53ac6c0`, `f6daf58`, `0451e08`, `87723a4`, `0aff83a`, `e3583fc` |
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
-| Button events | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press` | `ed729a1`, current slice |
+| Button events | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press` | `ed729a1`, `3347735` |
 
 ## Latest Verification
 
-- Targeted device event tests: `13 passed`
-- Affected migration tests: `105 passed`
-- Full suite: `522 passed`
+- Targeted sync feature-flag tests: `3 passed`
+- Affected migration tests: `95 passed`
+- Full suite: `525 passed`
 
 ## Remaining Work
 
@@ -97,5 +99,4 @@
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
 - Decide whether editable sibling `number` / `select` setting controls should remain presentation-only or become canonical command capabilities.
 - Continue filling P0 command mapping and event automation gaps before Platform read/write path cutover.
-- Define feature flag behavior for Platform logical-device read path.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.

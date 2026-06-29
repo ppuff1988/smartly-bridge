@@ -15,6 +15,7 @@ CONF_TRUST_PROXY = "trust_proxy"
 CONF_TURN_URL = "turn_url"
 CONF_TURN_USERNAME = "turn_username"
 CONF_TURN_CREDENTIAL = "turn_credential"
+CONF_USE_LOGICAL_DEVICES = "use_logical_devices"
 
 # Trust proxy modes
 TRUST_PROXY_AUTO = "auto"

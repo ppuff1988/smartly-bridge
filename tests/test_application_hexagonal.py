@@ -1936,6 +1936,21 @@ async def test_sync_states_use_case_reports_diagnostic_normalization_warnings() 
     ]
 
 
+@pytest.mark.asyncio
+async def test_sync_states_use_case_marks_logical_device_read_path() -> None:
+    """The logical-device read path can be enabled without dropping legacy states."""
+    result = await SyncStatesUseCase(
+        FakeSyncGateway(),
+        use_logical_devices=True,
+    ).execute()
+
+    assert result.status == 200
+    assert result.body["read_path"] == "logical_devices"
+    assert result.body["device_count"] == 1
+    assert result.body["devices"] == result.body["logical_devices"]
+    assert result.body["states"][0]["entity_id"] == "light.kitchen"
+
+
 def test_inner_layers_do_not_import_framework_adapters() -> None:
     """Domain and application code must not import HTTP or Home Assistant frameworks."""
     package_root = Path(__file__).resolve().parents[1] / "custom_components/smartly_bridge"

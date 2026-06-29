@@ -277,6 +277,50 @@ class TestSmartlySyncStatesView:
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
 
     @pytest.mark.asyncio
+    async def test_states_sync_uses_logical_device_read_path_when_enabled(
+        self, mock_request, mock_hass
+    ):
+        """The sync states endpoint can advertise the logical-device read path."""
+        mock_hass.data[DOMAIN]["config_entry"].data["use_logical_devices"] = True
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["light.desk"],
+            ):
+                mock_entry = MagicMock(icon=None, original_icon=None, labels={"smartly"})
+                mock_state = MagicMock(
+                    state="on",
+                    attributes={"friendly_name": "Desk Light", "brightness": 128},
+                    last_changed=datetime(2026, 1, 8, 10, 0, 0, tzinfo=timezone.utc),
+                    last_updated=datetime(2026, 1, 8, 10, 5, 0, tzinfo=timezone.utc),
+                )
+                mock_hass.states.get = lambda entity_id: (
+                    mock_state if entity_id == "light.desk" else None
+                )
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = lambda entity_id: (
+                        mock_entry if entity_id == "light.desk" else None
+                    )
+                    mock_er_get.return_value = mock_registry
+
+                    response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["read_path"] == "logical_devices"
+        assert data["device_count"] == 1
+        assert data["devices"] == data["logical_devices"]
+        assert data["states"][0]["entity_id"] == "light.desk"
+
+    @pytest.mark.asyncio
     async def test_states_sync_groups_logical_devices_by_registry_device_id(
         self, mock_request, mock_hass
     ):
