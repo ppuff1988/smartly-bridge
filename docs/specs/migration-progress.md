@@ -31,6 +31,7 @@
 - Device event view 現在也會在只有 config entry stored local automation rules、沒有 runtime override 時啟用 local automation。
 - `/api/smartly/automations/local/rules` 已提供 authenticated GET endpoint，以 API vNext envelope 輸出 canonical local automation rules，供 Platform automation editor 讀取。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated POST create，可將 canonical rule payload 持久化到 config entry。
+- Local automation rule create 現在會在 store 無法持久化時回傳 API vNext `rule_persistence_failed` error，避免 Platform read/write path 誤判 rule 已建立。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated PUT update，可依 `rule_id` 替換 config entry 內既有 canonical rule。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated DELETE，可依 `rule_id` 從 config entry 移除 canonical rule。
 - Device event accepted response 已保留 legacy event fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
@@ -207,6 +208,7 @@
 | 113 | `b3e83fe` | 新增 local automation rule create use case、POST endpoint 與 Home Assistant config entry persistence，讓 Platform 可建立 canonical trigger/action rule | RED failed with missing create use case; targeted tests `3 passed`; affected automation/event/http tests `82 passed`; full suite `585 passed` |
 | 114 | `6e1027d` | 新增 local automation rule update use case、PUT endpoint 與 Home Assistant config entry replacement，讓 Platform 可依 `rule_id` 更新 canonical trigger/action rule | RED failed with missing update use case; targeted tests `3 passed`; affected automation/event/http tests `85 passed`; full suite `588 passed` |
 | 115 | `b70f910` | 新增 local automation rule delete use case、DELETE endpoint 與 Home Assistant config entry removal，讓 Platform 可依 `rule_id` 刪除 canonical rule | RED failed with missing delete use case; targeted tests `3 passed`; affected automation/event/http tests `88 passed`; full suite `591 passed` |
+| 116 | `e61be04` | local automation rule create port 改為回報 persistence result，讓 store 無法寫入 config entry 時 application 回傳 `rule_persistence_failed` 而不是假成功 | RED failed with create returning 201 and adapter returning `None`; targeted tests `2 passed`; affected automation/event/http tests `90 passed`; full suite `593 passed` |
 
 ## Completed Slices
 
@@ -231,15 +233,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor；create path 會在 persistence failure 時回報 `rule_persistence_failed`，避免 Platform 誤判 rule 已建立 | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Local automation rule delete RED: targeted test failed because delete use case did not exist
-- Targeted local automation rule delete tests: `3 passed`
-- Affected automation/event/http tests: `88 passed`
-- Full suite: `591 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation create persistence RED: targeted tests failed because create returned 201 and adapter returned `None`
+- Targeted local automation create persistence tests: `2 passed`
+- Affected automation/event/http tests: `90 passed`
+- Full suite: `593 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
