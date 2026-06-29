@@ -25,6 +25,7 @@
 - SmartlyCommand success response 已保留 legacy top-level 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - SmartlyCommand error response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` envelope 欄位。
 - Device event ingestion 已輸出 canonical `button_event` envelope，支援去重與多種來源 action alias。
+- Local automation application layer 已能以 canonical `button_event` trigger 匹配 rule，並透過 `device_command` action 執行 SmartlyCommand；duplicate event 不會重複觸發 local automation。
 - Device event accepted response 已保留 legacy event fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event duplicate response 已保留 legacy duplicate fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event invalid action response 已保留 legacy `error` / `message`，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` envelope 欄位。
@@ -191,6 +192,7 @@
 | 105 | `602afb5` | Devcontainer image 升到 Python 3.14 bookworm，並修正 dev dependency 註解，讓 `homeassistant>=2026.6.4` 可在 VS Code devcontainer rebuild / postCreate 階段安裝 | RED failed installing requirements on Python 3.13 with HA requiring `>=3.14.2`; Python 3.14.6 requirements install passed; full suite `568 passed` |
 | 106 | `2abb210` | SmartlyCommand API vNext `data` 補上 `device_id` / `capability` / `command` / `source_entity_id` target correlation 欄位，讓 success/error clients 不必依賴 legacy top-level 欄位 | RED failed with vNext `data` missing target fields; targeted tests `2 passed`; affected command/http/acl tests `143 passed`; full suite `568 passed` |
 | 107 | `3fcfd65` | Home Assistant `button` entity 新增 canonical command-only `button_press` capability，SmartlyCommand `press` 可解析 logical button target 並映射到 HA `button.press` | RED failed with `button_press` non-writable, unsupported command, and unresolved HTTP target; targeted tests `3 passed`; affected logical/command/http/sync/acl tests `214 passed`; full suite `571 passed` |
+| 108 | `3a44cc6` | 新增 local automation application use case 與 ports，讓 canonical `button_event` 可匹配 rule 並執行 `device_command` SmartlyCommand action；duplicate event 不會重觸發 automation | RED failed with missing `local_automation` module and automation hook; targeted tests `4 passed`; affected automation/event/command/http tests `146 passed`; full suite `575 passed` |
 
 ## Completed Slices
 
@@ -202,7 +204,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press` | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65` |
 | Test harness | Sync structure view test 明確 mock HA registries，讓 Python 3.14 / HA 2026.6 registry setup 下的 full suite 可穩定驗證 view wiring | `82be030` |
-| Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
+| Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields；accepted non-duplicate event 可交給 local automation port 處理，duplicate event 不會重複觸發 automation | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16`, `3a44cc6` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop/snapshot success application response envelope、snapshot 304 / MJPEG stream 非 JSON response-mode 標記，與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope；保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload/cache headers、streaming headers 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae`, `360bf42`, `cb7bac5` |
 | WebRTC path | WebRTC token response envelope、offer answer envelope、ICE accepted success envelope、hangup closed success envelope 與 token camera-missing、offer invalid-token/signaling-failure、ICE session-not-found/entity-mismatch、hangup session-not-found/entity-mismatch application response envelope，保留 legacy token / endpoint / ICE、`type` / `sdp` / `session_id`、`status` / `candidates`、`message` 與 `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3`, `4e27a90`, `97a13dd`, `3307f29`, `6f88e91`, `8f95180`, `54cedc0`, `d70eab6` |
@@ -215,14 +217,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦 | `3a44cc6` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Button press command RED: targeted tests failed because `button_press` was non-writable, SmartlyCommand `press` was unsupported, and HTTP target resolution returned 404
-- Targeted button press tests: `3 passed`
-- Affected logical/command/http/sync/acl tests: `214 passed`
-- Full suite: `571 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation RED: targeted tests failed because `local_automation` module and DeviceEventUseCase automation hook were missing
+- Targeted local automation tests: `4 passed`
+- Affected automation/event/command/http tests: `146 passed`
+- Full suite: `575 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
@@ -230,5 +233,5 @@
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
-- Continue filling P0 command mapping and event automation gaps before Platform read/write path cutover.
+- Continue wiring local automation rule persistence and Home Assistant adapter integration before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.
