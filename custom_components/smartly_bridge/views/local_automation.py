@@ -93,12 +93,19 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 service=service,
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = local_automation_rule_error_response(
+                "rate_limited",
+                message="Local automation rule request was rate limited",
                 status=429,
+                target="request.rate_limit",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
+                    **result.headers,
                 },
             )
         return auth_result.client_id or "unknown"

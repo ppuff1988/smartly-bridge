@@ -191,6 +191,48 @@ async def test_local_automation_rules_get_auth_failure_uses_vnext_error(
 
 
 @pytest.mark.asyncio
+async def test_local_automation_rules_get_rate_limit_uses_vnext_error(
+    mock_hass,
+) -> None:
+    """GET local automation rules rate limit returns API vNext error."""
+    _configure_integration(mock_hass)
+    request = _request_for_rules(mock_hass)
+    mock_hass.data[DOMAIN]["rate_limiter"] = MagicMock()
+    mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=False)
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).get()
+
+    assert response.status == 429
+    assert response.headers["Retry-After"] == "60"
+    assert response.headers["X-RateLimit-Remaining"] == "0"
+    assert json.loads(response.body) == {
+        "error": "rate_limited",
+        "message": "Local automation rule request was rate limited",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "rate_limited",
+                "message": "Local automation rule request was rate limited",
+                "target": "request.rate_limit",
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
 async def test_local_automation_rules_post_creates_stored_rule(mock_hass) -> None:
     """POST local automation rules persists a canonical rule."""
     _configure_integration(mock_hass)
