@@ -190,7 +190,18 @@ async def test_control_use_case_denies_entity_before_service_call() -> None:
     )
 
     assert result.status == 403
-    assert result.body == {"error": "entity_not_allowed"}
+    assert result.body["error"] == "entity_not_allowed"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "ENTITY_NOT_ALLOWED",
+            "message": "Resolved source entity is not allowed.",
+            "target": "source.entity_id",
+            "retryable": False,
+        }
+    ]
     assert gateway.calls == []
     assert audit.denials == [
         (

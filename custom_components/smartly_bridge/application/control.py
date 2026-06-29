@@ -152,7 +152,7 @@ class ControlUseCase:
                 "entity_not_allowed",
                 command.actor,
             )
-            return BridgeResponse({"error": "entity_not_allowed"}, status=403)
+            return _control_error_response("entity_not_allowed", status=403)
 
         service_action, service_data = _normalize_service_call(command)
 
@@ -667,6 +667,31 @@ def _rgb_color_state(params: dict[str, Any]) -> dict[str, int] | None:
         return None
     red, green, blue = channels
     return {"r": int(red), "g": int(green), "b": int(blue)}
+
+
+def _control_error_response(error: str, *, status: int) -> BridgeResponse:
+    """Return a legacy-compatible API vNext control error response."""
+    code, message, target = SMARTLY_COMMAND_ERROR_DETAILS.get(
+        error,
+        (error.upper(), error.replace("_", " "), "control"),
+    )
+    return BridgeResponse(
+        {
+            "error": error,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": code,
+                    "message": message,
+                    "target": target,
+                    "retryable": error == "service_call_failed",
+                }
+            ],
+        },
+        status=status,
+    )
 
 
 def _smartly_command_error_response(
