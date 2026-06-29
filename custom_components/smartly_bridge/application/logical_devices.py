@@ -58,6 +58,7 @@ def _logical_device_from_group(snapshots: list[EntityStateSnapshot]) -> SmartlyL
         status=_group_status(snapshots),
         source_entities=[snapshot.entity_id for snapshot in snapshots],
         capabilities=canonical_capabilities,
+        aliases=_aliases_for_group(snapshots),
         presentation=_logical_device_presentation(
             primary.presentation,
             canonical_capabilities,
@@ -114,6 +115,19 @@ def _capabilities_from_group(snapshots: list[EntityStateSnapshot]) -> list[Smart
                 source_refs=[*existing.source_refs, *capability.source_refs],
             )
     return list(capabilities.values())
+
+
+def _aliases_for_group(snapshots: list[EntityStateSnapshot]) -> list[dict[str, Any]]:
+    """Return migration aliases for a logical device group."""
+    return [
+        {
+            "kind": "home_assistant_entity_id",
+            "value": snapshot.entity_id,
+            "valid_from": None,
+            "valid_until": None,
+        }
+        for snapshot in snapshots
+    ]
 
 
 def _logical_device_id(entity_id: str) -> str:

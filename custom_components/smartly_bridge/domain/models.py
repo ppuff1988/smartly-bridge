@@ -61,6 +61,7 @@ class SmartlyLogicalDevice:
     status: str | None
     source_entities: list[str]
     capabilities: list[SmartlyCapability]
+    aliases: list[dict[str, Any]] = field(default_factory=list)
     presentation: dict[str, Any] = field(default_factory=dict)
     schema_version: str = "2026.06"
 
@@ -73,6 +74,7 @@ class SmartlyLogicalDevice:
             "device_class": self.device_class,
             "status": self.status,
             "source_entities": self.source_entities,
+            "aliases": self.aliases,
             "capabilities": [capability.to_dict() for capability in self.capabilities],
             "presentation": self.presentation,
             "schema_version": self.schema_version,

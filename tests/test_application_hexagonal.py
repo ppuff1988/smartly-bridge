@@ -587,6 +587,14 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                 "device_class": "light_control",
                 "status": "online",
                 "source_entities": ["light.kitchen"],
+                "aliases": [
+                    {
+                        "kind": "home_assistant_entity_id",
+                        "value": "light.kitchen",
+                        "valid_from": None,
+                        "valid_until": None,
+                    }
+                ],
                 "capabilities": [
                     {
                         "type": "power",

@@ -93,6 +93,20 @@ def test_sibling_entities_with_same_source_device_group_into_one_logical_device(
             "device_class": "light_control",
             "status": "online",
             "source_entities": ["light.desk", "sensor.desk_battery"],
+            "aliases": [
+                {
+                    "kind": "home_assistant_entity_id",
+                    "value": "light.desk",
+                    "valid_from": None,
+                    "valid_until": None,
+                },
+                {
+                    "kind": "home_assistant_entity_id",
+                    "value": "sensor.desk_battery",
+                    "valid_from": None,
+                    "valid_until": None,
+                },
+            ],
             "capabilities": [
                 {
                     "type": "power",
