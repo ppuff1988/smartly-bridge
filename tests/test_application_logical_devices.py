@@ -51,6 +51,28 @@ def test_light_color_temperature_state_uses_kelvin_contract() -> None:
     ]
 
 
+def test_light_rgb_color_state_uses_channel_contract() -> None:
+    """Home Assistant RGB lists are normalized to named channel values."""
+    snapshot = EntityStateSnapshot(
+        entity_id="light.desk",
+        state="on",
+        attributes={"rgb_color": [255, 120, 40]},
+        name="Desk Light",
+        domain="light",
+        device_class="smart_light",
+        capabilities=["rgb_color"],
+        status="online",
+        presentation={"card_template": "light_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["state"] == {
+        "value": {"r": 255, "g": 120, "b": 40}
+    }
+    assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

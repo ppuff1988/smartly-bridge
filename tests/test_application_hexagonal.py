@@ -283,6 +283,30 @@ async def test_control_use_case_maps_light_color_alias_to_turn_on() -> None:
 
 
 @pytest.mark.asyncio
+async def test_control_use_case_maps_canonical_rgb_channels_to_turn_on() -> None:
+    """Canonical RGB commands map named channels to rgb_color service data."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"rgb_color": [255, 120, 40]},
+        )
+    )
+    policy = FakeEntityPolicy()
+    use_case = ControlUseCase(policy, gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "set_rgb_color", {"r": 255, "g": 120, "b": 40}),
+    )
+
+    assert result.status == 200
+    assert gateway.calls == [("light.kitchen", "turn_on", {"rgb_color": [255, 120, 40]})]
+    assert policy.service_checks == [("light.kitchen", "turn_on")]
+
+
+@pytest.mark.asyncio
 async def test_control_use_case_maps_light_color_temp_alias_to_turn_on() -> None:
     """Light color temperature commands map to turn_on service data."""
     audit = FakeAudit()
@@ -447,6 +471,38 @@ async def test_smartly_command_use_case_returns_color_temperature_expected_state
         "color_temperature": {"value": 4000, "unit": "kelvin"}
     }
     assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp_kelvin": 4000})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_returns_rgb_color_expected_state() -> None:
+    """RGB color commands expose expected channel state for correlation."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"rgb_color": [255, 120, 40]},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "rgb_color"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-rgb",
+            device_id="ldev_light_kitchen",
+            capability="rgb_color",
+            command="set_rgb_color",
+            params={"r": 255, "g": 120, "b": 40},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "rgb_color": {"value": {"r": 255, "g": 120, "b": 40}}
+    }
+    assert gateway.calls == [("light.kitchen", "turn_on", {"rgb_color": [255, 120, 40]})]
 
 
 @pytest.mark.asyncio

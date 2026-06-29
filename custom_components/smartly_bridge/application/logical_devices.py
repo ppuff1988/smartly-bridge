@@ -236,7 +236,9 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         if kelvin is not None:
             return {"value": kelvin, "unit": "kelvin"}
     if capability == "rgb_color" and "rgb_color" in attributes:
-        return {"value": attributes["rgb_color"]}
+        rgb_color = _rgb_color_value(attributes["rgb_color"])
+        if rgb_color is not None:
+            return {"value": rgb_color}
     if capability == "battery":
         return _numeric_state(snapshot, default_unit="percent")
     if capability in attributes:
@@ -331,6 +333,16 @@ def _mired_to_kelvin(value: Any) -> int | None:
     if not isinstance(value, (int, float)) or value <= 0:
         return None
     return round(1_000_000 / value)
+
+
+def _rgb_color_value(value: Any) -> dict[str, int] | None:
+    """Return canonical RGB channel values from Home Assistant RGB data."""
+    if not isinstance(value, list | tuple) or len(value) != 3:
+        return None
+    red, green, blue = value
+    if not all(isinstance(channel, (int, float)) for channel in (red, green, blue)):
+        return None
+    return {"r": int(red), "g": int(green), "b": int(blue)}
 
 
 def _commands_for_capability(capability: str) -> list[str]:

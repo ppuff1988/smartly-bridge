@@ -206,6 +206,13 @@ def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> 
         normalized.setdefault("brightness_pct", normalized.pop("value"))
     if action == "set_color_temperature" and "value" in normalized:
         normalized.setdefault("color_temp_kelvin", normalized.pop("value"))
+    if action == "set_rgb_color" and "rgb_color" not in normalized:
+        rgb_color = _rgb_color_service_data(normalized)
+        if rgb_color is not None:
+            normalized["rgb_color"] = rgb_color
+            normalized.pop("r")
+            normalized.pop("g")
+            normalized.pop("b")
     if "color" in normalized and "rgb_color" not in normalized:
         normalized["rgb_color"] = normalized.pop("color")
     if "color_temperature" in normalized and "color_temp" not in normalized:
@@ -246,7 +253,29 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
             }
         }
 
+    if command.capability == "rgb_color" and command.command == "set_rgb_color":
+        rgb_color = _rgb_color_state(command.params)
+        if rgb_color is not None:
+            return {"rgb_color": {"value": rgb_color}}
+
     return {}
+
+
+def _rgb_color_service_data(params: dict[str, Any]) -> list[int] | None:
+    """Return Home Assistant RGB service data from canonical channel params."""
+    rgb_color = _rgb_color_state(params)
+    if rgb_color is None:
+        return None
+    return [rgb_color["r"], rgb_color["g"], rgb_color["b"]]
+
+
+def _rgb_color_state(params: dict[str, Any]) -> dict[str, int] | None:
+    """Return canonical RGB state when all channel params are numeric."""
+    channels = (params.get("r"), params.get("g"), params.get("b"))
+    if not all(isinstance(channel, (int, float)) for channel in channels):
+        return None
+    red, green, blue = channels
+    return {"r": int(red), "g": int(green), "b": int(blue)}
 
 
 def _smartly_command_error_response(
