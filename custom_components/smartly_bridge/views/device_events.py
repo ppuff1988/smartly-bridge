@@ -154,7 +154,19 @@ class SmartlyDeviceEventsView(web.View):
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response({"error": "invalid_json"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error="invalid_json",
+                message="Invalid JSON body",
+                target="request.body",
+            )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         device_id = self.request.match_info.get("device_id")
         event_type = body.get("type")

@@ -23,6 +23,7 @@
 - Device event HTTP invalid timestamp response 已改用 application error envelope builder，讓 view-level timestamp validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
 - Device event HTTP invalid meta response 已改用 application error envelope builder，讓 view-level metadata validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
 - Device event HTTP missing required fields response 已改用 application error envelope builder，讓 view-level required-field validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
+- Device event HTTP invalid JSON response 已改用 application error envelope builder，讓 view-level JSON parsing validation 也輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位。
 - Legacy control body 與既有 endpoint 仍保留，尚未進入 legacy cleanup。
 
 ## Recording Rule
@@ -89,6 +90,7 @@
 | 52 | `6176c49` | Device event HTTP invalid timestamp response 改用 application error envelope builder，補上 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位 | RED failed with legacy-only `invalid_timestamp`; affected tests `18 passed`; full suite `535 passed` |
 | 53 | `71a3aec` | Device event HTTP invalid meta response 改用 application error envelope builder，補上 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位 | RED failed with legacy-only `invalid_meta`; affected tests `19 passed`; full suite `536 passed` |
 | 54 | `89e0948` | Device event HTTP missing required fields response 改用 application error envelope builder，補上 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位，並標記 first missing field target | RED failed with legacy-only `missing_required_fields`; affected tests `20 passed`; full suite `537 passed` |
+| 55 | current slice | Device event HTTP invalid JSON response 改用 application error envelope builder，補上 API vNext `schema_version`、`data`、`warnings`、`errors[]` 欄位 | RED failed with legacy-only `invalid_json`; affected tests `21 passed`; full suite `538 passed` |
 
 ## Completed Slices
 
@@ -99,7 +101,7 @@
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98` |
-| Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948` |
+| Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, current slice |
 | Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
@@ -112,9 +114,9 @@
 
 ## Latest Verification
 
-- Targeted HTTP missing required fields vNext error envelope test: `1 passed`
-- Affected event application/view tests: `20 passed`
-- Full suite: `537 passed`
+- Targeted HTTP invalid JSON vNext error envelope test: `1 passed`
+- Affected event application/view tests: `21 passed`
+- Full suite: `538 passed`
 
 ## Remaining Work
 
