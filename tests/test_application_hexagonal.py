@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ast
+import json
 from pathlib import Path
 from typing import Any
 
@@ -2213,6 +2214,7 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
         "count": 1,
         "logical_devices": result.body["logical_devices"],
         "normalization_warnings": [],
+        "device_count": 1,
     }
 
 
@@ -2230,7 +2232,21 @@ async def test_sync_states_use_case_includes_vnext_envelope() -> None:
         "count": 1,
         "logical_devices": result.body["logical_devices"],
         "normalization_warnings": [],
+        "device_count": 1,
     }
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_matches_current_sync_vnext_data_fixture() -> None:
+    """State sync vNext data matches the current-sync contract snapshot."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "current-sync" / "states-vnext-data.json"
+    )
+    expected_data = json.loads(fixture_path.read_text())
+
+    result = await SyncStatesUseCase(FakeSyncGateway()).execute()
+
+    assert result.body["data"] == expected_data
 
 
 @pytest.mark.asyncio

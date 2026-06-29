@@ -57,6 +57,7 @@ class SyncStatesUseCase:
                 "count": len(states),
                 "logical_devices": logical_devices,
                 "normalization_warnings": warnings,
+                "device_count": len(logical_devices),
             },
             "warnings": warnings,
             "errors": [],
