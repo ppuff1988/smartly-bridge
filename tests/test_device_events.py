@@ -133,6 +133,37 @@ class TestDeviceEventsEndpoint:
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_device_event_duplicate_reuses_event_id_without_refiring(self, mock_hass):
+        """Repeated canonical events are idempotent within the integration runtime."""
+        _configure_integration(mock_hass)
+        body = {
+            "type": "button_action",
+            "action": "single_left",
+            "timestamp": "2026-06-27T10:20:00.000Z",
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            first = await SmartlyDeviceEventsView(
+                _request_for_device_event(mock_hass, body)
+            ).post()
+            second = await SmartlyDeviceEventsView(
+                _request_for_device_event(mock_hass, body)
+            ).post()
+
+        assert first.status == 202
+        first_payload = json.loads(first.body)
+        assert second.status == 200
+        second_payload = json.loads(second.body)
+        assert second_payload["duplicate"] is True
+        assert second_payload["event_id"] == first_payload["event_id"]
+        assert second_payload["events"][0]["event_id"] == first_payload["event_id"]
+        mock_hass.bus.async_fire.assert_called_once()
+
+    @pytest.mark.asyncio
     async def test_device_event_returns_json_error_when_dispatch_fails(self, mock_hass):
         """Unexpected dispatch failures return a structured JSON error."""
         _configure_integration(mock_hass)

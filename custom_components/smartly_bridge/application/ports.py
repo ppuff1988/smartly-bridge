@@ -64,6 +64,16 @@ class DeviceEventPublisherPort(Protocol):
         """Publish a normalized device event."""
 
 
+class DeviceEventDeduplicatorPort(Protocol):
+    """Tracks event idempotency keys for stateless event ingestion."""
+
+    def event_id_for_key(self, key: str) -> str | None:
+        """Return the existing event ID for a key, if it was seen before."""
+
+    def remember_event(self, key: str, event_id: str) -> None:
+        """Remember the event ID for an idempotency key."""
+
+
 class SyncStructurePort(Protocol):
     """Provides the allowed entity structure."""
 

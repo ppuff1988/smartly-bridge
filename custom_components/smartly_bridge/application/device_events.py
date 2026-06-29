@@ -8,7 +8,7 @@ import uuid
 from typing import Any, Callable
 
 from ..domain.models import BridgeResponse
-from .ports import DeviceEventPublisherPort
+from .ports import DeviceEventDeduplicatorPort, DeviceEventPublisherPort
 
 SUPPORTED_BUTTON_ACTIONS = {
     "single_left",
@@ -52,10 +52,12 @@ class DeviceEventUseCase:
         *,
         event_id_factory: Callable[[], str] | None = None,
         received_at_factory: Callable[[], str] | None = None,
+        deduplicator: DeviceEventDeduplicatorPort | None = None,
     ) -> None:
         self._publisher = publisher
         self._event_id_factory = event_id_factory or _new_event_id
         self._received_at_factory = received_at_factory or _utc_now
+        self._deduplicator = deduplicator or _NoEventDeduplicator()
 
     async def execute(self, client_id: str, command: DeviceEventCommand) -> BridgeResponse:
         """Publish a normalized event or return a validation error."""
@@ -67,9 +69,26 @@ class DeviceEventUseCase:
                 status=400,
             )
 
-        event_id = self._event_id_factory()
         received_at = self._received_at_factory()
         canonical = _canonical_button_event(command.action)
+        dedupe_key = _event_dedupe_key(client_id, command)
+        existing_event_id = self._deduplicator.event_id_for_key(dedupe_key)
+        if existing_event_id is not None:
+            canonical_event = _event_ingestion_payload(
+                event_id=existing_event_id,
+                device_id=command.device_id,
+                occurred_at=command.timestamp,
+                canonical=canonical,
+            )
+            return _duplicate_event_response(
+                command=command,
+                event_id=existing_event_id,
+                received_at=received_at,
+                canonical=canonical,
+                canonical_event=canonical_event,
+            )
+
+        event_id = self._event_id_factory()
         canonical_event = _event_ingestion_payload(
             event_id=event_id,
             device_id=command.device_id,
@@ -89,6 +108,7 @@ class DeviceEventUseCase:
             "events": [canonical_event],
         }
         self._publisher.publish_device_event(event_data)
+        self._deduplicator.remember_event(dedupe_key, event_id)
 
         return BridgeResponse(
             {
@@ -102,6 +122,55 @@ class DeviceEventUseCase:
             },
             status=202,
         )
+
+
+class _NoEventDeduplicator:
+    """Default deduplicator that preserves legacy non-idempotent behavior."""
+
+    def event_id_for_key(self, key: str) -> str | None:
+        """Return no existing event."""
+        return None
+
+    def remember_event(self, key: str, event_id: str) -> None:
+        """Ignore remembered events."""
+
+
+def _event_dedupe_key(client_id: str, command: DeviceEventCommand) -> str:
+    """Return the event idempotency key."""
+    return "|".join(
+        [
+            client_id,
+            command.device_id,
+            command.type,
+            command.action,
+            command.timestamp,
+        ]
+    )
+
+
+def _duplicate_event_response(
+    *,
+    command: DeviceEventCommand,
+    event_id: str,
+    received_at: str,
+    canonical: dict[str, Any],
+    canonical_event: dict[str, Any],
+) -> BridgeResponse:
+    """Return the canonical duplicate event response."""
+    return BridgeResponse(
+        {
+            "success": True,
+            "duplicate": True,
+            "status": "duplicate",
+            "event_id": event_id,
+            "device_id": command.device_id,
+            "action": command.action,
+            "received_at": received_at,
+            **canonical,
+            "events": [canonical_event],
+        },
+        status=200,
+    )
 
 
 def _canonical_button_event(action: str) -> dict[str, Any]:

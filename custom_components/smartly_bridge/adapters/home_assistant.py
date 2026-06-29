@@ -180,6 +180,21 @@ class HomeAssistantDeviceEventPublisher:
         self._hass.bus.async_fire(DEVICE_EVENT_TYPE, event_data)
 
 
+class InMemoryDeviceEventDeduplicator:
+    """In-memory event dedupe store scoped to a Home Assistant runtime."""
+
+    def __init__(self) -> None:
+        self._event_ids_by_key: dict[str, str] = {}
+
+    def event_id_for_key(self, key: str) -> str | None:
+        """Return an existing event ID for the idempotency key."""
+        return self._event_ids_by_key.get(key)
+
+    def remember_event(self, key: str, event_id: str) -> None:
+        """Remember the event ID for the idempotency key."""
+        self._event_ids_by_key.setdefault(key, event_id)
+
+
 class HomeAssistantEntityPolicy:
     """Entity and service policy backed by Home Assistant registries."""
 

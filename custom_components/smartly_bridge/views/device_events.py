@@ -10,7 +10,11 @@ from typing import TYPE_CHECKING, Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import DEVICE_EVENT_TYPE, HomeAssistantDeviceEventPublisher
+from ..adapters.home_assistant import (
+    DEVICE_EVENT_TYPE,
+    HomeAssistantDeviceEventPublisher,
+    InMemoryDeviceEventDeduplicator,
+)
 from ..application.device_events import (
     DeviceEventCommand,
     DeviceEventUseCase,
@@ -154,7 +158,14 @@ class SmartlyDeviceEventsView(web.View):
         if meta is not None and not isinstance(meta, dict):
             return web.json_response({"error": "invalid_meta"}, status=400)
 
-        result = await DeviceEventUseCase(HomeAssistantDeviceEventPublisher(self.hass)).execute(
+        deduplicator = self.hass.data[DOMAIN].setdefault(
+            "device_event_deduplicator",
+            InMemoryDeviceEventDeduplicator(),
+        )
+        result = await DeviceEventUseCase(
+            HomeAssistantDeviceEventPublisher(self.hass),
+            deduplicator=deduplicator,
+        ).execute(
             auth_result.client_id or "unknown",
             DeviceEventCommand(
                 device_id=device_id,
