@@ -175,7 +175,7 @@
 | 96 | `35dfdd6` | Current-sync API vNext data fixture 覆蓋 sync states payload，並讓 `data.device_count` 永遠輸出 logical device count，避免 vNext client 只能讀 legacy entity `count` | RED failed with fixture expecting `device_count`; targeted test `1 passed`; affected sync/hexagonal tests `103 passed`; full suite `559 passed` |
 | 97 | `1e0ba0b` | Current-sync structure API vNext data fixture 覆蓋 structure payload，並讓 `data.device_count` 永遠輸出 structure device count，讓 vNext sync contract 不需推導 devices array 長度 | RED failed with fixture expecting `device_count`; targeted test `1 passed`; affected sync/hexagonal tests `104 passed`; full suite `560 passed` |
 | 98 | `137a8da` | Presence sibling `number` setting 升格為 canonical `numeric_setting` capability，SmartlyCommand `set_value` 可解析同 device group 的 number sibling 並映射到 HA `number.set_value` | RED failed with missing `numeric_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `182 passed`; full suite `563 passed` |
-| 99 | `current slice` | Presence sibling `select` setting 升格為 canonical `option_setting` capability，SmartlyCommand `select_option` 可解析同 device group 的 select sibling 並映射到 HA `select.select_option` | RED failed with missing `option_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `185 passed`; full suite `566 passed` |
+| 99 | `de481d6` | Presence sibling `select` setting 升格為 canonical `option_setting` capability，SmartlyCommand `select_option` 可解析同 device group 的 select sibling 並映射到 HA `select.select_option` | RED failed with missing `option_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `185 passed`; full suite `566 passed` |
 
 ## Completed Slices
 
@@ -199,7 +199,7 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press` | `ed729a1`, `3347735` |
-| Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path | `137a8da`, `current slice` |
+| Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path | `137a8da`, `de481d6` |
 
 ## Latest Verification
 
