@@ -134,7 +134,7 @@
 | 74 | `8d56e3e` | WebRTC ICE entity-mismatch application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 403 status | RED failed with missing `schema_version`; WebRTC tests `49 passed`; full suite `554 passed` |
 | 75 | `93a2ee5` | WebRTC hangup session-not-found application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 404 status | RED failed with missing `schema_version`; WebRTC tests `50 passed`; full suite `555 passed` |
 | 76 | `fc083e3` | WebRTC hangup entity-mismatch application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 403 status | RED failed with missing `schema_version`; WebRTC tests `51 passed`; full suite `556 passed` |
-| 77 | `current slice` | Legacy control entity-not-allowed application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 403 status | RED failed with missing `schema_version`; affected tests `110 passed`; full suite `556 passed` |
+| 77 | `eaad20a` | Legacy control entity-not-allowed application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 403 status | RED failed with missing `schema_version`; affected tests `110 passed`; full suite `556 passed` |
 
 ## Completed Slices
 
@@ -144,7 +144,7 @@
 | Devcontainer permissions | devcontainer workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突 | `cf27b15` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control entity-not-allowed 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `current slice` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control entity-not-allowed 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `eaad20a` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope 與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae` |
 | WebRTC path | WebRTC ICE session-not-found/entity-mismatch 與 hangup session-not-found/entity-mismatch application response envelope，保留 legacy `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3` |
