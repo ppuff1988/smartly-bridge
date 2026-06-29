@@ -564,6 +564,7 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
                 "user_id": "user-1",
                 "command_id": "cmd-1",
                 "logical_device_id": "ldev_light_kitchen",
+                "source_entity_id": "light.kitchen",
                 "capability": "brightness",
             },
         )

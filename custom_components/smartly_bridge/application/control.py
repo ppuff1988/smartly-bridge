@@ -270,9 +270,7 @@ class SmartlyCommandUseCase:
 
         actor = {
             **(command.source or {}),
-            "command_id": command.command_id,
-            "logical_device_id": command.device_id,
-            "capability": command.capability,
+            **_smartly_command_audit_actor(command, entity_id),
         }
         result = await ControlUseCase(self._policy, self._gateway, self._audit).execute(
             client_id,
