@@ -437,6 +437,7 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
     assert result.status == 200
     assert result.body == {
         "success": True,
+        "schema_version": "2026.06",
         "command_id": "cmd-1",
         "status": "completed",
         "device_id": "ldev_light_kitchen",
@@ -446,6 +447,13 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
         "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
         "new_state": "on",
         "new_attributes": {"brightness": 204},
+        "data": {
+            "command_id": "cmd-1",
+            "status": "completed",
+            "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
+        },
+        "warnings": [],
+        "errors": [],
     }
     assert resolver.lookups == [("ldev_light_kitchen", "brightness")]
     assert gateway.calls == [("light.kitchen", "turn_on", {"brightness_pct": 80})]
@@ -463,6 +471,43 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
             },
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_success_response_includes_vnext_envelope() -> None:
+    """Command success responses expose API vNext envelope fields alongside legacy fields."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 204},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-vnext",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 80},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["success"] is True
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "command_id": "cmd-vnext",
+        "status": "completed",
+        "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
+    }
 
 
 @pytest.mark.parametrize(

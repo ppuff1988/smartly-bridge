@@ -967,6 +967,7 @@ class TestControlEndpointFullFlow:
         assert response.status == 200
         assert json.loads(response.body) == {
             "success": True,
+            "schema_version": "2026.06",
             "command_id": "cmd-1",
             "status": "completed",
             "device_id": "ldev_ha_device_1",
@@ -976,6 +977,13 @@ class TestControlEndpointFullFlow:
             "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
             "new_state": "on",
             "new_attributes": {"brightness": 204},
+            "data": {
+                "command_id": "cmd-1",
+                "status": "completed",
+                "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
+            },
+            "warnings": [],
+            "errors": [],
         }
         mock_hass.services.async_call.assert_awaited_once_with(
             "light",

@@ -71,6 +71,8 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "run": {"run"},
 }
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 SMARTLY_COMMAND_ERROR_DETAILS = {
     "command_target_not_found": (
         "COMMAND_TARGET_NOT_FOUND",
@@ -292,18 +294,27 @@ class SmartlyCommandUseCase:
         if result.status != 200:
             return _smartly_command_error_response(command, entity_id, result)
 
+        expected_state = _expected_state_for_command(command)
         return BridgeResponse(
             {
                 "success": True,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "command_id": command.command_id,
                 "status": "completed",
                 "device_id": command.device_id,
                 "capability": command.capability,
                 "command": command.command,
                 "entity_id": entity_id,
-                "expected_state": _expected_state_for_command(command),
+                "expected_state": expected_state,
                 "new_state": result.body.get("new_state"),
                 "new_attributes": result.body.get("new_attributes"),
+                "data": {
+                    "command_id": command.command_id,
+                    "status": "completed",
+                    "expected_state": expected_state,
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=200,
             headers=result.headers,
