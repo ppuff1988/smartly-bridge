@@ -223,6 +223,29 @@ async def test_camera_config_rejects_register_without_entity_id() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_config_unregister_response_includes_vnext_envelope() -> None:
+    """Camera unregister responses expose API vNext envelope fields."""
+    gateway = FakeCameraGateway()
+    result = await CameraConfigUseCase(gateway).execute(
+        CameraConfigCommand(action="unregister", entity_id="camera.old", data={})
+    )
+
+    assert result.status == 200
+    assert result.body["success"] is True
+    assert result.body["action"] == "unregistered"
+    assert result.body["entity_id"] == "camera.old"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "success": True,
+        "action": "unregistered",
+        "entity_id": "camera.old",
+    }
+    assert gateway.unregistered == ["camera.old"]
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_stream() -> None:
     """HLS start reports unsupported when the gateway cannot start a stream."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")

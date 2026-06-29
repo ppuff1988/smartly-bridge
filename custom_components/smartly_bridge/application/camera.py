@@ -92,9 +92,8 @@ class CameraConfigUseCase:
                 return BridgeResponse({"error": "missing_entity_id"}, status=400)
 
             self._gateway.unregister_camera(command.entity_id)
-            return BridgeResponse(
-                {"success": True, "action": "unregistered", "entity_id": command.entity_id},
-                status=200,
+            return _camera_success_response(
+                {"success": True, "action": "unregistered", "entity_id": command.entity_id}
             )
 
         if command.action == "clear_cache":
