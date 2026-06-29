@@ -28,6 +28,7 @@
 - Local automation application layer 已能以 canonical `button_event` trigger 匹配 rule，並透過 `device_command` action 執行 SmartlyCommand；duplicate event 不會重複觸發 local automation。
 - Device event view 已接上 Home Assistant local automation rule store 與 SmartlyCommand executor adapter，accepted event 可從 runtime `local_automation_rules` 執行 device command。
 - Home Assistant local automation rule store 已可從 `config_entry.data["local_automation_rules"]` 載入 serialized dict rules，並保留 runtime `hass.data` rules 覆蓋能力。
+- Device event view 現在也會在只有 config entry stored local automation rules、沒有 runtime override 時啟用 local automation。
 - Device event accepted response 已保留 legacy event fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event duplicate response 已保留 legacy duplicate fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Device event invalid action response 已保留 legacy `error` / `message`，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` envelope 欄位。
@@ -197,6 +198,7 @@
 | 108 | `3a44cc6` | 新增 local automation application use case 與 ports，讓 canonical `button_event` 可匹配 rule 並執行 `device_command` SmartlyCommand action；duplicate event 不會重觸發 automation | RED failed with missing `local_automation` module and automation hook; targeted tests `4 passed`; affected automation/event/command/http tests `146 passed`; full suite `575 passed` |
 | 109 | `8d721e5` | Device event view 接上 Home Assistant local automation rule store 與 SmartlyCommand executor adapter，runtime `local_automation_rules` 可在 accepted event 後觸發 source command | RED failed with missing `automations` response and no service call; targeted test `1 passed`; affected device-event/automation/command/http tests `147 passed`; full suite `576 passed` |
 | 110 | `43e3d7b` | Home Assistant local automation rule store 支援從 config entry serialized dict 載入 rules，並保留 runtime rules 覆蓋 stored rules，為後續 rule persistence 接線打底 | RED failed with serialized config entry rules ignored; targeted tests `2 passed`; affected automation/event tests `28 passed`; full suite `578 passed` |
+| 111 | `8d030b1` | Device event view 啟用 config entry stored local automation rules，避免只有 serialized rules、沒有 runtime override 時 accepted event 不觸發 automation | RED failed with missing `automations` for stored rules; targeted test `1 passed`; affected automation/event tests `29 passed`; full suite `579 passed` with existing `Unclosed client session` cleanup warning |
 
 ## Completed Slices
 
@@ -221,15 +223,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override | `3a44cc6`, `8d721e5`, `43e3d7b` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Local automation stored rules RED: targeted adapter test failed because serialized config entry rules were ignored
-- Targeted stored rule adapter tests: `2 passed`
-- Affected automation/event tests: `28 passed`
-- Full suite: `578 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation stored-rule activation RED: targeted device event test failed because stored config entry rules did not enable automation in the view
+- Targeted stored-rule activation test: `1 passed`
+- Affected automation/event tests: `29 passed`
+- Full suite: `579 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`; output still includes an existing `Unclosed client session` cleanup warning
 
 ## Remaining Work
 
@@ -237,5 +239,5 @@
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
-- Continue wiring local automation rule persistence and Home Assistant adapter integration before Platform read/write path cutover.
+- Continue adding local automation rule management APIs and cleanup remaining adapter persistence gaps before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.
