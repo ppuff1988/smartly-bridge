@@ -29,6 +29,7 @@ COVER_ACTIONS = {
 FAN_ACTIONS = {
     "set_fan_speed": "set_percentage",
     "set_direction": "set_direction",
+    "set_oscillation": "oscillate",
 }
 
 CLIMATE_ACTIONS = {
@@ -56,6 +57,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "tilt_position": {"set_tilt_position"},
     "fan_speed": {"set_fan_speed"},
     "fan_direction": {"set_direction"},
+    "fan_oscillation": {"set_oscillation"},
     "mode_select": {"set_mode"},
     "preset_mode": {"set_preset_mode"},
     "swing_mode": {"set_swing_mode"},
@@ -326,6 +328,11 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         ) or isinstance(speed, str)
     if command.capability == "fan_direction" and command.command == "set_direction":
         return command.params.get("direction") in {"forward", "reverse"}
+    if (
+        command.capability == "fan_oscillation"
+        and command.command == "set_oscillation"
+    ):
+        return isinstance(command.params.get("oscillating"), bool)
     if command.capability == "mode_select" and command.command == "set_mode":
         return isinstance(command.params.get("mode"), str)
     if command.capability == "preset_mode" and command.command == "set_preset_mode":
@@ -547,6 +554,13 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         and command.params.get("direction") in {"forward", "reverse"}
     ):
         return {"fan_direction": {"value": command.params["direction"]}}
+
+    if (
+        command.capability == "fan_oscillation"
+        and command.command == "set_oscillation"
+        and isinstance(command.params.get("oscillating"), bool)
+    ):
+        return {"fan_oscillation": {"value": command.params["oscillating"]}}
 
     if command.capability == "lock":
         if command.command == "lock":

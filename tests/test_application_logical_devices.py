@@ -436,6 +436,28 @@ def test_fan_direction_uses_fan_direction_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_direction"]
 
 
+def test_fan_oscillation_uses_fan_oscillation_contract() -> None:
+    """Home Assistant fan oscillation is normalized to canonical fan oscillation."""
+    snapshot = EntityStateSnapshot(
+        entity_id="fan.bedroom",
+        state="on",
+        attributes={"oscillating": True},
+        name="Bedroom Fan",
+        domain="fan",
+        device_class="fan_control",
+        capabilities=["fan_oscillation"],
+        status="online",
+        presentation={"card_template": "fan_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "fan_oscillation"
+    assert device["capabilities"][0]["state"] == {"value": True}
+    assert device["capabilities"][0]["constraints"] == {}
+    assert device["capabilities"][0]["commands"] == ["set_oscillation"]
+
+
 def test_climate_fan_mode_state_uses_fan_speed_contract() -> None:
     """Home Assistant climate fan mode is normalized to canonical fan speed."""
     snapshot = EntityStateSnapshot(

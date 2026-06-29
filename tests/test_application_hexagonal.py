@@ -119,6 +119,11 @@ def test_fan_direction_service_is_allowed() -> None:
     assert is_service_allowed("fan", "set_direction") is True
 
 
+def test_fan_oscillation_service_is_allowed() -> None:
+    """Fan oscillation commands are allowed by the real service whitelist."""
+    assert is_service_allowed("fan", "oscillate") is True
+
+
 class FakeSyncGateway:
     """Fake sync port."""
 
@@ -753,6 +758,40 @@ async def test_smartly_command_use_case_dispatches_fan_direction_command() -> No
     assert result.body["expected_state"] == {"fan_direction": {"value": "reverse"}}
     assert gateway.calls == [
         ("fan.bedroom", "set_direction", {"direction": "reverse"})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_fan_oscillation_command() -> None:
+    """Fan oscillation commands map canonical oscillation to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="fan.bedroom",
+            state="on",
+            attributes={"oscillating": False},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_fan_bedroom", "fan_oscillation"): "fan.bedroom"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-fan-oscillation",
+            device_id="ldev_fan_bedroom",
+            capability="fan_oscillation",
+            command="set_oscillation",
+            params={"oscillating": True},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"fan_oscillation": {"value": True}}
+    assert gateway.calls == [
+        ("fan.bedroom", "oscillate", {"oscillating": True})
     ]
 
 
@@ -1531,6 +1570,45 @@ async def test_smartly_command_use_case_rejects_invalid_fan_direction_params() -
             "set_direction",
             "invalid_params",
             {"command_id": "cmd-invalid-fan-direction", "capability": "fan_direction"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_fan_oscillation_params() -> None:
+    """Fan oscillation commands require a boolean oscillating value."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_fan_bedroom", "fan_oscillation"): "fan.bedroom"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-fan-oscillation",
+            device_id="ldev_fan_bedroom",
+            capability="fan_oscillation",
+            command="set_oscillation",
+            params={"oscillating": "yes"},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "fan.bedroom"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_fan_bedroom",
+            "set_oscillation",
+            "invalid_params",
+            {
+                "command_id": "cmd-invalid-fan-oscillation",
+                "capability": "fan_oscillation",
+            },
         )
     ]
 

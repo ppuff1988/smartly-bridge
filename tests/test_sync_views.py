@@ -1307,6 +1307,27 @@ async def test_state_sync_includes_fan_direction_capability_metadata(mock_hass):
 
 
 @pytest.mark.asyncio
+async def test_state_sync_includes_fan_oscillation_capability_metadata(mock_hass):
+    """Fan oscillation metadata is exposed as a canonical oscillation capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "fan.bedroom",
+        _state(
+            "on",
+            {
+                "friendly_name": "Bedroom Fan",
+                "oscillating": True,
+            },
+        ),
+    )
+
+    assert payload["domain"] == "fan"
+    assert payload["device_class"] == "fan_control"
+    assert payload["capabilities"] == ["on_off", "fan_oscillation"]
+    assert payload["presentation"]["card_template"] == "control_card"
+
+
+@pytest.mark.asyncio
 async def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
     """Environmental sensors expose metric-card metadata."""
     payload = await _state_payload(

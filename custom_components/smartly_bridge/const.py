@@ -81,6 +81,7 @@ ALLOWED_SERVICES: dict[str, list[str]] = {
         "set_percentage",
         "set_preset_mode",
         "set_direction",
+        "oscillate",
     ],
     "number": ["set_value"],
     "select": ["select_option"],

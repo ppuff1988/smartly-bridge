@@ -20,6 +20,7 @@ _WRITABLE_CAPABILITIES = {
     "tilt_position",
     "fan_speed",
     "fan_direction",
+    "fan_oscillation",
     "mode_select",
     "preset_mode",
     "swing_mode",
@@ -275,6 +276,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _fan_speed_state(snapshot)
     if capability == "fan_direction":
         return _fan_direction_state(snapshot)
+    if capability == "fan_oscillation":
+        return _fan_oscillation_state(snapshot)
     if capability == "position":
         return _position_state(snapshot)
     if capability == "tilt_position":
@@ -414,6 +417,12 @@ def _fan_direction_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     """Return canonical fan direction state from Home Assistant fan metadata."""
     direction = (snapshot.attributes or {}).get("direction")
     return {"value": direction} if isinstance(direction, str) else {}
+
+
+def _fan_oscillation_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical fan oscillation state from Home Assistant fan metadata."""
+    oscillating = (snapshot.attributes or {}).get("oscillating")
+    return {"value": oscillating} if isinstance(oscillating, bool) else {}
 
 
 def _target_temperature_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
@@ -571,6 +580,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "tilt_position": ["set_tilt_position"],
         "fan_speed": ["set_fan_speed"],
         "fan_direction": ["set_direction"],
+        "fan_oscillation": ["set_oscillation"],
         "mode_select": ["set_mode"],
         "preset_mode": ["set_preset_mode"],
         "swing_mode": ["set_swing_mode"],

@@ -196,6 +196,8 @@ def _fan_capabilities(attributes: dict[str, Any]) -> list[str]:
         capabilities.append("fan_speed")
     if "direction" in attributes:
         capabilities.append("fan_direction")
+    if "oscillating" in attributes:
+        capabilities.append("fan_oscillation")
     return capabilities
 
 
