@@ -68,7 +68,12 @@ ALLOWED_SERVICES: dict[str, list[str]] = {
         "set_cover_position",
         "set_cover_tilt_position",
     ],
-    "climate": ["set_temperature", "set_hvac_mode", "set_fan_mode"],
+    "climate": [
+        "set_temperature",
+        "set_hvac_mode",
+        "set_fan_mode",
+        "set_preset_mode",
+    ],
     "fan": ["turn_on", "turn_off", "set_percentage", "set_preset_mode"],
     "number": ["set_value"],
     "select": ["select_option"],

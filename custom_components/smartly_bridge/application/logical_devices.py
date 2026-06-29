@@ -19,6 +19,7 @@ _WRITABLE_CAPABILITIES = {
     "tilt_position",
     "fan_speed",
     "mode_select",
+    "preset_mode",
     "lock",
     "run",
 }
@@ -279,6 +280,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _lock_state(snapshot)
     if capability == "mode_select":
         return _mode_select_state(snapshot)
+    if capability == "preset_mode":
+        return _preset_mode_state(snapshot)
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -470,6 +473,12 @@ def _mode_select_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     return {"value": mode} if isinstance(mode, str) else {}
 
 
+def _preset_mode_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical preset mode state from Home Assistant climate metadata."""
+    mode = (snapshot.attributes or {}).get("preset_mode")
+    return {"value": mode} if isinstance(mode, str) else {}
+
+
 def _source_ref(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:
     """Return source reference metadata for a capability."""
     return {
@@ -526,6 +535,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "tilt_position": ["set_tilt_position"],
         "fan_speed": ["set_fan_speed"],
         "mode_select": ["set_mode"],
+        "preset_mode": ["set_preset_mode"],
         "lock": ["lock", "unlock"],
         "run": ["run"],
     }.get(capability, [])
@@ -557,6 +567,10 @@ def _constraints_for_capability(
         return {"min": 0, "max": 100, "step": 1}
     if capability == "mode_select":
         modes = (snapshot.attributes or {}).get("hvac_modes")
+        if isinstance(modes, list) and all(isinstance(mode, str) for mode in modes):
+            return {"values": modes}
+    if capability == "preset_mode":
+        modes = (snapshot.attributes or {}).get("preset_modes")
         if isinstance(modes, list) and all(isinstance(mode, str) for mode in modes):
             return {"values": modes}
     return {}

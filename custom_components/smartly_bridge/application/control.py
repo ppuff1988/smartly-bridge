@@ -34,6 +34,7 @@ CLIMATE_ACTIONS = {
     "set_mode": "set_hvac_mode",
     "set_temperature": "set_temperature",
     "set_fan_speed": "set_fan_mode",
+    "set_preset_mode": "set_preset_mode",
 }
 
 RUN_ACTIONS = {
@@ -51,6 +52,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "tilt_position": {"set_tilt_position"},
     "fan_speed": {"set_fan_speed"},
     "mode_select": {"set_mode"},
+    "preset_mode": {"set_preset_mode"},
     "lock": {"lock", "unlock"},
     "run": {"run"},
 }
@@ -307,6 +309,8 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         ) or isinstance(speed, str)
     if command.capability == "mode_select" and command.command == "set_mode":
         return isinstance(command.params.get("mode"), str)
+    if command.capability == "preset_mode" and command.command == "set_preset_mode":
+        return isinstance(command.params.get("mode"), str)
     return True
 
 
@@ -347,6 +351,8 @@ def _normalize_climate_service_data(action: str, service_data: dict[str, Any]) -
         normalized.setdefault("temperature", normalized.pop("value"))
     if action == "set_fan_speed" and "speed" in normalized:
         normalized.setdefault("fan_mode", normalized.pop("speed"))
+    if action == "set_preset_mode" and "mode" in normalized:
+        normalized.setdefault("preset_mode", normalized.pop("mode"))
     return normalized
 
 
@@ -505,6 +511,13 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         and isinstance(command.params.get("mode"), str)
     ):
         return {"mode_select": {"value": command.params["mode"]}}
+
+    if (
+        command.capability == "preset_mode"
+        and command.command == "set_preset_mode"
+        and isinstance(command.params.get("mode"), str)
+    ):
+        return {"preset_mode": {"value": command.params["mode"]}}
 
     return {}
 

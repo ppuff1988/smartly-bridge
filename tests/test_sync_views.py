@@ -1201,6 +1201,35 @@ async def test_state_sync_includes_cover_tilt_capability_metadata(mock_hass):
 
 
 @pytest.mark.asyncio
+async def test_state_sync_includes_climate_preset_mode_capability_metadata(mock_hass):
+    """Climate preset metadata is exposed as a canonical preset mode capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "climate.living_room",
+        _state(
+            "cool",
+            {
+                "friendly_name": "Living Room AC",
+                "temperature": 24,
+                "hvac_mode": "cool",
+                "hvac_modes": ["off", "cool", "heat"],
+                "preset_mode": "eco",
+                "preset_modes": ["eco", "comfort", "sleep"],
+            },
+        ),
+    )
+
+    assert payload["domain"] == "climate"
+    assert payload["device_class"] == "climate_control"
+    assert payload["capabilities"] == [
+        "target_temperature",
+        "hvac_mode",
+        "preset_mode",
+    ]
+    assert payload["presentation"]["card_template"] == "climate_card"
+
+
+@pytest.mark.asyncio
 async def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
     """Environmental sensors expose metric-card metadata."""
     payload = await _state_payload(

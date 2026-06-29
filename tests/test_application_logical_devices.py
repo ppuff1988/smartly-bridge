@@ -435,6 +435,33 @@ def test_climate_fan_mode_state_uses_fan_speed_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_fan_speed"]
 
 
+def test_climate_preset_mode_uses_preset_mode_contract() -> None:
+    """Home Assistant climate preset mode is normalized to canonical preset mode."""
+    snapshot = EntityStateSnapshot(
+        entity_id="climate.living_room",
+        state="cool",
+        attributes={
+            "preset_mode": "eco",
+            "preset_modes": ["eco", "comfort", "sleep"],
+        },
+        name="Living Room AC",
+        domain="climate",
+        device_class="climate_control",
+        capabilities=["preset_mode"],
+        status="online",
+        presentation={"card_template": "climate_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "preset_mode"
+    assert device["capabilities"][0]["state"] == {"value": "eco"}
+    assert device["capabilities"][0]["constraints"] == {
+        "values": ["eco", "comfort", "sleep"]
+    }
+    assert device["capabilities"][0]["commands"] == ["set_preset_mode"]
+
+
 def test_cover_position_state_uses_position_contract() -> None:
     """Home Assistant cover current position is normalized to canonical position."""
     snapshot = EntityStateSnapshot(
