@@ -988,6 +988,55 @@ async def test_smartly_command_use_case_dispatches_climate_temperature_command()
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_climate_temperature_range_command() -> None:
+    """Target temperature range commands map canonical bounds to climate services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="climate.living_room",
+            state="heat_cool",
+            attributes={"target_temp_low": 22, "target_temp_high": 26},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {
+            (
+                "ldev_climate_living_room",
+                "target_temperature_range",
+            ): "climate.living_room"
+        }
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-temperature-range",
+            device_id="ldev_climate_living_room",
+            capability="target_temperature_range",
+            command="set_temperature_range",
+            params={"low": 22, "high": 26},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "target_temperature_range": {
+            "low": 22,
+            "high": 26,
+            "unit": "celsius",
+        }
+    }
+    assert gateway.calls == [
+        (
+            "climate.living_room",
+            "set_temperature",
+            {"target_temp_low": 22, "target_temp_high": 26},
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     """Canonical commands fail before source control when no source target exists."""
     audit = FakeAudit()
@@ -1256,6 +1305,50 @@ async def test_smartly_command_use_case_rejects_invalid_target_temperature_param
             {
                 "command_id": "cmd-invalid-target-temperature",
                 "capability": "target_temperature",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_temperature_range_params() -> None:
+    """Temperature range commands require ordered numeric bounds."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {
+            (
+                "ldev_climate_living_room",
+                "target_temperature_range",
+            ): "climate.living_room"
+        }
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-temperature-range",
+            device_id="ldev_climate_living_room",
+            capability="target_temperature_range",
+            command="set_temperature_range",
+            params={"low": 27, "high": 22},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "climate.living_room"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_climate_living_room",
+            "set_temperature_range",
+            "invalid_params",
+            {
+                "command_id": "cmd-invalid-temperature-range",
+                "capability": "target_temperature_range",
             },
         )
     ]

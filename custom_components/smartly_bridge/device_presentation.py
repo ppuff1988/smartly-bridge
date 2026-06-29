@@ -174,6 +174,8 @@ def _cover_capabilities(attributes: dict[str, Any]) -> list[str]:
 def _climate_capabilities(attributes: dict[str, Any]) -> list[str]:
     """Infer climate capabilities."""
     capabilities: list[str] = []
+    if all(key in attributes for key in ("target_temp_low", "target_temp_high")):
+        capabilities.append("target_temperature_range")
     if any(key in attributes for key in ("temperature", "target_temp", "target_temperature")):
         capabilities.append("target_temperature")
     if "hvac_modes" in attributes or "hvac_mode" in attributes:
@@ -297,7 +299,14 @@ def _classify_device(
         return "cover_control"
 
     if domain == "climate" and capability_set.intersection(
-        {"target_temperature", "hvac_mode", "fan_speed", "preset_mode", "swing_mode"}
+        {
+            "target_temperature",
+            "target_temperature_range",
+            "hvac_mode",
+            "fan_speed",
+            "preset_mode",
+            "swing_mode",
+        }
     ):
         return "climate_control"
 

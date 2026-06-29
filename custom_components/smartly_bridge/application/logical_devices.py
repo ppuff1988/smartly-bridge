@@ -15,6 +15,7 @@ _WRITABLE_CAPABILITIES = {
     "rgb_color",
     "effect",
     "target_temperature",
+    "target_temperature_range",
     "position",
     "tilt_position",
     "fan_speed",
@@ -267,6 +268,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _signal_quality_state(snapshot)
     if capability == "target_temperature":
         return _target_temperature_state(snapshot)
+    if capability == "target_temperature_range":
+        return _target_temperature_range_state(snapshot)
     if capability == "fan_speed":
         return _fan_speed_state(snapshot)
     if capability == "position":
@@ -420,6 +423,20 @@ def _target_temperature_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     }
 
 
+def _target_temperature_range_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical target temperature range from Home Assistant climate metadata."""
+    attributes = snapshot.attributes or {}
+    low = _numeric_value(attributes.get("target_temp_low"))
+    high = _numeric_value(attributes.get("target_temp_high"))
+    if low is None or high is None:
+        return {}
+    return {
+        "low": low,
+        "high": high,
+        "unit": _temperature_unit(attributes.get("unit_of_measurement")),
+    }
+
+
 def _position_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     """Return canonical percentage position from cover metadata."""
     attributes = snapshot.attributes or {}
@@ -540,6 +557,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "rgb_color": ["set_rgb_color"],
         "effect": ["set_effect"],
         "target_temperature": ["set_temperature"],
+        "target_temperature_range": ["set_temperature_range"],
         "position": ["set_position", "open", "close", "stop"],
         "tilt_position": ["set_tilt_position"],
         "fan_speed": ["set_fan_speed"],
@@ -565,6 +583,8 @@ def _constraints_for_capability(
         if isinstance(effects, list) and all(isinstance(effect, str) for effect in effects):
             return {"values": effects}
     if capability == "target_temperature":
+        return _target_temperature_constraints(snapshot.attributes or {})
+    if capability == "target_temperature_range":
         return _target_temperature_constraints(snapshot.attributes or {})
     if capability == "fan_speed":
         modes = (snapshot.attributes or {}).get("fan_modes")

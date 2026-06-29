@@ -33,6 +33,7 @@ FAN_ACTIONS = {
 CLIMATE_ACTIONS = {
     "set_mode": "set_hvac_mode",
     "set_temperature": "set_temperature",
+    "set_temperature_range": "set_temperature",
     "set_fan_speed": "set_fan_mode",
     "set_preset_mode": "set_preset_mode",
     "set_swing_mode": "set_swing_mode",
@@ -49,6 +50,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "rgb_color": {"set_rgb_color"},
     "effect": {"set_effect"},
     "target_temperature": {"set_temperature"},
+    "target_temperature_range": {"set_temperature_range"},
     "position": {"set_position", "open", "close", "stop"},
     "tilt_position": {"set_tilt_position"},
     "fan_speed": {"set_fan_speed"},
@@ -293,6 +295,17 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         and command.command == "set_temperature"
     ):
         return isinstance(command.params.get("value"), (int, float))
+    if (
+        command.capability == "target_temperature_range"
+        and command.command == "set_temperature_range"
+    ):
+        low = command.params.get("low")
+        high = command.params.get("high")
+        return (
+            isinstance(low, (int, float))
+            and isinstance(high, (int, float))
+            and low <= high
+        )
     if command.capability == "position" and command.command == "set_position":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
@@ -353,6 +366,11 @@ def _normalize_climate_service_data(action: str, service_data: dict[str, Any]) -
         normalized.setdefault("hvac_mode", normalized.pop("mode"))
     if action == "set_temperature" and "value" in normalized:
         normalized.setdefault("temperature", normalized.pop("value"))
+    if action == "set_temperature_range":
+        if "low" in normalized:
+            normalized.setdefault("target_temp_low", normalized.pop("low"))
+        if "high" in normalized:
+            normalized.setdefault("target_temp_high", normalized.pop("high"))
     if action == "set_fan_speed" and "speed" in normalized:
         normalized.setdefault("fan_mode", normalized.pop("speed"))
     if action == "set_preset_mode" and "mode" in normalized:
@@ -459,6 +477,20 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         return {
             "target_temperature": {
                 "value": command.params["value"],
+                "unit": "celsius",
+            }
+        }
+
+    if (
+        command.capability == "target_temperature_range"
+        and command.command == "set_temperature_range"
+        and isinstance(command.params.get("low"), (int, float))
+        and isinstance(command.params.get("high"), (int, float))
+    ):
+        return {
+            "target_temperature_range": {
+                "low": command.params["low"],
+                "high": command.params["high"],
                 "unit": "celsius",
             }
         }

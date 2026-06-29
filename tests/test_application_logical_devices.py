@@ -666,6 +666,43 @@ def test_climate_target_temperature_uses_target_temperature_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_temperature"]
 
 
+def test_climate_temperature_range_uses_target_temperature_range_contract() -> None:
+    """Home Assistant heat/cool range is normalized to target temperature range."""
+    snapshot = EntityStateSnapshot(
+        entity_id="climate.living_room",
+        state="heat_cool",
+        attributes={
+            "target_temp_low": 22,
+            "target_temp_high": 26,
+            "min_temp": 16,
+            "max_temp": 30,
+            "target_temp_step": 0.5,
+            "unit_of_measurement": "°C",
+        },
+        name="Living Room AC",
+        domain="climate",
+        device_class="climate_control",
+        capabilities=["target_temperature_range"],
+        status="online",
+        presentation={"card_template": "climate_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "target_temperature_range"
+    assert device["capabilities"][0]["state"] == {
+        "low": 22,
+        "high": 26,
+        "unit": "celsius",
+    }
+    assert device["capabilities"][0]["constraints"] == {
+        "min": 16,
+        "max": 30,
+        "step": 0.5,
+    }
+    assert device["capabilities"][0]["commands"] == ["set_temperature_range"]
+
+
 def test_scene_run_capability_uses_command_only_contract() -> None:
     """Home Assistant scenes expose a canonical command-only run capability."""
     snapshot = EntityStateSnapshot(
