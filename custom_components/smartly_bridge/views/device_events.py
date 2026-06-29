@@ -118,10 +118,20 @@ class SmartlyDeviceEventsView(web.View):
         """Handle stateless device event request from Platform."""
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error="integration_not_configured",
+                message="Smartly Bridge integration is not configured",
+                target="integration",
                 status=500,
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")

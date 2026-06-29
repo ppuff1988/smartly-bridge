@@ -276,6 +276,45 @@ class TestDeviceEventsEndpoint:
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_device_event_not_configured_response_includes_vnext_error_envelope(
+        self,
+        mock_hass,
+    ):
+        """HTTP integration setup failures expose API vNext error envelope fields."""
+        mock_hass.data = {}
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "integration_not_configured",
+            "message": "Smartly Bridge integration is not configured",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "device_abc123",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "Smartly Bridge integration is not configured",
+                    "target": "integration",
+                    "retryable": False,
+                }
+            ],
+        }
+        mock_hass.bus.async_fire.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_device_event_missing_required_fields_response_includes_vnext_error_envelope(
         self,
         mock_hass,
