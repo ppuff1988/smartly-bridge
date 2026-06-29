@@ -190,7 +190,7 @@ class CameraHLSUseCase:
             stream_info = await self._gateway.get_stream_info(entity_id)
             if stream_info is None:
                 return BridgeResponse({"error": "camera_not_found"}, status=404)
-            return BridgeResponse(stream_info.to_dict(), status=200)
+            return _camera_success_response(stream_info.to_dict())
 
         if action == "stop":
             stopped = await self._gateway.stop_hls_stream(entity_id)
