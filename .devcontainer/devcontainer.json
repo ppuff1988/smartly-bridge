@@ -3,14 +3,23 @@
   "image": "mcr.microsoft.com/devcontainers/python:3.13",
 
   "workspaceFolder": "/workspace",
+  "remoteUser": "vscode",
+  "updateRemoteUserUID": true,
+
+  "features": {
+    "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
+      "moby": false
+    },
+    "ghcr.io/devcontainers/features/github-cli:1": {}
+  },
 
   "mounts": [
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "source=${localWorkspaceFolder}/integration/config,target=/config,type=bind",
-    "source=/var/run/docker.sock,target=/var/run/docker.sock,type=bind",
-    "source=${localEnv:HOME}/.codex/skills,target=/root/.codex/skills,type=bind,readonly",
-    "source=gh-config,target=/root/.config/gh,type=volume",
-    "source=${localEnv:HOME}/Projects/smartly-platform/docs/smartly-device-card-capability-spec.md,target=/workspace/docs/smartly-device-card-capability-spec.md,type=bind"
+    "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
+    "source=${localEnv:HOME}/.codex/skills,target=/home/vscode/.codex/skills,type=bind,readonly",
+    "source=gh-config,target=/home/vscode/.config/gh,type=volume",
+    "source=${localEnv:HOME}/Projects/smartly-platform/docs/smartly-device-card-capability-spec.md,target=/workspace/docs/smartly-device-card-capability-spec.md,type=bind,readonly"
   ],
 
   "customizations": {
@@ -30,9 +39,7 @@
     }
   },
 
-  "postCreateCommand": "apt-get update && apt-get install -y gh bash docker-cli docker-compose && python -m pip install --upgrade pip && python -m pip install -r requirements-dev.txt",
-
-  "remoteUser": "root",
+  "postCreateCommand": "python -m pip install --user --upgrade pip && python -m pip install --user -r requirements-dev.txt",
 
   "remoteEnv": {
     "GH_TOKEN": "${localEnv:GH_TOKEN}"
