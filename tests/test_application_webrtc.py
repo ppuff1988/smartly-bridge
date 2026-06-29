@@ -259,6 +259,32 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_missing_session() 
 
 
 @pytest.mark.asyncio
+async def test_webrtc_hangup_use_case_returns_vnext_error_for_entity_mismatch() -> None:
+    """Hangup use case reports entity mismatches with API vNext errors."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+    )
+
+    assert result.status == 403
+    assert result.body["error"] == "session_entity_mismatch"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SESSION_ENTITY_MISMATCH",
+            "message": "session entity mismatch",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+    assert gateway.closed == []
+
+
+@pytest.mark.asyncio
 async def test_webrtc_offer_use_case_creates_answer_and_updates_session() -> None:
     """Offer use case consumes a token, signals the gateway, and returns an answer."""
     gateway = FakeWebRTCGateway()

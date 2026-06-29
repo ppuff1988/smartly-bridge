@@ -150,7 +150,7 @@ class WebRTCHangupUseCase:
             return _webrtc_error_response("session_not_found", status=404)
 
         if entity_id and session.entity_id != entity_id:
-            return BridgeResponse({"error": "session_entity_mismatch"}, status=403)
+            return _webrtc_error_response("session_entity_mismatch", status=403)
 
         await self._gateway.close_session(session.token)
         return BridgeResponse({"status": "closed"}, status=200)
