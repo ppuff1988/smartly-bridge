@@ -137,14 +137,28 @@ class SmartlyDeviceEventsView(web.View):
             trust_proxy_mode,
         )
         if not auth_result.success:
+            error = auth_result.error or "auth_failed"
             log_deny(
                 _LOGGER,
                 client_id=self.request.headers.get("X-Client-Id", "unknown"),
                 entity_id="",
                 service="device_event",
-                reason=auth_result.error or "auth_failed",
+                reason=error,
             )
-            return web.json_response({"error": auth_result.error}, status=401)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error=error,
+                message="Device event request authentication failed",
+                target="request.auth",
+                status=401,
+            )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if not await rate_limiter.check(auth_result.client_id or ""):
             log_deny(

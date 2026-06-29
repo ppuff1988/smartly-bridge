@@ -208,6 +208,7 @@ def device_event_error_response(
     error: str,
     message: str,
     target: str,
+    status: int = 400,
 ) -> BridgeResponse:
     """Return a legacy-compatible API vNext event error response."""
     return BridgeResponse(
@@ -229,7 +230,7 @@ def device_event_error_response(
                 }
             ],
         },
-        status=400,
+        status=status,
     )
 
 

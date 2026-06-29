@@ -176,6 +176,54 @@ class TestDeviceEventsEndpoint:
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_device_event_auth_failure_response_includes_vnext_error_envelope(
+        self,
+        mock_hass,
+    ):
+        """HTTP auth failure responses expose API vNext error envelope fields."""
+        _configure_integration(mock_hass)
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=False,
+                client_id=None,
+                error="invalid_signature",
+            )
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 401
+        assert json.loads(response.body) == {
+            "error": "invalid_signature",
+            "message": "Device event request authentication failed",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "device_abc123",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_SIGNATURE",
+                    "message": "Device event request authentication failed",
+                    "target": "request.auth",
+                    "retryable": False,
+                }
+            ],
+        }
+        mock_hass.bus.async_fire.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_device_event_missing_required_fields_response_includes_vnext_error_envelope(
         self,
         mock_hass,
