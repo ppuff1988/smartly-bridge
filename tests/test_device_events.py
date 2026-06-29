@@ -177,6 +177,50 @@ class TestDeviceEventsEndpoint:
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_device_event_invalid_timestamp_response_includes_vnext_error_envelope(
+        self,
+        mock_hass,
+    ):
+        """HTTP invalid timestamp responses expose API vNext error envelope fields."""
+        _configure_integration(mock_hass)
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "not-a-timestamp",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 400
+        assert json.loads(response.body) == {
+            "error": "invalid_timestamp",
+            "message": "Invalid event timestamp",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "device_abc123",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_TIMESTAMP",
+                    "message": "Invalid event timestamp",
+                    "target": "event.timestamp",
+                    "retryable": False,
+                }
+            ],
+        }
+        mock_hass.bus.async_fire.assert_not_called()
+
+    @pytest.mark.asyncio
     async def test_device_event_accepts_button_action_alias_format(self, mock_hass):
         """Button-action aliases are accepted by the HTTP ingestion path."""
         _configure_integration(mock_hass)

@@ -163,7 +163,19 @@ class SmartlyDeviceEventsView(web.View):
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if not _is_valid_timestamp(timestamp):
-            return web.json_response({"error": "invalid_timestamp"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id,
+                    type=event_type,
+                    action=action,
+                    timestamp=timestamp,
+                    meta=meta or {},
+                ),
+                error="invalid_timestamp",
+                message="Invalid event timestamp",
+                target="event.timestamp",
+            )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if meta is not None and not isinstance(meta, dict):
             return web.json_response({"error": "invalid_meta"}, status=400)
