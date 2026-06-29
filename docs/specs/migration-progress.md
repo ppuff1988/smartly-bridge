@@ -11,6 +11,7 @@
 - `/api/smartly/sync/structure` application response 已保留 legacy structure 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
 - `/api/smartly/sync/states` 已雙軌輸出既有 entity state 與 shadow `logical_devices`。
 - `/api/smartly/sync/states` application response 已保留 legacy `states` / `logical_devices` 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
+- `/api/smartly/sync/states` API vNext `data` 現在同步輸出 capability state `updates`，讓 Platform read path 可直接讀 `device_id` / `capability` / `state.updated_at`。
 - `use_logical_devices` feature flag 可讓 sync states response 在 top-level 與 vNext `data` 內同步標記 logical-device read path，同時保留 legacy `states` 供 rollback。
 - Canonical `SmartlyCommand` path 已可解析 logical device capability target，並映射回 Home Assistant service call。
 - Presence sensor sibling `number` setting 已開始從 presentation-only control 升格為 canonical `numeric_setting` capability，可透過 SmartlyCommand `set_value` 控制。
@@ -178,6 +179,7 @@
 | 98 | `137a8da` | Presence sibling `number` setting 升格為 canonical `numeric_setting` capability，SmartlyCommand `set_value` 可解析同 device group 的 number sibling 並映射到 HA `number.set_value` | RED failed with missing `numeric_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `182 passed`; full suite `563 passed` |
 | 99 | `de481d6` | Presence sibling `select` setting 升格為 canonical `option_setting` capability，SmartlyCommand `select_option` 可解析同 device group 的 select sibling 並映射到 HA `select.select_option` | RED failed with missing `option_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `185 passed`; full suite `566 passed` |
 | 100 | `584c1bc` | 重複同類型 editable setting capability 保留所有 source refs，避免 `numeric_setting` 合併時遺失第二個 sibling number 來源 | RED failed with only first `number` source ref retained; targeted test `1 passed`; affected logical/hexagonal/http/sync tests `186 passed`; full suite `567 passed` |
+| 101 | `a6b4057` | Sync states API vNext `data` 補上 capability state `updates` array，讓 Platform read path 可直接消費 `device_id` / `capability` / `state.updated_at` 而不必解析 legacy entity state | RED failed with missing `data.updates`; targeted tests `2 passed`; affected hexagonal/sync tests `107 passed`; full suite `568 passed` |
 
 ## Completed Slices
 
@@ -192,7 +194,7 @@
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop/snapshot success application response envelope、snapshot 304 / MJPEG stream 非 JSON response-mode 標記，與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope；保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload/cache headers、streaming headers 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae`, `360bf42`, `cb7bac5` |
 | WebRTC path | WebRTC token response envelope、offer answer envelope、ICE accepted success envelope、hangup closed success envelope 與 token camera-missing、offer invalid-token/signaling-failure、ICE session-not-found/entity-mismatch、hangup session-not-found/entity-mismatch application response envelope，保留 legacy token / endpoint / ICE、`type` / `sdp` / `session_id`、`status` / `candidates`、`message` 與 `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3`, `4e27a90`, `97a13dd`, `3307f29`, `6f88e91`, `8f95180`, `54cedc0`, `d70eab6` |
-| Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings、current-sync vNext data fixture 與 logical/structure device count，並支援 `use_logical_devices` read-path flag；logical-device read path 已同步到 top-level 與 API vNext `data` payload | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2`, `c0bbf1e`, `35dfdd6`, `1e0ba0b` |
+| Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings、current-sync vNext data fixture 與 logical/structure device count，並支援 `use_logical_devices` read-path flag；logical-device read path 與 capability state `updates` 已同步到 API vNext `data` payload | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2`, `c0bbf1e`, `35dfdd6`, `1e0ba0b`, `a6b4057` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
 | Cover | position、stop merge、tilt position control | `824a555`, `c02479b`, `5e569e5` |
@@ -205,9 +207,9 @@
 
 ## Latest Verification
 
-- Targeted setting source-ref merge test: `1 passed`
-- Affected logical/hexagonal/http/sync tests: `186 passed`
-- Full suite: `567 passed` (仍有既有 `Unclosed client session` 提示)
+- Targeted vNext state updates tests: `2 passed`
+- Affected hexagonal/sync tests: `107 passed`
+- Full suite: `568 passed` (仍有既有 `Unclosed client session` 提示)
 
 ## Remaining Work
 
