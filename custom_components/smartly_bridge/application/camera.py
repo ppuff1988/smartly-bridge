@@ -70,7 +70,7 @@ class CameraConfigUseCase:
         """Execute a camera configuration command."""
         if command.action == "register":
             if not command.entity_id:
-                return BridgeResponse({"error": "missing_entity_id"}, status=400)
+                return _camera_error_response("missing_entity_id", status=400)
 
             config = {
                 "entity_id": command.entity_id,

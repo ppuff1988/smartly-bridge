@@ -213,13 +213,24 @@ async def test_camera_config_register_response_includes_vnext_envelope() -> None
 
 @pytest.mark.asyncio
 async def test_camera_config_rejects_register_without_entity_id() -> None:
-    """Register command requires an entity id."""
+    """Register command requires an entity id and exposes API vNext errors."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(action="register", entity_id=None, data={})
     )
 
     assert result.status == 400
-    assert result.body == {"error": "missing_entity_id"}
+    assert result.body["error"] == "missing_entity_id"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "MISSING_ENTITY_ID",
+            "message": "missing entity id",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
 
 
 @pytest.mark.asyncio
