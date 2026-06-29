@@ -178,7 +178,19 @@ class SmartlyDeviceEventsView(web.View):
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if meta is not None and not isinstance(meta, dict):
-            return web.json_response({"error": "invalid_meta"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id,
+                    type=event_type,
+                    action=action,
+                    timestamp=timestamp,
+                    meta={},
+                ),
+                error="invalid_meta",
+                message="Invalid event metadata",
+                target="event.meta",
+            )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         deduplicator = self.hass.data[DOMAIN].setdefault(
             "device_event_deduplicator",
