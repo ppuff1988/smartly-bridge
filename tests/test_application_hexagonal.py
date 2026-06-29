@@ -1247,6 +1247,45 @@ async def test_smartly_command_use_case_dispatches_numeric_setting_command() -> 
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_option_setting_command() -> None:
+    """Option setting commands map canonical options to select services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="select.presence_occupancy_sensitivity",
+            state="medium",
+            attributes={"options": ["low", "medium", "high"]},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {
+            (
+                "ldev_zigbee_presence_1",
+                "option_setting",
+            ): "select.presence_occupancy_sensitivity"
+        }
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-sensitivity",
+            device_id="ldev_zigbee_presence_1",
+            capability="option_setting",
+            command="select_option",
+            params={"option": "medium"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"option_setting": {"value": "medium"}}
+    assert gateway.calls == [
+        ("select.presence_occupancy_sensitivity", "select_option", {"option": "medium"})
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_dispatches_climate_temperature_command() -> None:
     """Target temperature commands map canonical values to climate services."""
     audit = FakeAudit()

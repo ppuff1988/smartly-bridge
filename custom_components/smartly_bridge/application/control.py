@@ -68,6 +68,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "preset_mode": {"set_preset_mode"},
     "swing_mode": {"set_swing_mode"},
     "numeric_setting": {"set_value"},
+    "option_setting": {"select_option"},
     "lock": {"lock", "unlock"},
     "run": {"run"},
 }
@@ -398,6 +399,8 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     if command.capability == "numeric_setting" and command.command == "set_value":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and not isinstance(value, bool)
+    if command.capability == "option_setting" and command.command == "select_option":
+        return isinstance(command.params.get("option"), str)
     return True
 
 
@@ -659,6 +662,13 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         and not isinstance(command.params.get("value"), bool)
     ):
         return {"numeric_setting": {"value": command.params["value"]}}
+
+    if (
+        command.capability == "option_setting"
+        and command.command == "select_option"
+        and isinstance(command.params.get("option"), str)
+    ):
+        return {"option_setting": {"value": command.params["option"]}}
 
     return {}
 

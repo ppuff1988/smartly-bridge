@@ -14,6 +14,7 @@
 - `use_logical_devices` feature flag 可讓 sync states response 在 top-level 與 vNext `data` 內同步標記 logical-device read path，同時保留 legacy `states` 供 rollback。
 - Canonical `SmartlyCommand` path 已可解析 logical device capability target，並映射回 Home Assistant service call。
 - Presence sensor sibling `number` setting 已開始從 presentation-only control 升格為 canonical `numeric_setting` capability，可透過 SmartlyCommand `set_value` 控制。
+- Presence sensor sibling `select` setting 已開始從 presentation-only control 升格為 canonical `option_setting` capability，可透過 SmartlyCommand `select_option` 控制。
 - SmartlyCommand success response 已保留 legacy top-level 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - SmartlyCommand error response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors[]` envelope 欄位。
 - Device event ingestion 已輸出 canonical `button_event` envelope，支援去重與多種來源 action alias。
@@ -174,6 +175,7 @@
 | 96 | `35dfdd6` | Current-sync API vNext data fixture 覆蓋 sync states payload，並讓 `data.device_count` 永遠輸出 logical device count，避免 vNext client 只能讀 legacy entity `count` | RED failed with fixture expecting `device_count`; targeted test `1 passed`; affected sync/hexagonal tests `103 passed`; full suite `559 passed` |
 | 97 | `1e0ba0b` | Current-sync structure API vNext data fixture 覆蓋 structure payload，並讓 `data.device_count` 永遠輸出 structure device count，讓 vNext sync contract 不需推導 devices array 長度 | RED failed with fixture expecting `device_count`; targeted test `1 passed`; affected sync/hexagonal tests `104 passed`; full suite `560 passed` |
 | 98 | `137a8da` | Presence sibling `number` setting 升格為 canonical `numeric_setting` capability，SmartlyCommand `set_value` 可解析同 device group 的 number sibling 並映射到 HA `number.set_value` | RED failed with missing `numeric_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `182 passed`; full suite `563 passed` |
+| 99 | `current slice` | Presence sibling `select` setting 升格為 canonical `option_setting` capability，SmartlyCommand `select_option` 可解析同 device group 的 select sibling 並映射到 HA `select.select_option` | RED failed with missing `option_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `185 passed`; full suite `566 passed` |
 
 ## Completed Slices
 
@@ -197,19 +199,19 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press` | `ed729a1`, `3347735` |
-| Setting controls | Presence sibling `number` setting 已從 presentation-only control 升格為 canonical `numeric_setting` capability 與 SmartlyCommand `set_value` path | `137a8da` |
+| Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path | `137a8da`, `current slice` |
 
 ## Latest Verification
 
-- Targeted numeric setting capability/command/resolver tests: `3 passed`
-- Affected logical/hexagonal/http/sync tests: `182 passed`
-- Full suite: `563 passed`
+- Targeted option setting capability/command/resolver tests: `3 passed`
+- Affected logical/hexagonal/http/sync tests: `185 passed`
+- Full suite: `566 passed`
 
 ## Remaining Work
 
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
-- Continue promoting editable sibling setting controls from presentation-only to canonical command capabilities; `number` is covered by `numeric_setting`, `select` remains.
+- Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
 - Continue filling P0 command mapping and event automation gaps before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.

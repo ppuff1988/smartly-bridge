@@ -288,6 +288,38 @@ Commands：
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `trigger_hold_seconds`。
 
+### 5.8 `option_setting`
+
+用途：表示可編輯的選項型裝置設定，例如 presence sensor 的感應強度。來源可為 Home Assistant `select` sibling entity 或其他 adapter 的 enum 設定欄位。
+
+State：
+
+```json
+{
+  "value": "medium"
+}
+```
+
+Constraints：
+
+```json
+{
+  "values": ["low", "medium", "high"]
+}
+```
+
+Commands：
+
+| Command | Params | 說明 |
+|---|---|---|
+| `select_option` | `{ "option": "medium" }` | 選擇設定選項 |
+
+規則：
+
+- `source_refs` 必須指向實際 setting source，例如 `select.presence_occupancy_sensitivity`。
+- Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
+- `presentation.key` 可保留穩定 setting key，例如 `occupancy_sensitivity`。
+
 ## 6. Capability Extension Policy
 
 新增 capability 時必須提供：

@@ -790,6 +790,69 @@ def test_presence_sibling_number_setting_uses_numeric_setting_contract() -> None
     assert "numeric_setting" in device["presentation"]["primary_controls"]
 
 
+def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
+    """Editable sibling select settings are exposed as canonical option settings."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.presence",
+        state="on",
+        attributes={"device_class": "occupancy"},
+        name="Presence Sensor",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["presence"],
+        status="online",
+        presentation={
+            "card_template": "binary_state_card",
+            "setting_controls": [
+                {
+                    "key": "occupancy_sensitivity",
+                    "entity_id": "select.presence_occupancy_sensitivity",
+                    "domain": "select",
+                    "name": "Occupancy sensitivity",
+                    "action": "select_option",
+                    "value": "low",
+                    "options": ["low", "medium", "high"],
+                }
+            ],
+        },
+        source_device_id="zigbee-presence-1",
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    option_setting = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "option_setting"
+    )
+
+    assert option_setting == {
+        "type": "option_setting",
+        "role": "setting",
+        "readable": True,
+        "writable": True,
+        "event_only": False,
+        "state": {"value": "low"},
+        "commands": ["select_option"],
+        "events": [],
+        "constraints": {"values": ["low", "medium", "high"]},
+        "presentation": {
+            "key": "occupancy_sensitivity",
+            "name": "Occupancy sensitivity",
+        },
+        "source_refs": [
+            {
+                "source": "home_assistant",
+                "source_device_id": "zigbee-presence-1",
+                "source_entity_id": "select.presence_occupancy_sensitivity",
+                "domain": "select",
+                "role": "setting",
+                "capability_types": ["option_setting"],
+            }
+        ],
+    }
+    assert "option_setting" in device["presentation"]["primary_controls"]
+
+
 def test_climate_target_temperature_uses_target_temperature_contract() -> None:
     """Home Assistant climate temperature is normalized to target temperature."""
     snapshot = EntityStateSnapshot(

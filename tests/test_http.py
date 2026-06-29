@@ -1101,6 +1101,112 @@ class TestControlEndpointFullFlow:
 
         await nonce_cache.stop()
 
+    @pytest.mark.asyncio
+    async def test_control_vnext_option_setting_resolves_sibling_select_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext option settings resolve editable sibling select entities."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+
+        presence_state = MagicMock()
+        presence_state.state = "on"
+        presence_state.attributes = {
+            "friendly_name": "Presence Sensor",
+            "device_class": "occupancy",
+        }
+        select_state = MagicMock()
+        select_state.state = "low"
+        select_state.attributes = {
+            "friendly_name": "Occupancy sensitivity",
+            "options": ["low", "medium", "high"],
+        }
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "binary_sensor.presence": presence_state,
+            "select.presence_occupancy_sensitivity": select_state,
+        }.get(entity_id)
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["binary_sensor.presence"],
+            ),
+        ):
+            primary_entry = MagicMock()
+            primary_entry.labels = {"smartly"}
+            primary_entry.device_id = "zigbee-presence-1"
+            setting_entry = MagicMock()
+            setting_entry.labels = set()
+            setting_entry.device_id = "zigbee-presence-1"
+            setting_entry.entity_id = "select.presence_occupancy_sensitivity"
+
+            mock_registry = MagicMock()
+            mock_registry.entities = {
+                "binary_sensor.presence": primary_entry,
+                "select.presence_occupancy_sensitivity": setting_entry,
+            }
+            mock_registry.async_get.side_effect = lambda entity_id: {
+                "binary_sensor.presence": primary_entry,
+                "select.presence_occupancy_sensitivity": setting_entry,
+            }.get(entity_id)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-setting-sensitivity",
+                "device_id": "ldev_zigbee_presence_1",
+                "capability": "option_setting",
+                "command": "select_option",
+                "params": {"option": "medium"},
+                "source": {"user_id": "user-1"},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        assert json.loads(response.body)["entity_id"] == (
+            "select.presence_occupancy_sensitivity"
+        )
+        assert json.loads(response.body)["expected_state"] == {
+            "option_setting": {"value": "medium"}
+        }
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "select",
+            "select_option",
+            {"entity_id": "select.presence_occupancy_sensitivity", "option": "medium"},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
 
 class TestFormatNumericAttributes:
     """Tests for format_numeric_attributes function."""
