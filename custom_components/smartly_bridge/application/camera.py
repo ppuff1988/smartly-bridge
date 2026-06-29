@@ -203,7 +203,7 @@ class CameraHLSUseCase:
             hls_info = await self._gateway.start_hls_stream(entity_id)
             if hls_info is None:
                 return BridgeResponse({"error": "hls_not_supported"}, status=400)
-            return BridgeResponse(hls_info, status=200)
+            return _camera_success_response(hls_info)
 
         if action == "stats":
             return BridgeResponse(self._gateway.get_hls_stats(), status=200)
