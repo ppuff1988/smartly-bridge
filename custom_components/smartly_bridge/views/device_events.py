@@ -18,6 +18,7 @@ from ..adapters.home_assistant import (
 from ..application.device_events import (
     DeviceEventCommand,
     DeviceEventUseCase,
+    device_event_error_response,
     is_supported_button_action,
 )
 from ..audit import log_deny
@@ -147,10 +148,19 @@ class SmartlyDeviceEventsView(web.View):
             return web.json_response({"error": "missing_required_fields"}, status=400)
 
         if not is_supported_button_action(action):
-            return web.json_response(
-                {"error": "invalid_action", "message": "Unsupported button action"},
-                status=400,
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id,
+                    type=event_type,
+                    action=action,
+                    timestamp=timestamp,
+                    meta=meta or {},
+                ),
+                error="invalid_action",
+                message="Unsupported button action",
+                target="event.action",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if not _is_valid_timestamp(timestamp):
             return web.json_response({"error": "invalid_timestamp"}, status=400)

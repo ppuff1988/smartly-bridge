@@ -50,7 +50,7 @@ class DeviceEventUseCase:
     async def execute(self, client_id: str, command: DeviceEventCommand) -> BridgeResponse:
         """Publish a normalized event or return a validation error."""
         if command.type != "button_action":
-            return _event_error_response(
+            return device_event_error_response(
                 command=command,
                 error="missing_required_fields",
                 message="Missing required event fields",
@@ -58,7 +58,7 @@ class DeviceEventUseCase:
             )
         canonical = _canonical_button_event(command.action)
         if canonical is None:
-            return _event_error_response(
+            return device_event_error_response(
                 command=command,
                 error="invalid_action",
                 message="Unsupported button action",
@@ -189,7 +189,7 @@ def _duplicate_event_response(
     )
 
 
-def _event_error_response(
+def device_event_error_response(
     *,
     command: DeviceEventCommand,
     error: str,
