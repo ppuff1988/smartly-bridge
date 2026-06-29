@@ -181,7 +181,7 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
         event_only=canonical == "button_event",
         state=state,
         commands=_commands_for_capability(canonical),
-        constraints=_constraints_for_capability(canonical),
+        constraints=_constraints_for_capability(snapshot, canonical),
         source_refs=[_source_ref(snapshot, canonical)],
     )
 
@@ -347,11 +347,27 @@ def _commands_for_capability(capability: str) -> list[str]:
     }.get(capability, [])
 
 
-def _constraints_for_capability(capability: str) -> dict[str, Any]:
+def _constraints_for_capability(
+    snapshot: EntityStateSnapshot,
+    capability: str,
+) -> dict[str, Any]:
     """Return default constraints for canonical capabilities."""
     if capability == "brightness":
         return {"min": 0, "max": 100, "step": 1}
+    if capability == "color_temperature":
+        return _color_temperature_constraints(snapshot.attributes or {})
     return {}
+
+
+def _color_temperature_constraints(attributes: dict[str, Any]) -> dict[str, Any]:
+    """Return kelvin constraints from Home Assistant color temperature metadata."""
+    min_mired = attributes.get("min_mireds")
+    max_mired = attributes.get("max_mireds")
+    min_kelvin = _mired_to_kelvin(max_mired)
+    max_kelvin = _mired_to_kelvin(min_mired)
+    if min_kelvin is None or max_kelvin is None:
+        return {}
+    return {"min": min_kelvin, "max": max_kelvin, "step": 50}
 
 
 def _logical_device_presentation(

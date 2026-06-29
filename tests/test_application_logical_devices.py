@@ -14,7 +14,7 @@ def test_light_color_temperature_state_uses_kelvin_contract() -> None:
     snapshot = EntityStateSnapshot(
         entity_id="light.desk",
         state="on",
-        attributes={"color_temp": 250},
+        attributes={"color_temp": 250, "min_mireds": 153, "max_mireds": 500},
         name="Desk Light",
         domain="light",
         device_class="smart_light",
@@ -35,7 +35,7 @@ def test_light_color_temperature_state_uses_kelvin_contract() -> None:
             "state": {"value": 4000, "unit": "kelvin"},
             "commands": ["set_color_temperature"],
             "events": [],
-            "constraints": {},
+            "constraints": {"min": 2000, "max": 6536, "step": 50},
             "presentation": {},
             "source_refs": [
                 {
