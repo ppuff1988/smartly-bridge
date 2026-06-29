@@ -323,6 +323,28 @@ async def test_camera_config_list_response_includes_vnext_envelope() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_config_unknown_action_response_includes_vnext_envelope() -> None:
+    """Camera config unknown actions expose API vNext error envelope fields."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="unsupported", entity_id=None, data={})
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "unknown_action"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "UNKNOWN_ACTION",
+            "message": "unknown action",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_stream() -> None:
     """HLS start reports unsupported when the gateway cannot start a stream."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")

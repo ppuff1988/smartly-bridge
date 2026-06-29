@@ -106,7 +106,7 @@ class CameraConfigUseCase:
             cameras = self._gateway.list_registered_cameras()
             return _camera_success_response({"cameras": cameras, "count": len(cameras)})
 
-        return BridgeResponse({"error": "unknown_action"}, status=400)
+        return _camera_error_response("unknown_action", status=400)
 
 
 def _camera_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
