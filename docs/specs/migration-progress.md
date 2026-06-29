@@ -18,6 +18,7 @@
 - SmartlyCommand resolved denial audit 現在同時記錄 logical device ID 與 source entity ID，讓 command path 切換期間可追蹤 canonical command 與 legacy target。
 - SmartlyCommand success audit 現在也在 actor metadata 內保留 `source_entity_id`，讓成功與拒絕路徑的 trace 欄位一致。
 - SmartlyCommand API vNext `data` 現在於 success/error response 內同步攜帶 `device_id`、`capability`、`command` 與已解析的 `source_entity_id`，讓 vNext clients 不需讀 legacy top-level 欄位即可完成 command correlation。
+- Home Assistant `button` entity 現在除了 event-only `button_event` 外，也會輸出 command-only `button_press` capability；SmartlyCommand `press` 會解析 logical button target 並呼叫 source `button.press`。
 - Presence sensor sibling `number` setting 已開始從 presentation-only control 升格為 canonical `numeric_setting` capability，可透過 SmartlyCommand `set_value` 控制。
 - Presence sensor sibling `select` setting 已開始從 presentation-only control 升格為 canonical `option_setting` capability，可透過 SmartlyCommand `select_option` 控制。
 - 重複同類型 editable setting capability 現在會保留所有 sibling source refs，避免權限追蹤與後續切換時遺失來源。
@@ -189,6 +190,7 @@
 | 104 | `82be030` | Sync structure view test 明確 mock Home Assistant entity/device/area/floor registries，避免 Python 3.14 / HA 2026 registry setup 變更讓 view wiring test 依賴真 registry | RED full suite failed with `Device registry not set up`; targeted sync view test `1 passed`; full suite `568 passed` |
 | 105 | `602afb5` | Devcontainer image 升到 Python 3.14 bookworm，並修正 dev dependency 註解，讓 `homeassistant>=2026.6.4` 可在 VS Code devcontainer rebuild / postCreate 階段安裝 | RED failed installing requirements on Python 3.13 with HA requiring `>=3.14.2`; Python 3.14.6 requirements install passed; full suite `568 passed` |
 | 106 | `2abb210` | SmartlyCommand API vNext `data` 補上 `device_id` / `capability` / `command` / `source_entity_id` target correlation 欄位，讓 success/error clients 不必依賴 legacy top-level 欄位 | RED failed with vNext `data` missing target fields; targeted tests `2 passed`; affected command/http/acl tests `143 passed`; full suite `568 passed` |
+| 107 | `3fcfd65` | Home Assistant `button` entity 新增 canonical command-only `button_press` capability，SmartlyCommand `press` 可解析 logical button target 並映射到 HA `button.press` | RED failed with `button_press` non-writable, unsupported command, and unresolved HTTP target; targeted tests `3 passed`; affected logical/command/http/sync/acl tests `214 passed`; full suite `571 passed` |
 
 ## Completed Slices
 
@@ -198,7 +200,7 @@
 | Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press` | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65` |
 | Test harness | Sync structure view test 明確 mock HA registries，讓 Python 3.14 / HA 2026.6 registry setup 下的 full suite 可穩定驗證 view wiring | `82be030` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
@@ -212,15 +214,15 @@
 | Climate | mode select、target temperature、fan modes、preset mode、swing mode、temperature range | `53ac6c0`, `f6daf58`, `0451e08`, `87723a4`, `0aff83a`, `e3583fc` |
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
-| Button events | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press` | `ed729a1`, `3347735` |
+| Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- SmartlyCommand vNext data RED: targeted tests failed because `data` lacked `device_id` / `capability` / `command` / `source_entity_id`
-- Targeted command vNext data tests: `2 passed`
-- Affected command/http/acl tests: `143 passed`
-- Full suite: `568 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Button press command RED: targeted tests failed because `button_press` was non-writable, SmartlyCommand `press` was unsupported, and HTTP target resolution returned 404
+- Targeted button press tests: `3 passed`
+- Affected logical/command/http/sync/acl tests: `214 passed`
+- Full suite: `571 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 

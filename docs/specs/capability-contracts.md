@@ -232,7 +232,25 @@ Canonical event：
 
 品牌值如 `single_left`、`left_single`、`1_single` 必須在 adapter 中映射。
 
-### 5.6 `signal_quality`
+### 5.6 `button_press`
+
+用途：表示可由 Platform 或 Automation 觸發的無狀態按鈕，例如 Home Assistant `button` domain 的 `button.press`。
+
+State：無 persistent state，`readable` 應為 `false`，`writable` 應為 `true`。
+
+Commands：
+
+| Command | Params | 說明 |
+|---|---|---|
+| `press` | `{}` | 觸發按鈕動作 |
+
+規則：
+
+- `button_press` 與 `button_event` 必須分開表達：前者是 command-only trigger，後者是 event-only ingest。
+- `source_refs` 必須指向實際可呼叫的 source entity，例如 `button.desk_scene`。
+- Bridge command dispatcher 必須將 canonical `press` 映射到來源按鈕服務，例如 Home Assistant `button.press`。
+
+### 5.7 `signal_quality`
 
 State：
 
@@ -253,7 +271,7 @@ State：
 - `raw_metric` 只做診斷。
 - RSSI、LQI、Wi-Fi RSSI percentage 必須映射到 `0-100`。
 
-### 5.7 `numeric_setting`
+### 5.8 `numeric_setting`
 
 用途：表示可編輯的數值型裝置設定，例如 presence sensor 的觸發維持秒數。來源可為 Home Assistant `number` sibling entity 或其他 adapter 的數值設定欄位。
 
@@ -288,7 +306,7 @@ Commands：
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `trigger_hold_seconds`。
 
-### 5.8 `option_setting`
+### 5.9 `option_setting`
 
 用途：表示可編輯的選項型裝置設定，例如 presence sensor 的感應強度。來源可為 Home Assistant `select` sibling entity 或其他 adapter 的 enum 設定欄位。
 
