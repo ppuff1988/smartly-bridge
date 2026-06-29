@@ -173,7 +173,7 @@
 | 95 | `c0bbf1e` | Sync states logical-device read path 在 API vNext `data` 內同步輸出 `read_path` / `devices` / `device_count`，讓 vNext client 不需讀 top-level legacy 欄位即可切換 read path | RED failed with missing `data.read_path`; targeted tests `2 passed`; affected sync/hexagonal tests `102 passed`; full suite `558 passed` |
 | 96 | `35dfdd6` | Current-sync API vNext data fixture 覆蓋 sync states payload，並讓 `data.device_count` 永遠輸出 logical device count，避免 vNext client 只能讀 legacy entity `count` | RED failed with fixture expecting `device_count`; targeted test `1 passed`; affected sync/hexagonal tests `103 passed`; full suite `559 passed` |
 | 97 | `1e0ba0b` | Current-sync structure API vNext data fixture 覆蓋 structure payload，並讓 `data.device_count` 永遠輸出 structure device count，讓 vNext sync contract 不需推導 devices array 長度 | RED failed with fixture expecting `device_count`; targeted test `1 passed`; affected sync/hexagonal tests `104 passed`; full suite `560 passed` |
-| 98 | `current slice` | Presence sibling `number` setting 升格為 canonical `numeric_setting` capability，SmartlyCommand `set_value` 可解析同 device group 的 number sibling 並映射到 HA `number.set_value` | RED failed with missing `numeric_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `182 passed`; full suite `563 passed` |
+| 98 | `137a8da` | Presence sibling `number` setting 升格為 canonical `numeric_setting` capability，SmartlyCommand `set_value` 可解析同 device group 的 number sibling 並映射到 HA `number.set_value` | RED failed with missing `numeric_setting`, `command_not_supported`, and sibling target 404; targeted tests `3 passed`; affected logical/hexagonal/http/sync tests `182 passed`; full suite `563 passed` |
 
 ## Completed Slices
 
@@ -197,7 +197,7 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press` | `ed729a1`, `3347735` |
-| Setting controls | Presence sibling `number` setting 已從 presentation-only control 升格為 canonical `numeric_setting` capability 與 SmartlyCommand `set_value` path | `current slice` |
+| Setting controls | Presence sibling `number` setting 已從 presentation-only control 升格為 canonical `numeric_setting` capability 與 SmartlyCommand `set_value` path | `137a8da` |
 
 ## Latest Verification
 
