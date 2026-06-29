@@ -859,17 +859,15 @@ class StatisticsUseCase:
             query.period,
         )
         statistics_data = [self._format_statistic(stat) for stat in stats]
-        return BridgeResponse(
-            {
-                "entity_id": query.entity_id,
-                "period": query.period,
-                "statistics": statistics_data,
-                "count": len(statistics_data),
-                "start_time": query.start_time.isoformat(),
-                "end_time": query.end_time.isoformat(),
-            },
-            status=200,
-        )
+        body = {
+            "entity_id": query.entity_id,
+            "period": query.period,
+            "statistics": statistics_data,
+            "count": len(statistics_data),
+            "start_time": query.start_time.isoformat(),
+            "end_time": query.end_time.isoformat(),
+        }
+        return _history_success_response(body)
 
     def _format_statistic(self, stat: dict[str, Any]) -> dict[str, Any]:
         stat_entry: dict[str, Any] = {

@@ -588,6 +588,11 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
     )
 
     assert result.status == 200
+    legacy_body = {
+        key: value
+        for key, value in result.body.items()
+        if key not in {"schema_version", "data", "warnings", "errors"}
+    }
     assert result.body["entity_id"] == "sensor.energy"
     assert result.body["period"] == "hour"
     assert result.body["count"] == 2
@@ -606,6 +611,10 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
     }
     assert result.body["start_time"] == start_time.isoformat()
     assert result.body["end_time"] == end_time.isoformat()
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == legacy_body
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
 
 
 @pytest.mark.asyncio
