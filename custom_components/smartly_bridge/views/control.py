@@ -209,10 +209,8 @@ class SmartlyControlView(web.View):
         actor = normalized_body["actor"]
 
         if not entity_id or not action:
-            return web.json_response(
-                {"error": "missing_required_fields"},
-                status=400,
-            )
+            result = control_error_response("missing_required_fields", status=400)
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         use_case = ControlUseCase(
             HomeAssistantEntityPolicy(self.hass),

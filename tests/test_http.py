@@ -731,6 +731,21 @@ class TestControlEndpointFullFlow:
             response = await view.post()
 
             assert response.status == 400
+            body = json.loads(response.text)
+            assert body == {
+                "error": "missing_required_fields",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "MISSING_REQUIRED_FIELDS",
+                        "message": "missing required fields",
+                        "target": "control",
+                        "retryable": False,
+                    }
+                ],
+            }
 
         await nonce_cache.stop()
 
