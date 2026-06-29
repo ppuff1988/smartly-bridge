@@ -33,6 +33,10 @@ CLIMATE_ACTIONS = {
     "set_temperature": "set_temperature",
 }
 
+RUN_ACTIONS = {
+    "run": "turn_on",
+}
+
 SUPPORTED_SMARTLY_COMMANDS = {
     "power": {"turn_on", "turn_off", "toggle"},
     "brightness": {"set_brightness"},
@@ -43,6 +47,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "fan_speed": {"set_fan_speed"},
     "mode_select": {"set_mode"},
     "lock": {"lock", "unlock"},
+    "run": {"run"},
 }
 
 
@@ -293,6 +298,12 @@ def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any
     if get_entity_domain(command.entity_id) == "climate" and command.action in CLIMATE_ACTIONS:
         service_action = CLIMATE_ACTIONS[command.action]
         return service_action, _normalize_climate_service_data(command.action, command.service_data)
+
+    if (
+        get_entity_domain(command.entity_id) in {"scene", "script"}
+        and command.action in RUN_ACTIONS
+    ):
+        return RUN_ACTIONS[command.action], command.service_data
 
     if get_entity_domain(command.entity_id) == "fan" and command.action in FAN_ACTIONS:
         return FAN_ACTIONS[command.action], command.service_data

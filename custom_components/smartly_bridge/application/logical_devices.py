@@ -18,6 +18,7 @@ _WRITABLE_CAPABILITIES = {
     "fan_speed",
     "mode_select",
     "lock",
+    "run",
 }
 
 
@@ -177,7 +178,7 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
     return SmartlyCapability(
         type=canonical,
         role=_capability_role(canonical),
-        readable=canonical != "button_event",
+        readable=canonical not in {"button_event", "run"},
         writable=canonical in _WRITABLE_CAPABILITIES,
         event_only=canonical == "button_event",
         state=state,
@@ -480,6 +481,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "fan_speed": ["set_fan_speed"],
         "mode_select": ["set_mode"],
         "lock": ["lock", "unlock"],
+        "run": ["run"],
     }.get(capability, [])
 
 

@@ -636,6 +636,76 @@ async def test_smartly_command_use_case_returns_lock_expected_state() -> None:
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_scene_run_command() -> None:
+    """Run commands map scene trigger capabilities to Home Assistant turn_on."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="scene.movie_night",
+            state="2026-06-29T12:00:00+00:00",
+            attributes={},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_scene_movie_night", "run"): "scene.movie_night"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-run",
+            device_id="ldev_scene_movie_night",
+            capability="run",
+            command="run",
+            params={"transition": 3},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {}
+    assert gateway.calls == [("scene.movie_night", "turn_on", {"transition": 3})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_script_run_command() -> None:
+    """Run commands map script trigger capabilities to Home Assistant turn_on."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="script.notify_user",
+            state="off",
+            attributes={},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_script_notify_user", "run"): "script.notify_user"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-script-run",
+            device_id="ldev_script_notify_user",
+            capability="run",
+            command="run",
+            params={"variables": {"message": "Hello from API"}},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {}
+    assert gateway.calls == [
+        (
+            "script.notify_user",
+            "turn_on",
+            {"variables": {"message": "Hello from API"}},
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_dispatches_climate_mode_command() -> None:
     """Mode select commands map canonical mode to Home Assistant climate services."""
     audit = FakeAudit()

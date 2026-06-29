@@ -299,6 +299,46 @@ def test_climate_target_temperature_uses_target_temperature_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_temperature"]
 
 
+def test_scene_run_capability_uses_command_only_contract() -> None:
+    """Home Assistant scenes expose a canonical command-only run capability."""
+    snapshot = EntityStateSnapshot(
+        entity_id="scene.movie_night",
+        state="2026-06-29T12:00:00+00:00",
+        attributes={},
+        name="Movie Night",
+        domain="scene",
+        device_class="scene_trigger",
+        capabilities=["run"],
+        status="online",
+        presentation={"card_template": "scene_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0] == {
+        "type": "run",
+        "role": "primary",
+        "readable": False,
+        "writable": True,
+        "event_only": False,
+        "state": {},
+        "commands": ["run"],
+        "events": [],
+        "constraints": {},
+        "presentation": {},
+        "source_refs": [
+            {
+                "source": "home_assistant",
+                "source_device_id": None,
+                "source_entity_id": "scene.movie_night",
+                "domain": "scene",
+                "role": "primary_control",
+                "capability_types": ["run"],
+            }
+        ],
+    }
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [
