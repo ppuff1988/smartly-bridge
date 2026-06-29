@@ -19,6 +19,7 @@ _WRITABLE_CAPABILITIES = {
     "position",
     "tilt_position",
     "fan_speed",
+    "fan_direction",
     "mode_select",
     "preset_mode",
     "swing_mode",
@@ -272,6 +273,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _target_temperature_range_state(snapshot)
     if capability == "fan_speed":
         return _fan_speed_state(snapshot)
+    if capability == "fan_direction":
+        return _fan_direction_state(snapshot)
     if capability == "position":
         return _position_state(snapshot)
     if capability == "tilt_position":
@@ -405,6 +408,12 @@ def _fan_speed_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
         preset_mode = attributes.get("preset_mode")
         return {"speed": preset_mode} if isinstance(preset_mode, str) else {}
     return {"percentage": max(0, min(100, percentage)), "unit": "percent"}
+
+
+def _fan_direction_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical fan direction state from Home Assistant fan metadata."""
+    direction = (snapshot.attributes or {}).get("direction")
+    return {"value": direction} if isinstance(direction, str) else {}
 
 
 def _target_temperature_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
@@ -561,6 +570,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "position": ["set_position", "open", "close", "stop"],
         "tilt_position": ["set_tilt_position"],
         "fan_speed": ["set_fan_speed"],
+        "fan_direction": ["set_direction"],
         "mode_select": ["set_mode"],
         "preset_mode": ["set_preset_mode"],
         "swing_mode": ["set_swing_mode"],
@@ -591,6 +601,8 @@ def _constraints_for_capability(
         if isinstance(modes, list) and all(isinstance(mode, str) for mode in modes):
             return {"values": modes}
         return {"min": 0, "max": 100, "step": 1}
+    if capability == "fan_direction":
+        return {"values": ["forward", "reverse"]}
     if capability == "position":
         return {"min": 0, "max": 100, "step": 1}
     if capability == "tilt_position":

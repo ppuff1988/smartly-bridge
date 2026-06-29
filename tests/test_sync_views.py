@@ -1286,6 +1286,27 @@ async def test_state_sync_includes_climate_temperature_range_capability_metadata
 
 
 @pytest.mark.asyncio
+async def test_state_sync_includes_fan_direction_capability_metadata(mock_hass):
+    """Fan direction metadata is exposed as a canonical direction capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "fan.bedroom",
+        _state(
+            "on",
+            {
+                "friendly_name": "Bedroom Fan",
+                "direction": "forward",
+            },
+        ),
+    )
+
+    assert payload["domain"] == "fan"
+    assert payload["device_class"] == "fan_control"
+    assert payload["capabilities"] == ["on_off", "fan_direction"]
+    assert payload["presentation"]["card_template"] == "control_card"
+
+
+@pytest.mark.asyncio
 async def test_state_sync_includes_environment_sensor_card_metadata(mock_hass):
     """Environmental sensors expose metric-card metadata."""
     payload = await _state_payload(

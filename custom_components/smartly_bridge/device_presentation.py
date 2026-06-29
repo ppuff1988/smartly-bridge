@@ -194,6 +194,8 @@ def _fan_capabilities(attributes: dict[str, Any]) -> list[str]:
     capabilities = ["on_off"]
     if "percentage" in attributes or "preset_mode" in attributes or "preset_modes" in attributes:
         capabilities.append("fan_speed")
+    if "direction" in attributes:
+        capabilities.append("fan_direction")
     return capabilities
 
 

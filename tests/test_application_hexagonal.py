@@ -114,6 +114,11 @@ def test_climate_swing_mode_service_is_allowed() -> None:
     assert is_service_allowed("climate", "set_swing_mode") is True
 
 
+def test_fan_direction_service_is_allowed() -> None:
+    """Fan direction commands are allowed by the real service whitelist."""
+    assert is_service_allowed("fan", "set_direction") is True
+
+
 class FakeSyncGateway:
     """Fake sync port."""
 
@@ -715,6 +720,40 @@ async def test_smartly_command_use_case_dispatches_fan_preset_speed_command() ->
     assert result.status == 200
     assert result.body["expected_state"] == {"fan_speed": {"speed": "sleep"}}
     assert gateway.calls == [("fan.bedroom", "set_preset_mode", {"preset_mode": "sleep"})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_fan_direction_command() -> None:
+    """Fan direction commands map canonical direction to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="fan.bedroom",
+            state="on",
+            attributes={"direction": "forward"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_fan_bedroom", "fan_direction"): "fan.bedroom"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-fan-direction",
+            device_id="ldev_fan_bedroom",
+            capability="fan_direction",
+            command="set_direction",
+            params={"direction": "reverse"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"fan_direction": {"value": "reverse"}}
+    assert gateway.calls == [
+        ("fan.bedroom", "set_direction", {"direction": "reverse"})
+    ]
 
 
 @pytest.mark.asyncio
@@ -1456,6 +1495,42 @@ async def test_smartly_command_use_case_rejects_invalid_fan_speed_params() -> No
             "set_fan_speed",
             "invalid_params",
             {"command_id": "cmd-invalid-fan-speed", "capability": "fan_speed"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_fan_direction_params() -> None:
+    """Fan direction commands require a supported direction value."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_fan_bedroom", "fan_direction"): "fan.bedroom"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-fan-direction",
+            device_id="ldev_fan_bedroom",
+            capability="fan_direction",
+            command="set_direction",
+            params={"direction": "sideways"},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "fan.bedroom"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_fan_bedroom",
+            "set_direction",
+            "invalid_params",
+            {"command_id": "cmd-invalid-fan-direction", "capability": "fan_direction"},
         )
     ]
 
