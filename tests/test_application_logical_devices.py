@@ -96,6 +96,28 @@ def test_light_hs_color_state_uses_rgb_color_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
 
 
+def test_light_xy_color_state_uses_rgb_color_contract() -> None:
+    """Home Assistant XY color is normalized to canonical RGB channel values."""
+    snapshot = EntityStateSnapshot(
+        entity_id="light.desk",
+        state="on",
+        attributes={"xy_color": [0.172, 0.747]},
+        name="Desk Light",
+        domain="light",
+        device_class="smart_light",
+        capabilities=["rgb_color"],
+        status="online",
+        presentation={"card_template": "light_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["state"] == {
+        "value": {"r": 0, "g": 255, "b": 0}
+    }
+    assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
+
+
 def test_light_effect_metadata_and_state_use_effect_contract() -> None:
     """Home Assistant light effects are exposed as canonical effect controls."""
     metadata = build_device_card_metadata(

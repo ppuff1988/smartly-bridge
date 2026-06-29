@@ -269,6 +269,10 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         rgb_color = _hs_color_value(attributes["hs_color"])
         if rgb_color is not None:
             return {"value": rgb_color}
+    if capability == "rgb_color" and "xy_color" in attributes:
+        rgb_color = _xy_color_value(attributes["xy_color"])
+        if rgb_color is not None:
+            return {"value": rgb_color}
     if capability == "battery":
         return _numeric_state(snapshot, default_unit="percent")
     if capability == "signal_quality":
@@ -586,6 +590,62 @@ def _hs_color_value(value: Any) -> dict[str, int] | None:
         "g": round(green * 255),
         "b": round(blue * 255),
     }
+
+
+def _xy_color_value(value: Any) -> dict[str, int] | None:
+    """Return canonical RGB channel values from Home Assistant XY color data."""
+    if not isinstance(value, list | tuple) or len(value) != 2:
+        return None
+    x_value, y_value = value
+    if not all(isinstance(channel, (int, float)) for channel in (x_value, y_value)):
+        return None
+    if y_value <= 0:
+        return None
+
+    y_luminance = 1.0
+    x_luminance = (y_luminance / y_value) * x_value
+    z_luminance = (y_luminance / y_value) * (1 - x_value - y_value)
+
+    red = (
+        x_luminance * 1.656492
+        - y_luminance * 0.354851
+        - z_luminance * 0.255038
+    )
+    green = (
+        -x_luminance * 0.707196
+        + y_luminance * 1.655397
+        + z_luminance * 0.036152
+    )
+    blue = (
+        x_luminance * 0.051713
+        - y_luminance * 0.121364
+        + z_luminance * 1.011530
+    )
+
+    red = _gamma_correct(red)
+    green = _gamma_correct(green)
+    blue = _gamma_correct(blue)
+
+    max_channel = max(red, green, blue)
+    if max_channel > 1:
+        red /= max_channel
+        green /= max_channel
+        blue /= max_channel
+
+    return {
+        "r": int(max(0, min(1, red)) * 255),
+        "g": int(max(0, min(1, green)) * 255),
+        "b": int(max(0, min(1, blue)) * 255),
+    }
+
+
+def _gamma_correct(channel: float) -> float:
+    """Apply sRGB gamma correction to a normalized channel."""
+    if channel <= 0:
+        return 0
+    if channel <= 0.0031308:
+        return 12.92 * channel
+    return (1.0 + 0.055) * pow(channel, 1.0 / 2.4) - 0.055
 
 
 def _commands_for_capability(capability: str) -> list[str]:
