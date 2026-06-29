@@ -257,6 +257,30 @@ async def test_camera_config_unregister_response_includes_vnext_envelope() -> No
 
 
 @pytest.mark.asyncio
+async def test_camera_config_rejects_unregister_without_entity_id() -> None:
+    """Unregister command requires an entity id and exposes API vNext errors."""
+    gateway = FakeCameraGateway()
+    result = await CameraConfigUseCase(gateway).execute(
+        CameraConfigCommand(action="unregister", entity_id=None, data={})
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "missing_entity_id"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "MISSING_ENTITY_ID",
+            "message": "missing entity id",
+            "target": "camera",
+            "retryable": False,
+        }
+    ]
+    assert gateway.unregistered == []
+
+
+@pytest.mark.asyncio
 async def test_camera_config_clear_cache_response_includes_vnext_envelope() -> None:
     """Camera clear-cache responses expose API vNext envelope fields."""
     gateway = FakeCameraGateway()
