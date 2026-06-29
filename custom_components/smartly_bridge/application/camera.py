@@ -98,9 +98,8 @@ class CameraConfigUseCase:
 
         if command.action == "clear_cache":
             count = await self._gateway.clear_cache(command.entity_id)
-            return BridgeResponse(
-                {"success": True, "action": "cache_cleared", "cleared_count": count},
-                status=200,
+            return _camera_success_response(
+                {"success": True, "action": "cache_cleared", "cleared_count": count}
             )
 
         if command.action == "list":
