@@ -194,9 +194,11 @@ class CameraHLSUseCase:
 
         if action == "stop":
             stopped = await self._gateway.stop_hls_stream(entity_id)
+            if stopped:
+                return _camera_success_response({"success": True, "action": "stopped"})
             return BridgeResponse(
                 {"success": stopped, "action": "stopped"},
-                status=200 if stopped else 404,
+                status=404,
             )
 
         if action in ("start", ""):
