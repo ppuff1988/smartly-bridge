@@ -21,6 +21,20 @@ _WRITABLE_CAPABILITIES = {
     "run",
 }
 
+_MEASUREMENT_CAPABILITIES = {
+    "temperature",
+    "humidity",
+    "air_quality",
+    "aqi",
+    "carbon_dioxide",
+    "carbon_monoxide",
+    "pm25",
+    "pm10",
+    "pressure",
+    "atmospheric_pressure",
+    "illuminance",
+}
+
 
 def logical_device_from_state(snapshot: EntityStateSnapshot) -> SmartlyLogicalDevice:
     """Build a shadow logical device from normalized entity metadata."""
@@ -195,6 +209,8 @@ def _canonical_capability(capability: str) -> str:
         "color_temp": "color_temperature",
         "hvac_mode": "mode_select",
         "signal_strength": "signal_quality",
+        "co2": "carbon_dioxide",
+        "atmospheric_pressure": "pressure",
         "event": "button_event",
         "occupancy": "presence",
         "contact": "open_close",
@@ -210,14 +226,7 @@ def _capability_role(capability: str) -> str:
         return "health"
     if capability == "button_event":
         return "event_source"
-    if capability in {
-        "temperature",
-        "humidity",
-        "pressure",
-        "illuminance",
-        "presence",
-        "open_close",
-    }:
+    if capability in {*_MEASUREMENT_CAPABILITIES, "presence", "open_close"}:
         return "secondary"
     return "primary"
 
@@ -264,7 +273,7 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         if unit:
             state["unit"] = unit
         return state
-    if capability in {"temperature", "humidity", "pressure", "illuminance"}:
+    if capability in _MEASUREMENT_CAPABILITIES:
         state = {"value": snapshot.state}
         unit = attributes.get("unit_of_measurement")
         if unit:

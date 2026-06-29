@@ -131,6 +131,75 @@ def test_rssi_signal_strength_uses_signal_quality_contract() -> None:
     }
 
 
+def test_air_quality_sensor_state_uses_measurement_contract() -> None:
+    """Air-quality sensor device classes expose readable measurement state."""
+    snapshot = EntityStateSnapshot(
+        entity_id="sensor.living_co2",
+        state="449.8",
+        attributes={
+            "device_class": "carbon_dioxide",
+            "unit_of_measurement": "ppm",
+        },
+        name="Living CO2",
+        domain="sensor",
+        device_class="environment_sensor",
+        capabilities=["carbon_dioxide"],
+        status="online",
+        presentation={"card_template": "metric_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "carbon_dioxide"
+    assert device["capabilities"][0]["role"] == "secondary"
+    assert device["capabilities"][0]["readable"] is True
+    assert device["capabilities"][0]["writable"] is False
+    assert device["capabilities"][0]["state"] == {"value": "449.8", "unit": "ppm"}
+    assert device["capabilities"][0]["commands"] == []
+
+
+def test_environment_sensor_aliases_use_canonical_measurement_names() -> None:
+    """Legacy environment aliases are normalized before logical sync."""
+    devices = [
+        device.to_dict()
+        for device in logical_devices_from_states(
+            [
+                EntityStateSnapshot(
+                    entity_id="sensor.living_co2",
+                    state="449.8",
+                    attributes={"unit_of_measurement": "ppm"},
+                    name="Living CO2",
+                    domain="sensor",
+                    device_class="environment_sensor",
+                    capabilities=["co2"],
+                    status="online",
+                    presentation={"card_template": "metric_card"},
+                ),
+                EntityStateSnapshot(
+                    entity_id="sensor.outdoor_pressure",
+                    state="1013.2",
+                    attributes={"unit_of_measurement": "hPa"},
+                    name="Outdoor Pressure",
+                    domain="sensor",
+                    device_class="environment_sensor",
+                    capabilities=["atmospheric_pressure"],
+                    status="online",
+                    presentation={"card_template": "metric_card"},
+                ),
+            ]
+        )
+    ]
+
+    assert [device["capabilities"][0]["type"] for device in devices] == [
+        "carbon_dioxide",
+        "pressure",
+    ]
+    assert [device["capabilities"][0]["state"] for device in devices] == [
+        {"value": "449.8", "unit": "ppm"},
+        {"value": "1013.2", "unit": "hPa"},
+    ]
+
+
 def test_fan_percentage_state_uses_fan_speed_contract() -> None:
     """Home Assistant fan percentage is normalized to canonical fan speed."""
     snapshot = EntityStateSnapshot(
