@@ -8,7 +8,12 @@ from typing import Any
 
 import pytest
 
-from custom_components.smartly_bridge.application.control import ControlCommand, ControlUseCase
+from custom_components.smartly_bridge.application.control import (
+    ControlCommand,
+    ControlUseCase,
+    SmartlyCommand,
+    SmartlyCommandUseCase,
+)
 from custom_components.smartly_bridge.application.sync import (
     SyncStatesUseCase,
     SyncStructureUseCase,
@@ -51,6 +56,18 @@ class FakeControlGateway:
             raise self.exc
         self.calls.append((entity_id, action, service_data))
         return self.state
+
+
+class FakeCommandTargetResolver:
+    """Fake Smartly command target resolver."""
+
+    def __init__(self, mapping: dict[tuple[str, str], str | None]) -> None:
+        self.mapping = mapping
+        self.lookups: list[tuple[str, str]] = []
+
+    def resolve_command_target(self, device_id: str, capability: str) -> str | None:
+        self.lookups.append((device_id, capability))
+        return self.mapping.get((device_id, capability))
 
 
 class FakeAudit:
@@ -290,6 +307,103 @@ async def test_control_use_case_maps_canonical_color_temperature_value_to_kelvin
     assert result.status == 200
     assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp_kelvin": 4000})]
     assert policy.service_checks == [("light.kitchen", "turn_on")]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_canonical_brightness_command() -> None:
+    """SmartlyCommand resolves logical devices before invoking source control."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 204},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-1",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 80},
+            source={"user_id": "user-1"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body == {
+        "success": True,
+        "command_id": "cmd-1",
+        "status": "completed",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "set_brightness",
+        "entity_id": "light.kitchen",
+        "new_state": "on",
+        "new_attributes": {"brightness": 204},
+    }
+    assert resolver.lookups == [("ldev_light_kitchen", "brightness")]
+    assert gateway.calls == [("light.kitchen", "turn_on", {"brightness_pct": 80})]
+    assert audit.controls == [
+        (
+            "client-1",
+            "light.kitchen",
+            "set_brightness",
+            "success",
+            {
+                "user_id": "user-1",
+                "command_id": "cmd-1",
+                "logical_device_id": "ldev_light_kitchen",
+                "capability": "brightness",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
+    """Canonical commands fail before source control when no source target exists."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-404",
+            device_id="ldev_unknown",
+            capability="power",
+            command="turn_on",
+            params={},
+        ),
+    )
+
+    assert result.status == 404
+    assert result.body == {
+        "success": False,
+        "command_id": "cmd-404",
+        "status": "rejected",
+        "error": "command_target_not_found",
+        "device_id": "ldev_unknown",
+        "capability": "power",
+    }
+    assert resolver.lookups == [("ldev_unknown", "power")]
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_unknown",
+            "turn_on",
+            "command_target_not_found",
+            {"command_id": "cmd-404", "capability": "power"},
+        )
+    ]
 
 
 def test_sync_structure_use_case_returns_gateway_structure() -> None:

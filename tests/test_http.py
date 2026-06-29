@@ -23,6 +23,7 @@ from custom_components.smartly_bridge.views.control import (
     _entity_id_from_body,
     _normalize_control_body,
     _service_data_from_body,
+    _smartly_command_from_body,
 )
 
 
@@ -99,6 +100,38 @@ def test_control_request_normalizes_platform_command_with_entity_target() -> Non
 
     assert normalized["entity_id"] == "button.usb_fan_short_press"
     assert normalized["action"] == "press"
+
+
+def test_control_request_builds_vnext_smartly_command() -> None:
+    """API vNext command payloads remain logical-device commands."""
+    body = {
+        "command_id": "cmd-1",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "set_brightness",
+        "params": {"value": 80},
+        "source": {"user_id": "user-1"},
+    }
+
+    command = _smartly_command_from_body(body)
+
+    assert command is not None
+    assert command.command_id == "cmd-1"
+    assert command.device_id == "ldev_light_kitchen"
+    assert command.capability == "brightness"
+    assert command.command == "set_brightness"
+    assert command.params == {"value": 80}
+    assert command.source == {"user_id": "user-1"}
+
+
+def test_control_request_ignores_legacy_body_as_vnext_command() -> None:
+    """Legacy control requests continue through entity/action normalization."""
+    assert (
+        _smartly_command_from_body(
+            {"entity_id": "light.kitchen", "action": "turn_on", "service_data": {}}
+        )
+        is None
+    )
 
 
 def test_control_request_does_not_forward_routing_target_as_service_data() -> None:
@@ -861,6 +894,92 @@ class TestControlEndpointFullFlow:
             "button",
             "press",
             {"entity_id": "button.usb_fan_fan_short"},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_smartly_command_dispatches_resolved_source_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext commands resolve logical devices before calling Home Assistant."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+        updated_state = MagicMock()
+        updated_state.state = "on"
+        updated_state.attributes = {"brightness": 204}
+        mock_hass.states.get.return_value = updated_state
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["light.kitchen"],
+            ),
+        ):
+            mock_registry = MagicMock()
+            mock_entry = MagicMock()
+            mock_entry.labels = {"smartly"}
+            mock_entry.device_id = "ha-device-1"
+            mock_registry.async_get = MagicMock(return_value=mock_entry)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-1",
+                "device_id": "ldev_ha_device_1",
+                "capability": "brightness",
+                "command": "set_brightness",
+                "params": {"value": 80},
+                "source": {"user_id": "user-1"},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        assert json.loads(response.body) == {
+            "success": True,
+            "command_id": "cmd-1",
+            "status": "completed",
+            "device_id": "ldev_ha_device_1",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "entity_id": "light.kitchen",
+            "new_state": "on",
+            "new_attributes": {"brightness": 204},
+        }
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "light",
+            "turn_on",
+            {"entity_id": "light.kitchen", "brightness_pct": 80},
             blocking=True,
         )
 

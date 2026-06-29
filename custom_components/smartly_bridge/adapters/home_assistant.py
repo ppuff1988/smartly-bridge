@@ -14,6 +14,10 @@ from ..acl import (
     is_service_allowed,
 )
 from ..audit import log_control, log_deny
+from ..application.logical_devices import (
+    canonical_capability_name,
+    logical_device_id_for_source_id,
+)
 from ..const import (
     BRIDGE_CHART_LOOKBACK_HOURS,
     DEFAULT_DOMAIN_ICONS,
@@ -229,6 +233,48 @@ class HomeAssistantControlGateway:
             state=state.state,
             attributes=format_numeric_attributes(dict(state.attributes)),
         )
+
+
+class HomeAssistantCommandTargetResolver:
+    """Resolve Smartly logical-device commands to Home Assistant entities."""
+
+    def __init__(
+        self,
+        hass: Any,
+        *,
+        allowed_entities_fn: Callable[[Any, Any], list[str]] | None = None,
+    ) -> None:
+        self._hass = hass
+        self._allowed_entities_fn = allowed_entities_fn or get_allowed_entities
+
+    def resolve_command_target(self, device_id: str, capability: str) -> str | None:
+        """Return the HA entity that owns the requested logical capability."""
+        from homeassistant.helpers import entity_registry as er
+
+        entity_registry = er.async_get(self._hass)
+        allowed_entities = self._allowed_entities_fn(self._hass, entity_registry)
+        for entity_id in allowed_entities:
+            entry = entity_registry.async_get(entity_id)
+            source_device_id = getattr(entry, "device_id", None) if entry else None
+            if not isinstance(source_device_id, str):
+                source_device_id = entity_id
+            if logical_device_id_for_source_id(source_device_id) != device_id:
+                continue
+
+            state = self._hass.states.get(entity_id)
+            attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
+            metadata = build_device_card_metadata(
+                entity_id,
+                getattr(state, "state", None) if state else None,
+                attributes,
+                _entry_labels(entry),
+            )
+            canonical_capabilities = {
+                canonical_capability_name(item) for item in metadata["capabilities"]
+            }
+            if capability in canonical_capabilities:
+                return entity_id
+        return None
 
 
 class HomeAssistantSyncGateway:

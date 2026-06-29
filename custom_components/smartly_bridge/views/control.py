@@ -11,11 +11,17 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
+    HomeAssistantCommandTargetResolver,
     HomeAssistantControlGateway,
     HomeAssistantEntityPolicy,
     LoggingAuditAdapter,
 )
-from ..application.control import ControlCommand, ControlUseCase
+from ..application.control import (
+    ControlCommand,
+    ControlUseCase,
+    SmartlyCommand,
+    SmartlyCommandUseCase,
+)
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -84,6 +90,24 @@ def _normalize_control_body(body: dict[str, Any]) -> dict[str, Any]:
         "service_data": _service_data_from_body(body),
         "actor": body.get("actor", {}),
     }
+
+
+def _smartly_command_from_body(body: dict[str, Any]) -> SmartlyCommand | None:
+    """Return API vNext SmartlyCommand when the body uses canonical command shape."""
+    required = ("command_id", "device_id", "capability", "command")
+    if not all(body.get(field) for field in required):
+        return None
+
+    params = body.get("params", {})
+    source = body.get("source")
+    return SmartlyCommand(
+        command_id=str(body["command_id"]),
+        device_id=str(body["device_id"]),
+        capability=str(body["capability"]),
+        command=str(body["command"]),
+        params=params if isinstance(params, dict) else {},
+        source=source if isinstance(source, dict) else None,
+    )
 
 
 class SmartlyControlView(web.View):
@@ -169,6 +193,16 @@ class SmartlyControlView(web.View):
                 {"error": "invalid_json"},
                 status=400,
             )
+
+        smartly_command = _smartly_command_from_body(body)
+        if smartly_command is not None:
+            result = await SmartlyCommandUseCase(
+                HomeAssistantEntityPolicy(self.hass),
+                HomeAssistantControlGateway(self.hass),
+                LoggingAuditAdapter(_LOGGER),
+                HomeAssistantCommandTargetResolver(self.hass),
+            ).execute(auth_result.client_id or "unknown", smartly_command)
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         normalized_body = _normalize_control_body(body)
         entity_id = normalized_body["entity_id"]

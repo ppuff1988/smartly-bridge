@@ -36,6 +36,16 @@ def logical_devices_from_states(
     return [_logical_device_from_group(group) for group in grouped.values()]
 
 
+def logical_device_id_for_source_id(source_id: str) -> str:
+    """Return the deterministic logical device ID for a source identifier."""
+    return _logical_device_id(source_id)
+
+
+def canonical_capability_name(capability: str) -> str:
+    """Return the canonical capability name for a legacy capability."""
+    return _canonical_capability(capability)
+
+
 def _logical_device_from_group(snapshots: list[EntityStateSnapshot]) -> SmartlyLogicalDevice:
     """Build a logical device from one source-device group."""
     primary = _primary_snapshot(snapshots)
