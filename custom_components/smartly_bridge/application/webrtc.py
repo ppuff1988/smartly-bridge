@@ -36,7 +36,7 @@ class WebRTCTokenUseCase:
             turn_username=turn_config.get("turn_username"),
             turn_credential=turn_config.get("turn_credential"),
         )
-        return BridgeResponse(
+        return _webrtc_success_response(
             {
                 "token": token.token,
                 "expires_at": int(token.expires_at),
@@ -47,7 +47,6 @@ class WebRTCTokenUseCase:
                 "hangup_endpoint": f"/api/smartly/camera/{entity_id}/webrtc/hangup",
                 "ice_servers": ice_servers,
             },
-            status=200,
         )
 
 
@@ -172,6 +171,20 @@ def _webrtc_error_response(error: str, *, status: int) -> BridgeResponse:
                     "retryable": False,
                 }
             ],
+        },
+        status=status,
+    )
+
+
+def _webrtc_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
+    """Return a legacy-compatible API vNext WebRTC success response."""
+    return BridgeResponse(
+        {
+            **body,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
         },
         status=status,
     )

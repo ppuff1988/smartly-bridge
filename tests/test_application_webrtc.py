@@ -131,6 +131,26 @@ async def test_webrtc_token_use_case_returns_connection_info() -> None:
     assert result.body["expires_in"] == 250
     assert result.body["offer_endpoint"] == "/api/smartly/camera/camera.front/webrtc/offer"
     assert result.body["ice_servers"][1]["urls"] == "turn:turn.example.com:3478"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "token": "token-123",
+        "expires_at": 2000,
+        "expires_in": 250,
+        "entity_id": "camera.front",
+        "offer_endpoint": "/api/smartly/camera/camera.front/webrtc/offer",
+        "ice_endpoint": "/api/smartly/camera/camera.front/webrtc/ice",
+        "hangup_endpoint": "/api/smartly/camera/camera.front/webrtc/hangup",
+        "ice_servers": [
+            {"urls": "stun:stun.example.com:19302"},
+            {
+                "urls": "turn:turn.example.com:3478",
+                "username": "user",
+                "credential": "secret",
+            },
+        ],
+    }
 
 
 @pytest.mark.asyncio
