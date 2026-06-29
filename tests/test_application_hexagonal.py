@@ -668,6 +668,42 @@ async def test_smartly_command_use_case_dispatches_climate_mode_command() -> Non
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_climate_temperature_command() -> None:
+    """Target temperature commands map canonical values to climate services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="climate.living_room",
+            state="cool",
+            attributes={"temperature": 24},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_climate_living_room", "target_temperature"): "climate.living_room"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-temperature",
+            device_id="ldev_climate_living_room",
+            capability="target_temperature",
+            command="set_temperature",
+            params={"value": 24},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "target_temperature": {"value": 24, "unit": "celsius"}
+    }
+    assert gateway.calls == [
+        ("climate.living_room", "set_temperature", {"temperature": 24})
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     """Canonical commands fail before source control when no source target exists."""
     audit = FakeAudit()
@@ -864,6 +900,45 @@ async def test_smartly_command_use_case_rejects_invalid_color_temperature_params
             "set_color_temperature",
             "invalid_params",
             {"command_id": "cmd-invalid-color-temp", "capability": "color_temperature"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_target_temperature_params() -> None:
+    """Target temperature commands require a numeric value."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_climate_living_room", "target_temperature"): "climate.living_room"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-target-temperature",
+            device_id="ldev_climate_living_room",
+            capability="target_temperature",
+            command="set_temperature",
+            params={"value": "warm"},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "climate.living_room"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_climate_living_room",
+            "set_temperature",
+            "invalid_params",
+            {
+                "command_id": "cmd-invalid-target-temperature",
+                "capability": "target_temperature",
+            },
         )
     ]
 

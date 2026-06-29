@@ -30,6 +30,7 @@ FAN_ACTIONS = {
 
 CLIMATE_ACTIONS = {
     "set_mode": "set_hvac_mode",
+    "set_temperature": "set_temperature",
 }
 
 SUPPORTED_SMARTLY_COMMANDS = {
@@ -37,6 +38,7 @@ SUPPORTED_SMARTLY_COMMANDS = {
     "brightness": {"set_brightness"},
     "color_temperature": {"set_color_temperature"},
     "rgb_color": {"set_rgb_color"},
+    "target_temperature": {"set_temperature"},
     "position": {"set_position", "open", "close", "stop"},
     "fan_speed": {"set_fan_speed"},
     "mode_select": {"set_mode"},
@@ -270,6 +272,11 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         if rgb_color is None:
             return False
         return all(0 <= channel <= 255 for channel in rgb_color.values())
+    if (
+        command.capability == "target_temperature"
+        and command.command == "set_temperature"
+    ):
+        return isinstance(command.params.get("value"), (int, float))
     if command.capability == "position" and command.command == "set_position":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
@@ -308,6 +315,8 @@ def _normalize_climate_service_data(action: str, service_data: dict[str, Any]) -
     normalized = dict(service_data)
     if action == "set_mode" and "mode" in normalized:
         normalized.setdefault("hvac_mode", normalized.pop("mode"))
+    if action == "set_temperature" and "value" in normalized:
+        normalized.setdefault("temperature", normalized.pop("value"))
     return normalized
 
 
@@ -378,6 +387,18 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         rgb_color = _rgb_color_state(command.params)
         if rgb_color is not None:
             return {"rgb_color": {"value": rgb_color}}
+
+    if (
+        command.capability == "target_temperature"
+        and command.command == "set_temperature"
+        and isinstance(command.params.get("value"), (int, float))
+    ):
+        return {
+            "target_temperature": {
+                "value": command.params["value"],
+                "unit": "celsius",
+            }
+        }
 
     if command.capability == "position":
         if command.command == "set_position" and isinstance(

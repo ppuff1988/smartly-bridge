@@ -13,6 +13,7 @@ _WRITABLE_CAPABILITIES = {
     "brightness",
     "color_temperature",
     "rgb_color",
+    "target_temperature",
     "position",
     "fan_speed",
     "mode_select",
@@ -244,6 +245,8 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _numeric_state(snapshot, default_unit="percent")
     if capability == "signal_quality":
         return _signal_quality_state(snapshot)
+    if capability == "target_temperature":
+        return _target_temperature_state(snapshot)
     if capability == "fan_speed":
         return _fan_speed_state(snapshot)
     if capability == "position":
@@ -315,6 +318,13 @@ def _normalized_unit(value: Any, *, default_unit: str | None = None) -> str | No
     return default_unit
 
 
+def _temperature_unit(value: Any) -> str:
+    """Return canonical temperature unit names."""
+    if value in {"°F", "F", "fahrenheit"}:
+        return "fahrenheit"
+    return "celsius"
+
+
 def _signal_quality_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     """Return canonical signal quality state from legacy signal metadata."""
     attributes = snapshot.attributes or {}
@@ -361,6 +371,22 @@ def _fan_speed_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
         preset_mode = attributes.get("preset_mode")
         return {"speed": preset_mode} if isinstance(preset_mode, str) else {}
     return {"percentage": max(0, min(100, percentage)), "unit": "percent"}
+
+
+def _target_temperature_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical target temperature from Home Assistant climate metadata."""
+    attributes = snapshot.attributes or {}
+    temperature = _numeric_value(attributes.get("target_temperature"))
+    if temperature is None:
+        temperature = _numeric_value(attributes.get("target_temp"))
+    if temperature is None:
+        temperature = _numeric_value(attributes.get("temperature"))
+    if temperature is None:
+        return {}
+    return {
+        "value": temperature,
+        "unit": _temperature_unit(attributes.get("unit_of_measurement")),
+    }
 
 
 def _position_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
@@ -449,6 +475,7 @@ def _commands_for_capability(capability: str) -> list[str]:
         "brightness": ["set_brightness"],
         "color_temperature": ["set_color_temperature"],
         "rgb_color": ["set_rgb_color"],
+        "target_temperature": ["set_temperature"],
         "position": ["set_position", "open", "close", "stop"],
         "fan_speed": ["set_fan_speed"],
         "mode_select": ["set_mode"],
@@ -465,6 +492,8 @@ def _constraints_for_capability(
         return {"min": 0, "max": 100, "step": 1}
     if capability == "color_temperature":
         return _color_temperature_constraints(snapshot.attributes or {})
+    if capability == "target_temperature":
+        return _target_temperature_constraints(snapshot.attributes or {})
     if capability == "fan_speed":
         return {"min": 0, "max": 100, "step": 1}
     if capability == "position":
@@ -485,6 +514,21 @@ def _color_temperature_constraints(attributes: dict[str, Any]) -> dict[str, Any]
     if min_kelvin is None or max_kelvin is None:
         return {}
     return {"min": min_kelvin, "max": max_kelvin, "step": 50}
+
+
+def _target_temperature_constraints(attributes: dict[str, Any]) -> dict[str, Any]:
+    """Return target temperature constraints from Home Assistant climate metadata."""
+    constraints: dict[str, Any] = {}
+    min_temp = _numeric_value(attributes.get("min_temp"))
+    max_temp = _numeric_value(attributes.get("max_temp"))
+    step = _numeric_value(attributes.get("target_temp_step"))
+    if min_temp is not None:
+        constraints["min"] = min_temp
+    if max_temp is not None:
+        constraints["max"] = max_temp
+    if step is not None:
+        constraints["step"] = step
+    return constraints
 
 
 def _logical_device_presentation(

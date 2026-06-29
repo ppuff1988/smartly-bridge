@@ -267,6 +267,38 @@ def test_climate_hvac_mode_uses_mode_select_contract() -> None:
     assert device["capabilities"][0]["commands"] == ["set_mode"]
 
 
+def test_climate_target_temperature_uses_target_temperature_contract() -> None:
+    """Home Assistant climate temperature is normalized to target temperature."""
+    snapshot = EntityStateSnapshot(
+        entity_id="climate.living_room",
+        state="cool",
+        attributes={
+            "temperature": 24,
+            "min_temp": 16,
+            "max_temp": 30,
+            "target_temp_step": 0.5,
+            "unit_of_measurement": "°C",
+        },
+        name="Living Room AC",
+        domain="climate",
+        device_class="climate_control",
+        capabilities=["target_temperature"],
+        status="online",
+        presentation={"card_template": "climate_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["type"] == "target_temperature"
+    assert device["capabilities"][0]["state"] == {"value": 24, "unit": "celsius"}
+    assert device["capabilities"][0]["constraints"] == {
+        "min": 16,
+        "max": 30,
+        "step": 0.5,
+    }
+    assert device["capabilities"][0]["commands"] == ["set_temperature"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [
