@@ -78,7 +78,7 @@
 | 46 | `e01355e` | Device event accepted response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy event response 欄位 | RED failed with missing `schema_version`; affected tests `14 passed`; full suite `529 passed` |
 | 47 | `ddadb62` | Device event duplicate response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy duplicate response 欄位 | RED failed with missing `schema_version`; affected tests `15 passed`; full suite `530 passed` |
 | 48 | `14f5de7` | Sync states response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `states` / `logical_devices` 欄位 | RED failed with missing `schema_version`; affected tests `99 passed`; full suite `531 passed` |
-| 49 | current slice | Sync structure response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy structure top-level 欄位 | RED failed with missing `schema_version`; affected tests `100 passed`; full suite `532 passed` |
+| 49 | `aad30d2` | Sync structure response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy structure top-level 欄位 | RED failed with missing `schema_version`; affected tests `100 passed`; full suite `532 passed` |
 
 ## Completed Slices
 
@@ -90,7 +90,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate event response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62` |
-| Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, current slice |
+| Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
 | Cover | position、stop merge、tilt position control | `824a555`, `c02479b`, `5e569e5` |
