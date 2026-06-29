@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -271,6 +272,48 @@ class TestSmartlyHistoryView:
                     # 驗證包含 metadata
                     assert "metadata" in data
                     assert data["metadata"]["is_numeric"] is True
+
+    @pytest.mark.asyncio
+    async def test_query_timeout_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test history query timeout returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "custom_components.smartly_bridge.views.history.SingleHistoryUseCase.execute",
+                    new_callable=AsyncMock,
+                ) as mock_execute:
+                    mock_execute.side_effect = asyncio.TimeoutError
+
+                    view = SmartlyHistoryView(mock_request)
+                    response = await view.get()
+
+                    assert response.status == 504
+                    data = json.loads(response.body)
+                    assert data == {
+                        "error": "query_timeout",
+                        "schema_version": "2026.06",
+                        "data": {"status": "rejected"},
+                        "warnings": [],
+                        "errors": [
+                            {
+                                "code": "QUERY_TIMEOUT",
+                                "message": "query timeout",
+                                "target": "history",
+                                "retryable": False,
+                            }
+                        ],
+                    }
 
 
 class TestSmartlyHistoryBatchView:

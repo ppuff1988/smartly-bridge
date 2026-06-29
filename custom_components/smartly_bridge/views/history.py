@@ -29,6 +29,7 @@ from ..application.history import (
     SingleHistoryUseCase,
     StatisticsQuery,
     StatisticsUseCase,
+    _history_error_response,
     decode_cursor,
     encode_cursor,
     parse_datetime,
@@ -443,7 +444,8 @@ class SmartlyHistoryView(web.View):
             )
         except asyncio.TimeoutError:
             _LOGGER.error("History query timeout for %s", entity_id)
-            return web.json_response({"error": "query_timeout"}, status=504)
+            result = _history_error_response("query_timeout", status=504)
+            return web.json_response(result.body, status=result.status, headers=result.headers)
         except Exception as err:
             _LOGGER.error(
                 "Failed to query history for %s (range: %s to %s): %s",
