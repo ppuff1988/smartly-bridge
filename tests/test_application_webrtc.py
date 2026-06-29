@@ -404,8 +404,17 @@ async def test_webrtc_offer_use_case_reports_signaling_failure() -> None:
     )
 
     assert result.status == 500
-    assert result.body == {
-        "error": "webrtc_failed",
-        "message": "go2rtc failed",
-        "session_id": "abcdef1234567890",
-    }
+    assert result.body["error"] == "webrtc_failed"
+    assert result.body["message"] == "go2rtc failed"
+    assert result.body["session_id"] == "abcdef1234567890"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "WEBRTC_FAILED",
+            "message": "webrtc failed",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]

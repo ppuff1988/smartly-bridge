@@ -113,13 +113,13 @@ class WebRTCOfferUseCase:
                 session,
             )
         except Exception as err:
-            return BridgeResponse(
-                {
-                    "error": "webrtc_failed",
+            return _webrtc_error_response(
+                "webrtc_failed",
+                status=500,
+                legacy_fields={
                     "message": str(err),
                     "session_id": session.token[:16],
                 },
-                status=500,
             )
 
         await self._gateway.update_session_state(
