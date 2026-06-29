@@ -729,7 +729,24 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body)["error"] == "device_event_failed"
+        assert json.loads(response.body) == {
+            "error": "device_event_failed",
+            "message": "RuntimeError: event bus unavailable",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "device_abc123",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "DEVICE_EVENT_FAILED",
+                    "message": "RuntimeError: event bus unavailable",
+                    "target": "device_event.dispatch",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_device_event_wrapper_accepts_route_device_id(self, mock_hass):
