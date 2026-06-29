@@ -85,6 +85,7 @@
 - Legacy control integration-not-configured response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control authentication failure response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control rate-limit response 已保留 legacy `error` 與 rate-limit headers，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
+- Legacy control invalid JSON response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control entity-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-call-failed application response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -233,6 +234,7 @@
 | 126 | `164f0f1` | Legacy control HTTP integration-not-configured failure 改用 API vNext envelope，保留 legacy `error` 並補上 `data.status` 與 structured `errors[]` | RED failed with legacy-only `{"error": "integration_not_configured"}`; targeted test `1 passed`; affected control/http/acl tests `147 passed`; full suite `605 passed` |
 | 127 | `eccf5c7` | Legacy control HTTP authentication failure 改用 API vNext envelope，保留 legacy auth `error` 並補上 `data.status` 與 structured `errors[]` | RED failed with legacy-only `{"error": "invalid_signature"}`; targeted test `1 passed`; affected control/http/acl tests `148 passed`; full suite `606 passed` |
 | 128 | `f6f8ec5` | Legacy control HTTP rate-limit failure 改用 API vNext envelope，保留 legacy `error`、`Retry-After` 與 `X-RateLimit-Remaining` headers | RED failed with legacy-only `{"error": "rate_limited"}`; targeted test `1 passed`; affected control/http/acl tests `148 passed`; full suite `606 passed` |
+| 129 | `5bb258a` | Legacy control HTTP invalid JSON failure 改用 API vNext envelope，保留 legacy `error` 並補上 `data.status` 與 structured `errors[]` | RED failed with legacy-only `{"error": "invalid_json"}`; targeted test `1 passed`; affected control/http/acl tests `148 passed`; full suite `606 passed` |
 
 ## Completed Slices
 
@@ -242,7 +244,7 @@
 | Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/integration-not-configured/auth failure/rate-limit/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press` | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65`, `164f0f1`, `eccf5c7`, `f6f8ec5` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/integration-not-configured/auth failure/rate-limit/invalid JSON/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press` | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65`, `164f0f1`, `eccf5c7`, `f6f8ec5`, `5bb258a` |
 | Test harness | Sync structure view test 明確 mock HA registries，讓 Python 3.14 / HA 2026.6 registry setup 下的 full suite 可穩定驗證 view wiring | `82be030` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP auth failure / rate-limit / integration-not-configured / dispatch failure / invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields；accepted non-duplicate event 可交給 local automation port 處理，duplicate event 不會重複觸發 automation；Device event view 已接上 HA runtime rule store / SmartlyCommand executor | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16`, `3a44cc6`, `8d721e5`, `b6ded93`, `b9fd8fd`, `29e326a`, `4c14613` |
 | History path | history invalid-time-range、time-range-too-large、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `max_days` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72` |
@@ -262,8 +264,8 @@
 
 ## Latest Verification
 
-- Legacy control rate-limit envelope RED: targeted test failed with legacy-only `{"error": "rate_limited"}`
-- Targeted legacy control rate-limit envelope test: `1 passed`
+- Legacy control invalid JSON envelope RED: targeted test failed with legacy-only `{"error": "invalid_json"}`
+- Targeted legacy control invalid JSON envelope test: `1 passed`
 - Affected control/http/acl tests: `148 passed`
 - Full suite: `606 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
