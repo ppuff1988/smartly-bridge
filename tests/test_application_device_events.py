@@ -189,6 +189,7 @@ async def test_duplicate_button_action_reuses_event_id_without_republishing() ->
     assert second.status == 200
     assert second.body == {
         "success": True,
+        "schema_version": "2026.06",
         "duplicate": True,
         "status": "duplicate",
         "event_id": "evt_first",
@@ -208,8 +209,68 @@ async def test_duplicate_button_action_reuses_event_id_without_republishing() ->
                 "occurred_at": "2026-06-27T10:20:00.000Z",
             }
         ],
+        "data": {
+            "event_id": "evt_first",
+            "status": "duplicate",
+            "events": [
+                {
+                    "event_id": "evt_first",
+                    "device_id": "device_abc123",
+                    "capability": "button_event",
+                    "event": "single_press",
+                    "payload": {"button": "left"},
+                    "occurred_at": "2026-06-27T10:20:00.000Z",
+                }
+            ],
+        },
+        "warnings": [],
+        "errors": [],
     }
     assert len(publisher.events) == 1
+
+
+@pytest.mark.asyncio
+async def test_duplicate_button_action_response_includes_vnext_envelope() -> None:
+    """Duplicate event responses expose API vNext envelope fields."""
+    publisher = FakeDeviceEventPublisher()
+    deduplicator = FakeEventDeduplicator()
+    event_ids = iter(["evt_first", "evt_second"])
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: next(event_ids),
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+        deduplicator=deduplicator,
+    )
+    command = DeviceEventCommand(
+        device_id="device_abc123",
+        type="button_action",
+        action="single_left",
+        timestamp="2026-06-27T10:20:00.000Z",
+    )
+
+    await use_case.execute("client-1", command)
+    duplicate = await use_case.execute("client-1", command)
+
+    assert duplicate.status == 200
+    assert duplicate.body["success"] is True
+    assert duplicate.body["duplicate"] is True
+    assert duplicate.body["schema_version"] == "2026.06"
+    assert duplicate.body["warnings"] == []
+    assert duplicate.body["errors"] == []
+    assert duplicate.body["data"] == {
+        "event_id": "evt_first",
+        "status": "duplicate",
+        "events": [
+            {
+                "event_id": "evt_first",
+                "device_id": "device_abc123",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "occurred_at": "2026-06-27T10:20:00.000Z",
+            }
+        ],
+    }
 
 
 @pytest.mark.asyncio

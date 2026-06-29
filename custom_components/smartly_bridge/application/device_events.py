@@ -161,6 +161,7 @@ def _duplicate_event_response(
     return BridgeResponse(
         {
             "success": True,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "duplicate": True,
             "status": "duplicate",
             "event_id": event_id,
@@ -169,6 +170,13 @@ def _duplicate_event_response(
             "received_at": received_at,
             **canonical,
             "events": [canonical_event],
+            "data": {
+                "event_id": event_id,
+                "status": "duplicate",
+                "events": [canonical_event],
+            },
+            "warnings": [],
+            "errors": [],
         },
         status=200,
     )
