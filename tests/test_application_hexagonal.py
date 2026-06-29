@@ -506,6 +506,74 @@ async def test_smartly_command_use_case_returns_rgb_color_expected_state() -> No
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_cover_position_command() -> None:
+    """Cover position commands map canonical position to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="cover.living_curtain",
+            state="open",
+            attributes={"current_position": 55},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_cover_living_curtain", "position"): "cover.living_curtain"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-cover-position",
+            device_id="ldev_cover_living_curtain",
+            capability="position",
+            command="set_position",
+            params={"value": 55},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "position": {"value": 55, "unit": "percent"}
+    }
+    assert gateway.calls == [
+        ("cover.living_curtain", "set_cover_position", {"position": 55})
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_dispatches_cover_open_command() -> None:
+    """Cover open commands map canonical names to Home Assistant services."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="cover.living_curtain",
+            state="open",
+            attributes={},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_cover_living_curtain", "position"): "cover.living_curtain"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-cover-open",
+            device_id="ldev_cover_living_curtain",
+            capability="position",
+            command="open",
+            params={},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"position": {"value": 100, "unit": "percent"}}
+    assert gateway.calls == [("cover.living_curtain", "open_cover", {})]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
     """Canonical commands fail before source control when no source target exists."""
     audit = FakeAudit()
@@ -702,6 +770,42 @@ async def test_smartly_command_use_case_rejects_invalid_color_temperature_params
             "set_color_temperature",
             "invalid_params",
             {"command_id": "cmd-invalid-color-temp", "capability": "color_temperature"},
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_invalid_position_params() -> None:
+    """Position commands require a percentage value in range."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver(
+        {("ldev_cover_living_curtain", "position"): "cover.living_curtain"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-invalid-position",
+            device_id="ldev_cover_living_curtain",
+            capability="position",
+            command="set_position",
+            params={"value": 120},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["entity_id"] == "cover.living_curtain"
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "ldev_cover_living_curtain",
+            "set_position",
+            "invalid_params",
+            {"command_id": "cmd-invalid-position", "capability": "position"},
         )
     ]
 

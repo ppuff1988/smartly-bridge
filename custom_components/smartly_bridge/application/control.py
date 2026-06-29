@@ -17,6 +17,13 @@ LIGHT_TURN_ON_ACTIONS = {
     "set_color_temperature",
 }
 
+COVER_ACTIONS = {
+    "set_position": "set_cover_position",
+    "open": "open_cover",
+    "close": "close_cover",
+    "stop": "stop_cover",
+}
+
 SUPPORTED_SMARTLY_COMMANDS = {
     "power": {"turn_on", "turn_off", "toggle"},
     "brightness": {"set_brightness"},
@@ -255,11 +262,18 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         if rgb_color is None:
             return False
         return all(0 <= channel <= 255 for channel in rgb_color.values())
+    if command.capability == "position" and command.command == "set_position":
+        value = command.params.get("value")
+        return isinstance(value, (int, float)) and 0 <= value <= 100
     return True
 
 
 def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any]]:
     """Map Smartly-friendly actions to Home Assistant service calls."""
+    if get_entity_domain(command.entity_id) == "cover" and command.action in COVER_ACTIONS:
+        service_action = COVER_ACTIONS[command.action]
+        return service_action, _normalize_cover_service_data(command.action, command.service_data)
+
     if (
         get_entity_domain(command.entity_id) != "light"
         or command.action not in LIGHT_TURN_ON_ACTIONS
@@ -267,6 +281,14 @@ def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any
         return command.action, command.service_data
 
     return "turn_on", _normalize_light_service_data(command.action, command.service_data)
+
+
+def _normalize_cover_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:
+    """Normalize canonical cover params to Home Assistant cover service data."""
+    normalized = dict(service_data)
+    if action == "set_position" and "value" in normalized:
+        normalized.setdefault("position", normalized.pop("value"))
+    return normalized
 
 
 def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:
@@ -328,6 +350,21 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
         rgb_color = _rgb_color_state(command.params)
         if rgb_color is not None:
             return {"rgb_color": {"value": rgb_color}}
+
+    if command.capability == "position":
+        if command.command == "set_position" and isinstance(
+            command.params.get("value"), (int, float)
+        ):
+            return {
+                "position": {
+                    "value": command.params["value"],
+                    "unit": "percent",
+                }
+            }
+        if command.command == "open":
+            return {"position": {"value": 100, "unit": "percent"}}
+        if command.command == "close":
+            return {"position": {"value": 0, "unit": "percent"}}
 
     return {}
 
