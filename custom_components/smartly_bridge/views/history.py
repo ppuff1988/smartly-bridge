@@ -860,10 +860,12 @@ class SmartlyStatisticsView(web.View):
             )
         except Exception as err:
             _LOGGER.error("Failed to query statistics for %s: %s", entity_id, err)
-            return web.json_response(
-                {"error": "statistics_query_failed"},
+            result = _history_error_response(
+                "statistics_query_failed",
                 status=500,
+                target="statistics",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
