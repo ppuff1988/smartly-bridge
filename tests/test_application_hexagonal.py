@@ -132,6 +132,25 @@ class FakeSyncGateway:
         return self.states
 
 
+class FakeDiagnosticSyncGateway:
+    """Fake sync port with an unsupported entity."""
+
+    async def list_states(self) -> list[EntityStateSnapshot]:
+        return [
+            EntityStateSnapshot(
+                entity_id="camera.porch",
+                state="idle",
+                attributes={"friendly_name": "Porch Camera"},
+                name="Porch Camera",
+                domain="camera",
+                device_class="unknown_device",
+                capabilities=[],
+                status="online",
+                presentation={"card_template": "unknown_card"},
+            )
+        ]
+
+
 @pytest.mark.asyncio
 async def test_control_use_case_denies_entity_before_service_call() -> None:
     """Disallowed entities are denied by the use case without touching HA services."""
@@ -579,6 +598,7 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
             }
         ],
         "count": 1,
+        "normalization_warnings": [],
         "logical_devices": [
             {
                 "id": "ldev_light_kitchen",
@@ -650,6 +670,31 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_reports_diagnostic_normalization_warnings() -> None:
+    """Unsupported entities remain visible and emit diagnostic normalization warnings."""
+    result = await SyncStatesUseCase(FakeDiagnosticSyncGateway()).execute()
+
+    assert result.status == 200
+    assert result.body["logical_devices"][0]["device_class"] == "diagnostic_device"
+    assert result.body["logical_devices"][0]["aliases"] == [
+        {
+            "kind": "home_assistant_entity_id",
+            "value": "camera.porch",
+            "valid_from": None,
+            "valid_until": None,
+        }
+    ]
+    assert result.body["normalization_warnings"] == [
+        {
+            "code": "diagnostic_device",
+            "message": "Entity group could not be normalized to supported capabilities",
+            "logical_device_id": "ldev_camera_porch",
+            "entity_ids": ["camera.porch"],
+        }
+    ]
 
 
 def test_inner_layers_do_not_import_framework_adapters() -> None:

@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from typing import Any
+
 from ..domain.models import BridgeResponse
 from .logical_devices import logical_devices_from_states
 from .ports import SyncStatesPort, SyncStructurePort
@@ -28,8 +30,32 @@ class SyncStatesUseCase:
         """Return states and count."""
         snapshots = await self._gateway.list_states()
         states = [state.to_sync_dict() for state in snapshots]
-        logical_devices = [device.to_dict() for device in logical_devices_from_states(snapshots)]
+        logical_device_models = logical_devices_from_states(snapshots)
+        logical_devices = [device.to_dict() for device in logical_device_models]
+        warnings = _normalization_warnings(logical_devices)
         return BridgeResponse(
-            {"states": states, "count": len(states), "logical_devices": logical_devices},
+            {
+                "states": states,
+                "count": len(states),
+                "normalization_warnings": warnings,
+                "logical_devices": logical_devices,
+            },
             status=200,
         )
+
+
+def _normalization_warnings(logical_devices: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Return shadow-normalization warnings for diagnostic fallback devices."""
+    warnings: list[dict[str, Any]] = []
+    for device in logical_devices:
+        if device.get("device_class") != "diagnostic_device" and device.get("capabilities"):
+            continue
+        warnings.append(
+            {
+                "code": "diagnostic_device",
+                "message": "Entity group could not be normalized to supported capabilities",
+                "logical_device_id": device["id"],
+                "entity_ids": device["source_entities"],
+            }
+        )
+    return warnings
