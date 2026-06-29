@@ -1,0 +1,125 @@
+"""Tests for Home Assistant local automation adapters."""
+
+from __future__ import annotations
+
+from unittest.mock import MagicMock
+
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantLocalAutomationRuleStore,
+)
+from custom_components.smartly_bridge.application.local_automation import (
+    AutomationAction,
+    AutomationTrigger,
+    LocalAutomationRule,
+)
+from custom_components.smartly_bridge.const import DOMAIN
+
+
+def test_local_automation_rule_store_loads_serialized_config_entry_rules() -> None:
+    """Serialized config entry rules are adapted into local automation rules."""
+    hass = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            "config_entry": MagicMock(
+                data={
+                    "local_automation_rules": [
+                        {
+                            "rule_id": "rule-left-single",
+                            "enabled": True,
+                            "trigger": {
+                                "device_id": "ldev_button",
+                                "capability": "button_event",
+                                "event": "single_press",
+                                "payload": {"button": "left"},
+                            },
+                            "actions": [
+                                {
+                                    "type": "device_command",
+                                    "device_id": "ldev_light",
+                                    "capability": "power",
+                                    "command": "toggle",
+                                    "params": {},
+                                }
+                            ],
+                        }
+                    ]
+                }
+            )
+        }
+    }
+
+    rules = HomeAssistantLocalAutomationRuleStore(hass).list_rules()
+
+    assert rules == [
+        LocalAutomationRule(
+            rule_id="rule-left-single",
+            enabled=True,
+            trigger=AutomationTrigger(
+                device_id="ldev_button",
+                capability="button_event",
+                event="single_press",
+                payload={"button": "left"},
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_light",
+                    capability="power",
+                    command="toggle",
+                    params={},
+                )
+            ],
+        )
+    ]
+
+
+def test_local_automation_rule_store_runtime_rules_override_config_entry() -> None:
+    """Runtime rules override config entry rules during live updates."""
+    runtime_rule = LocalAutomationRule(
+        rule_id="runtime-rule",
+        trigger=AutomationTrigger(
+            device_id="ldev_runtime_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_runtime_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    hass = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            "config_entry": MagicMock(
+                data={
+                    "local_automation_rules": [
+                        {
+                            "rule_id": "stored-rule",
+                            "trigger": {
+                                "device_id": "ldev_stored_button",
+                                "capability": "button_event",
+                                "event": "single_press",
+                            },
+                            "actions": [
+                                {
+                                    "type": "device_command",
+                                    "device_id": "ldev_stored_light",
+                                    "capability": "power",
+                                    "command": "turn_on",
+                                }
+                            ],
+                        }
+                    ]
+                }
+            ),
+            "local_automation_rules": [runtime_rule],
+        }
+    }
+
+    rules = HomeAssistantLocalAutomationRuleStore(hass).list_rules()
+
+    assert rules == [runtime_rule]

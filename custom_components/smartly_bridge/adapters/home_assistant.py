@@ -15,7 +15,11 @@ from ..acl import (
 )
 from ..audit import log_control, log_deny
 from ..application.control import SmartlyCommand, SmartlyCommandUseCase
-from ..application.local_automation import LocalAutomationRule
+from ..application.local_automation import (
+    AutomationAction,
+    AutomationTrigger,
+    LocalAutomationRule,
+)
 from ..application.logical_devices import (
     canonical_capability_name,
     logical_device_id_for_source_id,
@@ -206,8 +210,85 @@ class HomeAssistantLocalAutomationRuleStore:
 
     def list_rules(self) -> list[LocalAutomationRule]:
         """Return local automation rules registered in the integration runtime."""
-        rules = self._hass.data.get(DOMAIN, {}).get("local_automation_rules", [])
-        return [rule for rule in rules if isinstance(rule, LocalAutomationRule)]
+        integration_data = self._hass.data.get(DOMAIN, {})
+        rules = integration_data.get("local_automation_rules")
+        if rules is None:
+            config_entry = integration_data.get("config_entry")
+            data = getattr(config_entry, "data", {}) if config_entry else {}
+            rules = data.get("local_automation_rules", [])
+        return [
+            parsed
+            for rule in rules
+            if (parsed := _local_automation_rule_from_config(rule)) is not None
+        ]
+
+
+def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
+    """Return a local automation rule from runtime or serialized config data."""
+    if isinstance(value, LocalAutomationRule):
+        return value
+    if not isinstance(value, dict):
+        return None
+    trigger = _automation_trigger_from_config(value.get("trigger"))
+    if trigger is None:
+        return None
+    actions = [
+        action
+        for item in value.get("actions", [])
+        if (action := _automation_action_from_config(item)) is not None
+    ]
+    if not actions:
+        return None
+    rule_id = value.get("rule_id")
+    if not isinstance(rule_id, str) or not rule_id:
+        return None
+    return LocalAutomationRule(
+        rule_id=rule_id,
+        trigger=trigger,
+        actions=actions,
+        enabled=value.get("enabled", True) is not False,
+    )
+
+
+def _automation_trigger_from_config(value: Any) -> AutomationTrigger | None:
+    """Return an automation trigger from serialized config data."""
+    if not isinstance(value, dict):
+        return None
+    device_id = value.get("device_id")
+    capability = value.get("capability")
+    event = value.get("event")
+    if not all(isinstance(item, str) and item for item in (device_id, capability, event)):
+        return None
+    payload = value.get("payload", {})
+    return AutomationTrigger(
+        device_id=device_id,
+        capability=capability,
+        event=event,
+        payload=payload if isinstance(payload, dict) else {},
+    )
+
+
+def _automation_action_from_config(value: Any) -> AutomationAction | None:
+    """Return an automation action from serialized config data."""
+    if not isinstance(value, dict):
+        return None
+    action_type = value.get("type")
+    device_id = value.get("device_id")
+    capability = value.get("capability")
+    command = value.get("command")
+    if not all(
+        isinstance(item, str) and item
+        for item in (action_type, device_id, capability, command)
+    ):
+        return None
+    params = value.get("params", {})
+    return AutomationAction(
+        type=action_type,
+        device_id=device_id,
+        capability=capability,
+        command=command,
+        params=params if isinstance(params, dict) else {},
+    )
 
 
 class HomeAssistantSmartlyCommandExecutor:
