@@ -59,6 +59,7 @@ async def test_button_action_is_published_with_canonical_event_payload() -> None
     assert result.status == 202
     assert result.body == {
         "success": True,
+        "schema_version": "2026.06",
         "event_id": "evt_fixed",
         "device_id": "device_abc123",
         "action": "single_left",
@@ -76,6 +77,22 @@ async def test_button_action_is_published_with_canonical_event_payload() -> None
                 "occurred_at": "2026-06-27T10:20:00.000Z",
             }
         ],
+        "data": {
+            "event_id": "evt_fixed",
+            "status": "accepted",
+            "events": [
+                {
+                    "event_id": "evt_fixed",
+                    "device_id": "device_abc123",
+                    "capability": "button_event",
+                    "event": "single_press",
+                    "payload": {"button": "left"},
+                    "occurred_at": "2026-06-27T10:20:00.000Z",
+                }
+            ],
+        },
+        "warnings": [],
+        "errors": [],
     }
     assert publisher.events == [
         {
@@ -102,6 +119,47 @@ async def test_button_action_is_published_with_canonical_event_payload() -> None
             ],
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_button_action_response_includes_vnext_envelope() -> None:
+    """Accepted device event responses expose API vNext envelope fields."""
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_fixed",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_abc123",
+            type="button_action",
+            action="single_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.status == 202
+    assert result.body["success"] is True
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "event_id": "evt_fixed",
+        "status": "accepted",
+        "events": [
+            {
+                "event_id": "evt_fixed",
+                "device_id": "device_abc123",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "occurred_at": "2026-06-27T10:20:00.000Z",
+            }
+        ],
+    }
 
 
 @pytest.mark.asyncio

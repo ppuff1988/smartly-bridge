@@ -17,6 +17,8 @@ _BUTTON_EVENT_BY_ACTION = {
     "release": "long_release",
 }
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 
 @dataclass(frozen=True)
 class DeviceEventCommand:
@@ -99,12 +101,20 @@ class DeviceEventUseCase:
         return BridgeResponse(
             {
                 "success": True,
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "event_id": event_id,
                 "device_id": command.device_id,
                 "action": command.action,
                 "received_at": received_at,
                 **canonical,
                 "events": [canonical_event],
+                "data": {
+                    "event_id": event_id,
+                    "status": "accepted",
+                    "events": [canonical_event],
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=202,
         )
