@@ -70,7 +70,7 @@ class WebRTCICEUseCase:
             return _webrtc_error_response("session_not_found", status=404)
 
         if session.entity_id != entity_id:
-            return BridgeResponse({"error": "session_entity_mismatch"}, status=403)
+            return _webrtc_error_response("session_entity_mismatch", status=403)
 
         if candidate:
             session.add_ice_candidate(candidate)
