@@ -110,7 +110,7 @@
 | 62 | `ede433d` | Camera HLS info application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy stream info 欄位 | RED failed with missing `schema_version`; camera tests `112 passed`; full suite `545 passed` |
 | 63 | `ae647d9` | Camera HLS stats application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy stats 欄位 | RED failed with missing `schema_version`; camera tests `113 passed`; full suite `546 passed` |
 | 64 | `9383ab8` | Camera HLS stop success application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `success` / `action` 欄位 | RED failed with missing `schema_version`; camera tests `114 passed`; full suite `547 passed` |
-| 65 | current slice | Camera HLS stop 404 application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `success=false` / `action` 欄位與 404 status | RED failed with missing `schema_version`; camera tests `115 passed`; full suite `548 passed` |
+| 65 | `8ec2d62` | Camera HLS stop 404 application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `success=false` / `action` 欄位與 404 status | RED failed with missing `schema_version`; camera tests `115 passed`; full suite `548 passed` |
 
 ## Completed Slices
 
@@ -122,7 +122,7 @@
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
 | Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 補上 API vNext envelope/error fields | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
-| Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info 與 stop 404 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, current slice |
+| Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info 與 stop 404 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62` |
 | Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
