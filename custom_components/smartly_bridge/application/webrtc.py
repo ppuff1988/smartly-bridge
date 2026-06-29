@@ -74,7 +74,7 @@ class WebRTCICEUseCase:
         if candidate:
             session.add_ice_candidate(candidate)
 
-        return BridgeResponse({"status": "accepted", "candidates": []}, status=200)
+        return _webrtc_success_response({"status": "accepted", "candidates": []})
 
 
 class WebRTCOfferUseCase:

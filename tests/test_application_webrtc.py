@@ -179,7 +179,12 @@ async def test_webrtc_ice_use_case_adds_candidate() -> None:
     )
 
     assert result.status == 200
-    assert result.body == {"status": "accepted", "candidates": []}
+    assert result.body["status"] == "accepted"
+    assert result.body["candidates"] == []
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {"status": "accepted", "candidates": []}
     assert gateway.session.ice_candidates == [candidate]
 
 

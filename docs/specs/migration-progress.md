@@ -46,6 +46,7 @@
 - WebRTC hangup session-not-found application response 已保留 legacy `error` 欄位與 404 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - WebRTC hangup entity-mismatch application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - WebRTC token application response 已保留 legacy token / endpoint / ICE 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
+- WebRTC ICE accepted application response 已保留 legacy `status` / `candidates` 欄位，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
 - Legacy control entity-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-call-failed application response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -143,6 +144,7 @@
 | 79 | `d6da427` | Legacy control service-call-failed application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 500 status | RED failed with missing `schema_version`; affected tests `112 passed`; full suite `558 passed` |
 | 80 | `4979988` | History invalid-time-range application response 補上 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位，同時保留 legacy `error` 欄位與 400 status | RED failed with missing `schema_version`; history tests `44 passed`; full suite `558 passed` |
 | 81 | `4e27a90` | WebRTC token application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy token / endpoint / ICE 欄位 | RED failed with missing `schema_version`; WebRTC tests `51 passed`; full suite `558 passed` |
+| 82 | `current slice` | WebRTC ICE accepted application response 補上 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位，同時保留 legacy `status` / `candidates` 欄位 | RED failed with missing `schema_version`; WebRTC tests `51 passed`; full suite `558 passed` |
 
 ## Completed Slices
 
@@ -156,7 +158,7 @@
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16` |
 | History path | history invalid-time-range application response envelope，保留 legacy `error` 欄位 | `4979988` |
 | Camera path | camera list/register/unregister/clear-cache/config-list/HLS start/info/stats/stop application response envelope 與 HLS unsupported/camera-not-found/unknown-action/config register/unregister missing-entity/config unknown-action/snapshot unavailable error envelope，保留 legacy camera list body、stats、config success/list、HLS payload、stream info、stop 404、snapshot payload 與 error 欄位 | `b174ee2`, `1531478`, `b42d26a`, `7660fb8`, `9ef6f75`, `77665f5`, `ede433d`, `ae647d9`, `9383ab8`, `8ec2d62`, `59aeed0`, `97b8329`, `dead64d`, `6e9bec6`, `bd03650`, `4d14906`, `72901ae` |
-| WebRTC path | WebRTC token response envelope 與 ICE session-not-found/entity-mismatch、hangup session-not-found/entity-mismatch application response envelope，保留 legacy token / endpoint / ICE 與 `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3`, `4e27a90` |
+| WebRTC path | WebRTC token response envelope、ICE accepted success envelope 與 ICE session-not-found/entity-mismatch、hangup session-not-found/entity-mismatch application response envelope，保留 legacy token / endpoint / ICE、`status` / `candidates` 與 `error` 欄位 | `ff78eb5`, `8d56e3e`, `93a2ee5`, `fc083e3`, `4e27a90`, `current slice` |
 | Sync aliases, warnings, and read path | structure/states response envelope、logical devices migration aliases、normalization warnings，並支援 `use_logical_devices` read-path flag | `e47050c`, `040f769`, `4527bd5`, `14f5de7`, `aad30d2` |
 | Light capabilities | 色溫 constraints、RGB contract、effects、HS/XY color fallback、brightness delta commands | `adf268c`, `59380db`, `844495c`, `3b48f87`, `ddac6bb`, `74fc92c` |
 | Sensors | signal quality、air quality、binary sensor、electrical measurements normalization | `69261c1`, `58ba900`, `3d8e865`, `0ec3497` |
@@ -169,7 +171,7 @@
 
 ## Latest Verification
 
-- Targeted WebRTC token vNext envelope test: `1 passed`
+- Targeted WebRTC ICE accepted vNext envelope test: `1 passed`
 - Affected WebRTC application/view tests: `51 passed`
 - Full suite: `558 passed`
 
