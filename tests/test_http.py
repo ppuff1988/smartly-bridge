@@ -973,6 +973,7 @@ class TestControlEndpointFullFlow:
             "capability": "brightness",
             "command": "set_brightness",
             "entity_id": "light.kitchen",
+            "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
             "new_state": "on",
             "new_attributes": {"brightness": 204},
         }

@@ -344,6 +344,7 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
         "capability": "brightness",
         "command": "set_brightness",
         "entity_id": "light.kitchen",
+        "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
         "new_state": "on",
         "new_attributes": {"brightness": 204},
     }
@@ -363,6 +364,70 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
             },
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_returns_power_expected_state() -> None:
+    """Power commands expose expected capability state for correlation."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="switch.fan",
+            state="on",
+            attributes={},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_switch_fan", "power"): "switch.fan"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-power",
+            device_id="ldev_switch_fan",
+            capability="power",
+            command="turn_on",
+            params={},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {"power": {"value": True}}
+    assert gateway.calls == [("switch.fan", "turn_on", {})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_returns_color_temperature_expected_state() -> None:
+    """Color temperature commands expose expected kelvin state for correlation."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"color_temp": 250},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_light_kitchen", "color_temperature"): "light.kitchen"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-color-temp",
+            device_id="ldev_light_kitchen",
+            capability="color_temperature",
+            command="set_color_temperature",
+            params={"value": 4000},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["expected_state"] == {
+        "color_temperature": {"value": 4000, "unit": "kelvin"}
+    }
+    assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp_kelvin": 4000})]
 
 
 @pytest.mark.asyncio

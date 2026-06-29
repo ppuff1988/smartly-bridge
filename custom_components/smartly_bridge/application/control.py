@@ -183,6 +183,7 @@ class SmartlyCommandUseCase:
                 "capability": command.capability,
                 "command": command.command,
                 "entity_id": entity_id,
+                "expected_state": _expected_state_for_command(command),
                 "new_state": result.body.get("new_state"),
                 "new_attributes": result.body.get("new_attributes"),
             },
@@ -216,6 +217,41 @@ def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> 
         normalized["color_temp"] = normalized.pop("color_temperature")
 
     return normalized
+
+
+def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
+    """Return the expected canonical state after a command is accepted."""
+    if command.capability == "power":
+        if command.command == "turn_on":
+            return {"power": {"value": True}}
+        if command.command == "turn_off":
+            return {"power": {"value": False}}
+
+    if (
+        command.capability == "brightness"
+        and command.command == "set_brightness"
+        and isinstance(command.params.get("value"), (int, float))
+    ):
+        return {
+            "brightness": {
+                "value": command.params["value"],
+                "unit": "percent",
+            }
+        }
+
+    if (
+        command.capability == "color_temperature"
+        and command.command == "set_color_temperature"
+        and isinstance(command.params.get("value"), (int, float))
+    ):
+        return {
+            "color_temperature": {
+                "value": command.params["value"],
+                "unit": "kelvin",
+            }
+        }
+
+    return {}
 
 
 def _smartly_command_error_response(
