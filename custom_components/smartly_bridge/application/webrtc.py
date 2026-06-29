@@ -126,13 +126,12 @@ class WebRTCOfferUseCase:
             local_sdp=answer_sdp,
         )
 
-        return BridgeResponse(
+        return _webrtc_success_response(
             {
                 "type": "answer",
                 "sdp": answer_sdp,
                 "session_id": session.token[:16],
             },
-            status=200,
         )
 
 

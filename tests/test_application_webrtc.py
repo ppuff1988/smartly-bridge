@@ -325,11 +325,18 @@ async def test_webrtc_offer_use_case_creates_answer_and_updates_session() -> Non
     )
 
     assert result.status == 200
-    assert result.body == {
+    expected_answer = {
         "type": "answer",
         "sdp": "answer-sdp",
         "session_id": "abcdef1234567890",
     }
+    assert result.body["type"] == "answer"
+    assert result.body["sdp"] == "answer-sdp"
+    assert result.body["session_id"] == "abcdef1234567890"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == expected_answer
     assert gateway.consumed == [("valid-token", "camera.front")]
     assert gateway.state_updates == [
         {
