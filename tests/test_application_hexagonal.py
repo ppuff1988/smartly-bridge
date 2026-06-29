@@ -457,6 +457,9 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
         "error": "command_target_not_found",
         "device_id": "ldev_unknown",
         "capability": "power",
+        "command": "turn_on",
+        "entity_id": None,
+        "expected_state": {},
     }
     assert resolver.lookups == [("ldev_unknown", "power")]
     assert gateway.calls == []
@@ -469,6 +472,78 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
             {"command_id": "cmd-404", "capability": "power"},
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_returns_rejected_service_error() -> None:
+    """Denied source services use the canonical command error shape."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "power"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(
+        FakeEntityPolicy(service_allowed=False),
+        gateway,
+        audit,
+        resolver,
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-denied",
+            device_id="ldev_light_kitchen",
+            capability="power",
+            command="turn_on",
+            params={},
+        ),
+    )
+
+    assert result.status == 403
+    assert result.body == {
+        "success": False,
+        "command_id": "cmd-denied",
+        "status": "rejected",
+        "error": "service_not_allowed",
+        "device_id": "ldev_light_kitchen",
+        "capability": "power",
+        "command": "turn_on",
+        "entity_id": "light.kitchen",
+        "expected_state": {},
+    }
+    assert gateway.calls == []
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_returns_failed_source_error() -> None:
+    """Source execution failures use the canonical command error shape."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(exc=RuntimeError("source unavailable"))
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "power"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-failed",
+            device_id="ldev_light_kitchen",
+            capability="power",
+            command="turn_on",
+            params={},
+        ),
+    )
+
+    assert result.status == 500
+    assert result.body == {
+        "success": False,
+        "command_id": "cmd-failed",
+        "status": "failed",
+        "error": "service_call_failed",
+        "device_id": "ldev_light_kitchen",
+        "capability": "power",
+        "command": "turn_on",
+        "entity_id": "light.kitchen",
+        "expected_state": {},
+    }
 
 
 def test_sync_structure_use_case_returns_gateway_structure() -> None:

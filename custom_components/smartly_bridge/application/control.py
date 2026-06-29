@@ -144,16 +144,11 @@ class SmartlyCommandUseCase:
                     "capability": command.capability,
                 },
             )
-            return BridgeResponse(
-                {
-                    "success": False,
-                    "command_id": command.command_id,
-                    "status": "rejected",
-                    "error": "command_target_not_found",
-                    "device_id": command.device_id,
-                    "capability": command.capability,
-                },
-                status=404,
+            return _smartly_command_error_response(
+                command,
+                None,
+                "command_target_not_found",
+                404,
             )
 
         actor = {
@@ -256,21 +251,29 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
 
 def _smartly_command_error_response(
     command: SmartlyCommand,
-    entity_id: str,
-    result: BridgeResponse,
+    entity_id: str | None,
+    error: str | BridgeResponse,
+    status: int | None = None,
 ) -> BridgeResponse:
     """Wrap legacy control errors in the canonical command response shape."""
+    result = error if isinstance(error, BridgeResponse) else None
+    error_code = result.body.get("error") if result else error
+    response_status = result.status if result else status
+    if response_status is None:
+        response_status = 500
+
     return BridgeResponse(
         {
             "success": False,
             "command_id": command.command_id,
-            "status": "failed" if result.status >= 500 else "rejected",
-            "error": result.body.get("error"),
+            "status": "failed" if response_status >= 500 else "rejected",
+            "error": error_code,
             "device_id": command.device_id,
             "capability": command.capability,
             "command": command.command,
             "entity_id": entity_id,
+            "expected_state": {},
         },
-        status=result.status,
-        headers=result.headers,
+        status=response_status,
+        headers=result.headers if result else {},
     )
