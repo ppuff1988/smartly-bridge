@@ -563,6 +563,50 @@ class TestSmartlyHistoryBatchView:
                         ],
                     }
 
+    @pytest.mark.asyncio
+    async def test_batch_query_failure_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test batch history failure returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ):
+                with patch(
+                    "custom_components.smartly_bridge.views.history.BatchHistoryUseCase.execute",
+                    new_callable=AsyncMock,
+                ) as mock_execute:
+                    mock_execute.side_effect = RuntimeError("batch recorder unavailable")
+
+                    view = SmartlyHistoryBatchView(mock_request)
+                    response = await view.post()
+
+                    assert response.status == 500
+                    data = json.loads(response.body)
+                    assert data == {
+                        "error": "history_query_failed",
+                        "schema_version": "2026.06",
+                        "data": {"status": "rejected"},
+                        "warnings": [],
+                        "errors": [
+                            {
+                                "code": "HISTORY_QUERY_FAILED",
+                                "message": "history query failed",
+                                "target": "history.batch",
+                                "retryable": False,
+                            }
+                        ],
+                    }
+
 
 class TestSmartlyStatisticsView:
     """Tests for SmartlyStatisticsView."""

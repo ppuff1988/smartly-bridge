@@ -691,10 +691,12 @@ class SmartlyHistoryBatchView(web.View):
             return web.json_response(result.body, status=result.status, headers=result.headers)
         except Exception as err:
             _LOGGER.error("Failed to query batch history: %s", err)
-            return web.json_response(
-                {"error": "history_query_failed"},
+            result = _history_error_response(
+                "history_query_failed",
                 status=500,
+                target="history.batch",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
