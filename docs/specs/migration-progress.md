@@ -36,6 +36,7 @@
 - `/api/smartly/automations/local/rules` POST/PUT/DELETE invalid JSON response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated POST create，可將 canonical rule payload 持久化到 config entry。
 - Local automation rule create 現在會在 store 無法持久化時回傳 API vNext `rule_persistence_failed` error，避免 Platform read/write path 誤判 rule 已建立。
+- Local automation rule update/delete 現在會先確認 rule 是否存在，將「已存在但 adapter 無法持久化」回報為 API vNext `rule_persistence_failed`，避免 Platform 誤判為 `rule_not_found`。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated PUT update，可依 `rule_id` 替換 config entry 內既有 canonical rule。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated DELETE，可依 `rule_id` 從 config entry 移除 canonical rule。
 - Device event accepted response 已保留 legacy event fields，並同步輸出 API vNext `schema_version`、`data`、`warnings`、`errors` envelope 欄位。
@@ -217,6 +218,7 @@
 | 118 | `fa2359c` | local automation rules authentication failure 改用 API vNext envelope，保留 legacy auth `error` 並補上 structured `errors[]` | RED failed with legacy-only `{"error": "invalid_signature"}`; targeted test `1 passed`; affected automation/event/http tests `92 passed`; full suite `595 passed` |
 | 119 | `6f728a1` | local automation rules rate-limit failure 改用 API vNext envelope，保留 legacy `error`、`Retry-After` 與 `X-RateLimit-Remaining` headers | RED failed with legacy-only `{"error": "rate_limited"}`; targeted test `1 passed`; affected automation/event/http tests `93 passed`; full suite `596 passed` |
 | 120 | `9986209` | local automation rules POST/PUT/DELETE invalid JSON failure 改用 API vNext envelope，保留 legacy `error` 並標記 `request.body` target | RED failed with `invalid_rule` instead of `invalid_json`; targeted tests `3 passed`; local automation tests `23 passed`; affected automation/event/http tests `96 passed`; full suite `599 passed` |
+| 121 | `1aaf9e3` | local automation rule update/delete 會區分 rule 不存在與 existing rule persistence failure，避免 adapter 無法寫入時誤回 `rule_not_found` | RED failed with 404 `rule_not_found`; targeted tests `2 passed`; local automation tests `25 passed`; affected automation/event/http tests `98 passed`; full suite `601 passed` |
 
 ## Completed Slices
 
@@ -241,16 +243,16 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor；create path 會在 persistence failure 時回報 `rule_persistence_failed`，避免 Platform 誤判 rule 已建立；view-level integration-not-configured、auth failure、rate-limit 與 mutating invalid JSON error 已補上 API vNext envelope | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1`, `9986209` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor；create/update/delete path 會區分 missing rule 與 persistence failure，避免 Platform 誤判 read/write 結果；view-level integration-not-configured、auth failure、rate-limit 與 mutating invalid JSON error 已補上 API vNext envelope | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1`, `9986209`, `1aaf9e3` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Local automation invalid JSON envelope RED: targeted test failed with `invalid_rule` instead of `invalid_json`
-- Targeted local automation invalid JSON envelope tests: `3 passed`
-- Local automation tests: `23 passed`
-- Affected automation/event/http tests: `96 passed`
-- Full suite: `599 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation update/delete persistence RED: targeted tests failed with 404 `rule_not_found`
+- Targeted local automation update/delete persistence tests: `2 passed`
+- Local automation tests: `25 passed`
+- Affected automation/event/http tests: `98 passed`
+- Full suite: `601 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
@@ -258,5 +260,5 @@
 - Add stronger fixture coverage for current-sync snapshots and API vNext contract snapshots.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
-- Cleanup remaining local automation adapter persistence gaps before Platform read/write path cutover.
+- Continue auditing local automation adapter persistence behavior before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.
