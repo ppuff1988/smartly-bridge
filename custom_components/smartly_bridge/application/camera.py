@@ -206,6 +206,6 @@ class CameraHLSUseCase:
             return _camera_success_response(hls_info)
 
         if action == "stats":
-            return BridgeResponse(self._gateway.get_hls_stats(), status=200)
+            return _camera_success_response(self._gateway.get_hls_stats())
 
         return BridgeResponse({"error": "unknown_action"}, status=400)
