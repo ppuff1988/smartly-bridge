@@ -179,6 +179,50 @@ def test_fan_preset_state_uses_fan_speed_contract() -> None:
     assert device["capabilities"][0]["state"] == {"speed": "sleep"}
 
 
+def test_cover_position_state_uses_position_contract() -> None:
+    """Home Assistant cover current position is normalized to canonical position."""
+    snapshot = EntityStateSnapshot(
+        entity_id="cover.living_curtain",
+        state="open",
+        attributes={"current_position": 55},
+        name="Living Curtain",
+        domain="cover",
+        device_class="cover_control",
+        capabilities=["open_close", "position"],
+        status="online",
+        presentation={"card_template": "cover_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    position = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "position"
+    )
+
+    assert position["state"] == {"value": 55, "unit": "percent"}
+    assert position["constraints"] == {"min": 0, "max": 100, "step": 1}
+
+
+def test_cover_open_close_state_uses_open_close_contract() -> None:
+    """Home Assistant cover state is normalized to canonical open/closed state."""
+    snapshot = EntityStateSnapshot(
+        entity_id="cover.living_curtain",
+        state="closed",
+        attributes={},
+        name="Living Curtain",
+        domain="cover",
+        device_class="cover_control",
+        capabilities=["open_close"],
+        status="online",
+        presentation={"card_template": "cover_card"},
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["capabilities"][0]["state"] == {"value": "closed"}
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

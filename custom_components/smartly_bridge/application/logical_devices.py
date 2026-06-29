@@ -245,6 +245,10 @@ def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[st
         return _signal_quality_state(snapshot)
     if capability == "fan_speed":
         return _fan_speed_state(snapshot)
+    if capability == "position":
+        return _position_state(snapshot)
+    if capability == "open_close":
+        return _open_close_state(snapshot)
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -354,6 +358,26 @@ def _fan_speed_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
     return {"percentage": max(0, min(100, percentage)), "unit": "percent"}
 
 
+def _position_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical percentage position from cover metadata."""
+    attributes = snapshot.attributes or {}
+    position = _numeric_value(attributes.get("current_position"))
+    if position is None:
+        position = _numeric_value(attributes.get("position"))
+    if position is None:
+        return {}
+    return {"value": max(0, min(100, position)), "unit": "percent"}
+
+
+def _open_close_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
+    """Return canonical open/close state from cover or contact metadata."""
+    if snapshot.state in {"open", "opening"}:
+        return {"value": "open"}
+    if snapshot.state in {"closed", "closing"}:
+        return {"value": "closed"}
+    return {}
+
+
 def _source_ref(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:
     """Return source reference metadata for a capability."""
     return {
@@ -421,6 +445,8 @@ def _constraints_for_capability(
     if capability == "color_temperature":
         return _color_temperature_constraints(snapshot.attributes or {})
     if capability == "fan_speed":
+        return {"min": 0, "max": 100, "step": 1}
+    if capability == "position":
         return {"min": 0, "max": 100, "step": 1}
     return {}
 
