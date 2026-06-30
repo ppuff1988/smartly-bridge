@@ -185,9 +185,14 @@ class SmartlySyncStatesView(web.View):
                 service="sync_states",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = sync_error_response(
+                "rate_limited",
                 status=429,
+                target="sync.states.rate_limit",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
