@@ -1155,3 +1155,28 @@ class TestSmartlyCameraHLSInfoView:
                 }
             ],
         }
+
+    @pytest.mark.asyncio
+    async def test_hls_integration_not_configured(self, mock_request):
+        """Test HLS view returns API vNext envelope when integration is missing."""
+        mock_request.match_info = {"entity_id": "camera.test"}
+
+        view = SmartlyCameraHLSInfoView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "camera.config",
+                    "retryable": False,
+                }
+            ],
+        }
