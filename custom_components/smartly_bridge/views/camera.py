@@ -584,9 +584,15 @@ class SmartlyCameraConfigView(BaseView):
         entity_id = body.get("entity_id")
 
         if not action:
-            return web.json_response(
-                {"error": "missing_action"},
+            result = _camera_error_response(
+                "missing_action",
                 status=400,
+                target="camera.action",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get camera manager

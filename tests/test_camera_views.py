@@ -909,7 +909,7 @@ class TestSmartlyCameraConfigView:
 
     @pytest.mark.asyncio
     async def test_config_missing_action(self, mock_request):
-        """Test config view with missing action."""
+        """Test config view returns API vNext envelope with missing action."""
         mock_request.json = AsyncMock(return_value={})
 
         with patch(
@@ -923,7 +923,20 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "missing_action"
+            assert data == {
+                "error": "missing_action",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "MISSING_ACTION",
+                        "message": "missing action",
+                        "target": "camera.action",
+                        "retryable": False,
+                    }
+                ],
+            }
 
     @pytest.mark.asyncio
     async def test_config_register_camera(self, mock_request, mock_hass):
