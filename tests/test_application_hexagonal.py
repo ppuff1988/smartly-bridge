@@ -2329,6 +2329,18 @@ def test_sync_structure_use_case_matches_current_sync_vnext_data_fixture() -> No
     assert result.body["data"] == expected_data
 
 
+def test_sync_structure_use_case_matches_current_sync_envelope_fixture() -> None:
+    """Structure sync full response preserves legacy fields and vNext envelope."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "current-sync" / "structure-envelope.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+
+    result = SyncStructureUseCase(FakeSyncGateway()).execute()
+
+    assert result.body == expected_body
+
+
 @pytest.mark.asyncio
 async def test_sync_states_use_case_returns_states_with_count() -> None:
     """State sync serializes state snapshots returned by the port."""
@@ -2532,6 +2544,19 @@ async def test_sync_states_use_case_matches_current_sync_vnext_data_fixture() ->
     result = await SyncStatesUseCase(FakeSyncGateway()).execute()
 
     assert result.body["data"] == expected_data
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_matches_current_sync_envelope_fixture() -> None:
+    """State sync full response preserves legacy fields and vNext envelope."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "current-sync" / "states-envelope.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+
+    result = await SyncStatesUseCase(FakeSyncGateway()).execute()
+
+    assert result.body == expected_body
 
 
 @pytest.mark.asyncio
