@@ -293,9 +293,15 @@ class SmartlyCameraStreamView(BaseView):
                 service="camera_stream",
                 reason=auth_result.error or "auth_failed",
             )
-            return web.json_response(
-                {"error": auth_result.error},
+            result = _camera_error_response(
+                auth_result.error or "auth_failed",
                 status=401,
+                target="camera.auth",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Check rate limit (less strict for streaming)
