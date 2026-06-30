@@ -799,6 +799,44 @@ class TestSmartlyStatisticsView:
             }
 
     @pytest.mark.asyncio
+    async def test_entity_not_allowed_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test denied entity returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=False,
+            ):
+                view = SmartlyStatisticsView(mock_request)
+                response = await view.get()
+
+                assert response.status == 403
+                data = json.loads(response.body)
+                assert data == {
+                    "error": "entity_not_allowed",
+                    "schema_version": "2026.06",
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "ENTITY_NOT_ALLOWED",
+                            "message": "entity not allowed",
+                            "target": "statistics.entity_id",
+                            "retryable": False,
+                        }
+                    ],
+                }
+
+    @pytest.mark.asyncio
     async def test_invalid_period_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test invalid period returns API vNext envelope."""
         mock_request.query = {"period": "invalid"}
