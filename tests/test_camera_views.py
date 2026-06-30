@@ -813,6 +813,35 @@ class TestSmartlyCameraConfigView:
         }
 
     @pytest.mark.asyncio
+    async def test_config_auth_failure(self, mock_request):
+        """Test config view returns API vNext envelope on authentication failure."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlyCameraConfigView(mock_request)
+            response = await view.post()
+
+            assert response.status == 401
+            data = json.loads(response.body)
+            assert data == {
+                "error": "invalid_signature",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_SIGNATURE",
+                        "message": "invalid signature",
+                        "target": "camera.auth",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_config_invalid_json(self, mock_request):
         """Test config view with invalid JSON."""
         mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
