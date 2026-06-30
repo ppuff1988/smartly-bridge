@@ -298,6 +298,33 @@ async def test_control_use_case_calls_allowed_service_and_returns_new_state() ->
 
 
 @pytest.mark.asyncio
+async def test_legacy_control_success_response_matches_api_vnext_fixture() -> None:
+    """Legacy control success response remains stable for old and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "legacy-control-success.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    audit = FakeAudit()
+    state = EntityStateSnapshot(
+        entity_id="light.kitchen",
+        state="on",
+        attributes={"brightness": 255},
+        last_changed=None,
+        last_updated=None,
+        icon=None,
+    )
+    gateway = FakeControlGateway(state)
+    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "turn_on", {"brightness": 255}, {"role": "admin"}),
+    )
+
+    assert result.body == expected_body
+
+
+@pytest.mark.asyncio
 async def test_control_use_case_reports_service_call_failure() -> None:
     """Source service failures use API vNext error envelope fields."""
     audit = FakeAudit()
@@ -332,6 +359,25 @@ async def test_control_use_case_reports_service_call_failure() -> None:
             {"role": "admin"},
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_legacy_control_error_response_matches_api_vnext_fixture() -> None:
+    """Legacy control error response remains stable for old and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "legacy-control-error.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    audit = FakeAudit()
+    gateway = FakeControlGateway(exc=RuntimeError("source unavailable"))
+    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
+
+    result = await use_case.execute(
+        "client-1",
+        ControlCommand("light.kitchen", "turn_on", {}, {"role": "admin"}),
+    )
+
+    assert result.body == expected_body
 
 
 @pytest.mark.asyncio

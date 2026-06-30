@@ -1,0 +1,16 @@
+{
+  "error": "service_call_failed",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "SERVICE_CALL_FAILED",
+      "message": "Source service call failed.",
+      "target": "source.service",
+      "retryable": true
+    }
+  ]
+}

@@ -1,0 +1,21 @@
+{
+  "success": true,
+  "entity_id": "light.kitchen",
+  "action": "turn_on",
+  "new_state": "on",
+  "new_attributes": {
+    "brightness": 255
+  },
+  "schema_version": "2026.06",
+  "data": {
+    "success": true,
+    "entity_id": "light.kitchen",
+    "action": "turn_on",
+    "new_state": "on",
+    "new_attributes": {
+      "brightness": 255
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
