@@ -9,6 +9,7 @@
 
 - `dev` 已建立 application/domain/adapter/view 分層，並以 ports 讓主要 sync、control、event use case 可以脫離 Home Assistant runtime 測試。
 - Devcontainer 已升到 Python 3.14 bookworm image，以符合 Home Assistant 2026.6 `>=3.14.2` 的 test/runtime 依賴要求。
+- Adapter manifest validation 已在 application layer 落地，會檢查 stable adapter id、adapter type、canonical capability 宣告、contract_versions 與最小 permissions，作為新增 adapter/profile 前的 contract gate。
 - `/api/smartly/sync/structure` application response 已保留 legacy structure 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
 - `/api/smartly/sync/structure` integration-not-configured response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/sync/structure` authentication failure response 已保留 legacy `error` 欄位與 401 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -411,12 +412,13 @@
 | 215 | `f32797c` | History single-query / time-range-too-large full response fixture 鎖定 legacy top-level 欄位與 API vNext envelope，避免 history path 後續重構破壞舊 client 相容性 | RED failed with missing `history-single.json` / `history-time-range-error.json`; targeted fixture tests `2 passed`; application history tests `23 passed`; history view tests `46 passed`; affected history/http tests `73 passed`; full suite `676 passed` |
 | 216 | `411f090` | Legacy control success / service-call-failed full response fixture 鎖定 legacy top-level 欄位與 API vNext envelope，避免 control path 後續重構破壞舊 client 相容性 | RED failed with missing `legacy-control-success.json` / `legacy-control-error.json`; targeted fixture tests `2 passed`; affected control/http/acl tests `154 passed`; full suite `678 passed` |
 | 217 | `37a4fae` | WebRTC offer answer / ICE accepted / hangup closed full response fixture 鎖定 session legacy top-level 欄位與 API vNext envelope，避免 WebRTC adapter 後續重構破壞舊 client 相容性 | RED failed with missing `webrtc-offer.json` / `webrtc-ice.json` / `webrtc-hangup.json`; targeted fixture tests `3 passed`; affected WebRTC/http tests `111 passed`; full suite `681 passed` |
+| 218 | `6b553ee` | Adapter manifest validation contract gate 落地於 application layer，檢查 stable id、adapter type、canonical capabilities、contract versions 與最小 permissions | RED failed with missing `application.adapter_contract`; targeted adapter contract tests `4 passed`; affected application/hexagonal/logical tests `119 passed`; full suite `685 passed` |
 
 ## Completed Slices
 
 | Area | Done | Evidence |
 |---|---|---|
-| Architecture specs | 新增總體架構、Device Abstraction、Capability Contracts、Adapter Contract、Presentation Contract、API vNext、Migration Plan | `0841be1` |
+| Architecture specs | 新增總體架構、Device Abstraction、Capability Contracts、Adapter Contract、Presentation Contract、API vNext、Migration Plan；Adapter manifest validation 已提供可執行的 Phase 1 contract gate | `0841be1`, `6b553ee` |
 | Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
@@ -440,14 +442,16 @@
 
 ## Latest Verification
 
-- WebRTC API vNext fixture RED: targeted tests failed because `webrtc-offer.json`, `webrtc-ice.json`, and `webrtc-hangup.json` were missing.
-- Targeted WebRTC fixture tests: `3 passed`
-- Affected WebRTC/http tests: `tests/test_webrtc.py tests/test_http.py` `111 passed`
-- Full suite: `681 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Adapter manifest validation RED: targeted tests failed because `custom_components.smartly_bridge.application.adapter_contract` was missing.
+- Targeted adapter contract tests: `tests/test_application_adapter_contract.py` `4 passed`
+- Inner-layer guard tests: `tests/test_application_hexagonal.py -k inner_layers...` `3 passed`
+- Affected application/hexagonal/logical tests: `tests/test_application_adapter_contract.py tests/test_application_hexagonal.py tests/test_application_logical_devices.py` `119 passed`
+- Full suite: `685 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
+- Continue expanding adapter contract tests beyond manifest validation: match priority collision, normalization snapshot, command mapping, event dedupe, and health degradation.
 - Continue adding broader API vNext contract snapshots beyond current-sync, SmartlyCommand, legacy control, Device event, local automation, history, and WebRTC responses.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
