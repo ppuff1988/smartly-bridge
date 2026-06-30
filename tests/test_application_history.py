@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+import json
+from pathlib import Path
 
 import pytest
 
@@ -69,6 +71,21 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
         }
     ]
     assert planner.validate_time_range(start_time, start_time + timedelta(hours=1)) is None
+
+
+def test_time_range_too_large_response_matches_api_vnext_fixture() -> None:
+    """History time-range errors remain stable for legacy and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "history-time-range-error.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    planner = HistoryQueryPlanner(max_duration_days=30)
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    result = planner.validate_time_range(start_time, start_time + timedelta(days=31))
+
+    assert result is not None
+    assert result.body == expected_body
 
 
 def test_parse_pagination_params_clamps_page_size_and_uses_page_extra_limit() -> None:
@@ -507,6 +524,32 @@ async def test_single_history_use_case_formats_gateway_states() -> None:
     assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_single_history_response_matches_api_vnext_fixture() -> None:
+    """Single history full response remains stable for legacy and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "history-single.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(hours=2)
+    use_case = SingleHistoryUseCase(FakeHistoryGateway())
+
+    result = await use_case.execute(
+        SingleHistoryQuery(
+            entity_id="sensor.temperature",
+            start_time=start_time,
+            end_time=end_time,
+            significant_changes_only=True,
+            limit=999999,
+            page_size=100,
+            use_pagination=False,
+        )
+    )
+
+    assert result.body == expected_body
 
 
 @pytest.mark.asyncio
