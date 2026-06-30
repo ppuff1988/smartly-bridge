@@ -259,9 +259,15 @@ class SmartlyCameraStreamView(BaseView):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = _camera_error_response(
+                "integration_not_configured",
                 status=500,
+                target="camera.config",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
