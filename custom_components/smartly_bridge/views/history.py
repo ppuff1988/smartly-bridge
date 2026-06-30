@@ -631,9 +631,14 @@ class SmartlyHistoryBatchView(web.View):
                 service="history_batch",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = _history_error_response(
+                "rate_limited",
                 status=429,
+                target="history.batch.rate_limit",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",

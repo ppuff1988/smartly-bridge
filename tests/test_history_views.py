@@ -612,6 +612,40 @@ class TestSmartlyHistoryBatchView:
             }
 
     @pytest.mark.asyncio
+    async def test_rate_limited_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test rate limiting returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=False)
+
+            view = SmartlyHistoryBatchView(mock_request)
+            response = await view.post()
+
+            assert response.status == 429
+            assert response.headers["Retry-After"] == str(RATE_WINDOW)
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == {
+                "error": "rate_limited",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "RATE_LIMITED",
+                        "message": "rate limited",
+                        "target": "history.batch.rate_limit",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_invalid_json(self, mock_request, mock_hass):
         """Test invalid JSON body."""
         mock_request.json = AsyncMock(side_effect=Exception("Invalid JSON"))
