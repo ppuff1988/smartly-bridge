@@ -176,9 +176,15 @@ class SmartlyWebRTCTokenView(BaseView):
         # Get WebRTC token manager
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
-            return web.json_response(
-                {"error": "webrtc_not_available", "message": "WebRTC manager not initialized"},
+            result = _webrtc_error_response(
+                "webrtc_not_available",
                 status=500,
+                legacy_fields={"message": "WebRTC manager not initialized"},
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         result = await WebRTCTokenUseCase(

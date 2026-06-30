@@ -770,6 +770,49 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_token_view_webrtc_not_available_returns_envelope(
+        self, mock_hass_with_webrtc
+    ):
+        """Test token request returns API vNext envelope when WebRTC manager is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data[DOMAIN].pop("webrtc_manager")
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "webrtc_not_available",
+            "message": "WebRTC manager not initialized",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "WEBRTC_NOT_AVAILABLE",
+                    "message": "webrtc not available",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests
