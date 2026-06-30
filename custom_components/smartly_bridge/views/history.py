@@ -813,10 +813,12 @@ class SmartlyStatisticsView(web.View):
         # Get entity_id from path
         entity_id = self.request.match_info.get("entity_id")
         if not entity_id:
-            return web.json_response(
-                {"error": "entity_id_required"},
+            result = _history_error_response(
+                "entity_id_required",
                 status=400,
+                target="statistics.entity_id",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Check entity access permission
         from homeassistant.helpers import entity_registry as er
