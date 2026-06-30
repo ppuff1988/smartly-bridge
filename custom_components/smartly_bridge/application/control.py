@@ -353,6 +353,15 @@ def _smartly_command_vnext_data(
     return data
 
 
+def _smartly_command_trace(command: SmartlyCommand) -> dict[str, str]:
+    """Return trace fields required by the capability command error contract."""
+    source = command.source or {}
+    return {
+        "adapter_id": str(source.get("adapter_id") or "home_assistant"),
+        "correlation_id": str(source.get("correlation_id") or command.command_id),
+    }
+
+
 def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     """Return whether canonical command params satisfy the capability schema."""
     if command.capability == "brightness" and command.command == "set_brightness":
@@ -768,6 +777,9 @@ def _smartly_command_error_response(
     if response_status is None:
         response_status = 500
     command_status = "failed" if response_status >= 500 else "rejected"
+    trace = _smartly_command_trace(command)
+    data = _smartly_command_vnext_data(command, command_status, {}, entity_id)
+    data.update(trace)
 
     return BridgeResponse(
         {
@@ -775,6 +787,7 @@ def _smartly_command_error_response(
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "command_id": command.command_id,
             "status": command_status,
+            **trace,
             "error": error_code,
             "errors": [_smartly_command_vnext_error(error_code, response_status)],
             "device_id": command.device_id,
@@ -782,7 +795,7 @@ def _smartly_command_error_response(
             "command": command.command,
             "entity_id": entity_id,
             "expected_state": {},
-            "data": _smartly_command_vnext_data(command, command_status, {}, entity_id),
+            "data": data,
             "warnings": [],
         },
         status=response_status,

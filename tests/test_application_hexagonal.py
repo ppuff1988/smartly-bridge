@@ -1523,6 +1523,8 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
         "schema_version": "2026.06",
         "command_id": "cmd-404",
         "status": "rejected",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-404",
         "error": "command_target_not_found",
         "errors": [
             {
@@ -1543,6 +1545,8 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
             "device_id": "ldev_unknown",
             "capability": "power",
             "command": "turn_on",
+            "adapter_id": "home_assistant",
+            "correlation_id": "cmd-404",
             "expected_state": {},
         },
         "warnings": [],
@@ -1589,6 +1593,8 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
         "schema_version": "2026.06",
         "command_id": "cmd-unsupported",
         "status": "rejected",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-unsupported",
         "error": "command_not_supported",
         "errors": [
             {
@@ -1609,6 +1615,8 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
             "device_id": "ldev_light_kitchen",
             "capability": "brightness",
             "command": "turn_on",
+            "adapter_id": "home_assistant",
+            "correlation_id": "cmd-unsupported",
             "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
@@ -1657,6 +1665,8 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
         "schema_version": "2026.06",
         "command_id": "cmd-invalid",
         "status": "rejected",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-invalid",
         "error": "invalid_params",
         "errors": [
             {
@@ -1677,6 +1687,8 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
             "device_id": "ldev_light_kitchen",
             "capability": "brightness",
             "command": "set_brightness",
+            "adapter_id": "home_assistant",
+            "correlation_id": "cmd-invalid",
             "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
@@ -1754,12 +1766,16 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
     assert result.body["error"] == "invalid_params"
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
+    assert result.body["adapter_id"] == "home_assistant"
+    assert result.body["correlation_id"] == "cmd-invalid-envelope"
     assert result.body["data"] == {
         "command_id": "cmd-invalid-envelope",
         "status": "rejected",
         "device_id": "ldev_light_kitchen",
         "capability": "brightness",
         "command": "set_brightness",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-invalid-envelope",
         "source_entity_id": "light.kitchen",
         "expected_state": {},
     }
@@ -2310,6 +2326,8 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
         "schema_version": "2026.06",
         "command_id": "cmd-denied",
         "status": "rejected",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-denied",
         "error": "service_not_allowed",
         "errors": [
             {
@@ -2330,6 +2348,8 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
             "device_id": "ldev_light_kitchen",
             "capability": "power",
             "command": "turn_on",
+            "adapter_id": "home_assistant",
+            "correlation_id": "cmd-denied",
             "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
@@ -2363,6 +2383,8 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
         "schema_version": "2026.06",
         "command_id": "cmd-failed",
         "status": "failed",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-failed",
         "error": "service_call_failed",
         "errors": [
             {
@@ -2383,6 +2405,8 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
             "device_id": "ldev_light_kitchen",
             "capability": "power",
             "command": "turn_on",
+            "adapter_id": "home_assistant",
+            "correlation_id": "cmd-failed",
             "source_entity_id": "light.kitchen",
             "expected_state": {},
         },
