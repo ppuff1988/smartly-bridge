@@ -32,6 +32,33 @@ from ..const import (
 _LOGGER = logging.getLogger(__name__)
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a sync JSON response with optional vNext request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlySyncView(web.View):
     """Handle GET /api/smartly/sync/structure requests."""
 
@@ -74,7 +101,12 @@ class SmartlySyncView(web.View):
                 status=500,
                 target="sync.structure.integration",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
@@ -101,7 +133,12 @@ class SmartlySyncView(web.View):
                 reason=error,
             )
             result = sync_error_response(error, status=401, target="sync.structure.auth")
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
@@ -117,8 +154,9 @@ class SmartlySyncView(web.View):
                 status=429,
                 target="sync.structure.rate_limit",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -127,7 +165,12 @@ class SmartlySyncView(web.View):
             )
 
         result = SyncStructureUseCase(self._sync_structure_gateway()).execute()
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 class SmartlySyncStatesView(web.View):
@@ -180,7 +223,12 @@ class SmartlySyncStatesView(web.View):
                 status=500,
                 target="sync.states.integration",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
@@ -207,7 +255,12 @@ class SmartlySyncStatesView(web.View):
                 reason=error,
             )
             result = sync_error_response(error, status=401, target="sync.states.auth")
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
@@ -223,8 +276,9 @@ class SmartlySyncStatesView(web.View):
                 status=429,
                 target="sync.states.rate_limit",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -237,7 +291,12 @@ class SmartlySyncStatesView(web.View):
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
             raw_diagnostic_recorder=self._raw_diagnostic_recorder(),
         ).execute()
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 # Wrapper classes for Home Assistant view registration

@@ -321,6 +321,34 @@ class TestSmartlySyncView:
         assert gateway.calls == 1
         assert data["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
 
+    @pytest.mark.asyncio
+    async def test_successful_sync_echoes_request_correlation_headers(
+        self, mock_request, mock_hass
+    ):
+        """Structure sync vNext envelope exposes request/correlation IDs."""
+        gateway = FakeSyncStructureGateway()
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-sync-1",
+            "X-Correlation-Id": "corr-sync-1",
+        }
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-sync-1"
+        assert data["correlation_id"] == "corr-sync-1"
+
 
 class TestSmartlySyncStatesView:
     """Tests for SmartlySyncStatesView."""
@@ -590,6 +618,36 @@ class TestSmartlySyncStatesView:
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert data["states"][0]["entity_id"] == "light.runtime"
+
+    @pytest.mark.asyncio
+    async def test_successful_states_sync_echoes_request_correlation_headers(
+        self, mock_request, mock_hass
+    ):
+        """State sync vNext envelope exposes request/correlation IDs."""
+        gateway = FakeSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-states-1",
+            "X-Correlation-Id": "corr-states-1",
+        }
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-states-1"
+        assert data["correlation_id"] == "corr-states-1"
 
     @pytest.mark.asyncio
     async def test_states_sync_records_raw_diagnostics_in_runtime_store(
