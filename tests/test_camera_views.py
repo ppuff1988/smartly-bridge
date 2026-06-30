@@ -404,6 +404,21 @@ class TestSmartlyCameraStreamView:
         view = SmartlyCameraStreamView(mock_request)
         response = await view.get()
         assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_entity_id",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_ENTITY_ID",
+                    "message": "invalid entity id",
+                    "target": "camera.entity_id",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_stream_auth_failure(self, mock_request):
