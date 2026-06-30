@@ -239,11 +239,7 @@ class HomeAssistantLocalAutomationRuleStore:
         stored_rules.append(_local_automation_rule_to_config(rule))
         data["local_automation_rules"] = stored_rules
         self._hass.config_entries.async_update_entry(config_entry, data=data)
-        if "local_automation_rules" in integration_data:
-            integration_data["local_automation_rules"] = [
-                *self.list_rules(),
-                rule,
-            ]
+        self._refresh_runtime_rules(integration_data, stored_rules)
         return True
 
     def update_rule(self, rule: LocalAutomationRule) -> bool:
@@ -265,11 +261,7 @@ class HomeAssistantLocalAutomationRuleStore:
             return False
         data["local_automation_rules"] = stored_rules
         self._hass.config_entries.async_update_entry(config_entry, data=data)
-        if "local_automation_rules" in integration_data:
-            integration_data["local_automation_rules"] = [
-                rule if existing.rule_id == rule.rule_id else existing
-                for existing in self.list_rules()
-            ]
+        self._refresh_runtime_rules(integration_data, stored_rules)
         return True
 
     def delete_rule(self, rule_id: str) -> bool:
@@ -292,10 +284,7 @@ class HomeAssistantLocalAutomationRuleStore:
             return False
         data["local_automation_rules"] = remaining_rules
         self._hass.config_entries.async_update_entry(config_entry, data=data)
-        if "local_automation_rules" in integration_data:
-            integration_data["local_automation_rules"] = [
-                rule for rule in self.list_rules() if rule.rule_id != rule_id
-            ]
+        self._refresh_runtime_rules(integration_data, remaining_rules)
         return True
 
     def _serialized_rules_for_persistence(
@@ -307,6 +296,14 @@ class HomeAssistantLocalAutomationRuleStore:
         if "local_automation_rules" in integration_data:
             return [_local_automation_rule_to_config(rule) for rule in self.list_rules()]
         return list(config_data.get("local_automation_rules", []))
+
+    def _refresh_runtime_rules(
+        self,
+        integration_data: dict[str, Any],
+        serialized_rules: list[dict[str, Any]],
+    ) -> None:
+        """Make persisted rule changes visible to runtime readers immediately."""
+        integration_data["local_automation_rules"] = list(serialized_rules)
 
 
 def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
