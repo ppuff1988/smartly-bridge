@@ -17,6 +17,7 @@ from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_err
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
+    API_PATH_STATES,
     API_PATH_SYNC,
     API_PATH_SYNC_STATES,
     CONF_ALLOWED_CIDRS,
@@ -263,3 +264,10 @@ class SmartlySyncStatesViewWrapper(HomeAssistantView):
         """Handle GET request."""
         view = SmartlySyncStatesView(request)
         return await view.get()
+
+
+class SmartlyLegacyStatesViewWrapper(SmartlySyncStatesViewWrapper):
+    """Backward-compatible alias for legacy states clients."""
+
+    url = API_PATH_STATES
+    name = "api:smartly:states"

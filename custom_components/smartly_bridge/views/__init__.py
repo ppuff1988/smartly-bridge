@@ -18,7 +18,11 @@ from .history import (
     SmartlyStatisticsViewWrapper,
 )
 from .local_automation import SmartlyLocalAutomationRulesViewWrapper
-from .sync import SmartlySyncStatesViewWrapper, SmartlySyncViewWrapper
+from .sync import (
+    SmartlyLegacyStatesViewWrapper,
+    SmartlySyncStatesViewWrapper,
+    SmartlySyncViewWrapper,
+)
 from .webrtc import (
     SmartlyWebRTCHangupViewWrapper,
     SmartlyWebRTCICEViewWrapper,
@@ -33,6 +37,7 @@ __all__ = [
     "SmartlyLocalAutomationRulesViewWrapper",
     "SmartlySyncViewWrapper",
     "SmartlySyncStatesViewWrapper",
+    "SmartlyLegacyStatesViewWrapper",
     "SmartlyCameraSnapshotViewWrapper",
     "SmartlyCameraStreamViewWrapper",
     "SmartlyCameraListViewWrapper",
@@ -56,6 +61,7 @@ def register_views(hass) -> None:
     hass.http.register_view(SmartlyLocalAutomationRulesViewWrapper)
     hass.http.register_view(SmartlySyncViewWrapper)
     hass.http.register_view(SmartlySyncStatesViewWrapper)
+    hass.http.register_view(SmartlyLegacyStatesViewWrapper)
     # Camera views
     hass.http.register_view(SmartlyCameraSnapshotViewWrapper)
     hass.http.register_view(SmartlyCameraStreamViewWrapper)
