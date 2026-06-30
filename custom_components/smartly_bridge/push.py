@@ -22,6 +22,7 @@ from .const import (
     CONF_PUSH_BATCH_INTERVAL,
     CONF_WEBHOOK_URL,
     DEFAULT_PUSH_BATCH_INTERVAL,
+    DOMAIN,
     HEADER_SIGNATURE,
     HEARTBEAT_INTERVAL,
     MAX_CONCURRENT_HISTORY_QUERIES,
@@ -181,6 +182,21 @@ class StatePushManager:
         """Return the recorder query semaphore for bridge chart preloading."""
         return self._history_semaphore
 
+    def _history_gateway(self) -> Any:
+        """Return the setup-created history gateway, with legacy fallback."""
+        integration_data = self.hass.data.get(DOMAIN)
+        if isinstance(integration_data, dict):
+            runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+            history_gateway = runtime_adapters.get("history_gateway")
+            if history_gateway is None:
+                history_gateway = HomeAssistantHistoryGateway(
+                    self.hass,
+                    self._get_history_semaphore,
+                )
+                runtime_adapters["history_gateway"] = history_gateway
+            return history_gateway
+        return HomeAssistantHistoryGateway(self.hass, self._get_history_semaphore)
+
     async def _bridge_chart_for_state(self, entity_id: str, state: State) -> dict[str, Any] | None:
         """Return recent bridge chart history for an eligible sensor."""
         attributes = format_numeric_attributes(dict(state.attributes))
@@ -199,8 +215,7 @@ class StatePushManager:
 
         end_time = _history_end_time(getattr(state, "last_updated", None))
         start_time = end_time - timedelta(hours=BRIDGE_CHART_LOOKBACK_HOURS)
-        history_gateway = HomeAssistantHistoryGateway(self.hass, self._get_history_semaphore)
-        history_states = await history_gateway.query_states(
+        history_states = await self._history_gateway().query_states(
             entity_id,
             start_time,
             end_time,

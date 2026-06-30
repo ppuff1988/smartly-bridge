@@ -13,6 +13,7 @@ from custom_components.smartly_bridge.const import (
     CONF_CLIENT_SECRET,
     CONF_INSTANCE_ID,
     CONF_WEBHOOK_URL,
+    DOMAIN,
 )
 from custom_components.smartly_bridge.utils import build_bridge_chart_from_states
 
@@ -310,6 +311,48 @@ class TestStatePushManager:
         _, start_time, end_time = mock_query_states.await_args.args
         assert start_time == datetime(2026, 6, 26, 4, 0, 0, tzinfo=timezone.utc)
         assert end_time == datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+
+    @pytest.mark.asyncio
+    async def test_queue_event_bridge_chart_uses_setup_runtime_history_gateway(
+        self,
+        push_manager,
+        mock_hass,
+    ):
+        """Pushed chart history uses the setup-created history gateway."""
+        mock_new_state = MagicMock()
+        mock_new_state.state = "24.567"
+        mock_new_state.attributes = {
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+        }
+        mock_new_state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+        mock_new_state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+        history_gateway = MagicMock()
+        history_gateway.query_states = AsyncMock(
+            return_value=[
+                {"s": "24.1", "lu": 1782432000},
+                {"s": "24.567", "lu": 1782453600},
+            ]
+        )
+        mock_hass.data[DOMAIN] = {
+            "runtime_adapters": {"history_gateway": history_gateway}
+        }
+
+        fallback_gateway = MagicMock()
+        fallback_gateway.query_states = AsyncMock(return_value=[])
+        with patch(
+            "custom_components.smartly_bridge.push.HomeAssistantHistoryGateway",
+            return_value=fallback_gateway,
+        ) as gateway:
+            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+
+        gateway.assert_not_called()
+        history_gateway.query_states.assert_awaited_once()
+        event = push_manager._pending_events[0]
+        assert event["attributes"]["bridge_chart"]["points"] == [
+            {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
+            {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
+        ]
 
     def test_bridge_chart_limits_dense_two_hour_points(self):
         """Dense two-hour chart history is downsampled for compact payloads."""
