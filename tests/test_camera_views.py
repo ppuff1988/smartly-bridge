@@ -86,7 +86,20 @@ class TestSmartlyCameraSnapshotView:
         response = await view.get()
         assert response.status == 500
         data = json.loads(response.body)
-        assert data["error"] == "integration_not_configured"
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "camera.config",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request, mock_hass):
