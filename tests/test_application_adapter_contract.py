@@ -5,6 +5,7 @@ from __future__ import annotations
 from custom_components.smartly_bridge.application.adapter_contract import (
     validate_adapter_manifest,
     validate_adapter_manifest_set,
+    validate_adapter_normalization_snapshot,
 )
 
 
@@ -142,3 +143,107 @@ def test_adapter_manifest_set_allows_distinct_match_priority_scopes() -> None:
 
     assert result.is_valid is True
     assert result.errors == []
+
+
+def test_adapter_normalization_snapshot_passes_when_manifest_matches_device() -> None:
+    """Adapter snapshots must only emit manifest-declared canonical capabilities."""
+    result = validate_adapter_normalization_snapshot(
+        _valid_manifest(),
+        {
+            "id": "ldev_light_kitchen",
+            "capabilities": [
+                {
+                    "type": "power",
+                    "source_refs": [
+                        {
+                            "source": "home_assistant",
+                            "domain": "light",
+                            "source_entity_id": "light.kitchen",
+                        }
+                    ],
+                },
+                {
+                    "type": "brightness",
+                    "source_refs": [
+                        {
+                            "source": "home_assistant",
+                            "domain": "light",
+                            "source_entity_id": "light.kitchen",
+                        }
+                    ],
+                },
+            ],
+        },
+    )
+
+    assert result.is_valid is True
+    assert result.errors == []
+
+
+def test_adapter_normalization_snapshot_rejects_undeclared_capabilities() -> None:
+    """Snapshot capabilities must be backed by the adapter manifest."""
+    snapshot = {
+        "id": "ldev_light_kitchen",
+        "capabilities": [
+            {
+                "type": "temperature",
+                "source_refs": [
+                    {
+                        "source": "home_assistant",
+                        "domain": "light",
+                        "source_entity_id": "light.kitchen",
+                    }
+                ],
+            }
+        ],
+    }
+
+    result = validate_adapter_normalization_snapshot(_valid_manifest(), snapshot)
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "UNDECLARED_SNAPSHOT_CAPABILITY",
+            "path": "logical_device.capabilities[0].type",
+            "message": (
+                "Normalization snapshot emits undeclared capability: temperature"
+            ),
+        }
+    ]
+
+
+def test_adapter_normalization_snapshot_rejects_out_of_scope_source_refs() -> None:
+    """Snapshot source references must stay inside the manifest source/domain scope."""
+    snapshot = {
+        "id": "ldev_light_kitchen",
+        "capabilities": [
+            {
+                "type": "power",
+                "source_refs": [
+                    {
+                        "source": "zigbee2mqtt",
+                        "domain": "switch",
+                        "source_entity_id": "switch.kitchen",
+                    }
+                ],
+            }
+        ],
+    }
+
+    result = validate_adapter_normalization_snapshot(_valid_manifest(), snapshot)
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "SNAPSHOT_SOURCE_OUT_OF_SCOPE",
+            "path": "logical_device.capabilities[0].source_refs[0].source",
+            "message": (
+                "Normalization snapshot source is not declared by manifest: zigbee2mqtt"
+            ),
+        },
+        {
+            "code": "SNAPSHOT_DOMAIN_OUT_OF_SCOPE",
+            "path": "logical_device.capabilities[0].source_refs[0].domain",
+            "message": "Normalization snapshot domain is not declared by manifest: switch",
+        },
+    ]

@@ -183,6 +183,127 @@ def validate_adapter_manifest_set(
     return AdapterManifestValidationResult(errors)
 
 
+def validate_adapter_normalization_snapshot(
+    manifest: dict[str, Any],
+    logical_device: dict[str, Any],
+) -> AdapterManifestValidationResult:
+    """Validate an adapter logical-device snapshot against its manifest."""
+    errors: list[dict[str, str]] = []
+    manifest_result = validate_adapter_manifest(manifest)
+    if manifest_result.errors:
+        errors.extend(_prefix_errors(manifest_result.errors, "manifest"))
+        return AdapterManifestValidationResult(errors)
+
+    supported_capabilities = set(manifest["supported_capabilities"])
+    supported_sources = set(manifest["supported_sources"])
+    supported_domains = set(manifest["supported_domains"])
+    capabilities = logical_device.get("capabilities")
+    if not isinstance(capabilities, list):
+        errors.append(
+            _error(
+                "INVALID_NORMALIZATION_SNAPSHOT",
+                "logical_device.capabilities",
+                "Normalization snapshot must contain a capabilities list.",
+            )
+        )
+        return AdapterManifestValidationResult(errors)
+
+    for index, capability in enumerate(capabilities):
+        if not isinstance(capability, dict):
+            errors.append(
+                _error(
+                    "INVALID_NORMALIZATION_SNAPSHOT",
+                    f"logical_device.capabilities[{index}]",
+                    "Snapshot capability must be an object.",
+                )
+            )
+            continue
+
+        capability_type = capability.get("type")
+        if capability_type not in CANONICAL_CAPABILITIES:
+            errors.append(
+                _error(
+                    "UNSUPPORTED_CAPABILITY",
+                    f"logical_device.capabilities[{index}].type",
+                    f"Unsupported canonical capability: {capability_type}",
+                )
+            )
+            continue
+
+        if capability_type not in supported_capabilities:
+            errors.append(
+                _error(
+                    "UNDECLARED_SNAPSHOT_CAPABILITY",
+                    f"logical_device.capabilities[{index}].type",
+                    f"Normalization snapshot emits undeclared capability: {capability_type}",
+                )
+            )
+
+        _validate_snapshot_source_refs(
+            capability,
+            index,
+            supported_sources,
+            supported_domains,
+            errors,
+        )
+
+    return AdapterManifestValidationResult(errors)
+
+
+def _validate_snapshot_source_refs(
+    capability: dict[str, Any],
+    capability_index: int,
+    supported_sources: set[str],
+    supported_domains: set[str],
+    errors: list[dict[str, str]],
+) -> None:
+    source_refs = capability.get("source_refs", [])
+    if not isinstance(source_refs, list):
+        errors.append(
+            _error(
+                "INVALID_NORMALIZATION_SNAPSHOT",
+                f"logical_device.capabilities[{capability_index}].source_refs",
+                "Snapshot source_refs must be a list.",
+            )
+        )
+        return
+
+    for source_ref_index, source_ref in enumerate(source_refs):
+        path = (
+            f"logical_device.capabilities[{capability_index}]"
+            f".source_refs[{source_ref_index}]"
+        )
+        if not isinstance(source_ref, dict):
+            errors.append(
+                _error(
+                    "INVALID_NORMALIZATION_SNAPSHOT",
+                    path,
+                    "Snapshot source_ref must be an object.",
+                )
+            )
+            continue
+
+        source = source_ref.get("source")
+        if source not in supported_sources:
+            errors.append(
+                _error(
+                    "SNAPSHOT_SOURCE_OUT_OF_SCOPE",
+                    f"{path}.source",
+                    f"Normalization snapshot source is not declared by manifest: {source}",
+                )
+            )
+
+        domain = source_ref.get("domain")
+        if domain not in supported_domains:
+            errors.append(
+                _error(
+                    "SNAPSHOT_DOMAIN_OUT_OF_SCOPE",
+                    f"{path}.domain",
+                    f"Normalization snapshot domain is not declared by manifest: {domain}",
+                )
+            )
+
+
 def _validate_required_string(
     manifest: dict[str, Any],
     key: str,
