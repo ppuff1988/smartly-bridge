@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
@@ -29,6 +30,7 @@ from ..const import (
     DEFAULT_DOMAIN_ICONS,
     DOMAIN,
     MAX_CONCURRENT_HISTORY_QUERIES,
+    RAW_DIAGNOSTIC_TTL,
 )
 from ..device_presentation import build_device_card_metadata
 from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
@@ -603,22 +605,46 @@ class HomeAssistantSyncGateway:
 class HomeAssistantRawDiagnosticStore:
     """Raw diagnostic store backed by Home Assistant runtime data."""
 
-    def __init__(self, hass: Any) -> None:
+    def __init__(
+        self,
+        hass: Any,
+        *,
+        ttl_seconds: int = RAW_DIAGNOSTIC_TTL,
+        now_fn: Callable[[], float] = time.time,
+    ) -> None:
         self._hass = hass
+        self._ttl_seconds = ttl_seconds
+        self._now_fn = now_fn
 
     def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
         """Return a raw diagnostic payload registered for a raw reference."""
         raw_diagnostics = self._raw_diagnostics()
         if not isinstance(raw_diagnostics, dict):
             return None
-        payload = raw_diagnostics.get(raw_ref)
-        if not isinstance(payload, dict):
+        entry = raw_diagnostics.get(raw_ref)
+        if not isinstance(entry, dict):
             return None
+        if self._is_wrapped_entry(entry):
+            expires_at = entry["expires_at"]
+            if isinstance(expires_at, (int, float)) and expires_at < self._now_fn():
+                raw_diagnostics.pop(raw_ref, None)
+                return None
+            payload = entry["payload"]
+            return payload if isinstance(payload, dict) else None
+        payload = entry
         return payload
 
     def record_raw_diagnostic(self, raw_ref: str, payload: dict[str, Any]) -> None:
         """Record a raw diagnostic payload for a reference."""
-        self._raw_diagnostics()[raw_ref] = payload
+        self._raw_diagnostics()[raw_ref] = {
+            "payload": payload,
+            "expires_at": self._now_fn() + self._ttl_seconds,
+        }
+
+    @staticmethod
+    def _is_wrapped_entry(entry: dict[str, Any]) -> bool:
+        """Return whether a raw diagnostic entry has store metadata."""
+        return "payload" in entry and "expires_at" in entry
 
     def _raw_diagnostics(self) -> dict[str, Any]:
         """Return the runtime raw diagnostic mapping."""

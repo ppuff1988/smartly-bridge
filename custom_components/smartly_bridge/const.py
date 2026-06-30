@@ -46,6 +46,7 @@ MAX_CONCURRENT_HISTORY_QUERIES = 5  # 最大並發歷史查詢數
 # HMAC authentication
 TIMESTAMP_TOLERANCE = 30  # seconds
 NONCE_TTL = 300  # 5 minutes
+RAW_DIAGNOSTIC_TTL = 300  # 5 minutes
 
 # Push retry
 PUSH_RETRY_MAX = 3
