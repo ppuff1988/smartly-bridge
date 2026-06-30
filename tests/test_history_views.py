@@ -25,6 +25,83 @@ from custom_components.smartly_bridge.views.history import (
 )
 
 
+class FakeRuntimeHistoryGateway:
+    """History gateway used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.states = [
+            {
+                "s": "10",
+                "lc": 1767225600,
+                "lu": 1767225600,
+                "a": {"device_class": "temperature", "unit_of_measurement": "°C"},
+            },
+            {"s": "11", "lc": 1767229200, "lu": 1767229200, "a": {}},
+        ]
+
+    async def query_states(
+        self,
+        entity_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        significant_changes_only: bool,
+    ) -> list[dict]:
+        self.calls.append("query_states")
+        return self.states
+
+    async def query_batch_states(
+        self,
+        entity_ids: list[str],
+        start_time: datetime,
+        end_time: datetime,
+        significant_changes_only: bool,
+    ) -> dict[str, list[dict]]:
+        self.calls.append("query_batch_states")
+        return {entity_id: self.states for entity_id in entity_ids}
+
+    async def first_state_with_attributes(
+        self,
+        entity_id: str,
+        start_time: datetime,
+    ) -> dict | None:
+        self.calls.append("first_state_with_attributes")
+        return self.states[0]
+
+    async def count_states(
+        self,
+        entity_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        significant_changes_only: bool,
+    ) -> int:
+        self.calls.append("count_states")
+        return len(self.states)
+
+    def get_current_attributes(self, entity_id: str) -> dict | None:
+        self.calls.append("get_current_attributes")
+        return {"device_class": "temperature", "unit_of_measurement": "°C"}
+
+    async def query_statistics(
+        self,
+        entity_id: str,
+        start_time: datetime,
+        end_time: datetime,
+        period: str,
+    ) -> list[dict]:
+        self.calls.append("query_statistics")
+        return [
+            {
+                "start": 1767225600,
+                "end": 1767229200,
+                "mean": 150.5,
+                "min": 50.0,
+                "max": 300.0,
+                "sum": 3612.0,
+            }
+        ]
+
+
 class TestHelperFunctions:
     """Tests for helper functions."""
 
@@ -426,6 +503,33 @@ class TestSmartlyHistoryView:
                     # 驗證包含 metadata
                     assert "metadata" in data
                     assert data["metadata"]["is_numeric"] is True
+
+    @pytest.mark.asyncio
+    async def test_single_history_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Single history requests execute through the setup-created history gateway."""
+        gateway = FakeRuntimeHistoryGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"history_gateway": gateway}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyHistoryView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["entity_id"] == "sensor.temperature"
+        assert data["history"][0]["state"] == 11.0
+        assert gateway.calls == ["query_states", "get_current_attributes"]
 
     @pytest.mark.asyncio
     async def test_query_timeout_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -943,6 +1047,37 @@ class TestSmartlyHistoryBatchView:
                     assert data["metadata"]["sensor.temp1"]["is_numeric"] is True
 
     @pytest.mark.asyncio
+    async def test_batch_history_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Batch history requests execute through the setup-created history gateway."""
+        gateway = FakeRuntimeHistoryGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"history_gateway": gateway}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyHistoryBatchView(mock_request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert sorted(data["history"]) == ["sensor.temp1", "sensor.temp2"]
+        assert data["history"]["sensor.temp1"][0]["state"] == 11.0
+        assert gateway.calls == [
+            "query_batch_states",
+            "get_current_attributes",
+            "get_current_attributes",
+        ]
+
+    @pytest.mark.asyncio
     async def test_batch_query_timeout_returns_api_vnext_envelope(
         self, mock_request, mock_hass
     ):
@@ -1349,6 +1484,33 @@ class TestSmartlyStatisticsView:
                 assert data["statistics"][0]["mean"] == 150.5
                 assert data["statistics"][0]["min"] == 50.0
                 assert data["statistics"][0]["max"] == 300.0
+
+    @pytest.mark.asyncio
+    async def test_statistics_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Statistics requests execute through the setup-created history gateway."""
+        gateway = FakeRuntimeHistoryGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"history_gateway": gateway}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyStatisticsView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["entity_id"] == "sensor.power"
+        assert data["statistics"][0]["mean"] == 150.5
+        assert gateway.calls == ["query_statistics"]
 
     @pytest.mark.asyncio
     async def test_statistics_query_failure_returns_api_vnext_envelope(

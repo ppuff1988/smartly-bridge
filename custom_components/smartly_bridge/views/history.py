@@ -68,6 +68,15 @@ def _get_history_semaphore() -> asyncio.Semaphore:
     return _history_query_semaphore
 
 
+def _history_gateway(hass: HomeAssistant) -> Any:
+    """Return the setup-created history gateway."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    return runtime_adapters.setdefault(
+        "history_gateway",
+        HomeAssistantHistoryGateway(hass, _get_history_semaphore),
+    )
+
+
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
     """Encode cursor for pagination.
 
@@ -456,7 +465,7 @@ class SmartlyHistoryView(web.View):
 
         try:
             result = await SingleHistoryUseCase(
-                HomeAssistantHistoryGateway(self.hass, _get_history_semaphore)
+                _history_gateway(self.hass)
             ).execute(
                 SingleHistoryQuery(
                     entity_id=entity_id,
@@ -718,7 +727,7 @@ class SmartlyHistoryBatchView(web.View):
 
         try:
             result = await BatchHistoryUseCase(
-                HomeAssistantHistoryGateway(self.hass, _get_history_semaphore)
+                _history_gateway(self.hass)
             ).execute(
                 BatchHistoryQuery(
                     entity_ids=allowed_entity_ids,
@@ -912,7 +921,7 @@ class SmartlyStatisticsView(web.View):
 
         try:
             result = await StatisticsUseCase(
-                HomeAssistantHistoryGateway(self.hass, _get_history_semaphore)
+                _history_gateway(self.hass)
             ).execute(
                 StatisticsQuery(
                     entity_id=entity_id,

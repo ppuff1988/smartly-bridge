@@ -59,6 +59,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         HomeAssistantControlGateway,
         HomeAssistantDeviceEventPublisher,
         HomeAssistantEntityPolicy,
+        HomeAssistantHistoryGateway,
         HomeAssistantLocalAutomationRuleStore,
         HomeAssistantStateSyncGateway,
         HomeAssistantSmartlyCommandExecutor,
@@ -71,6 +72,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     from .auth import NonceCache, RateLimiter
     from .camera import CameraManager
     from .push import StatePushManager
+    from .views.history import _get_history_semaphore
     from .webrtc import WebRTCTokenManager
 
     log_integration_event(_LOGGER, "setup_start", f"instance={entry.data.get(CONF_INSTANCE_ID)}")
@@ -107,6 +109,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
         "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, _LOGGER),
         "camera_gateway": HomeAssistantCameraGateway(hass, camera_manager),
+        "history_gateway": HomeAssistantHistoryGateway(hass, _get_history_semaphore),
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
         "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
         "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),

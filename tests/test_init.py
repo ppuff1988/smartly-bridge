@@ -79,6 +79,7 @@ class TestSetup:
         from custom_components.smartly_bridge.adapters.home_assistant import (
             HomeAssistantCameraGateway,
             HomeAssistantDeviceEventPublisher,
+            HomeAssistantHistoryGateway,
             HomeAssistantLocalAutomationRuleStore,
             HomeAssistantStateSyncGateway,
             HomeAssistantSmartlyCommandExecutor,
@@ -127,6 +128,10 @@ class TestSetup:
         assert isinstance(
             runtime_adapters["camera_gateway"],
             HomeAssistantCameraGateway,
+        )
+        assert isinstance(
+            runtime_adapters["history_gateway"],
+            HomeAssistantHistoryGateway,
         )
         assert isinstance(
             runtime_adapters["sync_structure_gateway"],
