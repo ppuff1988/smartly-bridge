@@ -11,7 +11,47 @@ import pytest
 from custom_components.smartly_bridge.adapters.home_assistant import HomeAssistantStateSyncGateway
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import DOMAIN
+from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView, SmartlySyncView
+
+
+class FakeSyncStructureGateway:
+    """Sync structure gateway used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def get_structure(self) -> dict:
+        """Return a fixed structure payload."""
+        self.calls += 1
+        return {
+            "entities": [{"entity_id": "light.runtime", "name": "Runtime Light"}],
+            "areas": [],
+            "devices": [],
+            "floors": [],
+        }
+
+
+class FakeSyncStatesGateway:
+    """Sync states gateway used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def list_states(self) -> list[EntityStateSnapshot]:
+        """Return a fixed state snapshot."""
+        self.calls += 1
+        return [
+            EntityStateSnapshot(
+                entity_id="light.runtime",
+                state="on",
+                attributes={"friendly_name": "Runtime Light"},
+                name="Runtime Light",
+                domain="light",
+                capabilities=["power"],
+                source_device_id="runtime-device",
+            )
+        ]
 
 
 class TestSmartlySyncView:
@@ -221,6 +261,27 @@ class TestSmartlySyncView:
                     data = json.loads(response.body)
                     assert "entities" in data
                     assert len(data["entities"]) == 2
+
+    @pytest.mark.asyncio
+    async def test_successful_sync_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Structure sync executes through the setup-created sync gateway."""
+        gateway = FakeSyncStructureGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert gateway.calls == 1
+        assert data["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
 
 
 class TestSmartlySyncStatesView:
@@ -465,6 +526,29 @@ class TestSmartlySyncStatesView:
                     state2 = next(s for s in data["states"] if s["entity_id"] == "switch.bedroom")
                     assert state2["state"] == "off"
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
+
+    @pytest.mark.asyncio
+    async def test_successful_states_sync_uses_setup_runtime_gateway(
+        self, mock_request, mock_hass
+    ):
+        """State sync executes through the setup-created sync states gateway."""
+        gateway = FakeSyncStatesGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert gateway.calls == 1
+        assert data["states"][0]["entity_id"] == "light.runtime"
 
     @pytest.mark.asyncio
     async def test_states_sync_uses_logical_device_read_path_when_enabled(

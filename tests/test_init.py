@@ -79,7 +79,9 @@ class TestSetup:
         from custom_components.smartly_bridge.adapters.home_assistant import (
             HomeAssistantDeviceEventPublisher,
             HomeAssistantLocalAutomationRuleStore,
+            HomeAssistantStateSyncGateway,
             HomeAssistantSmartlyCommandExecutor,
+            HomeAssistantSyncGateway,
             InMemoryDeviceEventDeduplicator,
         )
         from custom_components.smartly_bridge.application.control import ControlUseCase
@@ -119,6 +121,14 @@ class TestSetup:
         assert isinstance(
             runtime_adapters["smartly_command_executor"],
             HomeAssistantSmartlyCommandExecutor,
+        )
+        assert isinstance(
+            runtime_adapters["sync_structure_gateway"],
+            HomeAssistantSyncGateway,
+        )
+        assert isinstance(
+            runtime_adapters["sync_states_gateway"],
+            HomeAssistantStateSyncGateway,
         )
 
 

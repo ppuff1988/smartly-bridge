@@ -59,7 +59,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         HomeAssistantDeviceEventPublisher,
         HomeAssistantEntityPolicy,
         HomeAssistantLocalAutomationRuleStore,
+        HomeAssistantStateSyncGateway,
         HomeAssistantSmartlyCommandExecutor,
+        HomeAssistantSyncGateway,
         InMemoryDeviceEventDeduplicator,
         LoggingAuditAdapter,
     )
@@ -102,6 +104,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
         "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
         "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, _LOGGER),
+        "sync_structure_gateway": HomeAssistantSyncGateway(hass),
+        "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
     }
 
     # Store in hass.data

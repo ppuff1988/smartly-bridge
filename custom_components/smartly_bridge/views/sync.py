@@ -46,6 +46,18 @@ class SmartlySyncView(web.View):
 
         return None
 
+    def _sync_structure_gateway(self) -> Any:
+        """Return the setup-created sync structure gateway."""
+        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
+        return runtime_adapters.setdefault(
+            "sync_structure_gateway",
+            HomeAssistantSyncGateway(
+                self.hass,
+                allowed_entities_fn=get_allowed_entities,
+                structure_fn=get_structure,
+            ),
+        )
+
     async def get(self) -> web.Response:
         """Handle sync request from Platform."""
         # Get integration data
@@ -108,13 +120,7 @@ class SmartlySyncView(web.View):
                 },
             )
 
-        result = SyncStructureUseCase(
-            HomeAssistantSyncGateway(
-                self.hass,
-                allowed_entities_fn=get_allowed_entities,
-                structure_fn=get_structure,
-            )
-        ).execute()
+        result = SyncStructureUseCase(self._sync_structure_gateway()).execute()
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
 
@@ -136,6 +142,17 @@ class SmartlySyncStatesView(web.View):
             return config_entry.data
 
         return None
+
+    def _sync_states_gateway(self) -> Any:
+        """Return the setup-created sync states gateway."""
+        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
+        return runtime_adapters.setdefault(
+            "sync_states_gateway",
+            HomeAssistantStateSyncGateway(
+                self.hass,
+                allowed_entities_fn=get_allowed_entities,
+            ),
+        )
 
     async def get(self) -> web.Response:
         """Handle sync states request from Platform."""
@@ -200,10 +217,7 @@ class SmartlySyncStatesView(web.View):
             )
 
         result = await SyncStatesUseCase(
-            HomeAssistantStateSyncGateway(
-                self.hass,
-                allowed_entities_fn=get_allowed_entities,
-            ),
+            self._sync_states_gateway(),
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
         ).execute()
         return web.json_response(result.body, status=result.status, headers=result.headers)
