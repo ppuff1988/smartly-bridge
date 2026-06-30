@@ -22,6 +22,33 @@ from ..const import (
 from .base import BaseView
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a raw diagnostic JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlyRawDiagnosticView(BaseView):
     """Handle GET /api/smartly/diagnostics/raw/{raw_ref} requests."""
 
@@ -44,7 +71,12 @@ class SmartlyRawDiagnosticView(BaseView):
                 status=500,
                 target="diagnostics.raw.integration",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
@@ -66,7 +98,12 @@ class SmartlyRawDiagnosticView(BaseView):
                 status=401,
                 target="diagnostics.raw.auth",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if not await rate_limiter.check(auth_result.client_id or ""):
             result = raw_diagnostic_error_response(
@@ -75,8 +112,9 @@ class SmartlyRawDiagnosticView(BaseView):
                 status=429,
                 target="diagnostics.raw.rate_limit",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -93,7 +131,12 @@ class SmartlyRawDiagnosticView(BaseView):
             return auth
         raw_ref = self.request.match_info.get("raw_ref", "")
         result = RawDiagnosticFetchUseCase(self._raw_diagnostic_store()).execute(raw_ref)
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 class SmartlyRawDiagnosticViewWrapper(HomeAssistantView):

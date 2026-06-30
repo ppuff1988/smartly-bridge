@@ -659,6 +659,53 @@ class TestRawDiagnosticEndpoint:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
+    async def test_raw_diagnostic_echoes_request_correlation_headers(
+        self, mock_hass, mock_config_entry
+    ):
+        """Raw diagnostic vNext envelope exposes request/correlation IDs."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        store = FakeRawDiagnosticStore()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {"raw_diagnostic_store": store},
+        }
+
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "GET"
+        mock_request.path = "/api/smartly/diagnostics/raw/raw_light_001"
+        mock_request.match_info = {"raw_ref": "raw_light_001"}
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {
+            "X-Request-Id": "req-raw-1",
+            "X-Correlation-Id": "corr-raw-1",
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True, client_id="test_client", error=None
+            )
+
+            response = await SmartlyRawDiagnosticView(mock_request).get()
+
+        assert response.status == 200
+        body = json.loads(response.body)
+        assert body["request_id"] == "req-raw-1"
+        assert body["correlation_id"] == "corr-raw-1"
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
     async def test_raw_diagnostic_auth_failure_uses_diagnostic_error_envelope(
         self, mock_hass, mock_config_entry
     ):
