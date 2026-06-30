@@ -935,6 +935,39 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_offer_view_invalid_sdp_type_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope when SDP type is invalid."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={"token": "test-token", "sdp": "v=0\r\n", "type": "answer"}
+        )
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_sdp_type",
+            "message": "SDP type must be 'offer'",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_SDP_TYPE",
+                    "message": "invalid sdp type",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests

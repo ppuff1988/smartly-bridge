@@ -296,9 +296,15 @@ class SmartlyWebRTCOfferView(BaseView):
             )
 
         if sdp_type != "offer":
-            return web.json_response(
-                {"error": "invalid_sdp_type", "message": "SDP type must be 'offer'"},
+            result = _webrtc_error_response(
+                "invalid_sdp_type",
                 status=400,
+                legacy_fields={"message": "SDP type must be 'offer'"},
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager
