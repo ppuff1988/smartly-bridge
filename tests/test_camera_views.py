@@ -507,6 +507,39 @@ class TestSmartlyCameraStreamView:
                 ],
             }
 
+    @pytest.mark.asyncio
+    async def test_stream_entity_not_allowed(self, mock_request, mock_hass):
+        """Test stream view returns API vNext envelope when entity is denied."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=False,
+            ):
+                view = SmartlyCameraStreamView(mock_request)
+                response = await view.get()
+
+                assert response.status == 403
+                data = json.loads(response.body)
+                assert data == {
+                    "error": "entity_not_allowed",
+                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "ENTITY_NOT_ALLOWED",
+                            "message": "entity not allowed",
+                            "target": "camera.entity_id",
+                            "retryable": False,
+                        }
+                    ],
+                }
+
 
 class TestSmartlyCameraListView:
     """Tests for SmartlyCameraListView."""

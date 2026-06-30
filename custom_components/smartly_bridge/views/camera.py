@@ -341,9 +341,15 @@ class SmartlyCameraStreamView(BaseView):
                 service="camera_stream",
                 reason="entity_not_allowed",
             )
-            return web.json_response(
-                {"error": "entity_not_allowed"},
+            result = _camera_error_response(
+                "entity_not_allowed",
                 status=403,
+                target="camera.entity_id",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get camera manager
