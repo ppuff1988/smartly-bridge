@@ -1003,6 +1003,35 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_ice_view_invalid_entity_id_returns_envelope(self, mock_hass_with_webrtc):
+        """Test ICE request returns API vNext envelope with invalid entity ID."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "light.invalid"}
+        request.app = {"hass": mock_hass_with_webrtc}
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_entity_id",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_ENTITY_ID",
+                    "message": "invalid entity id",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests
