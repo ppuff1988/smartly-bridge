@@ -47,14 +47,15 @@ _LOGGER = logging.getLogger(__name__)
 def _camera_gateway(hass: Any, camera_manager: Any) -> Any:
     """Return the setup-created camera gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    return runtime_adapters.setdefault(
-        "camera_gateway",
-        HomeAssistantCameraGateway(
+    gateway = runtime_adapters.get("camera_gateway")
+    if gateway is None:
+        gateway = HomeAssistantCameraGateway(
             hass,
             camera_manager,
             allowed_entities_fn=get_allowed_entities,
-        ),
-    )
+        )
+        runtime_adapters["camera_gateway"] = gateway
+    return gateway
 
 
 class SmartlyCameraSnapshotView(BaseView):

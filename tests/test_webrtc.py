@@ -898,6 +898,9 @@ class TestWebRTCViews:
             patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
             patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
             patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.HomeAssistantWebRTCGateway"
+            ) as gateway_cls,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test_client")
             mock_registry_get.return_value = MagicMock()
@@ -909,6 +912,7 @@ class TestWebRTCViews:
         data = json.loads(response.body)
         assert data["token"] == "token123"
         assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
+        gateway_cls.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_offer_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):

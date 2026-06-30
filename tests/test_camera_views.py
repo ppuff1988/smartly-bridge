@@ -416,6 +416,9 @@ class TestSmartlyCameraSnapshotView:
                 "custom_components.smartly_bridge.views.camera.is_entity_allowed",
                 return_value=True,
             ),
+            patch(
+                "custom_components.smartly_bridge.views.camera.HomeAssistantCameraGateway",
+            ) as gateway_cls,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
@@ -425,6 +428,7 @@ class TestSmartlyCameraSnapshotView:
         assert response.body == b"runtime-image"
         assert response.headers["ETag"] == "runtime-etag"
         assert gateway.calls == ["get_snapshot"]
+        gateway_cls.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_snapshot_unavailable(self, mock_request, mock_hass):

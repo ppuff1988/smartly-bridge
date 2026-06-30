@@ -54,10 +54,11 @@ _LOGGER = logging.getLogger(__name__)
 def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
     """Return the setup-created WebRTC gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    return runtime_adapters.setdefault(
-        "webrtc_gateway",
-        HomeAssistantWebRTCGateway(hass, webrtc_manager),
-    )
+    gateway = runtime_adapters.get("webrtc_gateway")
+    if gateway is None:
+        gateway = HomeAssistantWebRTCGateway(hass, webrtc_manager)
+        runtime_adapters["webrtc_gateway"] = gateway
+    return gateway
 
 
 class SmartlyWebRTCTokenView(BaseView):
