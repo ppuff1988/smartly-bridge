@@ -23,6 +23,9 @@ class EntityPolicyPort(Protocol):
 class ControlGatewayPort(Protocol):
     """Executes allowed control commands."""
 
+    def get_state(self, entity_id: str) -> EntityStateSnapshot | None:
+        """Return the current source entity state before command execution."""
+
     async def call_service(
         self, entity_id: str, action: str, service_data: dict[str, Any]
     ) -> EntityStateSnapshot | None:

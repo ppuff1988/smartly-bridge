@@ -477,6 +477,17 @@ class HomeAssistantControlGateway:
         self._hass = hass
         self._sleep_seconds = sleep_seconds
 
+    def get_state(self, entity_id: str) -> EntityStateSnapshot | None:
+        """Return the current entity state snapshot."""
+        state = self._hass.states.get(entity_id)
+        if state is None:
+            return None
+        return EntityStateSnapshot(
+            entity_id=entity_id,
+            state=state.state,
+            attributes=format_numeric_attributes(dict(state.attributes)),
+        )
+
     async def call_service(
         self, entity_id: str, action: str, service_data: dict[str, Any]
     ) -> EntityStateSnapshot | None:
@@ -490,14 +501,7 @@ class HomeAssistantControlGateway:
         )
         await asyncio.sleep(self._sleep_seconds)
 
-        state = self._hass.states.get(entity_id)
-        if state is None:
-            return None
-        return EntityStateSnapshot(
-            entity_id=entity_id,
-            state=state.state,
-            attributes=format_numeric_attributes(dict(state.attributes)),
-        )
+        return self.get_state(entity_id)
 
 
 class HomeAssistantCommandTargetResolver:

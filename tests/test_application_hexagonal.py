@@ -59,6 +59,11 @@ class FakeControlGateway:
         self.calls.append((entity_id, action, service_data))
         return self.state
 
+    def get_state(self, entity_id: str) -> EntityStateSnapshot | None:
+        if self.state is None or self.state.entity_id != entity_id:
+            return None
+        return self.state
+
 
 class FakeCommandTargetResolver:
     """Fake Smartly command target resolver."""
@@ -1400,6 +1405,53 @@ async def test_smartly_command_use_case_dispatches_numeric_setting_command() -> 
     assert result.status == 200
     assert result.body["expected_state"] == {"numeric_setting": {"value": 20}}
     assert gateway.calls == [("number.presence_detection_delay", "set_value", {"value": 20})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_numeric_setting_outside_range() -> None:
+    """Numeric setting commands honor source number min/max constraints."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="number.presence_detection_delay",
+            state="20",
+            attributes={"min": 1, "max": 120, "step": 1, "unit_of_measurement": "s"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_zigbee_presence_1", "numeric_setting"): "number.presence_detection_delay"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-delay-out-of-range",
+            device_id="ldev_zigbee_presence_1",
+            capability="numeric_setting",
+            command="set_value",
+            params={"value": 121},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["expected_state"] == {}
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "number.presence_detection_delay",
+            "set_value",
+            "invalid_params",
+            {
+                "command_id": "cmd-setting-delay-out-of-range",
+                "logical_device_id": "ldev_zigbee_presence_1",
+                "capability": "numeric_setting",
+                "source_entity_id": "number.presence_detection_delay",
+            },
+        )
+    ]
 
 
 @pytest.mark.asyncio

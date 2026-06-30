@@ -270,6 +270,22 @@ class SmartlyCommandUseCase:
                 400,
             )
 
+        source_state = self._gateway.get_state(entity_id)
+        if not _has_valid_source_setting_params(command, source_state):
+            self._audit.deny(
+                client_id,
+                entity_id,
+                command.command,
+                "invalid_params",
+                _smartly_command_audit_actor(command, entity_id),
+            )
+            return _smartly_command_error_response(
+                command,
+                entity_id,
+                "invalid_params",
+                400,
+            )
+
         actor = {
             **(command.source or {}),
             **_smartly_command_audit_actor(command, entity_id),
@@ -441,6 +457,27 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         return isinstance(value, (int, float)) and not isinstance(value, bool)
     if command.capability == "option_setting" and command.command == "select_option":
         return isinstance(command.params.get("option"), str)
+    return True
+
+
+def _has_valid_source_setting_params(
+    command: SmartlyCommand,
+    source_state: EntityStateSnapshot | None,
+) -> bool:
+    """Return whether setting params fit source entity constraints."""
+    if source_state is None:
+        return True
+    attributes = source_state.attributes
+    if command.capability == "numeric_setting" and command.command == "set_value":
+        value = command.params.get("value")
+        if not isinstance(value, (int, float)) or isinstance(value, bool):
+            return False
+        minimum = attributes.get("min")
+        maximum = attributes.get("max")
+        if isinstance(minimum, (int, float)) and value < minimum:
+            return False
+        if isinstance(maximum, (int, float)) and value > maximum:
+            return False
     return True
 
 
