@@ -17,6 +17,7 @@ from custom_components.smartly_bridge.adapters.home_assistant import (
     InMemoryDeviceEventDeduplicator,
 )
 from custom_components.smartly_bridge.const import API_PATH_DEVICE_EVENTS, DOMAIN
+from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.device_events import (
     SmartlyDeviceEventsView,
     SmartlyDeviceEventsViewWrapper,
@@ -68,6 +69,37 @@ class FakeDeviceEventPublisher:
     def publish_device_event(self, event_data: dict) -> None:
         """Record a canonical device event."""
         self.events.append(event_data)
+
+
+class FakeLocalAutomationRuleStore:
+    """Rule store used to verify runtime adapter automation wiring."""
+
+    def __init__(self, rules: list[LocalAutomationRule]) -> None:
+        self._rules = rules
+        self.list_calls = 0
+
+    def list_rules(self) -> list[LocalAutomationRule]:
+        """Return configured local automation rules."""
+        self.list_calls += 1
+        return self._rules
+
+
+class FakeSmartlyCommandExecutor:
+    """Smartly command executor used to verify automation dispatch."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, object]] = []
+
+    async def execute(self, client_id: str, command: object) -> BridgeResponse:
+        """Record an automation command execution."""
+        self.calls.append((client_id, command))
+        return BridgeResponse(
+            {
+                "success": True,
+                "status": "completed",
+            },
+            status=200,
+        )
 
 
 class TestDeviceEventsEndpoint:
@@ -748,6 +780,77 @@ class TestDeviceEventsEndpoint:
             {"entity_id": "light.kitchen"},
             blocking=True,
         )
+
+    @pytest.mark.asyncio
+    async def test_device_event_uses_runtime_rule_store_even_without_legacy_rules(
+        self,
+        mock_hass,
+    ):
+        """Runtime rule store rules enable automation without legacy rule data."""
+        _configure_integration(mock_hass)
+        rule_store = FakeLocalAutomationRuleStore(
+            [
+                LocalAutomationRule(
+                    rule_id="runtime-left-single",
+                    trigger=AutomationTrigger(
+                        device_id="ldev_button",
+                        capability="button_event",
+                        event="single_press",
+                        payload={"button": "left"},
+                    ),
+                    actions=[
+                        AutomationAction(
+                            type="device_command",
+                            device_id="ldev_light_kitchen",
+                            capability="power",
+                            command="turn_on",
+                        )
+                    ],
+                )
+            ]
+        )
+        command_executor = FakeSmartlyCommandExecutor()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "device_event_publisher": FakeDeviceEventPublisher(),
+            "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
+            "local_automation_rule_store": rule_store,
+            "smartly_command_executor": command_executor,
+        }
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+            device_id="ldev_button",
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True,
+                client_id="test_client",
+                error=None,
+            )
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 202
+        payload = json.loads(response.body)
+        assert payload["automations"] == [
+            {
+                "rule_id": "runtime-left-single",
+                "action_index": 0,
+                "type": "device_command",
+                "command_id": f"auto_{payload['event_id']}_runtime-left-single_0",
+                "status": "completed",
+                "response_status": 200,
+            }
+        ]
+        assert rule_store.list_calls >= 1
+        assert len(command_executor.calls) == 1
 
     @pytest.mark.asyncio
     async def test_device_event_returns_json_error_when_dispatch_fails(self, mock_hass):

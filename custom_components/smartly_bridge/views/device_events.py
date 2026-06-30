@@ -74,6 +74,14 @@ def _missing_event_field_target(
 
 def _has_local_automation_rules(integration_data: dict[str, Any]) -> bool:
     """Return whether local automation rules are configured."""
+    runtime_adapters = integration_data.get("runtime_adapters")
+    if isinstance(runtime_adapters, dict):
+        rule_store = runtime_adapters.get("local_automation_rule_store")
+        if rule_store is not None:
+            try:
+                return bool(rule_store.list_rules())
+            except Exception:
+                _LOGGER.debug("Failed to inspect runtime local automation rules", exc_info=True)
     if "local_automation_rules" in integration_data:
         return bool(integration_data.get("local_automation_rules"))
     config_entry = integration_data.get("config_entry")
