@@ -1331,7 +1331,9 @@ class TestControlEndpointFullFlow:
 
         with patch(
             "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
+        ) as mock_verify, patch(
+            "custom_components.smartly_bridge.views.control.HomeAssistantControlGateway"
+        ) as mock_gateway:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None
             )
@@ -1339,6 +1341,7 @@ class TestControlEndpointFullFlow:
             response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
+        mock_gateway.assert_not_called()
         assert use_case.calls == [
             (
                 "test_client",
@@ -1387,7 +1390,9 @@ class TestControlEndpointFullFlow:
 
         with patch(
             "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
+        ) as mock_verify, patch(
+            "custom_components.smartly_bridge.views.control.HomeAssistantSmartlyCommandExecutor"
+        ) as mock_executor:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None
             )
@@ -1395,6 +1400,7 @@ class TestControlEndpointFullFlow:
             response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
+        mock_executor.assert_not_called()
         payload = json.loads(response.body)
         assert payload["command_id"] == "cmd-runtime"
         assert executor.calls == [

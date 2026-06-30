@@ -133,23 +133,25 @@ class SmartlyControlView(web.View):
         """Return the setup-created canonical command executor."""
         integration_data = self.hass.data.setdefault(DOMAIN, {})
         runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "smartly_command_executor",
-            HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
-        )
+        executor = runtime_adapters.get("smartly_command_executor")
+        if executor is None:
+            executor = HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER)
+            runtime_adapters["smartly_command_executor"] = executor
+        return executor
 
     def _control_use_case(self) -> Any:
         """Return the setup-created legacy control use case."""
         integration_data = self.hass.data.setdefault(DOMAIN, {})
         runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "control_use_case",
-            ControlUseCase(
+        use_case = runtime_adapters.get("control_use_case")
+        if use_case is None:
+            use_case = ControlUseCase(
                 HomeAssistantEntityPolicy(self.hass),
                 HomeAssistantControlGateway(self.hass),
                 LoggingAuditAdapter(_LOGGER),
-            ),
-        )
+            )
+            runtime_adapters["control_use_case"] = use_case
+        return use_case
 
     async def post(self) -> web.Response:
         """Handle control request from Platform."""
