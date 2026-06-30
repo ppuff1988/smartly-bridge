@@ -1,0 +1,17 @@
+{
+  "error": "entity_not_found",
+  "message": "Camera camera.missing not found",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ENTITY_NOT_FOUND",
+      "message": "entity not found",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

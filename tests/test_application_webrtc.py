@@ -205,6 +205,19 @@ async def test_webrtc_token_use_case_rejects_missing_camera() -> None:
 
 
 @pytest.mark.asyncio
+async def test_webrtc_token_camera_missing_response_matches_api_vnext_fixture() -> None:
+    """WebRTC token missing-camera response remains stable for legacy clients."""
+    result = await WebRTCTokenUseCase(FakeWebRTCGateway()).execute(
+        entity_id="camera.missing",
+        client_id="client-1",
+        turn_config={},
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("webrtc-token-camera-missing.json")
+
+
+@pytest.mark.asyncio
 async def test_webrtc_ice_use_case_adds_candidate() -> None:
     """ICE use case validates the session and appends the candidate."""
     gateway = FakeWebRTCGateway()
