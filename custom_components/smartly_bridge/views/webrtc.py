@@ -272,9 +272,15 @@ class SmartlyWebRTCOfferView(BaseView):
         sdp_type = body.get("type", "offer")
 
         if not token_str:
-            return web.json_response(
-                {"error": "missing_token", "message": "Token is required"},
+            result = _webrtc_error_response(
+                "missing_token",
                 status=400,
+                legacy_fields={"message": "Token is required"},
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         if not sdp_offer:
