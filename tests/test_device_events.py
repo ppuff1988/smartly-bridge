@@ -13,6 +13,9 @@ from custom_components.smartly_bridge.application.local_automation import (
     AutomationTrigger,
     LocalAutomationRule,
 )
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    InMemoryDeviceEventDeduplicator,
+)
 from custom_components.smartly_bridge.const import API_PATH_DEVICE_EVENTS, DOMAIN
 from custom_components.smartly_bridge.views.device_events import (
     SmartlyDeviceEventsView,
@@ -54,6 +57,17 @@ def _configure_integration(mock_hass: MagicMock) -> None:
         "nonce_cache": NonceCache(),
         "rate_limiter": RateLimiter(60, 60),
     }
+
+
+class FakeDeviceEventPublisher:
+    """Device event publisher used to verify runtime adapter wiring."""
+
+    def __init__(self) -> None:
+        self.events: list[dict] = []
+
+    def publish_device_event(self, event_data: dict) -> None:
+        """Record a canonical device event."""
+        self.events.append(event_data)
 
 
 class TestDeviceEventsEndpoint:
@@ -546,6 +560,34 @@ class TestDeviceEventsEndpoint:
         assert second_payload["event_id"] == first_payload["event_id"]
         assert second_payload["events"][0]["event_id"] == first_payload["event_id"]
         mock_hass.bus.async_fire.assert_called_once()
+
+    @pytest.mark.asyncio
+    async def test_device_event_uses_setup_runtime_event_publisher(self, mock_hass):
+        """Legacy event endpoint dispatches through setup-created hexagonal adapters."""
+        _configure_integration(mock_hass)
+        publisher = FakeDeviceEventPublisher()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "device_event_publisher": publisher,
+            "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
+        }
+        body = {
+            "type": "button_action",
+            "action": "single_left",
+            "timestamp": "2026-06-27T10:20:00.000Z",
+        }
+        request = _request_for_device_event(mock_hass, body)
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 202
+        assert len(publisher.events) == 1
+        assert publisher.events[0]["device_id"] == "device_abc123"
+        mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_device_event_triggers_local_automation_device_command(self, mock_hass):

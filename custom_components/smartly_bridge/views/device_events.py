@@ -81,6 +81,11 @@ def _has_local_automation_rules(integration_data: dict[str, Any]) -> bool:
     return bool(data.get("local_automation_rules"))
 
 
+def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
+    """Return setup-created Home Assistant adapters used by legacy views."""
+    return integration_data.setdefault("runtime_adapters", {})
+
+
 class SmartlyDeviceEventsView(web.View):
     """Handle POST /api/smartly/devices/{device_id}/events requests."""
 
@@ -291,18 +296,36 @@ class SmartlyDeviceEventsView(web.View):
             )
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
-        deduplicator = self.hass.data[DOMAIN].setdefault(
-            "device_event_deduplicator",
-            InMemoryDeviceEventDeduplicator(),
+        integration_data = self.hass.data[DOMAIN]
+        adapters = _runtime_adapters(integration_data)
+        publisher = adapters.setdefault(
+            "device_event_publisher",
+            HomeAssistantDeviceEventPublisher(self.hass),
         )
+        deduplicator = adapters.get("device_event_deduplicator")
+        if deduplicator is None:
+            deduplicator = integration_data.setdefault(
+                "device_event_deduplicator",
+                InMemoryDeviceEventDeduplicator(),
+            )
+            adapters["device_event_deduplicator"] = deduplicator
+
         automation = None
-        if _has_local_automation_rules(self.hass.data[DOMAIN]):
-            automation = LocalAutomationUseCase(
+        if _has_local_automation_rules(integration_data):
+            rule_store = adapters.setdefault(
+                "local_automation_rule_store",
                 HomeAssistantLocalAutomationRuleStore(self.hass),
+            )
+            command_executor = adapters.setdefault(
+                "smartly_command_executor",
                 HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
             )
+            automation = LocalAutomationUseCase(
+                rule_store,
+                command_executor,
+            )
         result = await DeviceEventUseCase(
-            HomeAssistantDeviceEventPublisher(self.hass),
+            publisher,
             deduplicator=deduplicator,
             automation=automation,
         ).execute(
