@@ -233,6 +233,59 @@ def test_local_automation_rule_store_create_returns_false_without_config_entry()
     hass.config_entries.async_update_entry.assert_not_called()
 
 
+def test_local_automation_rule_store_create_persists_runtime_visible_rules() -> None:
+    """Creating a rule preserves runtime-visible rules in persisted config data."""
+    runtime_rule = LocalAutomationRule(
+        rule_id="runtime-rule",
+        trigger=AutomationTrigger(
+            device_id="ldev_runtime_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_runtime_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    config_entry = MagicMock(data={"client_secret": "secret", "local_automation_rules": []})
+    hass = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            "config_entry": config_entry,
+            "local_automation_rules": [runtime_rule],
+        }
+    }
+
+    created = HomeAssistantLocalAutomationRuleStore(hass).create_rule(
+        LocalAutomationRule(
+            rule_id="new-rule",
+            trigger=AutomationTrigger(
+                device_id="ldev_new_button",
+                capability="button_event",
+                event="double_press",
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_new_light",
+                    capability="power",
+                    command="turn_off",
+                )
+            ],
+        )
+    )
+
+    assert created is True
+    persisted_rules = hass.config_entries.async_update_entry.call_args.kwargs["data"][
+        "local_automation_rules"
+    ]
+    assert [rule["rule_id"] for rule in persisted_rules] == ["runtime-rule", "new-rule"]
+
+
 def test_local_automation_rule_store_updates_config_entry_rule() -> None:
     """Updating a rule replaces serialized config entry data by rule ID."""
     config_entry = MagicMock(
@@ -330,6 +383,80 @@ def test_local_automation_rule_store_updates_config_entry_rule() -> None:
     )
 
 
+def test_local_automation_rule_store_updates_runtime_visible_rule() -> None:
+    """Updating a runtime-visible rule persists the runtime rule set."""
+    runtime_rule = LocalAutomationRule(
+        rule_id="target-rule",
+        trigger=AutomationTrigger(
+            device_id="ldev_runtime_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_runtime_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    config_entry = MagicMock(data={"client_secret": "secret", "local_automation_rules": []})
+    hass = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            "config_entry": config_entry,
+            "local_automation_rules": [runtime_rule],
+        }
+    }
+
+    updated = HomeAssistantLocalAutomationRuleStore(hass).update_rule(
+        LocalAutomationRule(
+            rule_id="target-rule",
+            enabled=False,
+            trigger=AutomationTrigger(
+                device_id="ldev_updated_button",
+                capability="button_event",
+                event="double_press",
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_updated_light",
+                    capability="power",
+                    command="turn_off",
+                )
+            ],
+        )
+    )
+
+    assert updated is True
+    persisted_rules = hass.config_entries.async_update_entry.call_args.kwargs["data"][
+        "local_automation_rules"
+    ]
+    assert persisted_rules == [
+        {
+            "rule_id": "target-rule",
+            "enabled": False,
+            "trigger": {
+                "device_id": "ldev_updated_button",
+                "capability": "button_event",
+                "event": "double_press",
+                "payload": {},
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_updated_light",
+                    "capability": "power",
+                    "command": "turn_off",
+                    "params": {},
+                }
+            ],
+        }
+    ]
+
+
 def test_local_automation_rule_store_deletes_config_entry_rule() -> None:
     """Deleting a rule removes serialized config entry data by rule ID."""
     config_entry = MagicMock(
@@ -386,3 +513,55 @@ def test_local_automation_rule_store_deletes_config_entry_rule() -> None:
             ],
         },
     )
+
+
+def test_local_automation_rule_store_deletes_runtime_visible_rule() -> None:
+    """Deleting a runtime-visible rule persists the remaining runtime rule set."""
+    runtime_rule = LocalAutomationRule(
+        rule_id="target-rule",
+        trigger=AutomationTrigger(
+            device_id="ldev_runtime_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_runtime_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    other_rule = LocalAutomationRule(
+        rule_id="other-rule",
+        trigger=AutomationTrigger(
+            device_id="ldev_other_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_other_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    config_entry = MagicMock(data={"client_secret": "secret", "local_automation_rules": []})
+    hass = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            "config_entry": config_entry,
+            "local_automation_rules": [runtime_rule, other_rule],
+        }
+    }
+
+    deleted = HomeAssistantLocalAutomationRuleStore(hass).delete_rule("target-rule")
+
+    assert deleted is True
+    persisted_rules = hass.config_entries.async_update_entry.call_args.kwargs["data"][
+        "local_automation_rules"
+    ]
+    assert [rule["rule_id"] for rule in persisted_rules] == ["other-rule"]

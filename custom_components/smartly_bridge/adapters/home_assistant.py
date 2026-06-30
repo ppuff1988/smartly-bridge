@@ -231,7 +231,7 @@ class HomeAssistantLocalAutomationRuleStore:
         if config_entry is None:
             return False
         data = dict(getattr(config_entry, "data", {}))
-        stored_rules = list(data.get("local_automation_rules", []))
+        stored_rules = self._serialized_rules_for_persistence(integration_data, data)
         stored_rules.append(_local_automation_rule_to_config(rule))
         data["local_automation_rules"] = stored_rules
         self._hass.config_entries.async_update_entry(config_entry, data=data)
@@ -249,7 +249,7 @@ class HomeAssistantLocalAutomationRuleStore:
         if config_entry is None:
             return False
         data = dict(getattr(config_entry, "data", {}))
-        stored_rules = list(data.get("local_automation_rules", []))
+        stored_rules = self._serialized_rules_for_persistence(integration_data, data)
         updated = False
         serialized_rule = _local_automation_rule_to_config(rule)
         for index, stored_rule in enumerate(stored_rules):
@@ -275,7 +275,7 @@ class HomeAssistantLocalAutomationRuleStore:
         if config_entry is None:
             return False
         data = dict(getattr(config_entry, "data", {}))
-        stored_rules = list(data.get("local_automation_rules", []))
+        stored_rules = self._serialized_rules_for_persistence(integration_data, data)
         remaining_rules = [
             stored_rule
             for stored_rule in stored_rules
@@ -293,6 +293,16 @@ class HomeAssistantLocalAutomationRuleStore:
                 rule for rule in self.list_rules() if rule.rule_id != rule_id
             ]
         return True
+
+    def _serialized_rules_for_persistence(
+        self,
+        integration_data: dict[str, Any],
+        config_data: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Return the current rule set as serialized config data."""
+        if "local_automation_rules" in integration_data:
+            return [_local_automation_rule_to_config(rule) for rule in self.list_rules()]
+        return list(config_data.get("local_automation_rules", []))
 
 
 def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
