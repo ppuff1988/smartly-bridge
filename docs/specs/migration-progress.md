@@ -9,7 +9,7 @@
 
 - `dev` 已建立 application/domain/adapter/view 分層，並以 ports 讓主要 sync、control、event use case 可以脫離 Home Assistant runtime 測試。
 - Devcontainer 已升到 Python 3.14 bookworm image，以符合 Home Assistant 2026.6 `>=3.14.2` 的 test/runtime 依賴要求。
-- Adapter manifest validation 已在 application layer 落地，會檢查 stable adapter id、adapter type、canonical capability 宣告、contract_versions、最小 permissions，並偵測 overlapping adapter type/source/domain scope 的 match priority collision；normalization snapshot validation 也會確認 logical-device snapshot 只輸出 manifest 宣告的 capability、source 與 domain，作為新增 adapter/profile 前的 contract gate。
+- Adapter manifest validation 已在 application layer 落地，會檢查 stable adapter id、adapter type、canonical capability 宣告、contract_versions、最小 permissions，並偵測 overlapping adapter type/source/domain scope 的 match priority collision；normalization snapshot validation 也會確認 logical-device snapshot 只輸出 manifest 宣告的 capability、source 與 domain；command mapping snapshot validation 會檢查 CommandResult adapter trace 與 expected_state capability scope，作為新增 adapter/profile 前的 contract gate。
 - `/api/smartly/sync/structure` application response 已保留 legacy structure 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
 - `/api/smartly/sync/structure` integration-not-configured response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/sync/structure` authentication failure response 已保留 legacy `error` 欄位與 401 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -415,12 +415,13 @@
 | 218 | `6b553ee` | Adapter manifest validation contract gate 落地於 application layer，檢查 stable id、adapter type、canonical capabilities、contract versions 與最小 permissions | RED failed with missing `application.adapter_contract`; targeted adapter contract tests `4 passed`; affected application/hexagonal/logical tests `119 passed`; full suite `685 passed` |
 | 219 | `a73889c` | Adapter manifest set validation 偵測 overlapping adapter type/source/domain scope 的 match priority collision，避免 adapter 選擇順序不穩定 | RED failed with missing `validate_adapter_manifest_set`; targeted adapter contract tests `6 passed`; affected application/hexagonal/logical tests `121 passed`; full suite `687 passed` |
 | 220 | `a5166ab` | Adapter normalization snapshot validation 檢查 logical-device snapshot 只輸出 manifest 宣告的 canonical capability、source 與 domain | RED failed with missing `validate_adapter_normalization_snapshot`, then failed with unchecked out-of-scope source refs; targeted adapter contract tests `9 passed`; affected application/hexagonal/logical tests `124 passed`; full suite `690 passed` |
+| 221 | `e75e6fd` | Adapter command mapping snapshot validation 檢查 CommandResult adapter_id trace、status 與 expected_state capability scope | RED failed with missing `validate_adapter_command_mapping_snapshot`, then failed with unchecked adapter_id mismatch; targeted adapter contract tests `12 passed`; affected application/hexagonal/logical tests `127 passed`; full suite `693 passed` |
 
 ## Completed Slices
 
 | Area | Done | Evidence |
 |---|---|---|
-| Architecture specs | 新增總體架構、Device Abstraction、Capability Contracts、Adapter Contract、Presentation Contract、API vNext、Migration Plan；Adapter manifest validation 已提供可執行的 Phase 1 contract gate，並會阻擋 overlapping scope 的 match priority collision；normalization snapshot validation 會檢查 manifest 宣告與 logical-device snapshot 輸出一致 | `0841be1`, `6b553ee`, `a73889c`, `a5166ab` |
+| Architecture specs | 新增總體架構、Device Abstraction、Capability Contracts、Adapter Contract、Presentation Contract、API vNext、Migration Plan；Adapter manifest validation 已提供可執行的 Phase 1 contract gate，並會阻擋 overlapping scope 的 match priority collision；normalization snapshot validation 會檢查 manifest 宣告與 logical-device snapshot 輸出一致；command mapping snapshot validation 會檢查 CommandResult adapter trace 與 expected_state scope | `0841be1`, `6b553ee`, `a73889c`, `a5166ab`, `e75e6fd` |
 | Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
@@ -444,15 +445,15 @@
 
 ## Latest Verification
 
-- Adapter normalization snapshot validation RED: targeted tests failed because `validate_adapter_normalization_snapshot` was missing, then failed because out-of-scope source refs were not checked.
-- Targeted adapter contract tests: `tests/test_application_adapter_contract.py` `9 passed`
-- Affected application/hexagonal/logical tests: `tests/test_application_adapter_contract.py tests/test_application_hexagonal.py tests/test_application_logical_devices.py` `124 passed`
-- Full suite: `690 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Adapter command mapping snapshot validation RED: targeted tests failed because `validate_adapter_command_mapping_snapshot` was missing, then failed because adapter_id mismatch was not checked.
+- Targeted adapter contract tests: `tests/test_application_adapter_contract.py` `12 passed`
+- Affected application/hexagonal/logical tests: `tests/test_application_adapter_contract.py tests/test_application_hexagonal.py tests/test_application_logical_devices.py` `127 passed`
+- Full suite: `693 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
-- Continue expanding adapter contract tests beyond manifest validation: command mapping, event dedupe, and health degradation.
+- Continue expanding adapter contract tests beyond manifest validation: event dedupe and health degradation.
 - Continue adding broader API vNext contract snapshots beyond current-sync, SmartlyCommand, legacy control, Device event, local automation, history, and WebRTC responses.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
