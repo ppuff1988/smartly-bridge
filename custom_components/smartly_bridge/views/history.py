@@ -795,10 +795,16 @@ class SmartlyStatisticsView(web.View):
                 service="statistics",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = _history_error_response(
+                "rate_limited",
                 status=429,
+                target="statistics.rate_limit",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
                 headers={
+                    **result.headers,
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
                 },
