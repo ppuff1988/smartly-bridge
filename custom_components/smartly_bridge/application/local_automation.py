@@ -166,6 +166,7 @@ class LocalAutomationRuleUpdateUseCase:
                 "rule": body_rule,
                 "data": {
                     "status": "updated",
+                    "rule_id": rule.rule_id,
                     "rule": body_rule,
                 },
                 "warnings": [],

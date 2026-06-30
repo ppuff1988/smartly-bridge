@@ -84,6 +84,13 @@ class FakeSmartlyCommandExecutor:
         )
 
 
+def _fixture(name: str) -> dict[str, Any]:
+    """Load an API vNext fixture."""
+    return json.loads(
+        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
+    )
+
+
 def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:
     """Local automation rules list exposes canonical trigger/action payloads."""
     store = FakeAutomationRuleStore(
@@ -146,10 +153,6 @@ def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:
 
 def test_list_rules_response_matches_api_vnext_fixture() -> None:
     """Local automation list full response remains stable for Platform editor clients."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "local-automation-list.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
     store = FakeAutomationRuleStore(
         [
             LocalAutomationRule(
@@ -174,7 +177,7 @@ def test_list_rules_response_matches_api_vnext_fixture() -> None:
 
     result = LocalAutomationRulesListUseCase(store).execute()
 
-    assert result.body == expected_body
+    assert result.body == _fixture("local-automation-list.json")
 
 
 def test_create_rule_persists_canonical_rule_payload() -> None:
@@ -274,13 +277,6 @@ def test_create_rule_rejects_when_store_cannot_persist() -> None:
 
 def test_create_rule_persistence_error_matches_api_vnext_fixture() -> None:
     """Local automation create error response remains stable for Platform clients."""
-    fixture_path = (
-        Path(__file__).parent
-        / "fixtures"
-        / "api-vnext"
-        / "local-automation-create-error.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
     store = FakeAutomationRuleStore([], fail_create=True)
 
     result = LocalAutomationRuleCreateUseCase(store).execute(
@@ -302,7 +298,7 @@ def test_create_rule_persistence_error_matches_api_vnext_fixture() -> None:
         }
     )
 
-    assert result.body == expected_body
+    assert result.body == _fixture("local-automation-create-error.json")
 
 
 def test_update_rule_replaces_existing_canonical_rule() -> None:
@@ -377,6 +373,56 @@ def test_update_rule_replaces_existing_canonical_rule() -> None:
     assert result.body["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["enabled"] is False
     assert result.body["errors"] == []
+
+
+def test_update_rule_response_matches_api_vnext_fixture() -> None:
+    """Local automation update response remains stable for Platform editor clients."""
+    store = FakeAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+
+    result = LocalAutomationRuleUpdateUseCase(store).execute(
+        "rule-left-single",
+        {
+            "rule_id": "ignored-client-rule-id",
+            "enabled": False,
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "double_press",
+                "payload": {"button": "right"},
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_off",
+                }
+            ],
+        },
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("local-automation-update.json")
 
 
 def test_update_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
@@ -477,6 +523,35 @@ def test_delete_rule_removes_existing_rule() -> None:
         "warnings": [],
         "errors": [],
     }
+
+
+def test_delete_rule_response_matches_api_vnext_fixture() -> None:
+    """Local automation delete response remains stable for Platform editor clients."""
+    store = FakeAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+
+    result = LocalAutomationRuleDeleteUseCase(store).execute("rule-left-single")
+
+    assert result.status == 200
+    assert result.body == _fixture("local-automation-delete.json")
 
 
 def test_delete_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
