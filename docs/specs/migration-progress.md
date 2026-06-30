@@ -11,6 +11,7 @@
 - Devcontainer 已升到 Python 3.14 bookworm image，以符合 Home Assistant 2026.6 `>=3.14.2` 的 test/runtime 依賴要求。
 - Adapter manifest validation 已在 application layer 落地，會檢查 stable adapter id、adapter type、canonical capability 宣告、contract_versions、最小 permissions，並偵測 overlapping adapter type/source/domain scope 的 match priority collision；normalization snapshot validation 也會確認 logical-device snapshot 只輸出 manifest 宣告的 capability、source 與 domain；command mapping snapshot validation 會檢查 CommandResult adapter trace 與 expected_state capability scope；event mapping snapshot validation 會檢查 source_event_id / dedupe_key replay-window uniqueness；health snapshot validation 會檢查 status、degraded capability scope 與 unavailable last_error，作為新增 adapter/profile 前的 contract gate。
 - Home Assistant `async_setup_entry` 現在會建立 `runtime_adapters`，將 device event publisher、event deduplicator、local automation rule store 與 SmartlyCommand executor 以六邊形 ports 暴露給 legacy views；device-event endpoint 優先使用 setup-created adapters，避免 request-time inline adapter 建立與 legacy runtime 分裂。
+- Local automation rules management endpoint 現在也會透過 setup-created `local_automation_rule_store` port 讀寫 rules，讓 Platform editor 的 GET/POST/PUT/DELETE path 與 device-event runtime 使用同一個 Home Assistant adapter seam。
 - `/api/smartly/sync/structure` application response 已保留 legacy structure 欄位，並同步輸出 API vNext `schema_version`、`data`、`data.device_count`、`warnings`、`errors` envelope 欄位。
 - `/api/smartly/sync/structure` integration-not-configured response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/sync/structure` authentication failure response 已保留 legacy `error` 欄位與 401 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -420,6 +421,7 @@
 | 222 | `8ea9b4a` | Adapter event mapping snapshot validation 檢查 event capability scope、source_event_id / dedupe_key 必填與 replay-window uniqueness | RED failed with missing `validate_adapter_event_mapping_snapshot`, then failed with unchecked duplicate dedupe_key; targeted adapter contract tests `16 passed`; affected adapter/hexagonal/logical/event tests `145 passed`; full suite `697 passed` |
 | 223 | `e20b456` | Adapter health snapshot validation 檢查 health status、degraded capability scope 與 unavailable last_error trace | RED failed with missing `validate_adapter_health_snapshot`, then failed with unchecked undeclared degraded capability; targeted adapter contract tests `20 passed`; affected adapter/hexagonal/logical/event tests `149 passed`; full suite `701 passed` |
 | 224 | `d46f4e8` | Home Assistant setup 建立六邊形 runtime adapter seam，讓 legacy device-event endpoint 使用 setup-created event publisher / deduplicator / local automation ports | RED failed with missing `runtime_adapters`, then failed because device-event view ignored setup runtime publisher; targeted init/device-event tests passed; affected init/device-event/application-local-automation/http tests `100 passed`; full suite `703 passed` |
+| 225 | `19a5e95` | Local automation rules management view 改用 setup-created rule store port，讓 Platform editor read/write path 與 runtime adapter seam 對齊 | RED failed because GET ignored `runtime_adapters.local_automation_rule_store`; targeted local automation rules tests `11 passed`; affected local automation/device-event/http/init tests `111 passed`; full suite `704 passed` |
 
 ## Completed Slices
 
@@ -444,15 +446,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor；create/update/delete path 會區分 missing rule 與 persistence failure，避免 Platform 誤判 read/write 結果；view-level integration-not-configured、auth failure、rate-limit 與 mutating invalid JSON error 已補上 API vNext envelope；list / create-persistence-error full response fixture 已鎖定 Platform editor read path contract | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1`, `9986209`, `1aaf9e3`, `0f6e461` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor，並透過 setup-created rule store port 讀寫；create/update/delete path 會區分 missing rule 與 persistence failure，避免 Platform 誤判 read/write 結果；view-level integration-not-configured、auth failure、rate-limit 與 mutating invalid JSON error 已補上 API vNext envelope；list / create-persistence-error full response fixture 已鎖定 Platform editor read path contract | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1`, `9986209`, `1aaf9e3`, `0f6e461`, `19a5e95` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Runtime adapter seam RED: setup test failed because `runtime_adapters` was missing; device-event view test then failed because the endpoint ignored the setup runtime publisher.
-- Targeted setup/device-event tests: `tests/test_init.py` `8 passed`; `tests/test_device_events.py` `17 passed`
-- Affected setup/device-event/application-local-automation/http tests: `tests/test_init.py tests/test_device_events.py tests/test_application_device_events.py tests/test_application_local_automation.py tests/test_http.py` `100 passed`
-- Full suite: `703 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Local automation rules runtime store RED: targeted GET test failed because the view ignored `runtime_adapters.local_automation_rule_store`.
+- Targeted local automation rules tests: `tests/test_local_automation_rules.py` `11 passed`
+- Affected local automation/device-event/http/init tests: `tests/test_local_automation_rules.py tests/test_application_local_automation.py tests/test_device_events.py tests/test_application_device_events.py tests/test_http.py tests/test_init.py` `111 passed`
+- Full suite: `704 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
@@ -461,5 +463,5 @@
 - Continue adding broader API vNext contract snapshots beyond current-sync, SmartlyCommand, legacy control, Device event, local automation, history, and WebRTC responses.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
-- Continue auditing local automation adapter persistence behavior and management views against setup-created runtime adapters before Platform read/write path cutover.
+- Continue auditing local automation adapter persistence behavior before Platform read/write path cutover.
 - Do not start Phase 6 legacy cleanup until legacy endpoint usage and rollback requirements are proven.
