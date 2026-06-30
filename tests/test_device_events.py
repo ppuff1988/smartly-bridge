@@ -160,6 +160,35 @@ class TestDeviceEventsEndpoint:
         assert event_data["meta"]["endpoint"] == "left"
 
     @pytest.mark.asyncio
+    async def test_device_event_response_includes_request_context_headers(self, mock_hass):
+        """Accepted event responses echo optional request correlation headers."""
+        _configure_integration(mock_hass)
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+        request.headers["X-Request-Id"] = "req-device-001"
+        request.headers["X-Correlation-Id"] = "corr-device-001"
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 202
+        payload = json.loads(response.body)
+        assert payload["request_id"] == "req-device-001"
+        assert payload["correlation_id"] == "corr-device-001"
+        assert payload["success"] is True
+        assert payload["device_id"] == "device_abc123"
+
+    @pytest.mark.asyncio
     async def test_device_event_rejects_unsupported_action(self, mock_hass):
         """Unsupported button actions are rejected before automation dispatch."""
         _configure_integration(mock_hass)

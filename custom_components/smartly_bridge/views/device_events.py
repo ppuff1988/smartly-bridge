@@ -94,6 +94,33 @@ def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
     return integration_data.setdefault("runtime_adapters", {})
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a device event JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlyDeviceEventsView(web.View):
     """Handle POST /api/smartly/devices/{device_id}/events requests."""
 
@@ -132,7 +159,12 @@ class SmartlyDeviceEventsView(web.View):
                 target="device_event.dispatch",
                 status=500,
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
     async def _post(self) -> web.Response:
         """Handle stateless device event request from Platform."""
@@ -151,7 +183,12 @@ class SmartlyDeviceEventsView(web.View):
                 target="integration",
                 status=500,
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
@@ -188,7 +225,12 @@ class SmartlyDeviceEventsView(web.View):
                 target="request.auth",
                 status=401,
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if not await rate_limiter.check(auth_result.client_id or ""):
             log_deny(
@@ -211,8 +253,9 @@ class SmartlyDeviceEventsView(web.View):
                 target="request.rate_limit",
                 status=429,
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -236,7 +279,12 @@ class SmartlyDeviceEventsView(web.View):
                 message="Invalid JSON body",
                 target="request.body",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         device_id = self.request.match_info.get("device_id")
         event_type = body.get("type")
@@ -257,7 +305,12 @@ class SmartlyDeviceEventsView(web.View):
                 message="Missing required event fields",
                 target=_missing_event_field_target(device_id, event_type, action, timestamp),
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if not is_supported_button_action(action):
             result = device_event_error_response(
@@ -272,7 +325,12 @@ class SmartlyDeviceEventsView(web.View):
                 message="Unsupported button action",
                 target="event.action",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if not _is_valid_timestamp(timestamp):
             result = device_event_error_response(
@@ -287,7 +345,12 @@ class SmartlyDeviceEventsView(web.View):
                 message="Invalid event timestamp",
                 target="event.timestamp",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if meta is not None and not isinstance(meta, dict):
             result = device_event_error_response(
@@ -302,7 +365,12 @@ class SmartlyDeviceEventsView(web.View):
                 message="Invalid event metadata",
                 target="event.meta",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         integration_data = self.hass.data[DOMAIN]
         adapters = _runtime_adapters(integration_data)
@@ -347,7 +415,12 @@ class SmartlyDeviceEventsView(web.View):
             ),
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 class SmartlyDeviceEventsViewWrapper(HomeAssistantView):
