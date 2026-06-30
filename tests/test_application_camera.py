@@ -287,6 +287,17 @@ async def test_camera_config_rejects_register_without_entity_id() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_config_register_missing_entity_response_matches_api_vnext_fixture() -> None:
+    """Camera register missing-entity response remains stable for legacy clients."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="register", entity_id=None, data={})
+    )
+
+    assert result.status == 400
+    assert result.body == _fixture("camera-config-missing-entity.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_config_unregister_response_includes_vnext_envelope() -> None:
     """Camera unregister responses expose API vNext envelope fields."""
     gateway = FakeCameraGateway()
@@ -341,6 +352,19 @@ async def test_camera_config_rejects_unregister_without_entity_id() -> None:
             "retryable": False,
         }
     ]
+    assert gateway.unregistered == []
+
+
+@pytest.mark.asyncio
+async def test_camera_config_unregister_missing_entity_response_matches_api_vnext_fixture() -> None:
+    """Camera unregister missing-entity response remains stable for legacy clients."""
+    gateway = FakeCameraGateway()
+    result = await CameraConfigUseCase(gateway).execute(
+        CameraConfigCommand(action="unregister", entity_id=None, data={})
+    )
+
+    assert result.status == 400
+    assert result.body == _fixture("camera-config-missing-entity.json")
     assert gateway.unregistered == []
 
 
@@ -428,6 +452,17 @@ async def test_camera_config_unknown_action_response_includes_vnext_envelope() -
             "retryable": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_camera_config_unknown_action_response_matches_api_vnext_fixture() -> None:
+    """Camera config unknown-action response remains stable for legacy clients."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="unsupported", entity_id=None, data={})
+    )
+
+    assert result.status == 400
+    assert result.body == _fixture("camera-config-unknown-action.json")
 
 
 @pytest.mark.asyncio
