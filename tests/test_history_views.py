@@ -702,6 +702,35 @@ class TestSmartlyStatisticsView:
         }
 
     @pytest.mark.asyncio
+    async def test_auth_failure_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test authentication failure returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlyStatisticsView(mock_request)
+            response = await view.get()
+
+            assert response.status == 401
+            data = json.loads(response.body)
+            assert data == {
+                "error": "invalid_signature",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_SIGNATURE",
+                        "message": "invalid signature",
+                        "target": "statistics.auth",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_invalid_period_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test invalid period returns API vNext envelope."""
         mock_request.query = {"period": "invalid"}

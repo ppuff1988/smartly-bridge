@@ -779,10 +779,12 @@ class SmartlyStatisticsView(web.View):
                 service="statistics",
                 reason=auth_result.error or "auth_failed",
             )
-            return web.json_response(
-                {"error": auth_result.error},
+            result = _history_error_response(
+                auth_result.error or "auth_failed",
                 status=401,
+                target="statistics.auth",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
