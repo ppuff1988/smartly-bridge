@@ -53,7 +53,7 @@
 - `/api/smartly/automations/local/rules` POST/PUT/DELETE invalid JSON response 已保留 legacy `error`，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated POST create，可將 canonical rule payload 持久化到 config entry。
 - Local automation rule create 現在會在 store 無法持久化時回傳 API vNext `rule_persistence_failed` error，避免 Platform read/write path 誤判 rule 已建立。
-- Local automation rules list / create / create-persistence-error / update / delete full response fixture 已鎖定 Platform editor read/write path、legacy top-level 欄位與 API vNext envelope；create/update response 也會在 vNext `data.rule_id` 同步 rule identity，避免 vNext client 依賴 legacy top-level 欄位做 correlation。
+- Local automation rules list / create / create-persistence-error / update / update-persistence-error / delete / delete-persistence-error full response fixture 已鎖定 Platform editor read/write path、legacy top-level 欄位與 API vNext envelope；create/update response 也會在 vNext `data.rule_id` 同步 rule identity，避免 vNext client 依賴 legacy top-level 欄位做 correlation。
 - Local automation rule update/delete 現在會先確認 rule 是否存在，將「已存在但 adapter 無法持久化」回報為 API vNext `rule_persistence_failed`，避免 Platform 誤判為 `rule_not_found`。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated PUT update，可依 `rule_id` 替換 config entry 內既有 canonical rule。
 - `/api/smartly/automations/local/rules` 現在支援 authenticated DELETE，可依 `rule_id` 從 config entry 移除 canonical rule。
@@ -445,6 +445,7 @@
 | 236 | `fe54d93` | Camera config register/unregister/clear-cache/list full response fixture 鎖定 legacy success/config 欄位與 API vNext `data` envelope | RED failed with missing `camera-config-register.json` / `camera-config-unregister.json` / `camera-config-clear-cache.json` / `camera-config-list.json`; targeted fixture tests `4 passed`; camera/application/view/setup tests `122 passed`; full suite `731 passed` |
 | 237 | `95bed9a` | Camera HLS info/stats/stop/stop-not-found full response fixture 鎖定 legacy stream/status 欄位與 API vNext `data` envelope | RED failed with missing `camera-hls-info.json` / `camera-hls-stats.json` / `camera-hls-stop.json` / `camera-hls-stop-not-found.json`; targeted HLS fixture tests `5 passed`; camera/application/view/setup tests `126 passed`; full suite `735 passed` |
 | 238 | `c8dbc5d` | Local automation create success full response fixture 鎖定 Platform editor write path，並讓 create API vNext `data.rule_id` 與 legacy top-level `rule_id` 對齊 | RED failed with missing create `data.rule_id` and missing `local-automation-create.json`; targeted create fixture tests `3 passed`; local automation/event/init tests `64 passed`; full suite `736 passed` |
+| 239 | `91539ba` | Local automation update/delete persistence-error full response fixture 鎖定 Platform editor write failure path 的 legacy error/message 與 API vNext `data.status` / `errors[]` envelope | RED failed with missing `local-automation-update-error.json` / `local-automation-delete-error.json`; targeted persistence-error fixture tests `3 passed`; local automation/event/init tests `66 passed`; full suite `738 passed` |
 
 ## Completed Slices
 
@@ -469,15 +470,15 @@
 | Scene/script | scene/script `run` capability and command mapping | `f04b742` |
 | Lock | lock state and command expected-state contract | `9ea1854` |
 | Button events and triggers | rotary `rotate_left/right` normalization; source alias formats such as `left_single` and `1_single` normalize to canonical `single_press`；Home Assistant `button` entity 同時輸出 event-only `button_event` 與 command-only `button_press` | `ed729a1`, `3347735`, `3fcfd65` |
-| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor，並透過 setup-created rule store port 讀寫；create/update/delete path 會區分 missing rule 與 persistence failure，避免 Platform 誤判 read/write 結果；view-level integration-not-configured、auth failure、rate-limit 與 mutating invalid JSON error 已補上 API vNext envelope；list / create / create-persistence-error / update / delete full response fixture 已鎖定 Platform editor read/write path contract；create/update response 會在 legacy top-level 與 vNext `data` 同步輸出 `rule_id` | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1`, `9986209`, `1aaf9e3`, `0f6e461`, `19a5e95`, `d89a66c`, `c8dbc5d` |
+| Local automation | application layer 支援 canonical `button_event` trigger + `device_command` action，並透過 ports 與 rule store / SmartlyCommand executor 解耦；Device event view 可讀取 HA runtime `local_automation_rules` 或 config entry stored rules 並執行 source command；rule store 可從 config entry serialized dict 載入 rules 且支援 runtime override；local automation rules GET/POST/PUT/DELETE endpoint 可輸出、建立、更新與刪除 canonical rule payload 給 Platform editor，並透過 setup-created rule store port 讀寫；create/update/delete path 會區分 missing rule 與 persistence failure，避免 Platform 誤判 read/write 結果；view-level integration-not-configured、auth failure、rate-limit 與 mutating invalid JSON error 已補上 API vNext envelope；list / create / create-persistence-error / update / update-persistence-error / delete / delete-persistence-error full response fixture 已鎖定 Platform editor read/write path contract；create/update response 會在 legacy top-level 與 vNext `data` 同步輸出 `rule_id` | `3a44cc6`, `8d721e5`, `43e3d7b`, `8d030b1`, `7504a72`, `b3e83fe`, `6e1027d`, `b70f910`, `e61be04`, `db0052b`, `fa2359c`, `6f728a1`, `9986209`, `1aaf9e3`, `0f6e461`, `19a5e95`, `d89a66c`, `c8dbc5d`, `91539ba` |
 | Setting controls | Presence sibling `number` / `select` setting 已從 presentation-only control 升格為 canonical `numeric_setting` / `option_setting` capability 與 SmartlyCommand `set_value` / `select_option` path；重複同類型 setting capability 會保留所有 sibling source refs | `137a8da`, `de481d6`, `584c1bc` |
 
 ## Latest Verification
 
-- Local automation create RED: targeted create tests failed with missing create `data.rule_id` and missing `local-automation-create.json`.
-- Targeted local automation create fixture tests: `tests/test_application_local_automation.py -k 'create_rule and (persists or matches_api_vnext_fixture)'` `3 passed`
-- Local automation/event/init tests: `tests/test_application_local_automation.py tests/test_local_automation_rules.py tests/test_application_device_events.py tests/test_device_events.py tests/test_init.py` `64 passed`
-- Full suite: `736 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
+- Local automation persistence-error fixture RED: targeted persistence-error fixture tests failed with missing `local-automation-update-error.json` and `local-automation-delete-error.json`.
+- Targeted local automation persistence-error fixture tests: `tests/test_application_local_automation.py -k 'persistence_error_matches_api_vnext_fixture'` `3 passed`
+- Local automation/event/init tests: `tests/test_application_local_automation.py tests/test_local_automation_rules.py tests/test_application_device_events.py tests/test_device_events.py tests/test_init.py` `66 passed`
+- Full suite: `738 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
 
 ## Remaining Work
 
