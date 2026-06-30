@@ -119,6 +119,10 @@ class FakeRuntimeCameraGateway:
         self.calls.append("stop_hls_stream")
         return entity_id == "camera.runtime"
 
+    async def stream_proxy(self, entity_id, request, response) -> None:
+        self.calls.append("stream_proxy")
+        self.streamed = (entity_id, request, response)
+
 
 class TestSmartlyCameraSnapshotView:
     """Tests for SmartlyCameraSnapshotView."""
@@ -699,6 +703,41 @@ class TestSmartlyCameraStreamView:
                         }
                     ],
                 }
+
+    @pytest.mark.asyncio
+    async def test_stream_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """MJPEG stream requests execute through the setup-created camera gateway."""
+        gateway = FakeRuntimeCameraGateway()
+        camera_manager = MagicMock()
+        camera_manager.stream_proxy = AsyncMock()
+        mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
+        stream_response = MagicMock()
+        stream_response.prepare = AsyncMock()
+        stream_response.enable_compression = MagicMock()
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.camera.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=True,
+            ),
+            patch(
+                "custom_components.smartly_bridge.views.camera.web.StreamResponse",
+                return_value=stream_response,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlyCameraStreamView(mock_request).get()
+
+        assert response is stream_response
+        assert gateway.calls == ["stream_proxy"]
+        assert gateway.streamed == ("camera.test", mock_request, stream_response)
+        camera_manager.stream_proxy.assert_not_awaited()
 
 
 class TestSmartlyCameraListView:

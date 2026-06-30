@@ -401,8 +401,13 @@ class SmartlyCameraStreamView(BaseView):
 
         await response.prepare(self.request)
 
-        # Stream the camera feed
-        await camera_manager.stream_proxy(entity_id, self.request, response)
+        # Stream the camera feed through the setup-created gateway while
+        # preserving the existing CameraManager-backed proxy implementation.
+        await _camera_gateway(self.hass, camera_manager).stream_proxy(
+            entity_id,
+            self.request,
+            response,
+        )
 
         return response
 

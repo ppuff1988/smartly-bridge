@@ -183,6 +183,9 @@ class CameraGatewayPort(Protocol):
     async def stop_hls_stream(self, entity_id: str) -> bool:
         """Stop HLS streaming for a camera."""
 
+    async def stream_proxy(self, entity_id: str, request: Any, response: Any) -> None:
+        """Proxy an MJPEG camera stream into a prepared response."""
+
 
 class WebRTCGatewayPort(Protocol):
     """Provides WebRTC token and session operations."""

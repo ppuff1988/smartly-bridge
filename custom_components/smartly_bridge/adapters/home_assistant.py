@@ -993,6 +993,10 @@ class HomeAssistantCameraGateway:
         """Stop an HLS stream."""
         return await self._camera_manager.stop_hls_stream(entity_id)
 
+    async def stream_proxy(self, entity_id: str, request: Any, response: Any) -> None:
+        """Proxy an MJPEG stream through the existing camera manager."""
+        await self._camera_manager.stream_proxy(entity_id, request, response)
+
 
 class HomeAssistantWebRTCGateway:
     """WebRTC gateway backed by Home Assistant state and WebRTCTokenManager."""
