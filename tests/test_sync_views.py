@@ -54,6 +54,41 @@ class FakeSyncStatesGateway:
         ]
 
 
+class FakeDiagnosticSyncStatesGateway:
+    """Sync states gateway with an unsupported diagnostic entity."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def list_states(self) -> list[EntityStateSnapshot]:
+        """Return an unsupported entity snapshot."""
+        self.calls += 1
+        return [
+            EntityStateSnapshot(
+                entity_id="camera.runtime",
+                state="idle",
+                attributes={"friendly_name": "Runtime Camera"},
+                name="Runtime Camera",
+                domain="camera",
+                device_class="unknown_device",
+                capabilities=[],
+                status="online",
+                presentation={"card_template": "unknown_card"},
+            )
+        ]
+
+
+class FakeRawDiagnosticRecorder:
+    """Raw diagnostic recorder used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.payloads: dict[str, dict] = {}
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict) -> None:
+        """Record raw diagnostic payloads."""
+        self.payloads[raw_ref] = payload
+
+
 class TestSmartlySyncView:
     """Tests for SmartlySyncView."""
 
@@ -549,6 +584,43 @@ class TestSmartlySyncStatesView:
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert data["states"][0]["entity_id"] == "light.runtime"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_records_raw_diagnostics_in_runtime_store(
+        self, mock_request, mock_hass
+    ):
+        """State sync stores diagnostic raw payloads through the setup runtime store."""
+        gateway = FakeDiagnosticSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        raw_ref = "raw_ldev_camera_runtime"
+        assert gateway.calls == 1
+        assert data["logical_devices"][0]["raw_refs"] == [
+            {
+                "raw_ref": raw_ref,
+                "kind": "normalization_diagnostic",
+                "source": "home_assistant",
+                "entity_ids": ["camera.runtime"],
+            }
+        ]
+        assert "raw_payload" not in data["logical_devices"][0]
+        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
+            "camera.runtime"
+        )
 
     @pytest.mark.asyncio
     async def test_states_sync_uses_logical_device_read_path_when_enabled(

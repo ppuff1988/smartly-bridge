@@ -178,6 +178,17 @@ class FakeDiagnosticSyncGateway:
         ]
 
 
+class FakeRawDiagnosticRecorder:
+    """Fake raw diagnostic recorder port."""
+
+    def __init__(self) -> None:
+        self.payloads: dict[str, dict[str, Any]] = {}
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict[str, Any]) -> None:
+        """Record raw diagnostic payloads by reference."""
+        self.payloads[raw_ref] = payload
+
+
 @pytest.mark.asyncio
 async def test_control_use_case_denies_entity_before_service_call() -> None:
     """Disallowed entities are denied by the use case without touching HA services."""
@@ -2720,6 +2731,51 @@ async def test_sync_states_use_case_reports_diagnostic_normalization_warnings() 
             "entity_ids": ["camera.porch"],
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_records_diagnostic_raw_refs() -> None:
+    """Diagnostic fallback devices expose raw refs and store raw payload out-of-band."""
+    recorder = FakeRawDiagnosticRecorder()
+
+    result = await SyncStatesUseCase(
+        FakeDiagnosticSyncGateway(),
+        raw_diagnostic_recorder=recorder,
+    ).execute()
+
+    raw_ref = "raw_ldev_camera_porch"
+    assert result.status == 200
+    assert result.body["logical_devices"][0]["raw_refs"] == [
+        {
+            "raw_ref": raw_ref,
+            "kind": "normalization_diagnostic",
+            "source": "home_assistant",
+            "entity_ids": ["camera.porch"],
+        }
+    ]
+    assert "raw_payload" not in result.body["logical_devices"][0]
+    assert recorder.payloads == {
+        raw_ref: {
+            "logical_device_id": "ldev_camera_porch",
+            "device_class": "diagnostic_device",
+            "source_entities": [
+                {
+                    "entity_id": "camera.porch",
+                    "state": "idle",
+                    "attributes": {"friendly_name": "Porch Camera"},
+                    "last_changed": None,
+                    "last_updated": None,
+                    "icon": None,
+                    "name": "Porch Camera",
+                    "domain": "camera",
+                    "device_class": "unknown_device",
+                    "capabilities": [],
+                    "status": "online",
+                    "presentation": {"card_template": "unknown_card"},
+                }
+            ],
+        }
+    }
 
 
 @pytest.mark.asyncio

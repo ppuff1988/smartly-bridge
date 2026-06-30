@@ -8,7 +8,11 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from ..acl import get_allowed_entities, get_structure
-from ..adapters.home_assistant import HomeAssistantStateSyncGateway, HomeAssistantSyncGateway
+from ..adapters.home_assistant import (
+    HomeAssistantRawDiagnosticStore,
+    HomeAssistantStateSyncGateway,
+    HomeAssistantSyncGateway,
+)
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
@@ -154,6 +158,14 @@ class SmartlySyncStatesView(web.View):
             ),
         )
 
+    def _raw_diagnostic_recorder(self) -> Any:
+        """Return the setup-created raw diagnostic recorder."""
+        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
+        return runtime_adapters.setdefault(
+            "raw_diagnostic_store",
+            HomeAssistantRawDiagnosticStore(self.hass),
+        )
+
     async def get(self) -> web.Response:
         """Handle sync states request from Platform."""
         # Get integration data
@@ -219,6 +231,7 @@ class SmartlySyncStatesView(web.View):
         result = await SyncStatesUseCase(
             self._sync_states_gateway(),
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
+            raw_diagnostic_recorder=self._raw_diagnostic_recorder(),
         ).execute()
         return web.json_response(result.body, status=result.status, headers=result.headers)
 

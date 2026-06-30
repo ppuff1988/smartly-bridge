@@ -132,6 +132,13 @@ class RawDiagnosticStorePort(Protocol):
         """Return a raw diagnostic payload for a reference."""
 
 
+class RawDiagnosticRecorderPort(Protocol):
+    """Stores raw diagnostic payloads by raw reference."""
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict[str, Any]) -> None:
+        """Record a raw diagnostic payload for a reference."""
+
+
 class CameraGatewayPort(Protocol):
     """Provides camera operations to application use cases."""
 

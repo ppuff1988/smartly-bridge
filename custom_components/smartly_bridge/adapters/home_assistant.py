@@ -608,14 +608,26 @@ class HomeAssistantRawDiagnosticStore:
 
     def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
         """Return a raw diagnostic payload registered for a raw reference."""
-        integration_data = self._hass.data.get(DOMAIN, {})
-        raw_diagnostics = integration_data.get("raw_diagnostics", {})
+        raw_diagnostics = self._raw_diagnostics()
         if not isinstance(raw_diagnostics, dict):
             return None
         payload = raw_diagnostics.get(raw_ref)
         if not isinstance(payload, dict):
             return None
         return payload
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict[str, Any]) -> None:
+        """Record a raw diagnostic payload for a reference."""
+        self._raw_diagnostics()[raw_ref] = payload
+
+    def _raw_diagnostics(self) -> dict[str, Any]:
+        """Return the runtime raw diagnostic mapping."""
+        integration_data = self._hass.data.setdefault(DOMAIN, {})
+        raw_diagnostics = integration_data.setdefault("raw_diagnostics", {})
+        if not isinstance(raw_diagnostics, dict):
+            raw_diagnostics = {}
+            integration_data["raw_diagnostics"] = raw_diagnostics
+        return raw_diagnostics
 
 
 class HomeAssistantStateSyncGateway:
