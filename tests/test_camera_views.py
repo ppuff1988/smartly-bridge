@@ -612,11 +612,26 @@ class TestSmartlyCameraListView:
 
     @pytest.mark.asyncio
     async def test_list_integration_not_configured(self, mock_request, mock_hass):
-        """Test list error when integration not configured."""
+        """Test list view returns API vNext envelope when integration is missing."""
         mock_hass.data = {}
         view = SmartlyCameraListView(mock_request)
         response = await view.get()
         assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "camera.config",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_list_auth_failure(self, mock_request):
