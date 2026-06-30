@@ -1405,6 +1405,57 @@ class TestControlEndpointFullFlow:
         ]
 
     @pytest.mark.asyncio
+    async def test_control_response_includes_request_context_headers(
+        self, mock_hass, mock_config_entry
+    ):
+        """Control responses echo optional request correlation headers."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        use_case = FakeControlUseCase()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {
+                "control_use_case": use_case,
+            },
+        }
+        body = {
+            "entity_id": "light.kitchen",
+            "action": "turn_on",
+            "service_data": {"brightness_pct": 50},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {
+            "X-Request-Id": "req-control-001",
+            "X-Correlation-Id": "corr-control-001",
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.control.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True, client_id="test_client", error=None
+            )
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["request_id"] == "req-control-001"
+        assert payload["correlation_id"] == "corr-control-001"
+        assert payload["success"] is True
+        assert payload["entity_id"] == "light.kitchen"
+
+    @pytest.mark.asyncio
     async def test_control_vnext_command_uses_setup_runtime_executor(
         self, mock_hass, mock_config_entry
     ):

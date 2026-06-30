@@ -110,6 +110,33 @@ def _smartly_command_from_body(body: dict[str, Any]) -> SmartlyCommand | None:
     )
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a control JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlyControlView(web.View):
     """Handle POST /api/smartly/control requests."""
 
@@ -159,7 +186,12 @@ class SmartlyControlView(web.View):
         data = self._get_integration_data()
         if data is None:
             result = control_error_response("integration_not_configured", status=500)
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
@@ -186,7 +218,12 @@ class SmartlyControlView(web.View):
                 reason=error,
             )
             result = control_error_response(error, status=401)
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
@@ -198,8 +235,9 @@ class SmartlyControlView(web.View):
                 reason="rate_limited",
             )
             result = control_error_response("rate_limited", status=429)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -213,7 +251,12 @@ class SmartlyControlView(web.View):
             body = await self.request.json()
         except json.JSONDecodeError:
             result = control_error_response("invalid_json", status=400)
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         smartly_command = _smartly_command_from_body(body)
         if smartly_command is not None:
@@ -221,7 +264,12 @@ class SmartlyControlView(web.View):
                 auth_result.client_id or "unknown",
                 smartly_command,
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         normalized_body = _normalize_control_body(body)
         entity_id = normalized_body["entity_id"]
@@ -231,7 +279,12 @@ class SmartlyControlView(web.View):
 
         if not entity_id or not action:
             result = control_error_response("missing_required_fields", status=400)
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         result = await self._control_use_case().execute(
             auth_result.client_id or "unknown",
@@ -242,7 +295,12 @@ class SmartlyControlView(web.View):
                 actor=actor,
             ),
         )
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 class SmartlyControlViewWrapper(HomeAssistantView):
