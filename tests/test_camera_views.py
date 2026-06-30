@@ -1224,3 +1224,51 @@ class TestSmartlyCameraHLSInfoView:
                     }
                 ],
             }
+
+    @pytest.mark.asyncio
+    async def test_hls_rate_limited(self, mock_request, mock_hass):
+        """Test HLS view returns API vNext envelope when rate limited."""
+        mock_request.match_info = {"entity_id": "camera.test"}
+        rate_limiter = RateLimiter(60, 60)
+        rate_limiter.check = AsyncMock(return_value=False)
+        mock_hass.data = {
+            DOMAIN: {
+                "config_entry": MagicMock(
+                    data={
+                        "client_secret": "test_secret",
+                        "allowed_cidrs": "",
+                        "trust_proxy": "off",
+                    }
+                ),
+                "nonce_cache": NonceCache(),
+                "rate_limiter": rate_limiter,
+            }
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            view = SmartlyCameraHLSInfoView(mock_request)
+            response = await view.get()
+
+            assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == {
+                "error": "rate_limited",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "RATE_LIMITED",
+                        "message": "rate limited",
+                        "target": "camera.rate_limit",
+                        "retryable": False,
+                    }
+                ],
+            }
