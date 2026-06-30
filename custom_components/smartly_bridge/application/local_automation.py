@@ -112,6 +112,7 @@ class LocalAutomationRuleCreateUseCase:
                 "rule": body_rule,
                 "data": {
                     "status": "created",
+                    "rule_id": rule.rule_id,
                     "rule": body_rule,
                 },
                 "warnings": [],

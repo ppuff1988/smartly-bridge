@@ -228,8 +228,37 @@ def test_create_rule_persists_canonical_rule_payload() -> None:
     assert result.body["success"] is True
     assert result.body["status"] == "created"
     assert result.body["rule_id"] == "rule-left-single"
+    assert result.body["data"]["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["rule_id"] == "rule-left-single"
     assert result.body["errors"] == []
+
+
+def test_create_rule_response_matches_api_vnext_fixture() -> None:
+    """Local automation create response remains stable for Platform editor clients."""
+    store = FakeAutomationRuleStore([])
+
+    result = LocalAutomationRuleCreateUseCase(store).execute(
+        {
+            "rule_id": "rule-left-single",
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_on",
+                }
+            ],
+        }
+    )
+
+    assert result.status == 201
+    assert result.body == _fixture("local-automation-create.json")
 
 
 def test_create_rule_rejects_when_store_cannot_persist() -> None:

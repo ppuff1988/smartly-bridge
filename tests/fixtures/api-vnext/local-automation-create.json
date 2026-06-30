@@ -1,0 +1,54 @@
+{
+  "success": true,
+  "schema_version": "2026.06",
+  "status": "created",
+  "rule_id": "rule-left-single",
+  "rule": {
+    "rule_id": "rule-left-single",
+    "enabled": true,
+    "trigger": {
+      "device_id": "ldev_button",
+      "capability": "button_event",
+      "event": "single_press",
+      "payload": {
+        "button": "left"
+      }
+    },
+    "actions": [
+      {
+        "type": "device_command",
+        "device_id": "ldev_light",
+        "capability": "power",
+        "command": "turn_on",
+        "params": {}
+      }
+    ]
+  },
+  "data": {
+    "status": "created",
+    "rule_id": "rule-left-single",
+    "rule": {
+      "rule_id": "rule-left-single",
+      "enabled": true,
+      "trigger": {
+        "device_id": "ldev_button",
+        "capability": "button_event",
+        "event": "single_press",
+        "payload": {
+          "button": "left"
+        }
+      },
+      "actions": [
+        {
+          "type": "device_command",
+          "device_id": "ldev_light",
+          "capability": "power",
+          "command": "turn_on",
+          "params": {}
+        }
+      ]
+    }
+  },
+  "warnings": [],
+  "errors": []
+}
