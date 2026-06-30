@@ -630,6 +630,38 @@ class TestWebRTCViews:
 
         assert response.status == 400
 
+    @pytest.mark.asyncio
+    async def test_token_view_integration_not_configured_returns_envelope(
+        self, mock_hass_with_webrtc
+    ):
+        """Test token request returns API vNext envelope when integration is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data = {}
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+
+        view = SmartlyWebRTCTokenView(request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests

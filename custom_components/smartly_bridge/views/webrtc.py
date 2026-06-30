@@ -97,9 +97,11 @@ class SmartlyWebRTCTokenView(BaseView):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
+            result = _webrtc_error_response("integration_not_configured", status=500)
             return web.json_response(
-                {"error": "integration_not_configured"},
-                status=500,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
