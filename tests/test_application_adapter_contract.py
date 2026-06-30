@@ -7,6 +7,7 @@ from custom_components.smartly_bridge.application.adapter_contract import (
     validate_adapter_manifest_set,
     validate_adapter_command_mapping_snapshot,
     validate_adapter_event_mapping_snapshot,
+    validate_adapter_health_snapshot,
     validate_adapter_normalization_snapshot,
 )
 
@@ -455,5 +456,91 @@ def test_adapter_event_mapping_snapshot_rejects_duplicate_dedupe_keys() -> None:
                 "Event dedupe key duplicates events[0].dedupe_key: "
                 "button:left:single:2026-06-30T00:00:00Z"
             ),
+        }
+    ]
+
+
+def test_adapter_health_snapshot_accepts_degraded_declared_capabilities() -> None:
+    """Degraded health snapshots can identify manifest-declared degraded capabilities."""
+    result = validate_adapter_health_snapshot(
+        _valid_manifest(),
+        {
+            "status": "degraded",
+            "last_success_at": "2026-06-30T00:00:00Z",
+            "last_error": "Color temperature source attribute unavailable",
+            "source_latency_ms": 42,
+            "capabilities_degraded": ["color_temperature"],
+        },
+    )
+
+    assert result.is_valid is True
+    assert result.errors == []
+
+
+def test_adapter_health_snapshot_rejects_degraded_without_capabilities() -> None:
+    """Degraded adapters must say which capability is degraded."""
+    result = validate_adapter_health_snapshot(
+        _valid_manifest(),
+        {
+            "status": "degraded",
+            "last_success_at": "2026-06-30T00:00:00Z",
+            "last_error": "partial outage",
+            "source_latency_ms": 42,
+            "capabilities_degraded": [],
+        },
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "MISSING_DEGRADED_CAPABILITIES",
+            "path": "health.capabilities_degraded",
+            "message": "Degraded adapter health must list degraded capabilities.",
+        }
+    ]
+
+
+def test_adapter_health_snapshot_rejects_unavailable_without_error() -> None:
+    """Unavailable adapters must expose a traceable last_error."""
+    result = validate_adapter_health_snapshot(
+        _valid_manifest(),
+        {
+            "status": "unavailable",
+            "last_success_at": None,
+            "last_error": None,
+            "source_latency_ms": None,
+            "capabilities_degraded": [],
+        },
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "MISSING_HEALTH_ERROR",
+            "path": "health.last_error",
+            "message": "Unavailable adapter health must include last_error.",
+        }
+    ]
+
+
+def test_adapter_health_snapshot_rejects_undeclared_degraded_capabilities() -> None:
+    """Adapter health may only degrade capabilities declared by the manifest."""
+    result = validate_adapter_health_snapshot(
+        _valid_manifest(),
+        {
+            "status": "degraded",
+            "last_success_at": "2026-06-30T00:00:00Z",
+            "last_error": "temperature sensor unavailable",
+            "source_latency_ms": 42,
+            "capabilities_degraded": ["temperature"],
+        },
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "UNDECLARED_DEGRADED_CAPABILITY",
+            "path": "health.capabilities_degraded[0]",
+            "message": "Adapter health degrades undeclared capability: temperature",
         }
     ]

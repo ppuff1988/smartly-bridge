@@ -70,6 +70,13 @@ COMMAND_RESULT_STATUSES = {
     "timeout",
 }
 
+ADAPTER_HEALTH_STATUSES = {
+    "healthy",
+    "degraded",
+    "unavailable",
+    "disabled",
+}
+
 
 @dataclass(frozen=True)
 class AdapterManifestValidationResult:
@@ -414,6 +421,81 @@ def validate_adapter_event_mapping_snapshot(
                 )
             else:
                 seen_dedupe_keys[dedupe_key] = index
+
+    return AdapterManifestValidationResult(errors)
+
+
+def validate_adapter_health_snapshot(
+    manifest: dict[str, Any],
+    health: dict[str, Any],
+) -> AdapterManifestValidationResult:
+    """Validate an adapter health snapshot against the adapter contract."""
+    errors: list[dict[str, str]] = []
+    manifest_result = validate_adapter_manifest(manifest)
+    if manifest_result.errors:
+        errors.extend(_prefix_errors(manifest_result.errors, "manifest"))
+        return AdapterManifestValidationResult(errors)
+
+    status = health.get("status")
+    if status not in ADAPTER_HEALTH_STATUSES:
+        errors.append(
+            _error(
+                "INVALID_ADAPTER_HEALTH_STATUS",
+                "health.status",
+                "Adapter health status is not supported.",
+            )
+        )
+
+    capabilities_degraded = health.get("capabilities_degraded")
+    if not isinstance(capabilities_degraded, list):
+        errors.append(
+            _error(
+                "INVALID_DEGRADED_CAPABILITIES",
+                "health.capabilities_degraded",
+                "Adapter health capabilities_degraded must be a list.",
+            )
+        )
+        capabilities_degraded = []
+
+    if status == "degraded" and not capabilities_degraded:
+        errors.append(
+            _error(
+                "MISSING_DEGRADED_CAPABILITIES",
+                "health.capabilities_degraded",
+                "Degraded adapter health must list degraded capabilities.",
+            )
+        )
+
+    supported_capabilities = set(manifest["supported_capabilities"])
+    for index, capability in enumerate(capabilities_degraded):
+        if capability not in CANONICAL_CAPABILITIES:
+            errors.append(
+                _error(
+                    "UNSUPPORTED_CAPABILITY",
+                    f"health.capabilities_degraded[{index}]",
+                    f"Unsupported canonical capability: {capability}",
+                )
+            )
+            continue
+
+        if capability not in supported_capabilities:
+            errors.append(
+                _error(
+                    "UNDECLARED_DEGRADED_CAPABILITY",
+                    f"health.capabilities_degraded[{index}]",
+                    f"Adapter health degrades undeclared capability: {capability}",
+                )
+            )
+
+    last_error = health.get("last_error")
+    if status == "unavailable" and (not isinstance(last_error, str) or not last_error):
+        errors.append(
+            _error(
+                "MISSING_HEALTH_ERROR",
+                "health.last_error",
+                "Unavailable adapter health must include last_error.",
+            )
+        )
 
     return AdapterManifestValidationResult(errors)
 
