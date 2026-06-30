@@ -25,6 +25,7 @@
 - SmartlyCommand resolved denial audit 現在同時記錄 logical device ID 與 source entity ID，讓 command path 切換期間可追蹤 canonical command 與 legacy target。
 - SmartlyCommand success audit 現在也在 actor metadata 內保留 `source_entity_id`，讓成功與拒絕路徑的 trace 欄位一致。
 - SmartlyCommand API vNext `data` 現在於 success/error response 內同步攜帶 `device_id`、`capability`、`command` 與已解析的 `source_entity_id`，讓 vNext clients 不需讀 legacy top-level 欄位即可完成 command correlation。
+- SmartlyCommand success/error full response fixture 已鎖定 legacy top-level 欄位與 API vNext `data` / `warnings` / `errors` envelope，避免 command path 後續重構破壞舊 client 相容性。
 - Home Assistant `button` entity 現在除了 event-only `button_event` 外，也會輸出 command-only `button_press` capability；SmartlyCommand `press` 會解析 logical button target 並呼叫 source `button.press`。
 - Presence sensor sibling `number` setting 已開始從 presentation-only control 升格為 canonical `numeric_setting` capability，可透過 SmartlyCommand `set_value` 控制。
 - Presence sensor sibling `select` setting 已開始從 presentation-only control 升格為 canonical `option_setting` capability，可透過 SmartlyCommand `select_option` 控制。
@@ -399,6 +400,7 @@
 | 209 | `a64c39d` | WebRTC hangup missing-session-id view response 改用 API vNext envelope，保留 legacy `error` 與 400 status 並補上 `data.status` 與 structured `errors[]` | RED failed with legacy-only `{"error": "missing_session_id"}`; targeted test `1 passed`; affected WebRTC/http tests `118 passed`; full suite `665 passed` |
 | 210 | `2028d0b` | WebRTC hangup webrtc-not-available view response 改用 API vNext envelope，保留 legacy `error` 與 500 status 並補上 `data.status` 與 structured `errors[]`；`views/webrtc.py` direct legacy-only `{"error": ...}` response 清空 | RED failed with legacy-only `{"error": "webrtc_not_available"}`; targeted test `1 passed`; affected WebRTC/http tests `119 passed`; full suite `666 passed` |
 | 211 | `ff9b157` | current-sync structure/states full response fixture 鎖定 legacy top-level 欄位與 API vNext envelope，避免後續重構破壞舊 client 相容性 | RED failed with missing `structure-envelope.json` / `states-envelope.json`; targeted fixture tests `2 passed`; affected sync/application tests `116 passed`; full suite `668 passed` |
+| 212 | `f83b920` | SmartlyCommand success/error full response fixture 鎖定 legacy top-level 欄位與 API vNext envelope，避免 logical command path 後續重構破壞舊 client 相容性 | RED failed with missing `command-success.json` / `command-error.json`; targeted fixture tests `2 passed`; affected command/http tests `128 passed`; full suite `670 passed` |
 
 ## Completed Slices
 
@@ -408,7 +410,7 @@
 | Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/integration-not-configured/auth failure/rate-limit/invalid JSON/missing required fields/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press` | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65`, `164f0f1`, `eccf5c7`, `f6f8ec5`, `5bb258a`, `c2272fb` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/integration-not-configured/auth failure/rate-limit/invalid JSON/missing required fields/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press`；command success/error full response fixture 已鎖定 legacy 與 vNext 雙軌欄位 | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65`, `164f0f1`, `eccf5c7`, `f6f8ec5`, `5bb258a`, `c2272fb`, `f83b920` |
 | Test harness | Sync structure view test 明確 mock HA registries，讓 Python 3.14 / HA 2026.6 registry setup 下的 full suite 可穩定驗證 view wiring | `82be030` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP auth failure / rate-limit / integration-not-configured / dispatch failure / invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields；accepted non-duplicate event 可交給 local automation port 處理，duplicate event 不會重複觸發 automation；Device event view 已接上 HA runtime rule store / SmartlyCommand executor | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16`, `3a44cc6`, `8d721e5`, `b6ded93`, `b9fd8fd`, `29e326a`, `4c14613` |
 | History path | history invalid-time-range、time-range-too-large、single-query integration-not-configured、single-query client-secret-not-configured、single-query auth helper defensive client-secret-not-configured、single-query auth failure、single-query rate-limit、single-query missing entity_id、single-query entity-not-allowed、single-query invalid cursor、batch integration-not-configured、batch client-secret-not-configured、batch auth failure、batch rate-limit、batch invalid JSON、batch missing entity_ids、batch too-many-entities、batch no-allowed-entities、single-query timeout、batch timeout、single-query generic failure、batch generic failure、statistics generic failure、statistics invalid-period、statistics integration-not-configured、statistics client-secret-not-configured、statistics auth failure、statistics rate-limit、statistics missing entity_id、statistics entity-not-allowed、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `message` / `max_days` / `valid_periods` / history/statistics payload 欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72`, `adc8619`, `66676c5`, `8eb4fc6`, `6e05198`, `5358619`, `88968bc`, `42d1515`, `e684c6e`, `21a64df`, `30574f3`, `7d51e0c`, `94ceb10`, `da1777c`, `6bb475b`, `bfc155e`, `83a8cc9`, `b9b9a84`, `e28aa94`, `f684280`, `04c8f81`, `d7d3c86`, `0b03094`, `e807c34`, `3d61b4c`, `d19e25f`, `58321da`, `28466ba`, `0d639ea` |
@@ -428,15 +430,15 @@
 
 ## Latest Verification
 
-- current-sync envelope fixture RED: targeted tests failed because `structure-envelope.json` and `states-envelope.json` were missing.
-- Targeted current-sync envelope fixture tests: `2 passed`
-- Affected sync/application tests: `tests/test_application_hexagonal.py` `76 passed`; `tests/test_sync_views.py` `40 passed`
-- Full suite: `668 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- SmartlyCommand API vNext fixture RED: targeted tests failed because `command-success.json` and `command-error.json` were missing.
+- Targeted SmartlyCommand fixture tests: `2 passed`
+- Affected command/http tests: `tests/test_application_hexagonal.py` `78 passed`; `tests/test_http.py` `50 passed`
+- Full suite: `670 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
-- Continue adding broader API vNext contract snapshots beyond current-sync structure/states.
+- Continue adding broader API vNext contract snapshots beyond current-sync and SmartlyCommand responses.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
 - Continue auditing local automation adapter persistence behavior before Platform read/write path cutover.
