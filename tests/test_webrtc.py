@@ -5,12 +5,14 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 import time
 import uuid
 from unittest.mock import AsyncMock, MagicMock
 
 import pytest
 
+from custom_components.smartly_bridge.application.webrtc import SMARTLY_API_SCHEMA_VERSION
 from custom_components.smartly_bridge.auth import NonceCache
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.webrtc import (
@@ -585,7 +587,7 @@ class TestWebRTCViews:
 
     @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
-        """Test token request with invalid entity ID."""
+        """Test token request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
 
         request = MagicMock()
@@ -597,6 +599,22 @@ class TestWebRTCViews:
 
         # Check it's a bad request response
         assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_entity_id",
+            "message": "Entity ID must start with 'camera.'",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_ENTITY_ID",
+                    "message": "invalid entity id",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_token_view_missing_entity(self, mock_hass_with_webrtc):

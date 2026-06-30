@@ -25,6 +25,7 @@ from ..application.webrtc import (
     WebRTCICEUseCase,
     WebRTCOfferUseCase,
     WebRTCTokenUseCase,
+    _webrtc_error_response,
 )
 from ..audit import log_control, log_deny
 from ..auth import RateLimiter, verify_request
@@ -82,9 +83,15 @@ class SmartlyWebRTCTokenView(BaseView):
 
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
-            return web.json_response(
-                {"error": "invalid_entity_id", "message": "Entity ID must start with 'camera.'"},
+            result = _webrtc_error_response(
+                "invalid_entity_id",
                 status=400,
+                legacy_fields={"message": "Entity ID must start with 'camera.'"},
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get integration data
