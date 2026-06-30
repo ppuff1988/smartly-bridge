@@ -66,9 +66,16 @@ class FakeCommandTargetResolver:
     def __init__(self, mapping: dict[tuple[str, str], str | None]) -> None:
         self.mapping = mapping
         self.lookups: list[tuple[str, str]] = []
+        self.lookup_params: list[dict[str, Any] | None] = []
 
-    def resolve_command_target(self, device_id: str, capability: str) -> str | None:
+    def resolve_command_target(
+        self,
+        device_id: str,
+        capability: str,
+        params: dict[str, Any] | None = None,
+    ) -> str | None:
         self.lookups.append((device_id, capability))
+        self.lookup_params.append(params)
         return self.mapping.get((device_id, capability))
 
 
@@ -1393,6 +1400,38 @@ async def test_smartly_command_use_case_dispatches_numeric_setting_command() -> 
     assert result.status == 200
     assert result.body["expected_state"] == {"numeric_setting": {"value": 20}}
     assert gateway.calls == [("number.presence_detection_delay", "set_value", {"value": 20})]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_passes_setting_key_to_target_resolver() -> None:
+    """Setting command params are available to resolver-specific target selection."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="number.presence_cooldown",
+            state="5",
+            attributes={"unit_of_measurement": "s"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_zigbee_presence_1", "numeric_setting"): "number.presence_cooldown"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-cooldown",
+            device_id="ldev_zigbee_presence_1",
+            capability="numeric_setting",
+            command="set_value",
+            params={"key": "cooldown_seconds", "value": 5},
+        ),
+    )
+
+    assert result.status == 200
+    assert resolver.lookup_params == [{"key": "cooldown_seconds", "value": 5}]
+    assert gateway.calls == [("number.presence_cooldown", "set_value", {"value": 5})]
 
 
 @pytest.mark.asyncio

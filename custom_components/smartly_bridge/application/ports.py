@@ -32,7 +32,12 @@ class ControlGatewayPort(Protocol):
 class CommandTargetResolverPort(Protocol):
     """Resolves canonical Smartly commands to source control targets."""
 
-    def resolve_command_target(self, device_id: str, capability: str) -> str | None:
+    def resolve_command_target(
+        self,
+        device_id: str,
+        capability: str,
+        params: dict[str, Any] | None = None,
+    ) -> str | None:
         """Return the source entity ID for a logical device capability."""
 
 

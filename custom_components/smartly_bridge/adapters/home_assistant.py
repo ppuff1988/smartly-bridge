@@ -68,6 +68,10 @@ def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | Non
     """Return the Smartly setting key for supported sibling setting entities."""
     haystack = f"{entity_id} {name}".lower()
     if domain == "number" and any(
+        token in haystack for token in ("cooldown", "cooldown_seconds", "冷卻")
+    ):
+        return "cooldown_seconds"
+    if domain == "number" and any(
         token in haystack
         for token in (
             "delay",
@@ -511,7 +515,12 @@ class HomeAssistantCommandTargetResolver:
         self._hass = hass
         self._allowed_entities_fn = allowed_entities_fn or get_allowed_entities
 
-    def resolve_command_target(self, device_id: str, capability: str) -> str | None:
+    def resolve_command_target(
+        self,
+        device_id: str,
+        capability: str,
+        params: dict[str, Any] | None = None,
+    ) -> str | None:
         """Return the HA entity that owns the requested logical capability."""
         from homeassistant.helpers import entity_registry as er
 
@@ -541,10 +550,12 @@ class HomeAssistantCommandTargetResolver:
             if capability in canonical_capabilities:
                 return entity_id
         if capability in {"numeric_setting", "option_setting"}:
+            setting_key = params.get("key") if isinstance(params, dict) else None
             return self._resolve_setting_target(
                 entity_registry,
                 matched_device_ids,
                 domain="number" if capability == "numeric_setting" else "select",
+                setting_key=setting_key if isinstance(setting_key, str) else None,
             )
         return None
 
@@ -554,6 +565,7 @@ class HomeAssistantCommandTargetResolver:
         matched_device_ids: set[str],
         *,
         domain: str,
+        setting_key: str | None = None,
     ) -> str | None:
         """Return a sibling setting entity from an allowed logical-device group."""
         if not matched_device_ids:
@@ -572,7 +584,10 @@ class HomeAssistantCommandTargetResolver:
                 continue
             attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
             name = str(attributes.get("friendly_name", entity_id))
-            if _setting_key_for_entity(entity_id, name, domain) is not None:
+            resolved_key = _setting_key_for_entity(entity_id, name, domain)
+            if setting_key is not None and resolved_key != setting_key:
+                continue
+            if resolved_key is not None:
                 return entity_id
         return None
 
@@ -830,7 +845,11 @@ class HomeAssistantStateSyncGateway:
 
             controls_by_device.setdefault(device_id, []).append(control)
 
-        order = {"trigger_hold_seconds": 0, "occupancy_sensitivity": 1}
+        order = {
+            "trigger_hold_seconds": 0,
+            "cooldown_seconds": 1,
+            "occupancy_sensitivity": 2,
+        }
         for controls in controls_by_device.values():
             controls.sort(key=lambda control: order.get(str(control.get("key")), 99))
         return controls_by_device

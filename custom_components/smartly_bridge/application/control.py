@@ -223,6 +223,7 @@ class SmartlyCommandUseCase:
         entity_id = self._target_resolver.resolve_command_target(
             command.device_id,
             command.capability,
+            command.params,
         )
         if entity_id is None:
             self._audit.deny(
@@ -278,7 +279,7 @@ class SmartlyCommandUseCase:
             ControlCommand(
                 entity_id=entity_id,
                 action=command.command,
-                service_data=command.params,
+                service_data=_service_data_for_smartly_command(command),
                 actor=actor,
             ),
         )
@@ -469,6 +470,14 @@ def _normalize_service_call(command: ControlCommand) -> tuple[str, dict[str, Any
         return command.action, command.service_data
 
     return "turn_on", _normalize_light_service_data(command.action, command.service_data)
+
+
+def _service_data_for_smartly_command(command: SmartlyCommand) -> dict[str, Any]:
+    """Return HA service data without Smartly-only routing fields."""
+    service_data = dict(command.params)
+    if command.capability in {"numeric_setting", "option_setting"}:
+        service_data.pop("key", None)
+    return service_data
 
 
 def _normalize_climate_service_data(action: str, service_data: dict[str, Any]) -> dict[str, Any]:

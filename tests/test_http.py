@@ -1724,6 +1724,129 @@ class TestControlEndpointFullFlow:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
+    async def test_control_vnext_numeric_setting_uses_keyed_sibling_number_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext numeric setting keys select the matching sibling number."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+
+        presence_state = MagicMock()
+        presence_state.state = "on"
+        presence_state.attributes = {
+            "friendly_name": "Presence Sensor",
+            "device_class": "occupancy",
+        }
+        trigger_state = MagicMock()
+        trigger_state.state = "20"
+        trigger_state.attributes = {
+            "friendly_name": "Trigger hold seconds",
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "unit_of_measurement": "s",
+        }
+        cooldown_state = MagicMock()
+        cooldown_state.state = "5"
+        cooldown_state.attributes = {
+            "friendly_name": "Cooldown seconds",
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "unit_of_measurement": "s",
+        }
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "binary_sensor.presence": presence_state,
+            "number.presence_detection_delay": trigger_state,
+            "number.presence_cooldown": cooldown_state,
+        }.get(entity_id)
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["binary_sensor.presence"],
+            ),
+        ):
+            primary_entry = MagicMock()
+            primary_entry.labels = {"smartly"}
+            primary_entry.device_id = "zigbee-presence-1"
+            trigger_entry = MagicMock()
+            trigger_entry.labels = set()
+            trigger_entry.device_id = "zigbee-presence-1"
+            trigger_entry.entity_id = "number.presence_detection_delay"
+            cooldown_entry = MagicMock()
+            cooldown_entry.labels = set()
+            cooldown_entry.device_id = "zigbee-presence-1"
+            cooldown_entry.entity_id = "number.presence_cooldown"
+
+            mock_registry = MagicMock()
+            mock_registry.entities = {
+                "binary_sensor.presence": primary_entry,
+                "number.presence_detection_delay": trigger_entry,
+                "number.presence_cooldown": cooldown_entry,
+            }
+            mock_registry.async_get.side_effect = lambda entity_id: {
+                "binary_sensor.presence": primary_entry,
+                "number.presence_detection_delay": trigger_entry,
+                "number.presence_cooldown": cooldown_entry,
+            }.get(entity_id)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-setting-cooldown",
+                "device_id": "ldev_zigbee_presence_1",
+                "capability": "numeric_setting",
+                "command": "set_value",
+                "params": {"key": "cooldown_seconds", "value": 5},
+                "source": {"user_id": "user-1"},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        assert json.loads(response.body)["entity_id"] == "number.presence_cooldown"
+        assert json.loads(response.body)["expected_state"] == {
+            "numeric_setting": {"value": 5}
+        }
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "number",
+            "set_value",
+            {"entity_id": "number.presence_cooldown", "value": 5},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
     async def test_control_vnext_option_setting_resolves_sibling_select_entity(
         self, mock_hass, mock_config_entry
     ):
