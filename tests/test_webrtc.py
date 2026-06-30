@@ -915,6 +915,46 @@ class TestWebRTCViews:
         gateway_cls.assert_not_called()
 
     @pytest.mark.asyncio
+    async def test_token_view_response_includes_request_context_headers(
+        self, mock_hass_with_webrtc
+    ):
+        """Token responses echo optional request correlation headers."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        gateway = FakeWebRTCGateway()
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": gateway,
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-webrtc-001",
+            "X-Correlation-Id": "corr-webrtc-001",
+        }
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            response = await SmartlyWebRTCTokenView(request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-webrtc-001"
+        assert data["correlation_id"] == "corr-webrtc-001"
+        assert data["token"] == "token123"
+        assert data["entity_id"] == "camera.front_door"
+
+    @pytest.mark.asyncio
     async def test_offer_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
         """Offer requests execute through the setup-created WebRTC gateway."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView

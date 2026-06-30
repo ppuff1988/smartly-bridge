@@ -61,6 +61,33 @@ def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
     return gateway
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if isinstance(request_id, str) and request_id:
+        enriched["request_id"] = request_id
+    if isinstance(correlation_id, str) and correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a WebRTC JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlyWebRTCTokenView(BaseView):
     """Handle POST /api/smartly/camera/{entity_id}/webrtc requests.
 
@@ -99,8 +126,9 @@ class SmartlyWebRTCTokenView(BaseView):
                 status=400,
                 legacy_fields={"message": "Entity ID must start with 'camera.'"},
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -109,8 +137,9 @@ class SmartlyWebRTCTokenView(BaseView):
         data = self._get_integration_data()
         if data is None:
             result = _webrtc_error_response("integration_not_configured", status=500)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -139,8 +168,9 @@ class SmartlyWebRTCTokenView(BaseView):
                 reason=auth_result.error or "auth_failed",
             )
             result = _webrtc_error_response(auth_result.error or "auth_failed", status=401)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -155,8 +185,9 @@ class SmartlyWebRTCTokenView(BaseView):
                 reason="rate_limited",
             )
             result = _webrtc_error_response("rate_limited", status=429)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     **result.headers,
@@ -178,8 +209,9 @@ class SmartlyWebRTCTokenView(BaseView):
                 reason="entity_not_allowed",
             )
             result = _webrtc_error_response("entity_not_allowed", status=403)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -192,8 +224,9 @@ class SmartlyWebRTCTokenView(BaseView):
                 status=500,
                 legacy_fields={"message": "WebRTC manager not initialized"},
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -211,7 +244,7 @@ class SmartlyWebRTCTokenView(BaseView):
         )
 
         if result.status == 404:
-            return web.json_response(result.body, status=result.status)
+            return _json_response(result.body, self.request, status=result.status)
 
         log_control(
             _LOGGER,
@@ -221,7 +254,9 @@ class SmartlyWebRTCTokenView(BaseView):
             result="success",
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyWebRTCOfferView(BaseView):
@@ -257,8 +292,9 @@ class SmartlyWebRTCOfferView(BaseView):
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
             result = _webrtc_error_response("invalid_entity_id", status=400)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -272,8 +308,9 @@ class SmartlyWebRTCOfferView(BaseView):
                 status=400,
                 legacy_fields={"message": "Request body must be valid JSON"},
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -288,8 +325,9 @@ class SmartlyWebRTCOfferView(BaseView):
                 status=400,
                 legacy_fields={"message": "Token is required"},
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -300,8 +338,9 @@ class SmartlyWebRTCOfferView(BaseView):
                 status=400,
                 legacy_fields={"message": "SDP offer is required"},
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -312,8 +351,9 @@ class SmartlyWebRTCOfferView(BaseView):
                 status=400,
                 legacy_fields={"message": "SDP type must be 'offer'"},
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -322,8 +362,9 @@ class SmartlyWebRTCOfferView(BaseView):
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
             result = _webrtc_error_response("webrtc_not_available", status=500)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -344,7 +385,7 @@ class SmartlyWebRTCOfferView(BaseView):
                 service="webrtc_offer",
                 reason="invalid_or_expired_token",
             )
-            return web.json_response(result.body, status=result.status)
+            return _json_response(result.body, self.request, status=result.status)
 
         if result.status == 500:
             _LOGGER.error("WebRTC offer failed for %s: %s", entity_id, result.body.get("message"))
@@ -355,7 +396,7 @@ class SmartlyWebRTCOfferView(BaseView):
                 service="webrtc_offer",
                 result="go2rtc_error",
             )
-            return web.json_response(result.body, status=result.status)
+            return _json_response(result.body, self.request, status=result.status)
 
         _LOGGER.info(
             "WebRTC answer generated - entity_id: %s, session_id: %s, sdp_length: %d",
@@ -381,7 +422,9 @@ class SmartlyWebRTCOfferView(BaseView):
             result="success",
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyWebRTCICEView(BaseView):
@@ -418,8 +461,9 @@ class SmartlyWebRTCICEView(BaseView):
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
             result = _webrtc_error_response("invalid_entity_id", status=400)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -429,8 +473,9 @@ class SmartlyWebRTCICEView(BaseView):
             body = await self.request.json()
         except json.JSONDecodeError:
             result = _webrtc_error_response("invalid_json", status=400)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -440,8 +485,9 @@ class SmartlyWebRTCICEView(BaseView):
 
         if not session_id:
             result = _webrtc_error_response("missing_session_id", status=400)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -450,8 +496,9 @@ class SmartlyWebRTCICEView(BaseView):
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
             result = _webrtc_error_response("webrtc_not_available", status=500)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -471,7 +518,9 @@ class SmartlyWebRTCICEView(BaseView):
                 candidate.get("candidate", "")[:50],
             )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyWebRTCHangupView(BaseView):
@@ -504,8 +553,9 @@ class SmartlyWebRTCHangupView(BaseView):
             body = await self.request.json()
         except json.JSONDecodeError:
             result = _webrtc_error_response("invalid_json", status=400)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -514,8 +564,9 @@ class SmartlyWebRTCHangupView(BaseView):
 
         if not session_id:
             result = _webrtc_error_response("missing_session_id", status=400)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -524,8 +575,9 @@ class SmartlyWebRTCHangupView(BaseView):
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
             result = _webrtc_error_response("webrtc_not_available", status=500)
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -536,7 +588,9 @@ class SmartlyWebRTCHangupView(BaseView):
         )
 
         if result.status != 200:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         log_control(
             _LOGGER,
@@ -546,7 +600,9 @@ class SmartlyWebRTCHangupView(BaseView):
             result="success",
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 # Wrapper classes for Home Assistant view registration
