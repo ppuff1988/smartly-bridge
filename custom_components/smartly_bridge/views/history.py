@@ -658,10 +658,12 @@ class SmartlyHistoryBatchView(web.View):
 
         entity_ids = body.get("entity_ids", [])
         if not isinstance(entity_ids, list) or not entity_ids:
-            return web.json_response(
-                {"error": "entity_ids_required"},
+            result = _history_error_response(
+                "entity_ids_required",
                 status=400,
+                target="history.batch.entity_ids",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Limit batch size
         if len(entity_ids) > HISTORY_MAX_ENTITIES_BATCH:
