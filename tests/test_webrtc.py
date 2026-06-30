@@ -6,13 +6,19 @@ import asyncio
 import hashlib
 import hmac
 import json
+from pathlib import Path
 import time
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.application.webrtc import SMARTLY_API_SCHEMA_VERSION
+from custom_components.smartly_bridge.application.webrtc import (
+    SMARTLY_API_SCHEMA_VERSION,
+    WebRTCICEUseCase,
+    WebRTCOfferUseCase,
+    WebRTCHangupUseCase,
+)
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache
 from custom_components.smartly_bridge.const import DOMAIN, RATE_WINDOW
 from custom_components.smartly_bridge.webrtc import (
@@ -22,6 +28,77 @@ from custom_components.smartly_bridge.webrtc import (
     get_default_ice_servers,
     get_ice_servers_with_turn,
 )
+
+
+class FakeWebRTCGateway:
+    """Fake WebRTC application gateway."""
+
+    def __init__(self) -> None:
+        self.session = WebRTCSession(
+            token="session1234567890abcdef",
+            entity_id="camera.front_door",
+            client_id="platform_client",
+        )
+        self.state_updates: list[dict[str, str | None]] = []
+        self.closed_tokens: list[str] = []
+
+    def camera_exists(self, entity_id: str) -> bool:
+        return entity_id == "camera.front_door"
+
+    async def generate_token(self, entity_id: str, client_id: str) -> WebRTCToken:
+        return WebRTCToken(
+            token="token123",
+            entity_id=entity_id,
+            client_id=client_id,
+            created_at=1000,
+            expires_at=1300,
+        )
+
+    def get_ice_servers(
+        self,
+        turn_url: str | None = None,
+        turn_username: str | None = None,
+        turn_credential: str | None = None,
+    ) -> list[dict[str, str]]:
+        return [{"urls": "stun:stun.l.google.com:19302"}]
+
+    def get_session_by_partial_token(self, session_id: str) -> WebRTCSession | None:
+        if self.session.token.startswith(session_id):
+            return self.session
+        return None
+
+    async def consume_token(self, token: str, entity_id: str) -> WebRTCSession | None:
+        if token == "valid-token" and entity_id == self.session.entity_id:
+            return self.session
+        return None
+
+    async def update_session_state(
+        self,
+        token: str,
+        state: str,
+        local_sdp: str | None = None,
+        remote_sdp: str | None = None,
+    ) -> None:
+        self.state_updates.append(
+            {
+                "token": token,
+                "state": state,
+                "local_sdp": local_sdp,
+                "remote_sdp": remote_sdp,
+            }
+        )
+
+    async def create_webrtc_answer(
+        self,
+        entity_id: str,
+        offer_sdp: str,
+        session: WebRTCSession,
+    ) -> str:
+        return "v=0\r\ns=Smartly Bridge\r\n"
+
+    async def close_session(self, token: str) -> bool:
+        self.closed_tokens.append(token)
+        return True
 
 # ============================================================================
 # WebRTCToken Tests
@@ -214,6 +291,61 @@ class TestWebRTCSession:
         assert result["state"] == "connected"
         assert "created_at" in result
         assert "last_activity" in result
+
+
+# ============================================================================
+# WebRTC Application Use Case Tests
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_webrtc_offer_response_matches_api_vnext_fixture() -> None:
+    """WebRTC offer answer response remains stable for old and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "webrtc-offer.json"
+    expected_body = json.loads(fixture_path.read_text())
+    gateway = FakeWebRTCGateway()
+    use_case = WebRTCOfferUseCase(gateway)
+
+    result = await use_case.execute(
+        entity_id="camera.front_door",
+        token="valid-token",
+        sdp_offer="v=0\r\ns=Platform\r\n",
+    )
+
+    assert result.body == expected_body
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_response_matches_api_vnext_fixture() -> None:
+    """WebRTC ICE accepted response remains stable for old and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "webrtc-ice.json"
+    expected_body = json.loads(fixture_path.read_text())
+    gateway = FakeWebRTCGateway()
+    use_case = WebRTCICEUseCase(gateway)
+
+    result = await use_case.execute(
+        entity_id="camera.front_door",
+        session_id=gateway.session.token[:16],
+        candidate={"candidate": "candidate:1", "sdpMid": "0", "sdpMLineIndex": 0},
+    )
+
+    assert result.body == expected_body
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_response_matches_api_vnext_fixture() -> None:
+    """WebRTC hangup response remains stable for old and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "webrtc-hangup.json"
+    expected_body = json.loads(fixture_path.read_text())
+    gateway = FakeWebRTCGateway()
+    use_case = WebRTCHangupUseCase(gateway)
+
+    result = await use_case.execute(
+        entity_id="camera.front_door",
+        session_id=gateway.session.token[:16],
+    )
+
+    assert result.body == expected_body
 
 
 # ============================================================================
