@@ -184,7 +184,9 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
 
     with patch(
         "custom_components.smartly_bridge.views.local_automation.verify_request"
-    ) as mock_verify:
+    ) as mock_verify, patch(
+        "custom_components.smartly_bridge.views.local_automation.HomeAssistantLocalAutomationRuleStore"
+    ) as mock_store:
         mock_verify.return_value = MagicMock(
             success=True,
             client_id="test_client",
@@ -194,6 +196,7 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
         response = await SmartlyLocalAutomationRulesView(request).get()
 
     assert response.status == 200
+    mock_store.assert_not_called()
     payload = json.loads(response.body)
     assert store.list_calls == 1
     assert payload["rules"][0]["rule_id"] == "runtime-left-single"

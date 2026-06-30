@@ -71,10 +71,11 @@ def _get_history_semaphore() -> asyncio.Semaphore:
 def _history_gateway(hass: HomeAssistant) -> Any:
     """Return the setup-created history gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    return runtime_adapters.setdefault(
-        "history_gateway",
-        HomeAssistantHistoryGateway(hass, _get_history_semaphore),
-    )
+    gateway = runtime_adapters.get("history_gateway")
+    if gateway is None:
+        gateway = HomeAssistantHistoryGateway(hass, _get_history_semaphore)
+        runtime_adapters["history_gateway"] = gateway
+    return gateway
 
 
 def _encode_cursor(timestamp: str, last_changed: str) -> str:

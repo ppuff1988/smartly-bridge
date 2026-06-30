@@ -519,6 +519,9 @@ class TestSmartlyHistoryView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ),
+            patch(
+                "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway",
+            ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
             mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
@@ -526,6 +529,7 @@ class TestSmartlyHistoryView:
             response = await SmartlyHistoryView(mock_request).get()
 
         assert response.status == 200
+        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert data["entity_id"] == "sensor.temperature"
         assert data["history"][0]["state"] == 11.0
@@ -1061,6 +1065,9 @@ class TestSmartlyHistoryBatchView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ),
+            patch(
+                "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway",
+            ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
             mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
@@ -1068,6 +1075,7 @@ class TestSmartlyHistoryBatchView:
             response = await SmartlyHistoryBatchView(mock_request).post()
 
         assert response.status == 200
+        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert sorted(data["history"]) == ["sensor.temp1", "sensor.temp2"]
         assert data["history"]["sensor.temp1"][0]["state"] == 11.0
@@ -1500,6 +1508,9 @@ class TestSmartlyStatisticsView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ),
+            patch(
+                "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway",
+            ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
             mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
@@ -1507,6 +1518,7 @@ class TestSmartlyStatisticsView:
             response = await SmartlyStatisticsView(mock_request).get()
 
         assert response.status == 200
+        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert data["entity_id"] == "sensor.power"
         assert data["statistics"][0]["mean"] == 150.5

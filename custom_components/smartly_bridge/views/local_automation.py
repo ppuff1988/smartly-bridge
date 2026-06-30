@@ -40,10 +40,11 @@ class SmartlyLocalAutomationRulesView(BaseView):
         """Return the setup-created local automation rule store."""
         integration_data = self.hass.data.setdefault(DOMAIN, {})
         runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "local_automation_rule_store",
-            HomeAssistantLocalAutomationRuleStore(self.hass),
-        )
+        rule_store = runtime_adapters.get("local_automation_rule_store")
+        if rule_store is None:
+            rule_store = HomeAssistantLocalAutomationRuleStore(self.hass)
+            runtime_adapters["local_automation_rule_store"] = rule_store
+        return rule_store
 
     async def _authorize(self, service: str) -> web.Response | str:
         """Authorize a local automation rule management request."""
