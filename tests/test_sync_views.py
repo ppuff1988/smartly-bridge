@@ -142,6 +142,40 @@ class TestSmartlySyncView:
             assert response.status == 429
 
     @pytest.mark.asyncio
+    async def test_rate_limited_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test rate limiting returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=False)
+
+            view = SmartlySyncView(mock_request)
+            response = await view.get()
+
+            assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == {
+                "error": "rate_limited",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "RATE_LIMITED",
+                        "message": "rate limited",
+                        "target": "sync.structure.rate_limit",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_successful_sync(self, mock_request, mock_hass):
         """Test successful sync request."""
         with patch(
