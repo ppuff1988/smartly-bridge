@@ -877,7 +877,7 @@ class TestSmartlyCameraConfigView:
 
     @pytest.mark.asyncio
     async def test_config_invalid_json(self, mock_request):
-        """Test config view with invalid JSON."""
+        """Test config view returns API vNext envelope on invalid JSON."""
         mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
         mock_request.read = AsyncMock(return_value=b"invalid json")
 
@@ -892,7 +892,20 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "invalid_json"
+            assert data == {
+                "error": "invalid_json",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_JSON",
+                        "message": "invalid json",
+                        "target": "camera.request",
+                        "retryable": False,
+                    }
+                ],
+            }
 
     @pytest.mark.asyncio
     async def test_config_missing_action(self, mock_request):

@@ -569,9 +569,15 @@ class SmartlyCameraConfigView(BaseView):
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "invalid_json"},
+            result = _camera_error_response(
+                "invalid_json",
                 status=400,
+                target="camera.request",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         action = body.get("action")
