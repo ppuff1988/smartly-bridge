@@ -1,0 +1,19 @@
+{
+  "success": false,
+  "schema_version": "2026.06",
+  "raw_ref": "raw_missing",
+  "error": "raw_diagnostic_not_found",
+  "data": {
+    "raw_ref": "raw_missing",
+    "status": "not_found"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RAW_DIAGNOSTIC_NOT_FOUND",
+      "message": "Raw diagnostic payload was not found or has expired.",
+      "target": "raw_ref",
+      "retryable": false
+    }
+  ]
+}

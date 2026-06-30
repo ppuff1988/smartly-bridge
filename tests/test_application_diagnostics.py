@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 from custom_components.smartly_bridge.application.diagnostics import (
@@ -20,6 +22,12 @@ class FakeRawDiagnosticStore:
     def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
         self.refs.append(raw_ref)
         return self.payloads.get(raw_ref)
+
+
+def _load_api_vnext_fixture(name: str) -> dict[str, Any]:
+    """Load an API vNext fixture by filename."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / name
+    return json.loads(fixture_path.read_text())
 
 
 def test_raw_diagnostic_fetch_masks_sensitive_payload() -> None:
@@ -63,6 +71,27 @@ def test_raw_diagnostic_fetch_masks_sensitive_payload() -> None:
     }
 
 
+def test_raw_diagnostic_success_response_matches_api_vnext_fixture() -> None:
+    """Raw diagnostic success response matches the API vNext fixture."""
+    store = FakeRawDiagnosticStore(
+        {
+            "raw_light_001": {
+                "entity_id": "light.kitchen",
+                "access_token": "secret-token",
+                "attributes": {
+                    "password": "secret-password",
+                    "host": "192.168.1.25",
+                    "brightness": 128,
+                },
+            }
+        }
+    )
+
+    result = RawDiagnosticFetchUseCase(store).execute("raw_light_001")
+
+    assert result.body == _load_api_vnext_fixture("raw-diagnostic-success.json")
+
+
 def test_raw_diagnostic_fetch_returns_not_found_for_missing_ref() -> None:
     """Missing or expired raw diagnostic refs return an API vNext error envelope."""
     store = FakeRawDiagnosticStore({})
@@ -87,6 +116,15 @@ def test_raw_diagnostic_fetch_returns_not_found_for_missing_ref() -> None:
             }
         ],
     }
+
+
+def test_raw_diagnostic_missing_response_matches_api_vnext_fixture() -> None:
+    """Raw diagnostic missing response matches the API vNext fixture."""
+    store = FakeRawDiagnosticStore({})
+
+    result = RawDiagnosticFetchUseCase(store).execute("raw_missing")
+
+    assert result.body == _load_api_vnext_fixture("raw-diagnostic-not-found.json")
 
 
 def test_raw_diagnostic_error_response_uses_diagnostic_contract() -> None:
@@ -114,3 +152,15 @@ def test_raw_diagnostic_error_response_uses_diagnostic_contract() -> None:
             }
         ],
     }
+
+
+def test_raw_diagnostic_auth_failure_matches_api_vnext_fixture() -> None:
+    """Raw diagnostic auth failure response matches the API vNext fixture."""
+    result = raw_diagnostic_error_response(
+        "auth_failed",
+        message="Raw diagnostic request authentication failed",
+        status=401,
+        target="diagnostics.raw.auth",
+    )
+
+    assert result.body == _load_api_vnext_fixture("raw-diagnostic-auth-failure.json")
