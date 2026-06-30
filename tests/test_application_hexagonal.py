@@ -2517,6 +2517,7 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                     "valid_until": None,
                 }
             ],
+            "raw_refs": [],
             "capabilities": [
                 {
                     "type": "power",
@@ -2702,6 +2703,7 @@ async def test_sync_states_use_case_reports_diagnostic_normalization_warnings() 
 
     assert result.status == 200
     assert result.body["logical_devices"][0]["device_class"] == "diagnostic_device"
+    assert result.body["logical_devices"][0]["raw_refs"] == []
     assert result.body["logical_devices"][0]["aliases"] == [
         {
             "kind": "home_assistant_entity_id",

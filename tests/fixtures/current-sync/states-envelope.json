@@ -43,6 +43,7 @@
           "valid_until": null
         }
       ],
+      "raw_refs": [],
       "capabilities": [
         {
           "type": "power",
@@ -164,6 +165,7 @@
             "valid_until": null
           }
         ],
+        "raw_refs": [],
         "capabilities": [
           {
             "type": "power",

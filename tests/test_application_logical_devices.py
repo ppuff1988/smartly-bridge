@@ -1123,6 +1123,7 @@ def test_sibling_entities_with_same_source_device_group_into_one_logical_device(
                     "valid_until": None,
                 },
             ],
+            "raw_refs": [],
             "capabilities": [
                 {
                     "type": "power",
