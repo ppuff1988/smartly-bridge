@@ -263,6 +263,36 @@ def test_local_automation_rule_store_create_returns_false_without_config_entry()
     hass.config_entries.async_update_entry.assert_not_called()
 
 
+def test_local_automation_rule_store_create_returns_false_when_persistence_raises() -> None:
+    """Creating a rule reports failure when config entry persistence raises."""
+    config_entry = MagicMock(data={"client_secret": "secret", "local_automation_rules": []})
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"config_entry": config_entry}}
+    hass.config_entries.async_update_entry.side_effect = RuntimeError("persist failed")
+
+    created = HomeAssistantLocalAutomationRuleStore(hass).create_rule(
+        LocalAutomationRule(
+            rule_id="new-rule",
+            trigger=AutomationTrigger(
+                device_id="ldev_button",
+                capability="button_event",
+                event="single_press",
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_light",
+                    capability="power",
+                    command="turn_on",
+                )
+            ],
+        )
+    )
+
+    assert created is False
+    assert "local_automation_rules" not in hass.data[DOMAIN]
+
+
 def test_local_automation_rule_store_create_persists_runtime_visible_rules() -> None:
     """Creating a rule preserves runtime-visible rules in persisted config data."""
     runtime_rule = LocalAutomationRule(

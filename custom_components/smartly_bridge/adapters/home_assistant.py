@@ -238,7 +238,10 @@ class HomeAssistantLocalAutomationRuleStore:
         stored_rules = self._serialized_rules_for_persistence(integration_data, data)
         stored_rules.append(_local_automation_rule_to_config(rule))
         data["local_automation_rules"] = stored_rules
-        self._hass.config_entries.async_update_entry(config_entry, data=data)
+        try:
+            self._hass.config_entries.async_update_entry(config_entry, data=data)
+        except Exception:
+            return False
         self._refresh_runtime_rules(integration_data, stored_rules)
         return True
 
