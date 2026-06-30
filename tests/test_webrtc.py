@@ -8,12 +8,12 @@ import hmac
 import json
 import time
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
 from custom_components.smartly_bridge.application.webrtc import SMARTLY_API_SCHEMA_VERSION
-from custom_components.smartly_bridge.auth import NonceCache
+from custom_components.smartly_bridge.auth import AuthResult, NonceCache
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.webrtc import (
     WebRTCSession,
@@ -656,6 +656,39 @@ class TestWebRTCViews:
                 {
                     "code": "INTEGRATION_NOT_CONFIGURED",
                     "message": "integration not configured",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
+    async def test_token_view_auth_failure_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request returns API vNext envelope when authentication fails."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 401
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_signature",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_SIGNATURE",
+                    "message": "invalid signature",
                     "target": "webrtc",
                     "retryable": False,
                 }

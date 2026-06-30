@@ -127,9 +127,11 @@ class SmartlyWebRTCTokenView(BaseView):
                 service="webrtc_token",
                 reason=auth_result.error or "auth_failed",
             )
+            result = _webrtc_error_response(auth_result.error or "auth_failed", status=401)
             return web.json_response(
-                {"error": auth_result.error},
-                status=401,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Check rate limit
