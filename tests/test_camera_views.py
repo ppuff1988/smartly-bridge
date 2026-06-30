@@ -183,7 +183,20 @@ class TestSmartlyCameraSnapshotView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
-                assert data["error"] == "entity_not_allowed"
+                assert data == {
+                    "error": "entity_not_allowed",
+                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "ENTITY_NOT_ALLOWED",
+                            "message": "entity not allowed",
+                            "target": "camera.entity_id",
+                            "retryable": False,
+                        }
+                    ],
+                }
 
     @pytest.mark.asyncio
     async def test_camera_manager_not_initialized(self, mock_request, mock_hass):
