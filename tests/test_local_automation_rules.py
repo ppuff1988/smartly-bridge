@@ -204,6 +204,41 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
 
 
 @pytest.mark.asyncio
+async def test_local_automation_rules_get_echoes_request_correlation_headers(
+    mock_hass,
+) -> None:
+    """GET local automation rules exposes request/correlation IDs."""
+    _configure_integration(mock_hass)
+    store = FakeLocalAutomationRuleStore()
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {
+        "local_automation_rule_store": store,
+    }
+    request = _request_for_rules(mock_hass)
+    request.headers.update(
+        {
+            "X-Request-Id": "req-local-rules-1",
+            "X-Correlation-Id": "corr-local-rules-1",
+        }
+    )
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).get()
+
+    assert response.status == 200
+    payload = json.loads(response.body)
+    assert payload["request_id"] == "req-local-rules-1"
+    assert payload["correlation_id"] == "corr-local-rules-1"
+
+
+@pytest.mark.asyncio
 async def test_local_automation_rules_get_not_configured_uses_vnext_error(
     mock_hass,
 ) -> None:

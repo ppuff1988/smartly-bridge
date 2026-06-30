@@ -33,6 +33,33 @@ from .base import BaseView
 _LOGGER = logging.getLogger(__name__)
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a local automation JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
@@ -56,8 +83,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 status=500,
                 target="integration",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -90,8 +118,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 status=401,
                 target="request.auth",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -110,8 +139,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 status=429,
                 target="request.rate_limit",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -127,7 +157,12 @@ class SmartlyLocalAutomationRulesView(BaseView):
         if isinstance(auth, web.Response):
             return auth
         result = LocalAutomationRulesListUseCase(self._rule_store()).execute()
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
     async def post(self) -> web.Response:
         """Create a local automation rule."""
@@ -138,7 +173,12 @@ class SmartlyLocalAutomationRulesView(BaseView):
         if isinstance(payload, web.Response):
             return payload
         result = LocalAutomationRuleCreateUseCase(self._rule_store()).execute(payload)
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
     async def put(self) -> web.Response:
         """Update a local automation rule."""
@@ -153,7 +193,12 @@ class SmartlyLocalAutomationRulesView(BaseView):
             rule_id if isinstance(rule_id, str) else "",
             payload,
         )
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
     async def delete(self) -> web.Response:
         """Delete a local automation rule."""
@@ -167,7 +212,12 @@ class SmartlyLocalAutomationRulesView(BaseView):
         result = LocalAutomationRuleDeleteUseCase(self._rule_store()).execute(
             rule_id if isinstance(rule_id, str) else ""
         )
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
     async def _json_payload(self) -> dict[str, Any] | web.Response:
         """Return request JSON payload or an API vNext invalid JSON response."""
@@ -180,8 +230,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
                 status=400,
                 target="request.body",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
