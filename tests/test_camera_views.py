@@ -489,6 +489,23 @@ class TestSmartlyCameraStreamView:
             response = await view.get()
 
             assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == {
+                "error": "rate_limited",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "RATE_LIMITED",
+                        "message": "rate limited",
+                        "target": "camera.rate_limit",
+                        "retryable": False,
+                    }
+                ],
+            }
 
 
 class TestSmartlyCameraListView:
