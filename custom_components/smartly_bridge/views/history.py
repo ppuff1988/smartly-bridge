@@ -265,9 +265,15 @@ class SmartlyHistoryView(web.View):
         if not client_secret:
             # This should never happen as we check in get(), but handle defensively
             dummy_auth = AuthResult(success=False, error="client_secret_not_configured")
-            return dummy_auth, web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="history.config",
+            )
+            return dummy_auth, web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
