@@ -326,6 +326,98 @@ def validate_adapter_command_mapping_snapshot(
     return AdapterManifestValidationResult(errors)
 
 
+def validate_adapter_event_mapping_snapshot(
+    manifest: dict[str, Any],
+    events: list[dict[str, Any]],
+) -> AdapterManifestValidationResult:
+    """Validate adapter event mapping snapshots for canonical scope and dedupe."""
+    errors: list[dict[str, str]] = []
+    manifest_result = validate_adapter_manifest(manifest)
+    if manifest_result.errors:
+        errors.extend(_prefix_errors(manifest_result.errors, "manifest"))
+        return AdapterManifestValidationResult(errors)
+
+    supported_capabilities = set(manifest["supported_capabilities"])
+    seen_source_event_ids: dict[str, int] = {}
+    seen_dedupe_keys: dict[str, int] = {}
+    for index, event in enumerate(events):
+        if not isinstance(event, dict):
+            errors.append(
+                _error(
+                    "INVALID_EVENT_SNAPSHOT",
+                    f"events[{index}]",
+                    "Event snapshot must be an object.",
+                )
+            )
+            continue
+
+        capability = event.get("capability")
+        if capability not in CANONICAL_CAPABILITIES:
+            errors.append(
+                _error(
+                    "UNSUPPORTED_CAPABILITY",
+                    f"events[{index}].capability",
+                    f"Unsupported canonical capability: {capability}",
+                )
+            )
+        elif capability not in supported_capabilities:
+            errors.append(
+                _error(
+                    "UNDECLARED_EVENT_CAPABILITY",
+                    f"events[{index}].capability",
+                    f"Event mapping snapshot emits undeclared capability: {capability}",
+                )
+            )
+
+        source_event_id = event.get("source_event_id")
+        dedupe_key = event.get("dedupe_key")
+        has_source_event_id = isinstance(source_event_id, str) and bool(source_event_id)
+        has_dedupe_key = isinstance(dedupe_key, str) and bool(dedupe_key)
+        if not has_source_event_id and not has_dedupe_key:
+            errors.append(
+                _error(
+                    "MISSING_EVENT_DEDUPE_SOURCE",
+                    f"events[{index}]",
+                    "Event snapshot must include source_event_id or dedupe_key.",
+                )
+            )
+            continue
+
+        if has_source_event_id:
+            previous_index = seen_source_event_ids.get(source_event_id)
+            if previous_index is not None:
+                errors.append(
+                    _error(
+                        "DUPLICATE_SOURCE_EVENT_ID",
+                        f"events[{index}].source_event_id",
+                        (
+                            "Source event id duplicates "
+                            f"events[{previous_index}].source_event_id: {source_event_id}"
+                        ),
+                    )
+                )
+            else:
+                seen_source_event_ids[source_event_id] = index
+
+        if has_dedupe_key:
+            previous_index = seen_dedupe_keys.get(dedupe_key)
+            if previous_index is not None:
+                errors.append(
+                    _error(
+                        "DUPLICATE_EVENT_DEDUPE_KEY",
+                        f"events[{index}].dedupe_key",
+                        (
+                            "Event dedupe key duplicates "
+                            f"events[{previous_index}].dedupe_key: {dedupe_key}"
+                        ),
+                    )
+                )
+            else:
+                seen_dedupe_keys[dedupe_key] = index
+
+    return AdapterManifestValidationResult(errors)
+
+
 def _validate_snapshot_source_refs(
     capability: dict[str, Any],
     capability_index: int,

@@ -6,6 +6,7 @@ from custom_components.smartly_bridge.application.adapter_contract import (
     validate_adapter_manifest,
     validate_adapter_manifest_set,
     validate_adapter_command_mapping_snapshot,
+    validate_adapter_event_mapping_snapshot,
     validate_adapter_normalization_snapshot,
 )
 
@@ -321,6 +322,138 @@ def test_adapter_command_mapping_snapshot_rejects_adapter_id_mismatch() -> None:
             "message": (
                 "Command mapping snapshot adapter_id must match manifest id: "
                 "home_assistant.light"
+            ),
+        }
+    ]
+
+
+def test_adapter_event_mapping_snapshot_passes_with_source_event_id() -> None:
+    """Adapter event snapshots must expose canonical event data and a dedupe source."""
+    manifest = _valid_manifest()
+    manifest["supported_capabilities"] = ["button_event"]
+
+    result = validate_adapter_event_mapping_snapshot(
+        manifest,
+        [
+            {
+                "event_id": "evt_001",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "source_event_id": "ha_event_001",
+                "raw_ref": "raw_evt_001",
+            }
+        ],
+    )
+
+    assert result.is_valid is True
+    assert result.errors == []
+
+
+def test_adapter_event_mapping_snapshot_rejects_missing_dedupe_source() -> None:
+    """Events without a source event id must provide a generated dedupe key."""
+    manifest = _valid_manifest()
+    manifest["supported_capabilities"] = ["button_event"]
+
+    result = validate_adapter_event_mapping_snapshot(
+        manifest,
+        [
+            {
+                "event_id": "evt_001",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "raw_ref": "raw_evt_001",
+            }
+        ],
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "MISSING_EVENT_DEDUPE_SOURCE",
+            "path": "events[0]",
+            "message": "Event snapshot must include source_event_id or dedupe_key.",
+        }
+    ]
+
+
+def test_adapter_event_mapping_snapshot_rejects_duplicate_source_event_ids() -> None:
+    """Replay windows must reject duplicate source event ids."""
+    manifest = _valid_manifest()
+    manifest["supported_capabilities"] = ["button_event"]
+
+    result = validate_adapter_event_mapping_snapshot(
+        manifest,
+        [
+            {
+                "event_id": "evt_001",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "source_event_id": "ha_event_001",
+            },
+            {
+                "event_id": "evt_002",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "source_event_id": "ha_event_001",
+            },
+        ],
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "DUPLICATE_SOURCE_EVENT_ID",
+            "path": "events[1].source_event_id",
+            "message": (
+                "Source event id duplicates events[0].source_event_id: ha_event_001"
+            ),
+        }
+    ]
+
+
+def test_adapter_event_mapping_snapshot_rejects_duplicate_dedupe_keys() -> None:
+    """Generated dedupe keys must also be unique within the replay window."""
+    manifest = _valid_manifest()
+    manifest["supported_capabilities"] = ["button_event"]
+
+    result = validate_adapter_event_mapping_snapshot(
+        manifest,
+        [
+            {
+                "event_id": "evt_001",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "dedupe_key": "button:left:single:2026-06-30T00:00:00Z",
+            },
+            {
+                "event_id": "evt_002",
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+                "payload": {"button": "left"},
+                "dedupe_key": "button:left:single:2026-06-30T00:00:00Z",
+            },
+        ],
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "DUPLICATE_EVENT_DEDUPE_KEY",
+            "path": "events[1].dedupe_key",
+            "message": (
+                "Event dedupe key duplicates events[0].dedupe_key: "
+                "button:left:single:2026-06-30T00:00:00Z"
             ),
         }
     ]
