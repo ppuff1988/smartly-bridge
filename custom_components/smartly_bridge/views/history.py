@@ -649,10 +649,12 @@ class SmartlyHistoryBatchView(web.View):
         try:
             body = await self.request.json()
         except Exception:
-            return web.json_response(
-                {"error": "invalid_json"},
+            result = _history_error_response(
+                "invalid_json",
                 status=400,
+                target="history.batch.body",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         entity_ids = body.get("entity_ids", [])
         if not isinstance(entity_ids, list) or not entity_ids:

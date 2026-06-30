@@ -667,6 +667,40 @@ class TestSmartlyHistoryBatchView:
             assert data["error"] == "invalid_json"
 
     @pytest.mark.asyncio
+    async def test_invalid_json_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test invalid JSON body returns API vNext envelope."""
+        mock_request.json = AsyncMock(side_effect=Exception("Invalid JSON"))
+
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            view = SmartlyHistoryBatchView(mock_request)
+            response = await view.post()
+
+            assert response.status == 400
+            data = json.loads(response.body)
+            assert data == {
+                "error": "invalid_json",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_JSON",
+                        "message": "invalid json",
+                        "target": "history.batch.body",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_entity_ids_required(self, mock_request, mock_hass):
         """Test error when entity_ids is missing."""
         mock_request.json = AsyncMock(return_value={})
