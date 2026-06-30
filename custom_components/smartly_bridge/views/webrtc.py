@@ -14,6 +14,7 @@ Authentication Flow:
 
 import json
 import logging
+from typing import Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -48,6 +49,15 @@ from ..webrtc import WebRTCTokenManager
 from .base import BaseView
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
+    """Return the setup-created WebRTC gateway."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    return runtime_adapters.setdefault(
+        "webrtc_gateway",
+        HomeAssistantWebRTCGateway(hass, webrtc_manager),
+    )
 
 
 class SmartlyWebRTCTokenView(BaseView):
@@ -188,7 +198,7 @@ class SmartlyWebRTCTokenView(BaseView):
             )
 
         result = await WebRTCTokenUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
+            _webrtc_gateway(self.hass, webrtc_manager)
         ).execute(
             entity_id=entity_id,
             client_id=auth_result.client_id or "unknown",
@@ -318,7 +328,7 @@ class SmartlyWebRTCOfferView(BaseView):
             )
 
         result = await WebRTCOfferUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
+            _webrtc_gateway(self.hass, webrtc_manager)
         ).execute(
             entity_id=entity_id,
             token=token_str,
@@ -446,7 +456,7 @@ class SmartlyWebRTCICEView(BaseView):
             )
 
         result = await WebRTCICEUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
+            _webrtc_gateway(self.hass, webrtc_manager)
         ).execute(
             entity_id=entity_id,
             session_id=session_id,
@@ -519,9 +529,10 @@ class SmartlyWebRTCHangupView(BaseView):
                 headers=result.headers,
             )
 
-        result = await WebRTCHangupUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
-        ).execute(entity_id=entity_id, session_id=session_id)
+        result = await WebRTCHangupUseCase(_webrtc_gateway(self.hass, webrtc_manager)).execute(
+            entity_id=entity_id,
+            session_id=session_id,
+        )
 
         if result.status != 200:
             return web.json_response(result.body, status=result.status, headers=result.headers)

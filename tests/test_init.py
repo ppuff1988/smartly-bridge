@@ -82,6 +82,7 @@ class TestSetup:
             HomeAssistantStateSyncGateway,
             HomeAssistantSmartlyCommandExecutor,
             HomeAssistantSyncGateway,
+            HomeAssistantWebRTCGateway,
             InMemoryDeviceEventDeduplicator,
         )
         from custom_components.smartly_bridge.application.control import ControlUseCase
@@ -129,6 +130,10 @@ class TestSetup:
         assert isinstance(
             runtime_adapters["sync_states_gateway"],
             HomeAssistantStateSyncGateway,
+        )
+        assert isinstance(
+            runtime_adapters["webrtc_gateway"],
+            HomeAssistantWebRTCGateway,
         )
 
 

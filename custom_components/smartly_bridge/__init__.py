@@ -62,6 +62,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         HomeAssistantStateSyncGateway,
         HomeAssistantSmartlyCommandExecutor,
         HomeAssistantSyncGateway,
+        HomeAssistantWebRTCGateway,
         InMemoryDeviceEventDeduplicator,
         LoggingAuditAdapter,
     )
@@ -106,6 +107,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, _LOGGER),
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
         "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
+        "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),
     }
 
     # Store in hass.data
