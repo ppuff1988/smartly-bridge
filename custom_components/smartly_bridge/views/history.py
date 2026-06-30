@@ -78,6 +78,33 @@ def _history_gateway(hass: HomeAssistant) -> Any:
     return gateway
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a history JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
     """Encode cursor for pagination.
 
@@ -280,8 +307,9 @@ class SmartlyHistoryView(web.View):
                 status=500,
                 target="history.config",
             )
-            return dummy_auth, web.json_response(
+            return dummy_auth, _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -313,8 +341,9 @@ class SmartlyHistoryView(web.View):
                 status=401,
                 target="history.auth",
             )
-            return auth_result, web.json_response(
+            return auth_result, _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -333,8 +362,9 @@ class SmartlyHistoryView(web.View):
                 status=429,
                 target="history.rate_limit",
             )
-            return auth_result, web.json_response(
+            return auth_result, _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -352,7 +382,9 @@ class SmartlyHistoryView(web.View):
         """
         result = self._history_planner.validate_time_range(start_time, end_time)
         if result is not None:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         return None
 
@@ -386,7 +418,9 @@ class SmartlyHistoryView(web.View):
                 status=500,
                 target="history.integration",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         if not data.get(CONF_CLIENT_SECRET):
             result = _history_error_response(
@@ -394,7 +428,9 @@ class SmartlyHistoryView(web.View):
                 status=500,
                 target="history.config",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Verify authentication and rate limit
         auth_result, error_response = await self._verify_auth_and_rate_limit(data)
@@ -409,7 +445,9 @@ class SmartlyHistoryView(web.View):
                 status=400,
                 target="history.entity_id",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Check entity access permission
         from homeassistant.helpers import entity_registry as er
@@ -428,7 +466,9 @@ class SmartlyHistoryView(web.View):
                 status=403,
                 target="history.entity_id",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Parse query parameters
         query = self.request.query
@@ -454,7 +494,9 @@ class SmartlyHistoryView(web.View):
                 status=400,
                 target="history.cursor",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Get query parameters
         significant_changes_only = query.get("significant_changes_only", "true").lower() == "true"
@@ -482,7 +524,9 @@ class SmartlyHistoryView(web.View):
         except asyncio.TimeoutError:
             _LOGGER.error("History query timeout for %s", entity_id)
             result = _history_error_response("query_timeout", status=504)
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
         except Exception as err:
             _LOGGER.error(
                 "Failed to query history for %s (range: %s to %s): %s",
@@ -497,9 +541,13 @@ class SmartlyHistoryView(web.View):
                 status=500,
                 legacy_fields={"message": str(err)},
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyHistoryViewWrapper(HomeAssistantView):
@@ -585,7 +633,9 @@ class SmartlyHistoryBatchView(web.View):
 
         result = self._history_planner.validate_time_range(start_time, end_time)
         if result is not None:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         return start_time, end_time
 
@@ -599,7 +649,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=500,
                 target="history.batch.integration",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         if not client_secret:
@@ -608,7 +660,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=500,
                 target="history.batch.config",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
         trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
         nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
@@ -636,7 +690,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=401,
                 target="history.batch.auth",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
@@ -652,8 +708,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=429,
                 target="history.batch.rate_limit",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
@@ -670,7 +727,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=400,
                 target="history.batch.body",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         entity_ids = body.get("entity_ids", [])
         if not isinstance(entity_ids, list) or not entity_ids:
@@ -679,7 +738,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=400,
                 target="history.batch.entity_ids",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Limit batch size
         if len(entity_ids) > HISTORY_MAX_ENTITIES_BATCH:
@@ -689,7 +750,9 @@ class SmartlyHistoryBatchView(web.View):
                 target="history.batch.entity_ids",
                 legacy_fields={"max_entities": HISTORY_MAX_ENTITIES_BATCH},
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Check entity access permissions
         from homeassistant.helpers import entity_registry as er
@@ -705,7 +768,9 @@ class SmartlyHistoryBatchView(web.View):
                 status=403,
                 target="history.batch.entity_ids",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Parse time parameters
         time_result = self._parse_time_range(body)
@@ -742,7 +807,9 @@ class SmartlyHistoryBatchView(web.View):
         except asyncio.TimeoutError:
             _LOGGER.error("Batch history query timeout for %d entities", len(allowed_entity_ids))
             result = _history_error_response("query_timeout", status=504, target="history.batch")
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
         except Exception as err:
             _LOGGER.error("Failed to query batch history: %s", err)
             result = _history_error_response(
@@ -750,9 +817,13 @@ class SmartlyHistoryBatchView(web.View):
                 status=500,
                 target="history.batch",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyHistoryBatchViewWrapper(HomeAssistantView):
@@ -801,7 +872,9 @@ class SmartlyStatisticsView(web.View):
                 status=500,
                 target="statistics.integration",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         if not client_secret:
@@ -810,7 +883,9 @@ class SmartlyStatisticsView(web.View):
                 status=500,
                 target="statistics.config",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
         trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
         nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
@@ -838,7 +913,9 @@ class SmartlyStatisticsView(web.View):
                 status=401,
                 target="statistics.auth",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
@@ -854,8 +931,9 @@ class SmartlyStatisticsView(web.View):
                 status=429,
                 target="statistics.rate_limit",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers={
                     **result.headers,
@@ -872,7 +950,9 @@ class SmartlyStatisticsView(web.View):
                 status=400,
                 target="statistics.entity_id",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Check entity access permission
         from homeassistant.helpers import entity_registry as er
@@ -891,7 +971,9 @@ class SmartlyStatisticsView(web.View):
                 status=403,
                 target="statistics.entity_id",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Parse query parameters
         query = self.request.query
@@ -907,7 +989,9 @@ class SmartlyStatisticsView(web.View):
 
         result = self._history_planner.validate_time_range(start_time, end_time)
         if result is not None:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Parse period parameter (hour, day, week, month)
         period = query.get("period", "hour")
@@ -918,7 +1002,9 @@ class SmartlyStatisticsView(web.View):
                 target="statistics.period",
                 legacy_fields={"valid_periods": ["hour", "day", "week", "month"]},
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         try:
             result = await StatisticsUseCase(
@@ -938,9 +1024,13 @@ class SmartlyStatisticsView(web.View):
                 status=500,
                 target="statistics",
             )
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyStatisticsViewWrapper(HomeAssistantView):

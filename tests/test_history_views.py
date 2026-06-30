@@ -536,6 +536,38 @@ class TestSmartlyHistoryView:
         assert gateway.calls == ["query_states", "get_current_attributes"]
 
     @pytest.mark.asyncio
+    async def test_single_history_response_includes_request_context_headers(
+        self, mock_request, mock_hass
+    ):
+        """Single history responses echo optional request correlation headers."""
+        gateway = FakeRuntimeHistoryGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"history_gateway": gateway}
+        mock_request.headers["X-Request-Id"] = "req-history-001"
+        mock_request.headers["X-Correlation-Id"] = "corr-history-001"
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyHistoryView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-history-001"
+        assert data["correlation_id"] == "corr-history-001"
+        assert data["entity_id"] == "sensor.temperature"
+        assert data["history"][0]["state"] == 11.0
+
+    @pytest.mark.asyncio
     async def test_query_timeout_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test history query timeout returns API vNext envelope."""
         with patch(
