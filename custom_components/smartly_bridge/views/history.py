@@ -578,10 +578,12 @@ class SmartlyHistoryBatchView(web.View):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = _history_error_response(
+                "integration_not_configured",
                 status=500,
+                target="history.batch.integration",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         if not client_secret:
