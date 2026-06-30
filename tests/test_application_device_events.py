@@ -61,6 +61,13 @@ class FakeLocalAutomation:
         ]
 
 
+def _fixture(name: str) -> dict[str, Any]:
+    """Load an API vNext fixture."""
+    return json.loads(
+        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
+    )
+
+
 @pytest.mark.asyncio
 async def test_button_action_is_published_with_canonical_event_payload() -> None:
     """Legacy button action events are normalized to canonical button_event payloads."""
@@ -191,10 +198,6 @@ async def test_button_action_response_includes_vnext_envelope() -> None:
 @pytest.mark.asyncio
 async def test_button_action_response_matches_api_vnext_fixture() -> None:
     """Accepted device event full response remains stable for legacy and vNext clients."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "device-event-accepted.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
     publisher = FakeDeviceEventPublisher()
     use_case = DeviceEventUseCase(
         publisher,
@@ -212,7 +215,7 @@ async def test_button_action_response_matches_api_vnext_fixture() -> None:
         ),
     )
 
-    assert result.body == expected_body
+    assert result.body == _fixture("device-event-accepted.json")
 
 
 @pytest.mark.asyncio
@@ -402,6 +405,32 @@ async def test_duplicate_button_action_response_includes_vnext_envelope() -> Non
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_duplicate_button_action_response_matches_api_vnext_fixture() -> None:
+    """Duplicate device event full response remains stable for legacy and vNext clients."""
+    publisher = FakeDeviceEventPublisher()
+    deduplicator = FakeEventDeduplicator()
+    event_ids = iter(["evt_first", "evt_second"])
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: next(event_ids),
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+        deduplicator=deduplicator,
+    )
+    command = DeviceEventCommand(
+        device_id="device_abc123",
+        type="button_action",
+        action="single_left",
+        timestamp="2026-06-27T10:20:00.000Z",
+    )
+
+    await use_case.execute("client-1", command)
+    duplicate = await use_case.execute("client-1", command)
+
+    assert duplicate.status == 200
+    assert duplicate.body == _fixture("device-event-duplicate.json")
 
 
 @pytest.mark.asyncio
