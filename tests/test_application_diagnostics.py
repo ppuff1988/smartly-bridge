@@ -6,6 +6,7 @@ from typing import Any
 
 from custom_components.smartly_bridge.application.diagnostics import (
     RawDiagnosticFetchUseCase,
+    raw_diagnostic_error_response,
 )
 
 
@@ -82,6 +83,33 @@ def test_raw_diagnostic_fetch_returns_not_found_for_missing_ref() -> None:
                 "code": "RAW_DIAGNOSTIC_NOT_FOUND",
                 "message": "Raw diagnostic payload was not found or has expired.",
                 "target": "raw_ref",
+                "retryable": False,
+            }
+        ],
+    }
+
+
+def test_raw_diagnostic_error_response_uses_diagnostic_contract() -> None:
+    """Raw diagnostic shell errors use a diagnostics-specific API vNext envelope."""
+    result = raw_diagnostic_error_response(
+        "auth_failed",
+        message="Raw diagnostic request authentication failed",
+        status=401,
+        target="diagnostics.raw.auth",
+    )
+
+    assert result.status == 401
+    assert result.body == {
+        "error": "auth_failed",
+        "message": "Raw diagnostic request authentication failed",
+        "schema_version": "2026.06",
+        "data": {"status": "rejected"},
+        "warnings": [],
+        "errors": [
+            {
+                "code": "AUTH_FAILED",
+                "message": "Raw diagnostic request authentication failed",
+                "target": "diagnostics.raw.auth",
                 "retryable": False,
             }
         ],

@@ -21,6 +21,34 @@ _SENSITIVE_KEY_PARTS = (
 )
 
 
+def raw_diagnostic_error_response(
+    error: str,
+    *,
+    message: str,
+    status: int,
+    target: str,
+) -> BridgeResponse:
+    """Return a raw diagnostic API vNext error response."""
+    return BridgeResponse(
+        {
+            "error": error,
+            "message": message,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": message,
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )
+
+
 class RawDiagnosticFetchUseCase:
     """Fetch raw diagnostic payloads through a storage port."""
 

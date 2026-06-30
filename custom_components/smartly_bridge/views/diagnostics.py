@@ -7,8 +7,7 @@ from typing import Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..application.diagnostics import RawDiagnosticFetchUseCase
-from ..application.local_automation import local_automation_rule_error_response
+from ..application.diagnostics import RawDiagnosticFetchUseCase, raw_diagnostic_error_response
 from ..auth import RateLimiter, verify_request
 from ..const import (
     API_PATH_RAW_DIAGNOSTIC,
@@ -34,11 +33,11 @@ class SmartlyRawDiagnosticView(BaseView):
         """Authorize a raw diagnostic request."""
         data = self._get_integration_data()
         if data is None:
-            result = local_automation_rule_error_response(
+            result = raw_diagnostic_error_response(
                 "integration_not_configured",
                 message="Smartly Bridge integration is not configured",
                 status=500,
-                target="integration",
+                target="diagnostics.raw.integration",
             )
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
@@ -56,20 +55,20 @@ class SmartlyRawDiagnosticView(BaseView):
             trust_proxy_mode,
         )
         if not auth_result.success:
-            result = local_automation_rule_error_response(
+            result = raw_diagnostic_error_response(
                 auth_result.error or "auth_failed",
                 message="Raw diagnostic request authentication failed",
                 status=401,
-                target="request.auth",
+                target="diagnostics.raw.auth",
             )
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if not await rate_limiter.check(auth_result.client_id or ""):
-            result = local_automation_rule_error_response(
+            result = raw_diagnostic_error_response(
                 "rate_limited",
                 message="Raw diagnostic request was rate limited",
                 status=429,
-                target="request.rate_limit",
+                target="diagnostics.raw.rate_limit",
             )
             return web.json_response(
                 result.body,
