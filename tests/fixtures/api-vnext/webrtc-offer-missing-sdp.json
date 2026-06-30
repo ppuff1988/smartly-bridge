@@ -1,0 +1,17 @@
+{
+  "error": "missing_sdp",
+  "message": "SDP offer is required",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_SDP",
+      "message": "missing sdp",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

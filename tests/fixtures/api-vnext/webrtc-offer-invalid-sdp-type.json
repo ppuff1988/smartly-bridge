@@ -1,0 +1,17 @@
+{
+  "error": "invalid_sdp_type",
+  "message": "SDP type must be 'offer'",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_SDP_TYPE",
+      "message": "invalid sdp type",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

@@ -1,0 +1,17 @@
+{
+  "error": "missing_token",
+  "message": "Token is required",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_TOKEN",
+      "message": "missing token",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

@@ -1000,20 +1000,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_entity_id",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ENTITY_ID",
-                    "message": "invalid entity id",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-offer-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_offer_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
@@ -1030,21 +1017,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_json",
-            "message": "Request body must be valid JSON",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_JSON",
-                    "message": "invalid json",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-offer-invalid-json.json")
 
     @pytest.mark.asyncio
     async def test_offer_view_missing_token_returns_envelope(self, mock_hass_with_webrtc):
@@ -1061,21 +1034,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "missing_token",
-            "message": "Token is required",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_TOKEN",
-                    "message": "missing token",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-offer-missing-token.json")
 
     @pytest.mark.asyncio
     async def test_offer_view_missing_sdp_returns_envelope(self, mock_hass_with_webrtc):
@@ -1092,21 +1051,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "missing_sdp",
-            "message": "SDP offer is required",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_SDP",
-                    "message": "missing sdp",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-offer-missing-sdp.json")
 
     @pytest.mark.asyncio
     async def test_offer_view_invalid_sdp_type_returns_envelope(self, mock_hass_with_webrtc):
@@ -1125,21 +1070,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_sdp_type",
-            "message": "SDP type must be 'offer'",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_SDP_TYPE",
-                    "message": "invalid sdp type",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-offer-invalid-sdp-type.json")
 
     @pytest.mark.asyncio
     async def test_offer_view_webrtc_not_available_returns_envelope(
@@ -1161,20 +1092,7 @@ class TestWebRTCViews:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "error": "webrtc_not_available",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "WEBRTC_NOT_AVAILABLE",
-                    "message": "webrtc not available",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-offer-not-available.json")
 
     @pytest.mark.asyncio
     async def test_ice_view_invalid_entity_id_returns_envelope(self, mock_hass_with_webrtc):
