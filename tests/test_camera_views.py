@@ -216,7 +216,20 @@ class TestSmartlyCameraSnapshotView:
 
                 assert response.status == 500
                 data = json.loads(response.body)
-                assert data["error"] == "camera_manager_not_initialized"
+                assert data == {
+                    "error": "camera_manager_not_initialized",
+                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "CAMERA_MANAGER_NOT_INITIALIZED",
+                            "message": "camera manager not initialized",
+                            "target": "camera.manager",
+                            "retryable": False,
+                        }
+                    ],
+                }
 
     @pytest.mark.asyncio
     async def test_successful_snapshot_with_etag_match(self, mock_request, mock_hass):
