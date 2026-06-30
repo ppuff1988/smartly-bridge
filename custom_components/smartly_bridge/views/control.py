@@ -11,16 +11,15 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
-    HomeAssistantCommandTargetResolver,
     HomeAssistantControlGateway,
     HomeAssistantEntityPolicy,
+    HomeAssistantSmartlyCommandExecutor,
     LoggingAuditAdapter,
 )
 from ..application.control import (
     ControlCommand,
     ControlUseCase,
     SmartlyCommand,
-    SmartlyCommandUseCase,
     control_error_response,
 )
 from ..audit import log_deny
@@ -130,6 +129,15 @@ class SmartlyControlView(web.View):
 
         return None
 
+    def _smartly_command_executor(self) -> Any:
+        """Return the setup-created canonical command executor."""
+        integration_data = self.hass.data.setdefault(DOMAIN, {})
+        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+        return runtime_adapters.setdefault(
+            "smartly_command_executor",
+            HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
+        )
+
     async def post(self) -> web.Response:
         """Handle control request from Platform."""
         # Get integration data
@@ -194,12 +202,10 @@ class SmartlyControlView(web.View):
 
         smartly_command = _smartly_command_from_body(body)
         if smartly_command is not None:
-            result = await SmartlyCommandUseCase(
-                HomeAssistantEntityPolicy(self.hass),
-                HomeAssistantControlGateway(self.hass),
-                LoggingAuditAdapter(_LOGGER),
-                HomeAssistantCommandTargetResolver(self.hass),
-            ).execute(auth_result.client_id or "unknown", smartly_command)
+            result = await self._smartly_command_executor().execute(
+                auth_result.client_id or "unknown",
+                smartly_command,
+            )
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
         normalized_body = _normalize_control_body(body)

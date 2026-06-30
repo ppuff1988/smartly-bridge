@@ -9,6 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from custom_components.smartly_bridge.application.control import SmartlyCommand
 from custom_components.smartly_bridge.const import (
     API_PATH_CONTROL,
     API_PATH_DEVICE_EVENTS,
@@ -20,12 +21,41 @@ from custom_components.smartly_bridge.const import (
     HEADER_SIGNATURE,
     HEADER_TIMESTAMP,
 )
+from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.control import (
     _entity_id_from_body,
     _normalize_control_body,
     _service_data_from_body,
     _smartly_command_from_body,
 )
+
+
+class FakeSmartlyCommandExecutor:
+    """SmartlyCommand executor used to verify setup-created runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, SmartlyCommand]] = []
+
+    async def execute(self, client_id: str, command: SmartlyCommand) -> BridgeResponse:
+        """Record and accept a canonical command."""
+        self.calls.append((client_id, command))
+        return BridgeResponse(
+            {
+                "success": True,
+                "schema_version": "2026.06",
+                "command_id": command.command_id,
+                "status": "completed",
+                "device_id": command.device_id,
+                "capability": command.capability,
+                "command": command.command,
+                "data": {
+                    "command_id": command.command_id,
+                    "status": "completed",
+                },
+                "warnings": [],
+                "errors": [],
+            }
+        )
 
 
 def test_control_request_accepts_data_alias_for_service_data() -> None:
@@ -1037,6 +1067,65 @@ class TestControlEndpointFullFlow:
         )
 
         await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_command_uses_setup_runtime_executor(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext command path executes through setup-created runtime adapters."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        executor = FakeSmartlyCommandExecutor()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {
+                "smartly_command_executor": executor,
+            },
+        }
+        body = {
+            "command_id": "cmd-runtime",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "params": {"value": 35},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.control.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True, client_id="test_client", error=None
+            )
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["command_id"] == "cmd-runtime"
+        assert executor.calls == [
+            (
+                "test_client",
+                SmartlyCommand(
+                    command_id="cmd-runtime",
+                    device_id="ldev_light_kitchen",
+                    capability="brightness",
+                    command="set_brightness",
+                    params={"value": 35},
+                ),
+            )
+        ]
 
     @pytest.mark.asyncio
     async def test_control_vnext_smartly_command_dispatches_resolved_source_entity(
