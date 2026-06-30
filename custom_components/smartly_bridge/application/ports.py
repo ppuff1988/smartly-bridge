@@ -125,6 +125,13 @@ class SyncStatesPort(Protocol):
         """Return allowed entity state snapshots."""
 
 
+class RawDiagnosticStorePort(Protocol):
+    """Provides raw diagnostic payloads by raw reference."""
+
+    def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
+        """Return a raw diagnostic payload for a reference."""
+
+
 class CameraGatewayPort(Protocol):
     """Provides camera operations to application use cases."""
 
