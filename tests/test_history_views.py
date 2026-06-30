@@ -553,6 +553,36 @@ class TestSmartlyHistoryBatchView:
         }
 
     @pytest.mark.asyncio
+    async def test_client_secret_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test missing client secret returns API vNext envelope."""
+        mock_hass.data[DOMAIN]["config_entry"].data = {
+            "allowed_cidrs": "",
+            "trust_proxy": "off",
+        }
+
+        view = SmartlyHistoryBatchView(mock_request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "client_secret_not_configured",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "CLIENT_SECRET_NOT_CONFIGURED",
+                    "message": "client secret not configured",
+                    "target": "history.batch.config",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_invalid_json(self, mock_request, mock_hass):
         """Test invalid JSON body."""
         mock_request.json = AsyncMock(side_effect=Exception("Invalid JSON"))

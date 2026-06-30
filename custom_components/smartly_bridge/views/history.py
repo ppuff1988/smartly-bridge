@@ -587,10 +587,12 @@ class SmartlyHistoryBatchView(web.View):
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         if not client_secret:
-            return web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="history.batch.config",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
         trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
         nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
