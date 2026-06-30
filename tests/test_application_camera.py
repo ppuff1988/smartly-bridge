@@ -486,6 +486,15 @@ async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_st
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_start_unsupported_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS start unsupported response remains stable for legacy clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")
+
+    assert result.status == 400
+    assert result.body == _fixture("camera-hls-start-unsupported.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_start_response_includes_vnext_envelope() -> None:
     """HLS start responses expose API vNext envelope fields."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "start")
@@ -565,6 +574,15 @@ async def test_camera_hls_info_not_found_response_includes_vnext_envelope() -> N
             "retryable": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_camera_hls_info_not_found_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS info not-found response remains stable for legacy clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "info")
+
+    assert result.status == 404
+    assert result.body == _fixture("camera-hls-info-not-found.json")
 
 
 @pytest.mark.asyncio
@@ -653,6 +671,15 @@ async def test_camera_hls_unknown_action_response_includes_vnext_envelope() -> N
             "retryable": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_camera_hls_unknown_action_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS unknown-action response remains stable for legacy clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "bad_action")
+
+    assert result.status == 400
+    assert result.body == _fixture("camera-hls-unknown-action.json")
 
 
 @pytest.mark.asyncio
