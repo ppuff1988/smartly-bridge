@@ -1,0 +1,173 @@
+{
+  "history": {
+    "sensor.temperature": [
+      {
+        "state": 11.0,
+        "last_changed": "2026-01-01T00:00:00+00:00",
+        "last_updated": "2026-01-01T00:00:00+00:00"
+      },
+      {
+        "state": 11.0,
+        "last_changed": "2026-01-01T01:00:00+00:00",
+        "last_updated": "2026-01-01T01:00:00+00:00",
+        "attributes": {}
+      },
+      {
+        "state": 10.0,
+        "last_changed": "2026-01-01T00:00:00+00:00",
+        "last_updated": "2026-01-01T00:00:00+00:00"
+      },
+      {
+        "state": 10.0,
+        "last_changed": "2026-01-01T02:00:00+00:00",
+        "last_updated": "2026-01-01T02:00:00+00:00"
+      }
+    ],
+    "binary_sensor.door": [
+      {
+        "state": "off",
+        "last_changed": "2026-01-01T00:00:00+00:00",
+        "last_updated": "2026-01-01T00:00:00+00:00",
+        "attributes": {
+          "friendly_name": "Door"
+        }
+      },
+      {
+        "state": "off",
+        "last_changed": "2026-01-01T02:00:00+00:00",
+        "last_updated": "2026-01-01T02:00:00+00:00"
+      }
+    ]
+  },
+  "count": {
+    "sensor.temperature": 4,
+    "binary_sensor.door": 2
+  },
+  "truncated": {
+    "sensor.temperature": false,
+    "binary_sensor.door": false
+  },
+  "denied_entities": [
+    "sensor.denied"
+  ],
+  "start_time": "2026-01-01T00:00:00+00:00",
+  "end_time": "2026-01-01T02:00:00+00:00",
+  "metadata": {
+    "sensor.temperature": {
+      "domain": "sensor",
+      "device_class": "temperature",
+      "unit_of_measurement": "°C",
+      "friendly_name": "Room Temperature",
+      "is_numeric": true,
+      "visualization": {
+        "type": "chart",
+        "chart_type": "spline",
+        "color": "#EF5350",
+        "show_points": false,
+        "interpolation": "natural"
+      },
+      "decimal_places": 1
+    },
+    "binary_sensor.door": {
+      "domain": "binary_sensor",
+      "device_class": null,
+      "unit_of_measurement": "",
+      "friendly_name": "Door",
+      "is_numeric": false,
+      "visualization": {
+        "type": "timeline",
+        "on_color": "#EF5350",
+        "off_color": "#E0E0E0"
+      },
+      "decimal_places": null
+    }
+  },
+  "schema_version": "2026.06",
+  "data": {
+    "history": {
+      "sensor.temperature": [
+        {
+          "state": 11.0,
+          "last_changed": "2026-01-01T00:00:00+00:00",
+          "last_updated": "2026-01-01T00:00:00+00:00"
+        },
+        {
+          "state": 11.0,
+          "last_changed": "2026-01-01T01:00:00+00:00",
+          "last_updated": "2026-01-01T01:00:00+00:00",
+          "attributes": {}
+        },
+        {
+          "state": 10.0,
+          "last_changed": "2026-01-01T00:00:00+00:00",
+          "last_updated": "2026-01-01T00:00:00+00:00"
+        },
+        {
+          "state": 10.0,
+          "last_changed": "2026-01-01T02:00:00+00:00",
+          "last_updated": "2026-01-01T02:00:00+00:00"
+        }
+      ],
+      "binary_sensor.door": [
+        {
+          "state": "off",
+          "last_changed": "2026-01-01T00:00:00+00:00",
+          "last_updated": "2026-01-01T00:00:00+00:00",
+          "attributes": {
+            "friendly_name": "Door"
+          }
+        },
+        {
+          "state": "off",
+          "last_changed": "2026-01-01T02:00:00+00:00",
+          "last_updated": "2026-01-01T02:00:00+00:00"
+        }
+      ]
+    },
+    "count": {
+      "sensor.temperature": 4,
+      "binary_sensor.door": 2
+    },
+    "truncated": {
+      "sensor.temperature": false,
+      "binary_sensor.door": false
+    },
+    "denied_entities": [
+      "sensor.denied"
+    ],
+    "start_time": "2026-01-01T00:00:00+00:00",
+    "end_time": "2026-01-01T02:00:00+00:00",
+    "metadata": {
+      "sensor.temperature": {
+        "domain": "sensor",
+        "device_class": "temperature",
+        "unit_of_measurement": "°C",
+        "friendly_name": "Room Temperature",
+        "is_numeric": true,
+        "visualization": {
+          "type": "chart",
+          "chart_type": "spline",
+          "color": "#EF5350",
+          "show_points": false,
+          "interpolation": "natural"
+        },
+        "decimal_places": 1
+      },
+      "binary_sensor.door": {
+        "domain": "binary_sensor",
+        "device_class": null,
+        "unit_of_measurement": "",
+        "friendly_name": "Door",
+        "is_numeric": false,
+        "visualization": {
+          "type": "timeline",
+          "on_color": "#EF5350",
+          "off_color": "#E0E0E0"
+        },
+        "decimal_places": null
+      }
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

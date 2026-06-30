@@ -24,6 +24,13 @@ from custom_components.smartly_bridge.application.history import (
 )
 
 
+def _fixture(name: str) -> dict:
+    """Load an API vNext fixture."""
+    return json.loads(
+        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
+    )
+
+
 def test_parse_datetime_accepts_iso8601_and_rejects_invalid_values() -> None:
     """Datetime parsing is framework independent."""
     parsed = parse_datetime("2026-01-10T10:00:00+00:00")
@@ -75,17 +82,13 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
 
 def test_time_range_too_large_response_matches_api_vnext_fixture() -> None:
     """History time-range errors remain stable for legacy and vNext clients."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "history-time-range-error.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
     planner = HistoryQueryPlanner(max_duration_days=30)
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
     result = planner.validate_time_range(start_time, start_time + timedelta(days=31))
 
     assert result is not None
-    assert result.body == expected_body
+    assert result.body == _fixture("history-time-range-error.json")
 
 
 def test_parse_pagination_params_clamps_page_size_and_uses_page_extra_limit() -> None:
@@ -529,10 +532,6 @@ async def test_single_history_use_case_formats_gateway_states() -> None:
 @pytest.mark.asyncio
 async def test_single_history_response_matches_api_vnext_fixture() -> None:
     """Single history full response remains stable for legacy and vNext clients."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "history-single.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=2)
     use_case = SingleHistoryUseCase(FakeHistoryGateway())
@@ -549,7 +548,7 @@ async def test_single_history_response_matches_api_vnext_fixture() -> None:
         )
     )
 
-    assert result.body == expected_body
+    assert result.body == _fixture("history-single.json")
 
 
 @pytest.mark.asyncio
@@ -589,6 +588,28 @@ async def test_batch_history_use_case_formats_multiple_entities() -> None:
     assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_batch_history_response_matches_api_vnext_fixture() -> None:
+    """Batch history full response remains stable for legacy and vNext clients."""
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(hours=2)
+    use_case = BatchHistoryUseCase(FakeBatchHistoryGateway())
+
+    result = await use_case.execute(
+        BatchHistoryQuery(
+            entity_ids=["sensor.temperature", "binary_sensor.door"],
+            denied_entity_ids=["sensor.denied"],
+            start_time=start_time,
+            end_time=end_time,
+            limit=999999,
+            significant_changes_only=True,
+        )
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("history-batch.json")
 
 
 @pytest.mark.asyncio
@@ -658,6 +679,26 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
     assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_statistics_response_matches_api_vnext_fixture() -> None:
+    """Statistics full response remains stable for legacy and vNext clients."""
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(hours=2)
+    use_case = StatisticsUseCase(FakeStatisticsGateway())
+
+    result = await use_case.execute(
+        StatisticsQuery(
+            entity_id="sensor.energy",
+            start_time=start_time,
+            end_time=end_time,
+            period="hour",
+        )
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("history-statistics.json")
 
 
 @pytest.mark.asyncio
