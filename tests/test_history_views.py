@@ -287,7 +287,7 @@ class TestSmartlyHistoryView:
 
     @pytest.mark.asyncio
     async def test_entity_not_allowed(self, mock_request, mock_hass):
-        """Test entity access denied."""
+        """Test entity access denied returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.history.verify_request",
             new_callable=AsyncMock,
@@ -306,7 +306,20 @@ class TestSmartlyHistoryView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
-                assert data["error"] == "entity_not_allowed"
+                assert data == {
+                    "error": "entity_not_allowed",
+                    "schema_version": "2026.06",
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "ENTITY_NOT_ALLOWED",
+                            "message": "entity not allowed",
+                            "target": "history.entity_id",
+                            "retryable": False,
+                        }
+                    ],
+                }
 
     @pytest.mark.asyncio
     async def test_time_range_too_large(self, mock_request, mock_hass):

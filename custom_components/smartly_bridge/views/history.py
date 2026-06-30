@@ -407,10 +407,12 @@ class SmartlyHistoryView(web.View):
                 service="history",
                 reason="entity_not_allowed",
             )
-            return web.json_response(
-                {"error": "entity_not_allowed"},
+            result = _history_error_response(
+                "entity_not_allowed",
                 status=403,
+                target="history.entity_id",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Parse query parameters
         query = self.request.query
