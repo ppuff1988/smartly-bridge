@@ -947,6 +947,34 @@ class TestSmartlyCameraListView:
             "get_hls_stats",
         ]
 
+    @pytest.mark.asyncio
+    async def test_list_response_includes_request_context_headers(
+        self, mock_request, mock_hass
+    ):
+        """Camera list responses echo optional request correlation headers."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-camera-001",
+            "X-Correlation-Id": "corr-camera-001",
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlyCameraListView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-camera-001"
+        assert data["correlation_id"] == "corr-camera-001"
+        assert data["count"] == 1
+        assert data["cameras"][0]["entity_id"] == "camera.runtime"
+
 
 class TestSmartlyCameraConfigView:
     """Tests for SmartlyCameraConfigView."""

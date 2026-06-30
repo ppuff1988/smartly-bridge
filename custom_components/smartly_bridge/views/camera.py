@@ -58,6 +58,33 @@ def _camera_gateway(hass: Any, camera_manager: Any) -> Any:
     return gateway
 
 
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if isinstance(request_id, str) and request_id:
+        enriched["request_id"] = request_id
+    if isinstance(correlation_id, str) and correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a camera JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -72,8 +99,9 @@ class SmartlyCameraSnapshotView(BaseView):
                 status=400,
                 target="camera.entity_id",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -86,8 +114,9 @@ class SmartlyCameraSnapshotView(BaseView):
                 status=500,
                 target="camera.config",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -120,8 +149,9 @@ class SmartlyCameraSnapshotView(BaseView):
                 status=401,
                 target="camera.auth",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -145,8 +175,9 @@ class SmartlyCameraSnapshotView(BaseView):
                 "Retry-After": str(RATE_WINDOW),
                 "X-RateLimit-Remaining": "0",
             }
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=headers,
             )
@@ -168,8 +199,9 @@ class SmartlyCameraSnapshotView(BaseView):
                 status=403,
                 target="camera.entity_id",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -181,8 +213,9 @@ class SmartlyCameraSnapshotView(BaseView):
                 status=500,
                 target="camera.manager",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -203,8 +236,9 @@ class SmartlyCameraSnapshotView(BaseView):
             return web.Response(status=304, headers=result.headers)
 
         if result.status == 404:
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
             )
 
@@ -265,8 +299,9 @@ class SmartlyCameraStreamView(BaseView):
                 status=400,
                 target="camera.entity_id",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -279,8 +314,9 @@ class SmartlyCameraStreamView(BaseView):
                 status=500,
                 target="camera.config",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -313,8 +349,9 @@ class SmartlyCameraStreamView(BaseView):
                 status=401,
                 target="camera.auth",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -338,8 +375,9 @@ class SmartlyCameraStreamView(BaseView):
                 "Retry-After": str(RATE_WINDOW),
                 "X-RateLimit-Remaining": "0",
             }
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=headers,
             )
@@ -361,8 +399,9 @@ class SmartlyCameraStreamView(BaseView):
                 status=403,
                 target="camera.entity_id",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -377,8 +416,9 @@ class SmartlyCameraStreamView(BaseView):
                 status=500,
                 target="camera.manager",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -426,8 +466,9 @@ class SmartlyCameraListView(BaseView):
                 status=500,
                 target="camera.config",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -460,8 +501,9 @@ class SmartlyCameraListView(BaseView):
                 status=401,
                 target="camera.auth",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -485,8 +527,9 @@ class SmartlyCameraListView(BaseView):
                 "Retry-After": str(RATE_WINDOW),
                 "X-RateLimit-Remaining": "0",
             }
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=headers,
             )
@@ -500,7 +543,12 @@ class SmartlyCameraListView(BaseView):
         result = await CameraListUseCase(
             _camera_gateway(self.hass, camera_manager)
         ).execute(include_capabilities=include_capabilities)
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 class SmartlyCameraConfigView(BaseView):
@@ -516,8 +564,9 @@ class SmartlyCameraConfigView(BaseView):
                 status=500,
                 target="camera.config",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -550,8 +599,9 @@ class SmartlyCameraConfigView(BaseView):
                 status=401,
                 target="camera.auth",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -575,8 +625,9 @@ class SmartlyCameraConfigView(BaseView):
                 "Retry-After": str(RATE_WINDOW),
                 "X-RateLimit-Remaining": "0",
             }
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=headers,
             )
@@ -590,8 +641,9 @@ class SmartlyCameraConfigView(BaseView):
                 status=400,
                 target="camera.request",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -605,8 +657,9 @@ class SmartlyCameraConfigView(BaseView):
                 status=400,
                 target="camera.action",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -619,8 +672,9 @@ class SmartlyCameraConfigView(BaseView):
                 status=500,
                 target="camera.manager",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -634,7 +688,12 @@ class SmartlyCameraConfigView(BaseView):
                 data=body,
             )
         )
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 class SmartlyCameraHLSInfoView(BaseView):
@@ -654,8 +713,9 @@ class SmartlyCameraHLSInfoView(BaseView):
                 status=400,
                 target="camera.entity_id",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -668,8 +728,9 @@ class SmartlyCameraHLSInfoView(BaseView):
                 status=500,
                 target="camera.config",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -702,8 +763,9 @@ class SmartlyCameraHLSInfoView(BaseView):
                 status=401,
                 target="camera.auth",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -727,8 +789,9 @@ class SmartlyCameraHLSInfoView(BaseView):
                 "Retry-After": str(RATE_WINDOW),
                 "X-RateLimit-Remaining": "0",
             }
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=headers,
             )
@@ -750,8 +813,9 @@ class SmartlyCameraHLSInfoView(BaseView):
                 status=403,
                 target="camera.entity_id",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -766,8 +830,9 @@ class SmartlyCameraHLSInfoView(BaseView):
                 status=500,
                 target="camera.manager",
             )
-            return web.json_response(
+            return _json_response(
                 result.body,
+                self.request,
                 status=result.status,
                 headers=result.headers,
             )
@@ -798,7 +863,12 @@ class SmartlyCameraHLSInfoView(BaseView):
                 result="success",
             )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
 
 # Wrapper classes for Home Assistant view registration
