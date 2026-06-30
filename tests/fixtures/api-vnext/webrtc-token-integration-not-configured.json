@@ -1,0 +1,16 @@
+{
+  "error": "integration_not_configured",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INTEGRATION_NOT_CONFIGURED",
+      "message": "integration not configured",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

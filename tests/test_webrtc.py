@@ -30,6 +30,10 @@ from custom_components.smartly_bridge.webrtc import (
 )
 
 
+def _load_api_vnext_fixture(name: str) -> dict:
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+
+
 class FakeWebRTCGateway:
     """Fake WebRTC application gateway."""
 
@@ -741,21 +745,7 @@ class TestWebRTCViews:
         # Check it's a bad request response
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_entity_id",
-            "message": "Entity ID must start with 'camera.'",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ENTITY_ID",
-                    "message": "invalid entity id",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-token-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_token_view_missing_entity(self, mock_hass_with_webrtc):
@@ -788,20 +778,9 @@ class TestWebRTCViews:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "error": "integration_not_configured",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture(
+            "webrtc-token-integration-not-configured.json"
+        )
 
     @pytest.mark.asyncio
     async def test_token_view_auth_failure_returns_envelope(self, mock_hass_with_webrtc):
@@ -821,20 +800,7 @@ class TestWebRTCViews:
 
         assert response.status == 401
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_signature",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_SIGNATURE",
-                    "message": "invalid signature",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-token-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_token_view_rate_limited_returns_envelope(self, mock_hass_with_webrtc):
@@ -857,20 +823,7 @@ class TestWebRTCViews:
         assert response.headers["Retry-After"] == str(RATE_WINDOW)
         assert response.headers["X-RateLimit-Remaining"] == "0"
         data = json.loads(response.body)
-        assert data == {
-            "error": "rate_limited",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "RATE_LIMITED",
-                    "message": "rate limited",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-token-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_token_view_entity_not_allowed_returns_envelope(self, mock_hass_with_webrtc):
@@ -896,20 +849,7 @@ class TestWebRTCViews:
 
         assert response.status == 403
         data = json.loads(response.body)
-        assert data == {
-            "error": "entity_not_allowed",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "ENTITY_NOT_ALLOWED",
-                    "message": "entity not allowed",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-token-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_token_view_webrtc_not_available_returns_envelope(
@@ -938,21 +878,7 @@ class TestWebRTCViews:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "error": "webrtc_not_available",
-            "message": "WebRTC manager not initialized",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "WEBRTC_NOT_AVAILABLE",
-                    "message": "webrtc not available",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-token-not-available.json")
 
     @pytest.mark.asyncio
     async def test_token_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
