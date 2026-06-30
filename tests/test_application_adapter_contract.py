@@ -5,6 +5,7 @@ from __future__ import annotations
 from custom_components.smartly_bridge.application.adapter_contract import (
     validate_adapter_manifest,
     validate_adapter_manifest_set,
+    validate_adapter_command_mapping_snapshot,
     validate_adapter_normalization_snapshot,
 )
 
@@ -246,4 +247,80 @@ def test_adapter_normalization_snapshot_rejects_out_of_scope_source_refs() -> No
             "path": "logical_device.capabilities[0].source_refs[0].domain",
             "message": "Normalization snapshot domain is not declared by manifest: switch",
         },
+    ]
+
+
+def test_adapter_command_mapping_snapshot_passes_when_result_matches_manifest() -> None:
+    """Adapter command snapshots must return manifest-scoped command results."""
+    result = validate_adapter_command_mapping_snapshot(
+        _valid_manifest(),
+        {
+            "command_id": "cmd_001",
+            "status": "accepted",
+            "adapter_id": "home_assistant.light",
+            "source_request_id": "ha_context_id",
+            "expected_state": {
+                "power": {"value": True},
+                "brightness": {"value": 80},
+            },
+        },
+    )
+
+    assert result.is_valid is True
+    assert result.errors == []
+
+
+def test_adapter_command_mapping_snapshot_rejects_undeclared_expected_state() -> None:
+    """Expected state must only reference manifest-declared canonical capabilities."""
+    result = validate_adapter_command_mapping_snapshot(
+        _valid_manifest(),
+        {
+            "command_id": "cmd_001",
+            "status": "accepted",
+            "adapter_id": "home_assistant.light",
+            "source_request_id": "ha_context_id",
+            "expected_state": {
+                "temperature": {"value": 24},
+            },
+        },
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "UNDECLARED_COMMAND_EXPECTED_STATE",
+            "path": "command_result.expected_state.temperature",
+            "message": (
+                "Command mapping snapshot expected_state uses undeclared "
+                "capability: temperature"
+            ),
+        }
+    ]
+
+
+def test_adapter_command_mapping_snapshot_rejects_adapter_id_mismatch() -> None:
+    """Command result adapter_id must identify the adapter that owns the manifest."""
+    result = validate_adapter_command_mapping_snapshot(
+        _valid_manifest(),
+        {
+            "command_id": "cmd_001",
+            "status": "accepted",
+            "adapter_id": "home_assistant.switch",
+            "source_request_id": "ha_context_id",
+            "expected_state": {
+                "power": {"value": True},
+            },
+        },
+    )
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "COMMAND_ADAPTER_ID_MISMATCH",
+            "path": "command_result.adapter_id",
+            "message": (
+                "Command mapping snapshot adapter_id must match manifest id: "
+                "home_assistant.light"
+            ),
+        }
     ]

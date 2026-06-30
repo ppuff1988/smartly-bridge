@@ -63,6 +63,13 @@ REQUIRED_CONTRACT_VERSIONS = {
     "capability",
 }
 
+COMMAND_RESULT_STATUSES = {
+    "accepted",
+    "rejected",
+    "failed",
+    "timeout",
+}
+
 
 @dataclass(frozen=True)
 class AdapterManifestValidationResult:
@@ -246,6 +253,75 @@ def validate_adapter_normalization_snapshot(
             supported_domains,
             errors,
         )
+
+    return AdapterManifestValidationResult(errors)
+
+
+def validate_adapter_command_mapping_snapshot(
+    manifest: dict[str, Any],
+    command_result: dict[str, Any],
+) -> AdapterManifestValidationResult:
+    """Validate an adapter command mapping snapshot against its manifest."""
+    errors: list[dict[str, str]] = []
+    manifest_result = validate_adapter_manifest(manifest)
+    if manifest_result.errors:
+        errors.extend(_prefix_errors(manifest_result.errors, "manifest"))
+        return AdapterManifestValidationResult(errors)
+
+    adapter_id = command_result.get("adapter_id")
+    if adapter_id != manifest["id"]:
+        errors.append(
+            _error(
+                "COMMAND_ADAPTER_ID_MISMATCH",
+                "command_result.adapter_id",
+                f"Command mapping snapshot adapter_id must match manifest id: {manifest['id']}",
+            )
+        )
+
+    status = command_result.get("status")
+    if status not in COMMAND_RESULT_STATUSES:
+        errors.append(
+            _error(
+                "INVALID_COMMAND_RESULT_STATUS",
+                "command_result.status",
+                "Command mapping snapshot status is not supported.",
+            )
+        )
+
+    expected_state = command_result.get("expected_state", {})
+    if not isinstance(expected_state, dict):
+        errors.append(
+            _error(
+                "INVALID_COMMAND_EXPECTED_STATE",
+                "command_result.expected_state",
+                "Command mapping snapshot expected_state must be an object.",
+            )
+        )
+        return AdapterManifestValidationResult(errors)
+
+    supported_capabilities = set(manifest["supported_capabilities"])
+    for capability in expected_state:
+        if capability not in CANONICAL_CAPABILITIES:
+            errors.append(
+                _error(
+                    "UNSUPPORTED_CAPABILITY",
+                    f"command_result.expected_state.{capability}",
+                    f"Unsupported canonical capability: {capability}",
+                )
+            )
+            continue
+
+        if capability not in supported_capabilities:
+            errors.append(
+                _error(
+                    "UNDECLARED_COMMAND_EXPECTED_STATE",
+                    f"command_result.expected_state.{capability}",
+                    (
+                        "Command mapping snapshot expected_state uses undeclared "
+                        f"capability: {capability}"
+                    ),
+                )
+            )
 
     return AdapterManifestValidationResult(errors)
 
