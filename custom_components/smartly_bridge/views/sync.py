@@ -165,17 +165,16 @@ class SmartlySyncStatesView(web.View):
         )
 
         if not auth_result.success:
+            error = auth_result.error or "auth_failed"
             log_deny(
                 _LOGGER,
                 client_id=self.request.headers.get("X-Client-Id", "unknown"),
                 entity_id="",
                 service="sync_states",
-                reason=auth_result.error or "auth_failed",
+                reason=error,
             )
-            return web.json_response(
-                {"error": auth_result.error},
-                status=401,
-            )
+            result = sync_error_response(error, status=401, target="sync.states.auth")
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Check rate limit
         if not await rate_limiter.check(auth_result.client_id or ""):
