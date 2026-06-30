@@ -146,6 +146,7 @@
 - Legacy control entity-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-not-allowed application response 已保留 legacy `error` 欄位與 403 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Legacy control service-call-failed application response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
+- Legacy control success / service-call-failed full response fixture 已鎖定 legacy top-level 欄位與 API vNext envelope，避免 control path 後續重構破壞舊 client 相容性。
 - History invalid-time-range application response 已保留 legacy `error` 欄位與 400 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - History time-range-too-large application response 已保留 legacy `error` / `max_days` 欄位與 400 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - History single-query integration-not-configured response 已保留 legacy `error` 欄位與 500 status，並同步輸出 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -407,6 +408,7 @@
 | 213 | `48501f3` | Device event accepted/error full response fixture 鎖定 canonical event payload、legacy top-level 欄位與 API vNext envelope，避免 event path 後續重構破壞舊 client 相容性 | RED failed with missing `device-event-accepted.json` / `device-event-error.json`; targeted fixture tests `2 passed`; affected event/http tests `80 passed`; full suite `672 passed` |
 | 214 | `0f6e461` | Local automation rules list / create-persistence-error full response fixture 鎖定 Platform editor read path、legacy top-level 欄位與 API vNext envelope | RED failed with missing `local-automation-list.json` / `local-automation-create-error.json`; targeted fixture tests `2 passed`; affected automation/event/http tests `87 passed`; full suite `674 passed` |
 | 215 | `f32797c` | History single-query / time-range-too-large full response fixture 鎖定 legacy top-level 欄位與 API vNext envelope，避免 history path 後續重構破壞舊 client 相容性 | RED failed with missing `history-single.json` / `history-time-range-error.json`; targeted fixture tests `2 passed`; application history tests `23 passed`; history view tests `46 passed`; affected history/http tests `73 passed`; full suite `676 passed` |
+| 216 | `411f090` | Legacy control success / service-call-failed full response fixture 鎖定 legacy top-level 欄位與 API vNext envelope，避免 control path 後續重構破壞舊 client 相容性 | RED failed with missing `legacy-control-success.json` / `legacy-control-error.json`; targeted fixture tests `2 passed`; affected control/http/acl tests `154 passed`; full suite `678 passed` |
 
 ## Completed Slices
 
@@ -416,7 +418,7 @@
 | Devcontainer | workspace 改以 `vscode` user 執行，避免 host/container 權限互相衝突；base image 升到 Python 3.14 bookworm，以符合 Home Assistant 2026.6 dependency floor | `cf27b15`, `602afb5` |
 | Hexagonal application base | 建立 canonical capability migration 基礎 use cases 與 application ports | `912b21c` |
 | Logical device grouping | 以 Home Assistant source device ID 將 sibling entities group 成同一 logical device | `62f618d` |
-| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/integration-not-configured/auth failure/rate-limit/invalid JSON/missing required fields/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press`；command success/error full response fixture 已鎖定 legacy 與 vNext 雙軌欄位 | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65`, `164f0f1`, `eccf5c7`, `f6f8ec5`, `5bb258a`, `c2272fb`, `f83b920` |
+| Command path | 新增 canonical `SmartlyCommand` dispatcher、target resolver、expected state、standard error shape，並為 command success/error 與 legacy control success/integration-not-configured/auth failure/rate-limit/invalid JSON/missing required fields/entity deny/service deny/service failure 補上 API vNext envelope/error fields；resolved denial、success audit 與 vNext `data` 都會同時保留 logical device 與 source entity trace metadata；button command trigger 可透過 `button_press` / `press` 映射到 source `button.press`；command success/error 與 legacy control success/error full response fixture 已鎖定 legacy 與 vNext 雙軌欄位 | `564c8c4`, `2dd37ac`, `edb4a68`, `df54f35`, `a073269`, `a094b98`, `6ddca2e`, `eaad20a`, `b29cd33`, `d6da427`, `edf71be`, `02e8f66`, `2abb210`, `3fcfd65`, `164f0f1`, `eccf5c7`, `f6f8ec5`, `5bb258a`, `c2272fb`, `f83b920`, `411f090` |
 | Test harness | Sync structure view test 明確 mock HA registries，讓 Python 3.14 / HA 2026.6 registry setup 下的 full suite 可穩定驗證 view wiring | `82be030` |
 | Event path | 新增 canonical event envelope、event deduplication，並為 accepted / duplicate / invalid action event response、HTTP auth failure / rate-limit / integration-not-configured / dispatch failure / invalid JSON/action/timestamp/meta/missing-required response 補上 API vNext envelope fields；accepted non-duplicate event 可交給 local automation port 處理，duplicate event 不會重複觸發 automation；Device event view 已接上 HA runtime rule store / SmartlyCommand executor；accepted/error full response fixture 已鎖定 canonical event payload、legacy 與 vNext 雙軌欄位 | `3b54b65`, `42e0c61`, `e01355e`, `ddadb62`, `372cf5a`, `b915337`, `6176c49`, `71a3aec`, `89e0948`, `1e7ea16`, `3a44cc6`, `8d721e5`, `b6ded93`, `b9fd8fd`, `29e326a`, `4c14613`, `48501f3` |
 | History path | history invalid-time-range、time-range-too-large、single-query integration-not-configured、single-query client-secret-not-configured、single-query auth helper defensive client-secret-not-configured、single-query auth failure、single-query rate-limit、single-query missing entity_id、single-query entity-not-allowed、single-query invalid cursor、batch integration-not-configured、batch client-secret-not-configured、batch auth failure、batch rate-limit、batch invalid JSON、batch missing entity_ids、batch too-many-entities、batch no-allowed-entities、single-query timeout、batch timeout、single-query generic failure、batch generic failure、statistics generic failure、statistics invalid-period、statistics integration-not-configured、statistics client-secret-not-configured、statistics auth failure、statistics rate-limit、statistics missing entity_id、statistics entity-not-allowed、single-query、batch 與 statistics application response envelope，保留 legacy `error` / `message` / `max_days` / `valid_periods` / history/statistics payload 欄位；single-query 與 time-range-too-large full response fixture 已鎖定 legacy 與 vNext 雙軌欄位 | `4979988`, `be5a1e5`, `296da10`, `0e6db58`, `ae03e72`, `adc8619`, `66676c5`, `8eb4fc6`, `6e05198`, `5358619`, `88968bc`, `42d1515`, `e684c6e`, `21a64df`, `30574f3`, `7d51e0c`, `94ceb10`, `da1777c`, `6bb475b`, `bfc155e`, `83a8cc9`, `b9b9a84`, `e28aa94`, `f684280`, `04c8f81`, `d7d3c86`, `0b03094`, `e807c34`, `3d61b4c`, `d19e25f`, `58321da`, `28466ba`, `0d639ea`, `f32797c` |
@@ -436,17 +438,15 @@
 
 ## Latest Verification
 
-- History API vNext fixture RED: targeted tests failed because `history-single.json` and `history-time-range-error.json` were missing.
-- Targeted history fixture tests: `2 passed`
-- Application history tests: `tests/test_application_history.py` `23 passed`
-- History view tests: `tests/test_history_views.py` `46 passed`
-- Affected history/http tests: `tests/test_application_history.py tests/test_http.py` `73 passed`
-- Full suite: `676 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
+- Legacy control API vNext fixture RED: targeted tests failed because `legacy-control-success.json` and `legacy-control-error.json` were missing.
+- Targeted legacy control fixture tests: `2 passed`
+- Affected control/http/acl tests: `tests/test_application_hexagonal.py tests/test_http.py tests/test_acl.py` `154 passed`
+- Full suite: `678 passed` on Python 3.14.6 / `mcr.microsoft.com/devcontainers/python:3.14-bookworm`
 
 ## Remaining Work
 
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
-- Continue adding broader API vNext contract snapshots beyond current-sync, SmartlyCommand, Device event, local automation, and history responses.
+- Continue adding broader API vNext contract snapshots beyond current-sync, SmartlyCommand, legacy control, Device event, local automation, and history responses.
 - Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
 - Continue auditing local automation adapter persistence behavior before Platform read/write path cutover.
