@@ -1311,7 +1311,7 @@ class TestCursorPagination:
 
     @pytest.mark.asyncio
     async def test_history_with_invalid_cursor(self, mock_hass, mock_request):
-        """Test history query with invalid cursor."""
+        """Test invalid cursor returns API vNext envelope."""
         mock_request.app = {"hass": mock_hass}
         mock_request.match_info = {"entity_id": "sensor.temperature"}
         mock_request.query = {
@@ -1343,4 +1343,17 @@ class TestCursorPagination:
 
                 assert response.status == 400
                 data = json.loads(response.body)
-                assert data["error"] == "invalid_cursor"
+                assert data == {
+                    "error": "invalid_cursor",
+                    "schema_version": "2026.06",
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "INVALID_CURSOR",
+                            "message": "invalid cursor",
+                            "target": "history.cursor",
+                            "retryable": False,
+                        }
+                    ],
+                }

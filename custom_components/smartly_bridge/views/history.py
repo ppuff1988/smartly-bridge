@@ -433,10 +433,12 @@ class SmartlyHistoryView(web.View):
         )
 
         if cursor_str and not cursor_data:
-            return web.json_response(
-                {"error": "invalid_cursor"},
+            result = _history_error_response(
+                "invalid_cursor",
                 status=400,
+                target="history.cursor",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Get query parameters
         significant_changes_only = query.get("significant_changes_only", "true").lower() == "true"
