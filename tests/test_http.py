@@ -701,6 +701,57 @@ class TestRawDiagnosticEndpoint:
 
         await nonce_cache.stop()
 
+    @pytest.mark.asyncio
+    async def test_raw_diagnostic_lazily_creates_runtime_store(
+        self, mock_hass, mock_config_entry
+    ):
+        """Raw diagnostic requests fall back to the HA runtime store adapter."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+            "raw_diagnostics": {
+                "raw_light_001": {
+                    "entity_id": "light.kitchen",
+                    "access_token": "secret-token",
+                }
+            },
+            "runtime_adapters": {},
+        }
+
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "GET"
+        mock_request.path = "/api/smartly/diagnostics/raw/raw_light_001"
+        mock_request.match_info = {"raw_ref": "raw_light_001"}
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True, client_id="test_client", error=None
+            )
+
+            response = await SmartlyRawDiagnosticView(mock_request).get()
+
+        assert response.status == 200
+        assert json.loads(response.body)["data"]["payload"] == {
+            "entity_id": "light.kitchen",
+            "access_token": "<redacted>",
+        }
+        assert "raw_diagnostic_store" in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+        await nonce_cache.stop()
+
 
 class TestStatesEndpoint:
     """Tests for /api/smartly/sync/states endpoint."""

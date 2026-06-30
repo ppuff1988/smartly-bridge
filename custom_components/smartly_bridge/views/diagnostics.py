@@ -7,6 +7,7 @@ from typing import Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
+from ..adapters.home_assistant import HomeAssistantRawDiagnosticStore
 from ..application.diagnostics import RawDiagnosticFetchUseCase, raw_diagnostic_error_response
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -27,7 +28,10 @@ class SmartlyRawDiagnosticView(BaseView):
     def _raw_diagnostic_store(self) -> Any:
         """Return the setup-created raw diagnostic store."""
         runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        return runtime_adapters["raw_diagnostic_store"]
+        return runtime_adapters.setdefault(
+            "raw_diagnostic_store",
+            HomeAssistantRawDiagnosticStore(self.hass),
+        )
 
     async def _authorize(self) -> web.Response | str:
         """Authorize a raw diagnostic request."""
