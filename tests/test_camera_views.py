@@ -1272,3 +1272,55 @@ class TestSmartlyCameraHLSInfoView:
                     }
                 ],
             }
+
+    @pytest.mark.asyncio
+    async def test_hls_entity_not_allowed(self, mock_request, mock_hass):
+        """Test HLS view returns API vNext envelope when entity is denied."""
+        mock_request.match_info = {"entity_id": "camera.test"}
+        rate_limiter = RateLimiter(60, 60)
+        rate_limiter.check = AsyncMock(return_value=True)
+        mock_hass.data = {
+            DOMAIN: {
+                "config_entry": MagicMock(
+                    data={
+                        "client_secret": "test_secret",
+                        "allowed_cidrs": "",
+                        "trust_proxy": "off",
+                    }
+                ),
+                "nonce_cache": NonceCache(),
+                "rate_limiter": rate_limiter,
+            }
+        }
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.camera.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=False,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            view = SmartlyCameraHLSInfoView(mock_request)
+            response = await view.get()
+
+            assert response.status == 403
+            data = json.loads(response.body)
+            assert data == {
+                "error": "entity_not_allowed",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "ENTITY_NOT_ALLOWED",
+                        "message": "entity not allowed",
+                        "target": "camera.entity_id",
+                        "retryable": False,
+                    }
+                ],
+            }
