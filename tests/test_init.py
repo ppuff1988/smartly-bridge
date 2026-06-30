@@ -81,6 +81,7 @@ class TestSetup:
             HomeAssistantDeviceEventPublisher,
             HomeAssistantHistoryGateway,
             HomeAssistantLocalAutomationRuleStore,
+            HomeAssistantRawDiagnosticStore,
             HomeAssistantStateSyncGateway,
             HomeAssistantSmartlyCommandExecutor,
             HomeAssistantSyncGateway,
@@ -144,6 +145,10 @@ class TestSetup:
         assert isinstance(
             runtime_adapters["webrtc_gateway"],
             HomeAssistantWebRTCGateway,
+        )
+        assert isinstance(
+            runtime_adapters["raw_diagnostic_store"],
+            HomeAssistantRawDiagnosticStore,
         )
 
 

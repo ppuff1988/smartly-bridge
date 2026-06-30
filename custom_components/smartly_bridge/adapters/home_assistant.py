@@ -600,6 +600,24 @@ class HomeAssistantSyncGateway:
         )
 
 
+class HomeAssistantRawDiagnosticStore:
+    """Raw diagnostic store backed by Home Assistant runtime data."""
+
+    def __init__(self, hass: Any) -> None:
+        self._hass = hass
+
+    def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
+        """Return a raw diagnostic payload registered for a raw reference."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        raw_diagnostics = integration_data.get("raw_diagnostics", {})
+        if not isinstance(raw_diagnostics, dict):
+            return None
+        payload = raw_diagnostics.get(raw_ref)
+        if not isinstance(payload, dict):
+            return None
+        return payload
+
+
 class HomeAssistantStateSyncGateway:
     """State sync gateway backed by Home Assistant state and entity registries."""
 

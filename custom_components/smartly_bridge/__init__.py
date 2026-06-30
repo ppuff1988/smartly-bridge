@@ -61,6 +61,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         HomeAssistantEntityPolicy,
         HomeAssistantHistoryGateway,
         HomeAssistantLocalAutomationRuleStore,
+        HomeAssistantRawDiagnosticStore,
         HomeAssistantStateSyncGateway,
         HomeAssistantSmartlyCommandExecutor,
         HomeAssistantSyncGateway,
@@ -113,6 +114,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
         "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
         "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),
+        "raw_diagnostic_store": HomeAssistantRawDiagnosticStore(hass),
     }
 
     # Store in hass.data
