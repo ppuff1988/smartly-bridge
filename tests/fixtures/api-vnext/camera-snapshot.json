@@ -1,0 +1,21 @@
+{
+  "snapshot": {
+    "entity_id": "camera.front",
+    "content_type": "image/jpeg",
+    "timestamp": 123.45,
+    "etag": "\"snapshot-etag\"",
+    "image_size": 9
+  },
+  "schema_version": "2026.06",
+  "data": {
+    "snapshot": {
+      "entity_id": "camera.front",
+      "content_type": "image/jpeg",
+      "timestamp": 123.45,
+      "etag": "\"snapshot-etag\"",
+      "image_size": 9
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

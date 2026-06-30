@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -15,6 +17,31 @@ from custom_components.smartly_bridge.application.camera import (
     CameraStreamUseCase,
 )
 from custom_components.smartly_bridge.domain.models import CameraSnapshot, CameraStreamInfo
+
+
+def _fixture(name: str) -> dict[str, Any]:
+    """Load an API vNext fixture."""
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+
+
+def _serializable_camera_body(body: dict[str, Any]) -> dict[str, Any]:
+    """Convert camera domain objects into stable fixture data."""
+    converted = dict(body)
+    snapshot = converted.get("snapshot")
+    if isinstance(snapshot, CameraSnapshot):
+        snapshot_payload = {
+            "entity_id": snapshot.entity_id,
+            "content_type": snapshot.content_type,
+            "timestamp": snapshot.timestamp,
+            "etag": snapshot.etag,
+            "image_size": len(snapshot.image_data),
+        }
+        converted["snapshot"] = snapshot_payload
+        converted["data"] = {
+            **converted.get("data", {}),
+            "snapshot": snapshot_payload,
+        }
+    return converted
 
 
 class FakeCameraGateway:
@@ -165,6 +192,15 @@ async def test_camera_list_response_includes_vnext_envelope() -> None:
     assert result.body["count"] == 2
     assert result.body["cache_stats"] == {"cached_snapshots": 0}
     assert result.body["hls_stats"] == {"active_streams": 0}
+
+
+@pytest.mark.asyncio
+async def test_camera_list_response_matches_api_vnext_fixture() -> None:
+    """Camera list full response remains stable for legacy and vNext clients."""
+    result = await CameraListUseCase(FakeCameraGateway()).execute(include_capabilities=False)
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-list.json")
 
 
 @pytest.mark.asyncio
@@ -378,6 +414,15 @@ async def test_camera_hls_start_response_includes_vnext_envelope() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_start_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS start full response remains stable for legacy and vNext clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "start")
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-hls-start.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_info_response_includes_vnext_envelope() -> None:
     """HLS info responses expose API vNext envelope fields."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "info")
@@ -517,6 +562,19 @@ async def test_camera_snapshot_use_case_returns_snapshot_payload_and_headers() -
         "X-Snapshot-Timestamp": "123.45",
     }
     assert gateway.snapshot_requested == ("camera.front", True, '"old-etag"')
+
+
+@pytest.mark.asyncio
+async def test_camera_snapshot_response_matches_api_vnext_fixture() -> None:
+    """Camera snapshot full response remains stable for legacy and vNext clients."""
+    result = await CameraSnapshotUseCase(FakeCameraGateway()).execute(
+        "camera.front",
+        force_refresh=True,
+        if_none_match='"old-etag"',
+    )
+
+    assert result.status == 200
+    assert _serializable_camera_body(result.body) == _fixture("camera-snapshot.json")
 
 
 @pytest.mark.asyncio
