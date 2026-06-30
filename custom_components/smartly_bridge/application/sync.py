@@ -11,6 +11,27 @@ from .ports import SyncStatesPort, SyncStructurePort
 SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
 
+def sync_error_response(error: str, *, status: int, target: str) -> BridgeResponse:
+    """Return a legacy-compatible API vNext sync error response."""
+    return BridgeResponse(
+        {
+            "error": error,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error.replace("_", " "),
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )
+
+
 class SyncStructureUseCase:
     """Return the platform-visible Home Assistant structure."""
 

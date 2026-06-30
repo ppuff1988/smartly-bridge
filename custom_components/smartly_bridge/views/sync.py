@@ -9,7 +9,7 @@ from homeassistant.core import HomeAssistant
 
 from ..acl import get_allowed_entities, get_structure
 from ..adapters.home_assistant import HomeAssistantStateSyncGateway, HomeAssistantSyncGateway
-from ..application.sync import SyncStatesUseCase, SyncStructureUseCase
+from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -51,10 +51,12 @@ class SmartlySyncView(web.View):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = sync_error_response(
+                "integration_not_configured",
                 status=500,
+                target="sync.structure.integration",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")

@@ -56,6 +56,32 @@ class TestSmartlySyncView:
         assert response.status == 500
 
     @pytest.mark.asyncio
+    async def test_integration_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test integration-not-configured returns API vNext envelope."""
+        mock_hass.data = {}
+        view = SmartlySyncView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "sync.structure.integration",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
         """Test authentication failure."""
         with patch(
