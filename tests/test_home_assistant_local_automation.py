@@ -500,6 +500,59 @@ def test_local_automation_rule_store_update_refreshes_runtime_visible_rules() ->
     assert rules[0].trigger.device_id == "ldev_updated_button"
 
 
+def test_local_automation_rule_store_update_returns_false_when_persistence_raises() -> None:
+    """Updating a rule reports failure when config entry persistence raises."""
+    config_entry = MagicMock(
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": [
+                {
+                    "rule_id": "target-rule",
+                    "trigger": {
+                        "device_id": "ldev_old_button",
+                        "capability": "button_event",
+                        "event": "single_press",
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_old_light",
+                            "capability": "power",
+                            "command": "turn_on",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"config_entry": config_entry}}
+    hass.config_entries.async_update_entry.side_effect = RuntimeError("persist failed")
+
+    updated = HomeAssistantLocalAutomationRuleStore(hass).update_rule(
+        LocalAutomationRule(
+            rule_id="target-rule",
+            enabled=False,
+            trigger=AutomationTrigger(
+                device_id="ldev_updated_button",
+                capability="button_event",
+                event="double_press",
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_updated_light",
+                    capability="power",
+                    command="turn_off",
+                )
+            ],
+        )
+    )
+
+    assert updated is False
+    assert "local_automation_rules" not in hass.data[DOMAIN]
+
+
 def test_local_automation_rule_store_updates_runtime_visible_rule() -> None:
     """Updating a runtime-visible rule persists the runtime rule set."""
     runtime_rule = LocalAutomationRule(
@@ -665,6 +718,41 @@ def test_local_automation_rule_store_delete_refreshes_runtime_visible_rules() ->
 
     assert deleted is True
     assert store.list_rules() == []
+
+
+def test_local_automation_rule_store_delete_returns_false_when_persistence_raises() -> None:
+    """Deleting a rule reports failure when config entry persistence raises."""
+    config_entry = MagicMock(
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": [
+                {
+                    "rule_id": "target-rule",
+                    "trigger": {
+                        "device_id": "ldev_button",
+                        "capability": "button_event",
+                        "event": "single_press",
+                    },
+                    "actions": [
+                        {
+                            "type": "device_command",
+                            "device_id": "ldev_light",
+                            "capability": "power",
+                            "command": "turn_on",
+                        }
+                    ],
+                }
+            ],
+        }
+    )
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"config_entry": config_entry}}
+    hass.config_entries.async_update_entry.side_effect = RuntimeError("persist failed")
+
+    deleted = HomeAssistantLocalAutomationRuleStore(hass).delete_rule("target-rule")
+
+    assert deleted is False
+    assert "local_automation_rules" not in hass.data[DOMAIN]
 
 
 def test_local_automation_rule_store_deletes_runtime_visible_rule() -> None:

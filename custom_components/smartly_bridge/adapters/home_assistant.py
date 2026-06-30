@@ -263,7 +263,10 @@ class HomeAssistantLocalAutomationRuleStore:
         if not updated:
             return False
         data["local_automation_rules"] = stored_rules
-        self._hass.config_entries.async_update_entry(config_entry, data=data)
+        try:
+            self._hass.config_entries.async_update_entry(config_entry, data=data)
+        except Exception:
+            return False
         self._refresh_runtime_rules(integration_data, stored_rules)
         return True
 
@@ -286,7 +289,10 @@ class HomeAssistantLocalAutomationRuleStore:
         if len(remaining_rules) == len(stored_rules):
             return False
         data["local_automation_rules"] = remaining_rules
-        self._hass.config_entries.async_update_entry(config_entry, data=data)
+        try:
+            self._hass.config_entries.async_update_entry(config_entry, data=data)
+        except Exception:
+            return False
         self._refresh_runtime_rules(integration_data, remaining_rules)
         return True
 
