@@ -842,6 +842,40 @@ class TestSmartlyCameraConfigView:
             }
 
     @pytest.mark.asyncio
+    async def test_config_rate_limited(self, mock_request, mock_hass):
+        """Test config view returns API vNext envelope when rate limited."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=False)
+
+            view = SmartlyCameraConfigView(mock_request)
+            response = await view.post()
+
+            assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == {
+                "error": "rate_limited",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "RATE_LIMITED",
+                        "message": "rate limited",
+                        "target": "camera.rate_limit",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_config_invalid_json(self, mock_request):
         """Test config view with invalid JSON."""
         mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))

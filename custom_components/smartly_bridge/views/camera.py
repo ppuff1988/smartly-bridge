@@ -549,13 +549,20 @@ class SmartlyCameraConfigView(BaseView):
                 service="camera_config",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = _camera_error_response(
+                "rate_limited",
                 status=429,
-                headers={
-                    "Retry-After": str(RATE_WINDOW),
-                    "X-RateLimit-Remaining": "0",
-                },
+                target="camera.rate_limit",
+            )
+            headers = {
+                **result.headers,
+                "Retry-After": str(RATE_WINDOW),
+                "X-RateLimit-Remaining": "0",
+            }
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=headers,
             )
 
         # Parse request body
