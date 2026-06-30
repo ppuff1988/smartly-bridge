@@ -108,6 +108,33 @@ class TestSmartlyHistoryView:
         assert data["error"] == "integration_not_configured"
 
     @pytest.mark.asyncio
+    async def test_integration_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test integration-not-configured failure returns API vNext envelope."""
+        mock_hass.data = {}
+
+        view = SmartlyHistoryView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "integration_not_configured",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INTEGRATION_NOT_CONFIGURED",
+                    "message": "integration not configured",
+                    "target": "history.integration",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_client_secret_not_configured(self, mock_request, mock_hass):
         """Test error when client_secret not configured."""
         mock_hass.data[DOMAIN]["config_entry"].data = {"allowed_cidrs": ""}
