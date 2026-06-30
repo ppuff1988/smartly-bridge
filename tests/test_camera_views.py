@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -22,6 +23,12 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
 )
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    """Load an API vNext fixture by filename."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / name
+    return json.loads(fixture_path.read_text())
 
 
 class FakeRuntimeCameraGateway:
@@ -1481,20 +1488,7 @@ class TestSmartlyCameraHLSInfoView:
 
             assert response.status == 403
             data = json.loads(response.body)
-            assert data == {
-                "error": "entity_not_allowed",
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "ENTITY_NOT_ALLOWED",
-                        "message": "entity not allowed",
-                        "target": "camera.entity_id",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-hls-view-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_hls_camera_manager_not_initialized(self, mock_request, mock_hass):
@@ -1534,20 +1528,7 @@ class TestSmartlyCameraHLSInfoView:
 
             assert response.status == 500
             data = json.loads(response.body)
-            assert data == {
-                "error": "camera_manager_not_initialized",
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "CAMERA_MANAGER_NOT_INITIALIZED",
-                        "message": "camera manager not initialized",
-                        "target": "camera.manager",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-hls-view-manager-not-initialized.json")
 
     @pytest.mark.asyncio
     async def test_hls_start_uses_setup_runtime_gateway(self, mock_request, mock_hass):
