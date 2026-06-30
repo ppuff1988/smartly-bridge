@@ -292,9 +292,15 @@ class SmartlyHistoryView(web.View):
                 service="history",
                 reason=auth_result.error or "auth_failed",
             )
-            return auth_result, web.json_response(
-                {"error": auth_result.error},
+            result = _history_error_response(
+                auth_result.error or "auth_failed",
                 status=401,
+                target="history.auth",
+            )
+            return auth_result, web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Check rate limit

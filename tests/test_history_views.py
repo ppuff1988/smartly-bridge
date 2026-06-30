@@ -188,6 +188,35 @@ class TestSmartlyHistoryView:
             assert data["error"] == "invalid_signature"
 
     @pytest.mark.asyncio
+    async def test_auth_failure_returns_api_vnext_envelope(self, mock_request):
+        """Test authentication failure returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlyHistoryView(mock_request)
+            response = await view.get()
+
+            assert response.status == 401
+            data = json.loads(response.body)
+            assert data == {
+                "error": "invalid_signature",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_SIGNATURE",
+                        "message": "invalid signature",
+                        "target": "history.auth",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
         """Test rate limiting."""
         with patch(
