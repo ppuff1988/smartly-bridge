@@ -583,6 +583,8 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
         "schema_version": "2026.06",
         "command_id": "cmd-1",
         "status": "completed",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-1",
         "device_id": "ldev_light_kitchen",
         "capability": "brightness",
         "command": "set_brightness",
@@ -596,6 +598,8 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
             "device_id": "ldev_light_kitchen",
             "capability": "brightness",
             "command": "set_brightness",
+            "adapter_id": "home_assistant",
+            "correlation_id": "cmd-1",
             "source_entity_id": "light.kitchen",
             "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
         },
@@ -651,12 +655,16 @@ async def test_smartly_command_success_response_includes_vnext_envelope() -> Non
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
+    assert result.body["adapter_id"] == "home_assistant"
+    assert result.body["correlation_id"] == "cmd-vnext"
     assert result.body["data"] == {
         "command_id": "cmd-vnext",
         "status": "completed",
         "device_id": "ldev_light_kitchen",
         "capability": "brightness",
         "command": "set_brightness",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-vnext",
         "source_entity_id": "light.kitchen",
         "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
     }
@@ -1304,6 +1312,8 @@ async def test_smartly_command_use_case_dispatches_button_press_command() -> Non
         "device_id": "ldev_button_desk_scene",
         "capability": "button_press",
         "command": "press",
+        "adapter_id": "home_assistant",
+        "correlation_id": "cmd-button-press",
         "source_entity_id": "button.desk_scene",
         "expected_state": {},
     }

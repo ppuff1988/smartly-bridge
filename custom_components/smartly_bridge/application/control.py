@@ -286,12 +286,21 @@ class SmartlyCommandUseCase:
             return _smartly_command_error_response(command, entity_id, result)
 
         expected_state = _expected_state_for_command(command)
+        trace = _smartly_command_trace(command)
+        data = _smartly_command_vnext_data(
+            command,
+            "completed",
+            expected_state,
+            entity_id,
+        )
+        data.update(trace)
         return BridgeResponse(
             {
                 "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "command_id": command.command_id,
                 "status": "completed",
+                **trace,
                 "device_id": command.device_id,
                 "capability": command.capability,
                 "command": command.command,
@@ -299,12 +308,7 @@ class SmartlyCommandUseCase:
                 "expected_state": expected_state,
                 "new_state": result.body.get("new_state"),
                 "new_attributes": result.body.get("new_attributes"),
-                "data": _smartly_command_vnext_data(
-                    command,
-                    "completed",
-                    expected_state,
-                    entity_id,
-                ),
+                "data": data,
                 "warnings": [],
                 "errors": [],
             },
