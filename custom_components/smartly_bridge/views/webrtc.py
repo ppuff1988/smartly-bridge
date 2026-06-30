@@ -143,10 +143,12 @@ class SmartlyWebRTCTokenView(BaseView):
                 service="webrtc_token",
                 reason="rate_limited",
             )
+            result = _webrtc_error_response("rate_limited", status=429)
             return web.json_response(
-                {"error": "rate_limited"},
-                status=429,
+                result.body,
+                status=result.status,
                 headers={
+                    **result.headers,
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
                 },

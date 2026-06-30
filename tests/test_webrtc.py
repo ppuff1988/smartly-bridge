@@ -14,7 +14,7 @@ import pytest
 
 from custom_components.smartly_bridge.application.webrtc import SMARTLY_API_SCHEMA_VERSION
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache
-from custom_components.smartly_bridge.const import DOMAIN
+from custom_components.smartly_bridge.const import DOMAIN, RATE_WINDOW
 from custom_components.smartly_bridge.webrtc import (
     WebRTCSession,
     WebRTCToken,
@@ -689,6 +689,42 @@ class TestWebRTCViews:
                 {
                     "code": "INVALID_SIGNATURE",
                     "message": "invalid signature",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
+    async def test_token_view_rate_limited_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request preserves rate-limit headers with API vNext envelope."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data[DOMAIN]["rate_limiter"].check.return_value = False
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 429
+        assert response.headers["Retry-After"] == str(RATE_WINDOW)
+        assert response.headers["X-RateLimit-Remaining"] == "0"
+        data = json.loads(response.body)
+        assert data == {
+            "error": "rate_limited",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "RATE_LIMITED",
+                    "message": "rate limited",
                     "target": "webrtc",
                     "retryable": False,
                 }
