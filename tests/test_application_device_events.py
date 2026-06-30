@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -184,6 +186,33 @@ async def test_button_action_response_includes_vnext_envelope() -> None:
             }
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_button_action_response_matches_api_vnext_fixture() -> None:
+    """Accepted device event full response remains stable for legacy and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "device-event-accepted.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_fixed",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_abc123",
+            type="button_action",
+            action="single_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.body == expected_body
 
 
 @pytest.mark.asyncio
@@ -530,6 +559,33 @@ async def test_unsupported_button_action_response_includes_vnext_error_envelope(
         }
     ]
     assert publisher.events == []
+
+
+@pytest.mark.asyncio
+async def test_unsupported_button_action_response_matches_api_vnext_fixture() -> None:
+    """Device event error full response remains stable for legacy and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "device-event-error.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    publisher = FakeDeviceEventPublisher()
+    use_case = DeviceEventUseCase(
+        publisher,
+        event_id_factory=lambda: "evt_fixed",
+        received_at_factory=lambda: "2026-06-29T00:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_abc123",
+            type="button_action",
+            action="triple_left",
+            timestamp="2026-06-27T10:20:00.000Z",
+        ),
+    )
+
+    assert result.body == expected_body
 
 
 @pytest.mark.asyncio
