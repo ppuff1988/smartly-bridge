@@ -267,6 +267,22 @@ async def test_webrtc_ice_use_case_returns_vnext_error_for_missing_session() -> 
 
 
 @pytest.mark.asyncio
+async def test_webrtc_ice_missing_session_response_matches_api_vnext_fixture() -> None:
+    """WebRTC ICE missing-session response remains stable for legacy clients."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("webrtc-ice-session-not-found.json")
+    assert gateway.session.ice_candidates == []
+
+
+@pytest.mark.asyncio
 async def test_webrtc_ice_use_case_returns_vnext_error_for_entity_mismatch() -> None:
     """ICE use case reports entity mismatches with API vNext errors."""
     gateway = FakeWebRTCGateway()
@@ -290,6 +306,22 @@ async def test_webrtc_ice_use_case_returns_vnext_error_for_entity_mismatch() -> 
             "retryable": False,
         }
     ]
+    assert gateway.session.ice_candidates == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_entity_mismatch_response_matches_api_vnext_fixture() -> None:
+    """WebRTC ICE entity-mismatch response remains stable for legacy clients."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 403
+    assert result.body == _fixture("webrtc-ice-entity-mismatch.json")
     assert gateway.session.ice_candidates == []
 
 
@@ -339,6 +371,21 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_missing_session() 
 
 
 @pytest.mark.asyncio
+async def test_webrtc_hangup_missing_session_response_matches_api_vnext_fixture() -> None:
+    """WebRTC hangup missing-session response remains stable for legacy clients."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("webrtc-hangup-session-not-found.json")
+    assert gateway.closed == []
+
+
+@pytest.mark.asyncio
 async def test_webrtc_hangup_use_case_returns_vnext_error_for_entity_mismatch() -> None:
     """Hangup use case reports entity mismatches with API vNext errors."""
     gateway = FakeWebRTCGateway()
@@ -361,6 +408,21 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_entity_mismatch() 
             "retryable": False,
         }
     ]
+    assert gateway.closed == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_entity_mismatch_response_matches_api_vnext_fixture() -> None:
+    """WebRTC hangup entity-mismatch response remains stable for legacy clients."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+    )
+
+    assert result.status == 403
+    assert result.body == _fixture("webrtc-hangup-entity-mismatch.json")
     assert gateway.closed == []
 
 
