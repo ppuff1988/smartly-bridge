@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -13,6 +15,13 @@ from custom_components.smartly_bridge.application.webrtc import (
     WebRTCOfferUseCase,
     WebRTCTokenUseCase,
 )
+
+
+def _fixture(name: str) -> dict[str, Any]:
+    """Load an API vNext fixture."""
+    return json.loads(
+        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
+    )
 
 
 @dataclass
@@ -151,6 +160,23 @@ async def test_webrtc_token_use_case_returns_connection_info() -> None:
             },
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_webrtc_token_response_matches_api_vnext_fixture() -> None:
+    """WebRTC token full response remains stable for legacy and vNext clients."""
+    result = await WebRTCTokenUseCase(FakeWebRTCGateway()).execute(
+        entity_id="camera.front",
+        client_id="client-1",
+        turn_config={
+            "turn_url": "turn:turn.example.com:3478",
+            "turn_username": "user",
+            "turn_credential": "secret",
+        },
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("webrtc-token.json")
 
 
 @pytest.mark.asyncio

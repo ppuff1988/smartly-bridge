@@ -1,0 +1,41 @@
+{
+  "token": "token-123",
+  "expires_at": 2000,
+  "expires_in": 250,
+  "entity_id": "camera.front",
+  "offer_endpoint": "/api/smartly/camera/camera.front/webrtc/offer",
+  "ice_endpoint": "/api/smartly/camera/camera.front/webrtc/ice",
+  "hangup_endpoint": "/api/smartly/camera/camera.front/webrtc/hangup",
+  "ice_servers": [
+    {
+      "urls": "stun:stun.example.com:19302"
+    },
+    {
+      "urls": "turn:turn.example.com:3478",
+      "username": "user",
+      "credential": "secret"
+    }
+  ],
+  "schema_version": "2026.06",
+  "data": {
+    "token": "token-123",
+    "expires_at": 2000,
+    "expires_in": 250,
+    "entity_id": "camera.front",
+    "offer_endpoint": "/api/smartly/camera/camera.front/webrtc/offer",
+    "ice_endpoint": "/api/smartly/camera/camera.front/webrtc/ice",
+    "hangup_endpoint": "/api/smartly/camera/camera.front/webrtc/hangup",
+    "ice_servers": [
+      {
+        "urls": "stun:stun.example.com:19302"
+      },
+      {
+        "urls": "turn:turn.example.com:3478",
+        "username": "user",
+        "credential": "secret"
+      }
+    ]
+  },
+  "warnings": [],
+  "errors": []
+}
