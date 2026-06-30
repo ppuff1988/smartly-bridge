@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from custom_components.smartly_bridge.application.camera import SMARTLY_API_SCHEMA_VERSION
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import DOMAIN
@@ -62,7 +63,20 @@ class TestSmartlyCameraSnapshotView:
         response = await view.get()
         assert response.status == 400
         data = json.loads(response.body)
-        assert data["error"] == "invalid_entity_id"
+        assert data == {
+            "error": "invalid_entity_id",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_ENTITY_ID",
+                    "message": "invalid entity id",
+                    "target": "camera.entity_id",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_integration_not_configured(self, mock_request, mock_hass):

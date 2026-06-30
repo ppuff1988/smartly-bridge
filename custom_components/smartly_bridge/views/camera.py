@@ -21,6 +21,7 @@ from ..application.camera import (
     CameraListUseCase,
     CameraSnapshotUseCase,
     CameraStreamUseCase,
+    _camera_error_response,
 )
 from ..audit import log_control, log_deny
 from ..auth import RateLimiter, verify_request
@@ -51,9 +52,15 @@ class SmartlyCameraSnapshotView(BaseView):
 
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
-            return web.json_response(
-                {"error": "invalid_entity_id"},
+            result = _camera_error_response(
+                "invalid_entity_id",
                 status=400,
+                target="camera.entity_id",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get integration data
