@@ -13,6 +13,7 @@ from custom_components.smartly_bridge.camera import CameraConfig, CameraManager,
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraConfigView,
+    SmartlyCameraHLSInfoView,
     SmartlyCameraListView,
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
@@ -1110,3 +1111,47 @@ class TestSmartlyCameraConfigView:
             assert response.status == 400
             data = json.loads(response.body)
             assert data["error"] == "unknown_action"
+
+
+class TestSmartlyCameraHLSInfoView:
+    """Tests for SmartlyCameraHLSInfoView."""
+
+    @pytest.fixture
+    def mock_hass(self):
+        """Create mock Home Assistant instance."""
+        hass = MagicMock()
+        hass.data = {}
+        return hass
+
+    @pytest.fixture
+    def mock_request(self, mock_hass):
+        """Create mock request."""
+        request = MagicMock()
+        request.app = {"hass": mock_hass}
+        request.headers = {"X-Client-Id": "test_client"}
+        request.match_info = {"entity_id": "invalid_entity"}
+        request.query = {}
+        return request
+
+    @pytest.mark.asyncio
+    async def test_hls_invalid_entity_id(self, mock_request):
+        """Test HLS view returns API vNext envelope for invalid entity_id."""
+        view = SmartlyCameraHLSInfoView(mock_request)
+        response = await view.get()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_entity_id",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_ENTITY_ID",
+                    "message": "invalid entity id",
+                    "target": "camera.entity_id",
+                    "retryable": False,
+                }
+            ],
+        }
