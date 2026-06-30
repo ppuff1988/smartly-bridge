@@ -904,6 +904,37 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_offer_view_missing_sdp_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope when SDP is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"token": "test-token", "type": "offer"})
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "missing_sdp",
+            "message": "SDP offer is required",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "MISSING_SDP",
+                    "message": "missing sdp",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests

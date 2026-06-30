@@ -284,9 +284,15 @@ class SmartlyWebRTCOfferView(BaseView):
             )
 
         if not sdp_offer:
-            return web.json_response(
-                {"error": "missing_sdp", "message": "SDP offer is required"},
+            result = _webrtc_error_response(
+                "missing_sdp",
                 status=400,
+                legacy_fields={"message": "SDP offer is required"},
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         if sdp_type != "offer":
