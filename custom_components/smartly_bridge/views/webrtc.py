@@ -417,9 +417,11 @@ class SmartlyWebRTCICEView(BaseView):
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
+            result = _webrtc_error_response("invalid_json", status=400)
             return web.json_response(
-                {"error": "invalid_json"},
-                status=400,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         session_id = body.get("session_id")
