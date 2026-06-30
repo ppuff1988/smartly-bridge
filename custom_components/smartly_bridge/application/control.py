@@ -478,6 +478,11 @@ def _has_valid_source_setting_params(
             return False
         if isinstance(maximum, (int, float)) and value > maximum:
             return False
+    if command.capability == "option_setting" and command.command == "select_option":
+        option = command.params.get("option")
+        options = attributes.get("options")
+        if isinstance(options, list) and option not in options:
+            return False
     return True
 
 

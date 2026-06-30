@@ -1526,6 +1526,58 @@ async def test_smartly_command_use_case_dispatches_option_setting_command() -> N
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_option_setting_unknown_option() -> None:
+    """Option setting commands honor source select option constraints."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="select.presence_occupancy_sensitivity",
+            state="medium",
+            attributes={"options": ["low", "medium", "high"]},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {
+            (
+                "ldev_zigbee_presence_1",
+                "option_setting",
+            ): "select.presence_occupancy_sensitivity"
+        }
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-sensitivity-invalid",
+            device_id="ldev_zigbee_presence_1",
+            capability="option_setting",
+            command="select_option",
+            params={"option": "turbo"},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["expected_state"] == {}
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "select.presence_occupancy_sensitivity",
+            "select_option",
+            "invalid_params",
+            {
+                "command_id": "cmd-setting-sensitivity-invalid",
+                "logical_device_id": "ldev_zigbee_presence_1",
+                "capability": "option_setting",
+                "source_entity_id": "select.presence_occupancy_sensitivity",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_dispatches_climate_temperature_command() -> None:
     """Target temperature commands map canonical values to climate services."""
     audit = FakeAudit()
