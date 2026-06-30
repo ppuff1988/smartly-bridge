@@ -1,0 +1,18 @@
+{
+  "error": "webrtc_failed",
+  "message": "go2rtc failed",
+  "session_id": "abcdef1234567890",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "WEBRTC_FAILED",
+      "message": "webrtc failed",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

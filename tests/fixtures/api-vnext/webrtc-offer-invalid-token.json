@@ -1,0 +1,17 @@
+{
+  "error": "invalid_or_expired_token",
+  "message": "Token is invalid or expired",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_OR_EXPIRED_TOKEN",
+      "message": "invalid or expired token",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

@@ -431,6 +431,19 @@ async def test_webrtc_offer_use_case_rejects_invalid_token() -> None:
 
 
 @pytest.mark.asyncio
+async def test_webrtc_offer_invalid_token_response_matches_api_vnext_fixture() -> None:
+    """WebRTC offer invalid-token response remains stable for legacy clients."""
+    result = await WebRTCOfferUseCase(FakeWebRTCGateway()).execute(
+        entity_id="camera.front",
+        token="invalid-token",
+        sdp_offer="offer-sdp",
+    )
+
+    assert result.status == 401
+    assert result.body == _fixture("webrtc-offer-invalid-token.json")
+
+
+@pytest.mark.asyncio
 async def test_webrtc_offer_use_case_reports_signaling_failure() -> None:
     """Offer use case returns the session id when answer creation fails."""
     gateway = FakeWebRTCGateway()
@@ -457,3 +470,19 @@ async def test_webrtc_offer_use_case_reports_signaling_failure() -> None:
             "retryable": False,
         }
     ]
+
+
+@pytest.mark.asyncio
+async def test_webrtc_offer_signaling_failure_response_matches_api_vnext_fixture() -> None:
+    """WebRTC offer signaling failure keeps legacy session id and vNext errors."""
+    gateway = FakeWebRTCGateway()
+    gateway.answer_error = RuntimeError("go2rtc failed")
+
+    result = await WebRTCOfferUseCase(gateway).execute(
+        entity_id="camera.front",
+        token="valid-token",
+        sdp_offer="offer-sdp",
+    )
+
+    assert result.status == 500
+    assert result.body == _fixture("webrtc-offer-signaling-failure.json")
