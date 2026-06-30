@@ -556,6 +556,17 @@ class TestSmartlyCameraStreamView:
         }
 
     @pytest.mark.asyncio
+    async def test_stream_invalid_entity_id_matches_api_vnext_fixture(self, mock_request):
+        """Stream invalid entity response remains stable for legacy and vNext clients."""
+        mock_request.match_info = {"entity_id": "light.test"}
+        response = await SmartlyCameraStreamView(mock_request).get()
+
+        assert response.status == 400
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "camera-stream-invalid-entity-id.json"
+        )
+
+    @pytest.mark.asyncio
     async def test_stream_auth_failure(self, mock_request):
         """Test stream authentication failure."""
         with patch(
