@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "action": "cache_cleared",
+  "cleared_count": 2,
+  "schema_version": "2026.06",
+  "data": {
+    "success": true,
+    "action": "cache_cleared",
+    "cleared_count": 2
+  },
+  "warnings": [],
+  "errors": []
+}

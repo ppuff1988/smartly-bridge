@@ -21,7 +21,9 @@ from custom_components.smartly_bridge.domain.models import CameraSnapshot, Camer
 
 def _fixture(name: str) -> dict[str, Any]:
     """Load an API vNext fixture."""
-    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+    return json.loads(
+        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
+    )
 
 
 def _serializable_camera_body(body: dict[str, Any]) -> dict[str, Any]:
@@ -248,6 +250,21 @@ async def test_camera_config_register_response_includes_vnext_envelope() -> None
 
 
 @pytest.mark.asyncio
+async def test_camera_config_register_response_matches_api_vnext_fixture() -> None:
+    """Camera register full response remains stable for legacy and vNext clients."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(
+            action="register",
+            entity_id="camera.new",
+            data={"name": "New"},
+        )
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-config-register.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_config_rejects_register_without_entity_id() -> None:
     """Register command requires an entity id and exposes API vNext errors."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
@@ -290,6 +307,17 @@ async def test_camera_config_unregister_response_includes_vnext_envelope() -> No
         "entity_id": "camera.old",
     }
     assert gateway.unregistered == ["camera.old"]
+
+
+@pytest.mark.asyncio
+async def test_camera_config_unregister_response_matches_api_vnext_fixture() -> None:
+    """Camera unregister full response remains stable for legacy and vNext clients."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="unregister", entity_id="camera.old", data={})
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-config-unregister.json")
 
 
 @pytest.mark.asyncio
@@ -340,6 +368,17 @@ async def test_camera_config_clear_cache_response_includes_vnext_envelope() -> N
 
 
 @pytest.mark.asyncio
+async def test_camera_config_clear_cache_response_matches_api_vnext_fixture() -> None:
+    """Camera clear-cache full response remains stable for legacy and vNext clients."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="clear_cache", entity_id="camera.front", data={})
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-config-clear-cache.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_config_list_response_includes_vnext_envelope() -> None:
     """Camera config-list responses expose API vNext envelope fields."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
@@ -356,6 +395,17 @@ async def test_camera_config_list_response_includes_vnext_envelope() -> None:
         "cameras": [{"entity_id": "camera.front", "name": "Front"}],
         "count": 1,
     }
+
+
+@pytest.mark.asyncio
+async def test_camera_config_list_response_matches_api_vnext_fixture() -> None:
+    """Camera config-list full response remains stable for legacy and vNext clients."""
+    result = await CameraConfigUseCase(FakeCameraGateway()).execute(
+        CameraConfigCommand(action="list", entity_id=None, data={})
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-config-list.json")
 
 
 @pytest.mark.asyncio

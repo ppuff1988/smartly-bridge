@@ -1,0 +1,13 @@
+{
+  "success": true,
+  "action": "unregistered",
+  "entity_id": "camera.old",
+  "schema_version": "2026.06",
+  "data": {
+    "success": true,
+    "action": "unregistered",
+    "entity_id": "camera.old"
+  },
+  "warnings": [],
+  "errors": []
+}
