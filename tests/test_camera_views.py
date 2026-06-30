@@ -635,7 +635,7 @@ class TestSmartlyCameraListView:
 
     @pytest.mark.asyncio
     async def test_list_auth_failure(self, mock_request):
-        """Test list authentication failure."""
+        """Test list view returns API vNext envelope on authentication failure."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -646,6 +646,21 @@ class TestSmartlyCameraListView:
             response = await view.get()
 
             assert response.status == 401
+            data = json.loads(response.body)
+            assert data == {
+                "error": "invalid_signature",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_SIGNATURE",
+                        "message": "invalid signature",
+                        "target": "camera.auth",
+                        "retryable": False,
+                    }
+                ],
+            }
 
     @pytest.mark.asyncio
     async def test_list_rate_limited(self, mock_request, mock_hass):
