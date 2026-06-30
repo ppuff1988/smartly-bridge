@@ -55,6 +55,7 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Platform Bridge from a config entry."""
     from .adapters.home_assistant import (
+        HomeAssistantCameraGateway,
         HomeAssistantControlGateway,
         HomeAssistantDeviceEventPublisher,
         HomeAssistantEntityPolicy,
@@ -105,6 +106,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
         "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
         "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, _LOGGER),
+        "camera_gateway": HomeAssistantCameraGateway(hass, camera_manager),
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
         "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
         "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),

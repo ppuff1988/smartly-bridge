@@ -8,6 +8,7 @@ Provides HTTP API endpoints for camera operations including:
 
 import json
 import logging
+from typing import Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -41,6 +42,19 @@ from ..const import (
 from .base import BaseView
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _camera_gateway(hass: Any, camera_manager: Any) -> Any:
+    """Return the setup-created camera gateway."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    return runtime_adapters.setdefault(
+        "camera_gateway",
+        HomeAssistantCameraGateway(
+            hass,
+            camera_manager,
+            allowed_entities_fn=get_allowed_entities,
+        ),
+    )
 
 
 class SmartlyCameraSnapshotView(BaseView):
@@ -177,7 +191,7 @@ class SmartlyCameraSnapshotView(BaseView):
         force_refresh = self.request.query.get("refresh", "").lower() == "true"
 
         result = await CameraSnapshotUseCase(
-            HomeAssistantCameraGateway(self.hass, camera_manager)
+            _camera_gateway(self.hass, camera_manager)
         ).execute(
             entity_id,
             force_refresh=force_refresh,
@@ -478,11 +492,7 @@ class SmartlyCameraListView(BaseView):
         include_capabilities = self.request.query.get("capabilities", "").lower() == "true"
 
         result = await CameraListUseCase(
-            HomeAssistantCameraGateway(
-                self.hass,
-                camera_manager,
-                allowed_entities_fn=get_allowed_entities,
-            )
+            _camera_gateway(self.hass, camera_manager)
         ).execute(include_capabilities=include_capabilities)
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
@@ -610,7 +620,7 @@ class SmartlyCameraConfigView(BaseView):
             )
 
         result = await CameraConfigUseCase(
-            HomeAssistantCameraGateway(self.hass, camera_manager)
+            _camera_gateway(self.hass, camera_manager)
         ).execute(
             CameraConfigCommand(
                 action=action,
@@ -758,8 +768,11 @@ class SmartlyCameraHLSInfoView(BaseView):
 
         action = self.request.query.get("action", "start")
         result = await CameraHLSUseCase(
-            HomeAssistantCameraGateway(self.hass, camera_manager)
-        ).execute(entity_id, action)
+            _camera_gateway(self.hass, camera_manager)
+        ).execute(
+            entity_id,
+            action,
+        )
 
         if action == "stop":
             log_control(

@@ -11,6 +11,10 @@ from custom_components.smartly_bridge.application.camera import SMARTLY_API_SCHE
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import DOMAIN
+from custom_components.smartly_bridge.domain.models import (
+    CameraSnapshot as DomainCameraSnapshot,
+    CameraStreamInfo,
+)
 from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraConfigView,
     SmartlyCameraHLSInfoView,
@@ -18,6 +22,95 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
 )
+
+
+class FakeRuntimeCameraGateway:
+    """Camera gateway used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[str] = []
+        self.registered: list[dict] = []
+
+    def list_allowed_camera_ids(self) -> list[str]:
+        self.calls.append("list_allowed_camera_ids")
+        return ["camera.runtime"]
+
+    def get_camera_state(self, entity_id: str) -> dict | None:
+        self.calls.append("get_camera_state")
+        if entity_id != "camera.runtime":
+            return None
+        return {
+            "entity_id": entity_id,
+            "name": "Runtime Camera",
+            "state": "idle",
+            "is_streaming": False,
+            "brand": "Runtime",
+            "model": "Gateway",
+            "supported_features": 3,
+        }
+
+    async def get_stream_info(self, entity_id: str) -> CameraStreamInfo | None:
+        self.calls.append("get_stream_info")
+        if entity_id != "camera.runtime":
+            return None
+        return CameraStreamInfo(
+            entity_id=entity_id,
+            name="Runtime Camera",
+            supports_snapshot=True,
+            supports_mjpeg=True,
+            supports_hls=True,
+            supports_webrtc=False,
+            is_streaming=False,
+        )
+
+    def get_cache_stats(self) -> dict:
+        self.calls.append("get_cache_stats")
+        return {"cached_snapshots": 1}
+
+    def get_hls_stats(self) -> dict:
+        self.calls.append("get_hls_stats")
+        return {"active_streams": 1}
+
+    def register_camera(self, config: dict) -> None:
+        self.calls.append("register_camera")
+        self.registered.append(config)
+
+    def unregister_camera(self, entity_id: str) -> None:
+        self.calls.append("unregister_camera")
+
+    async def clear_cache(self, entity_id: str | None = None) -> int:
+        self.calls.append("clear_cache")
+        return 1
+
+    def list_registered_cameras(self) -> list[dict]:
+        self.calls.append("list_registered_cameras")
+        return [{"entity_id": "camera.runtime", "name": "Runtime Camera"}]
+
+    async def get_snapshot(
+        self,
+        entity_id: str,
+        force_refresh: bool = False,
+        if_none_match: str | None = None,
+    ) -> tuple[DomainCameraSnapshot | None, bool]:
+        self.calls.append("get_snapshot")
+        return (
+            DomainCameraSnapshot(
+                entity_id=entity_id,
+                image_data=b"runtime-image",
+                content_type="image/jpeg",
+                timestamp=123.45,
+                etag="runtime-etag",
+            ),
+            False,
+        )
+
+    async def start_hls_stream(self, entity_id: str) -> dict | None:
+        self.calls.append("start_hls_stream")
+        return {"playlist_url": "/api/hls/runtime.m3u8", "entity_id": entity_id}
+
+    async def stop_hls_stream(self, entity_id: str) -> bool:
+        self.calls.append("stop_hls_stream")
+        return entity_id == "camera.runtime"
 
 
 class TestSmartlyCameraSnapshotView:
@@ -295,6 +388,32 @@ class TestSmartlyCameraSnapshotView:
                 assert response.body == b"test_image"
                 assert response.content_type == "image/jpeg"
                 assert "etag123" in response.headers["ETag"]
+
+    @pytest.mark.asyncio
+    async def test_snapshot_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Snapshot requests execute through the setup-created camera gateway."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_hass.data[DOMAIN]["camera_manager"] = MagicMock()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.camera.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlyCameraSnapshotView(mock_request).get()
+
+        assert response.status == 200
+        assert response.body == b"runtime-image"
+        assert response.headers["ETag"] == "runtime-etag"
+        assert gateway.calls == ["get_snapshot"]
 
     @pytest.mark.asyncio
     async def test_snapshot_unavailable(self, mock_request, mock_hass):
@@ -753,6 +872,31 @@ class TestSmartlyCameraListView:
                 assert "camera.front_door" in camera_ids
                 assert "camera.backyard" in camera_ids
 
+    @pytest.mark.asyncio
+    async def test_list_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Camera list requests execute through the setup-created camera gateway."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlyCameraListView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["count"] == 1
+        assert data["cameras"][0]["entity_id"] == "camera.runtime"
+        assert gateway.calls == [
+            "list_allowed_camera_ids",
+            "get_camera_state",
+            "get_cache_stats",
+            "get_hls_stats",
+        ]
+
 
 class TestSmartlyCameraConfigView:
     """Tests for SmartlyCameraConfigView."""
@@ -998,6 +1142,33 @@ class TestSmartlyCameraConfigView:
             assert data["success"] is True
             assert data["action"] == "registered"
             assert data["entity_id"] == "camera.new"
+
+    @pytest.mark.asyncio
+    async def test_config_register_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Camera config requests execute through the setup-created camera gateway."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
+        mock_request.json = AsyncMock(
+            return_value={
+                "action": "register",
+                "entity_id": "camera.runtime",
+                "name": "Runtime Camera",
+            }
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlyCameraConfigView(mock_request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["action"] == "registered"
+        assert gateway.calls == ["register_camera"]
+        assert gateway.registered[0]["entity_id"] == "camera.runtime"
 
     @pytest.mark.asyncio
     async def test_config_register_missing_entity_id(self, mock_request):
@@ -1377,3 +1548,47 @@ class TestSmartlyCameraHLSInfoView:
                     }
                 ],
             }
+
+    @pytest.mark.asyncio
+    async def test_hls_start_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """HLS requests execute through the setup-created camera gateway."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_request.match_info = {"entity_id": "camera.runtime"}
+        mock_request.query = {}
+        rate_limiter = RateLimiter(60, 60)
+        rate_limiter.check = AsyncMock(return_value=True)
+        mock_hass.data = {
+            DOMAIN: {
+                "config_entry": MagicMock(
+                    data={
+                        "client_secret": "test_secret",
+                        "allowed_cidrs": "",
+                        "trust_proxy": "off",
+                    }
+                ),
+                "nonce_cache": NonceCache(),
+                "rate_limiter": rate_limiter,
+                "camera_manager": MagicMock(),
+                "runtime_adapters": {"camera_gateway": gateway},
+            }
+        }
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.camera.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlyCameraHLSInfoView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["playlist_url"] == "/api/hls/runtime.m3u8"
+        assert data["entity_id"] == "camera.runtime"
+        assert gateway.calls == ["start_hls_stream"]

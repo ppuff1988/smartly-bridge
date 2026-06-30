@@ -77,6 +77,7 @@ class TestSetup:
         """Setup exposes Home Assistant adapters for legacy views through runtime ports."""
         from custom_components.smartly_bridge import async_setup_entry
         from custom_components.smartly_bridge.adapters.home_assistant import (
+            HomeAssistantCameraGateway,
             HomeAssistantDeviceEventPublisher,
             HomeAssistantLocalAutomationRuleStore,
             HomeAssistantStateSyncGateway,
@@ -122,6 +123,10 @@ class TestSetup:
         assert isinstance(
             runtime_adapters["smartly_command_executor"],
             HomeAssistantSmartlyCommandExecutor,
+        )
+        assert isinstance(
+            runtime_adapters["camera_gateway"],
+            HomeAssistantCameraGateway,
         )
         assert isinstance(
             runtime_adapters["sync_structure_gateway"],
