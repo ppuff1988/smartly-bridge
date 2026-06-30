@@ -428,9 +428,11 @@ class SmartlyWebRTCICEView(BaseView):
         candidate = body.get("candidate")
 
         if not session_id:
+            result = _webrtc_error_response("missing_session_id", status=400)
             return web.json_response(
-                {"error": "missing_session_id"},
-                status=400,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager

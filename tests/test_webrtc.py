@@ -1062,6 +1062,38 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_ice_view_missing_session_id_returns_envelope(
+        self, mock_hass_with_webrtc
+    ):
+        """Test ICE request returns API vNext envelope when session ID is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"candidate": {"candidate": "candidate:1"}})
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "missing_session_id",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "MISSING_SESSION_ID",
+                    "message": "missing session id",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests
