@@ -1,0 +1,16 @@
+{
+  "error": "missing_session_id",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_SESSION_ID",
+      "message": "missing session id",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

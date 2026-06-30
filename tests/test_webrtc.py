@@ -1108,20 +1108,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_entity_id",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ENTITY_ID",
-                    "message": "invalid entity id",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-ice-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_ice_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
@@ -1138,20 +1125,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_json",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_JSON",
-                    "message": "invalid json",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-ice-invalid-json.json")
 
     @pytest.mark.asyncio
     async def test_ice_view_missing_session_id_returns_envelope(
@@ -1170,20 +1144,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "missing_session_id",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_SESSION_ID",
-                    "message": "missing session id",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-ice-missing-session-id.json")
 
     @pytest.mark.asyncio
     async def test_ice_view_webrtc_not_available_returns_envelope(
@@ -1208,20 +1169,7 @@ class TestWebRTCViews:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "error": "webrtc_not_available",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "WEBRTC_NOT_AVAILABLE",
-                    "message": "webrtc not available",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-ice-not-available.json")
 
     @pytest.mark.asyncio
     async def test_hangup_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
@@ -1238,20 +1186,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "invalid_json",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_JSON",
-                    "message": "invalid json",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-hangup-invalid-json.json")
 
     @pytest.mark.asyncio
     async def test_hangup_view_missing_session_id_returns_envelope(
@@ -1270,20 +1205,7 @@ class TestWebRTCViews:
 
         assert response.status == 400
         data = json.loads(response.body)
-        assert data == {
-            "error": "missing_session_id",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_SESSION_ID",
-                    "message": "missing session id",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-hangup-missing-session-id.json")
 
     @pytest.mark.asyncio
     async def test_hangup_view_webrtc_not_available_returns_envelope(
@@ -1303,20 +1225,7 @@ class TestWebRTCViews:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "error": "webrtc_not_available",
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "WEBRTC_NOT_AVAILABLE",
-                    "message": "webrtc not available",
-                    "target": "webrtc",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _load_api_vnext_fixture("webrtc-hangup-not-available.json")
 
 
 # ============================================================================
