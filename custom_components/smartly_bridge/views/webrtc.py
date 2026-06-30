@@ -166,9 +166,11 @@ class SmartlyWebRTCTokenView(BaseView):
                 service="webrtc_token",
                 reason="entity_not_allowed",
             )
+            result = _webrtc_error_response("entity_not_allowed", status=403)
             return web.json_response(
-                {"error": "entity_not_allowed"},
-                status=403,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager

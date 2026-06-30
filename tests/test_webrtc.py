@@ -731,6 +731,45 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_token_view_entity_not_allowed_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request returns API vNext envelope when entity access is denied."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = False
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 403
+        data = json.loads(response.body)
+        assert data == {
+            "error": "entity_not_allowed",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "ENTITY_NOT_ALLOWED",
+                    "message": "entity not allowed",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests
