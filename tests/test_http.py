@@ -625,7 +625,9 @@ class TestRawDiagnosticEndpoint:
 
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
-        ) as mock_verify:
+        ) as mock_verify, patch(
+            "custom_components.smartly_bridge.views.diagnostics.HomeAssistantRawDiagnosticStore"
+        ) as mock_store:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None
             )
@@ -633,6 +635,7 @@ class TestRawDiagnosticEndpoint:
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
         assert response.status == 200
+        mock_store.assert_not_called()
         assert store.refs == ["raw_light_001"]
         assert json.loads(response.body) == {
             "success": True,

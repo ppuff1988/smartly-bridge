@@ -308,12 +308,15 @@ class TestSmartlySyncView:
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
-        ) as mock_verify:
+        ) as mock_verify, patch(
+            "custom_components.smartly_bridge.views.sync.HomeAssistantSyncGateway"
+        ) as mock_gateway:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
             response = await SmartlySyncView(mock_request).get()
 
         assert response.status == 200
+        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert data["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
@@ -575,12 +578,15 @@ class TestSmartlySyncStatesView:
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
-        ) as mock_verify:
+        ) as mock_verify, patch(
+            "custom_components.smartly_bridge.views.sync.HomeAssistantStateSyncGateway"
+        ) as mock_gateway:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
             response = await SmartlySyncStatesView(mock_request).get()
 
         assert response.status == 200
+        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert data["states"][0]["entity_id"] == "light.runtime"
@@ -600,12 +606,15 @@ class TestSmartlySyncStatesView:
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
-        ) as mock_verify:
+        ) as mock_verify, patch(
+            "custom_components.smartly_bridge.views.sync.HomeAssistantRawDiagnosticStore"
+        ) as mock_store:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
             response = await SmartlySyncStatesView(mock_request).get()
 
         assert response.status == 200
+        mock_store.assert_not_called()
         data = json.loads(response.body)
         raw_ref = "raw_ldev_camera_runtime"
         assert gateway.calls == 1

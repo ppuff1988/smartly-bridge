@@ -54,14 +54,15 @@ class SmartlySyncView(web.View):
     def _sync_structure_gateway(self) -> Any:
         """Return the setup-created sync structure gateway."""
         runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "sync_structure_gateway",
-            HomeAssistantSyncGateway(
+        gateway = runtime_adapters.get("sync_structure_gateway")
+        if gateway is None:
+            gateway = HomeAssistantSyncGateway(
                 self.hass,
                 allowed_entities_fn=get_allowed_entities,
                 structure_fn=get_structure,
-            ),
-        )
+            )
+            runtime_adapters["sync_structure_gateway"] = gateway
+        return gateway
 
     async def get(self) -> web.Response:
         """Handle sync request from Platform."""
@@ -151,21 +152,23 @@ class SmartlySyncStatesView(web.View):
     def _sync_states_gateway(self) -> Any:
         """Return the setup-created sync states gateway."""
         runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "sync_states_gateway",
-            HomeAssistantStateSyncGateway(
+        gateway = runtime_adapters.get("sync_states_gateway")
+        if gateway is None:
+            gateway = HomeAssistantStateSyncGateway(
                 self.hass,
                 allowed_entities_fn=get_allowed_entities,
-            ),
-        )
+            )
+            runtime_adapters["sync_states_gateway"] = gateway
+        return gateway
 
     def _raw_diagnostic_recorder(self) -> Any:
         """Return the setup-created raw diagnostic recorder."""
         runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "raw_diagnostic_store",
-            HomeAssistantRawDiagnosticStore(self.hass),
-        )
+        store = runtime_adapters.get("raw_diagnostic_store")
+        if store is None:
+            store = HomeAssistantRawDiagnosticStore(self.hass)
+            runtime_adapters["raw_diagnostic_store"] = store
+        return store
 
     async def get(self) -> web.Response:
         """Handle sync states request from Platform."""

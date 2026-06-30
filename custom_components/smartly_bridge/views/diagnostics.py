@@ -28,10 +28,11 @@ class SmartlyRawDiagnosticView(BaseView):
     def _raw_diagnostic_store(self) -> Any:
         """Return the setup-created raw diagnostic store."""
         runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        return runtime_adapters.setdefault(
-            "raw_diagnostic_store",
-            HomeAssistantRawDiagnosticStore(self.hass),
-        )
+        store = runtime_adapters.get("raw_diagnostic_store")
+        if store is None:
+            store = HomeAssistantRawDiagnosticStore(self.hass)
+            runtime_adapters["raw_diagnostic_store"] = store
+        return store
 
     async def _authorize(self) -> web.Response | str:
         """Authorize a raw diagnostic request."""
