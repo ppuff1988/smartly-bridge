@@ -667,13 +667,13 @@ class SmartlyHistoryBatchView(web.View):
 
         # Limit batch size
         if len(entity_ids) > HISTORY_MAX_ENTITIES_BATCH:
-            return web.json_response(
-                {
-                    "error": "too_many_entities",
-                    "max_entities": HISTORY_MAX_ENTITIES_BATCH,
-                },
+            result = _history_error_response(
+                "too_many_entities",
                 status=400,
+                target="history.batch.entity_ids",
+                legacy_fields={"max_entities": HISTORY_MAX_ENTITIES_BATCH},
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Check entity access permissions
         from homeassistant.helpers import entity_registry as er
