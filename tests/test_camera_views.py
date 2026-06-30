@@ -540,6 +540,39 @@ class TestSmartlyCameraStreamView:
                     ],
                 }
 
+    @pytest.mark.asyncio
+    async def test_stream_camera_manager_not_initialized(self, mock_request, mock_hass):
+        """Test stream view returns API vNext envelope when manager is missing."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=True,
+            ):
+                view = SmartlyCameraStreamView(mock_request)
+                response = await view.get()
+
+                assert response.status == 500
+                data = json.loads(response.body)
+                assert data == {
+                    "error": "camera_manager_not_initialized",
+                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "CAMERA_MANAGER_NOT_INITIALIZED",
+                            "message": "camera manager not initialized",
+                            "target": "camera.manager",
+                            "retryable": False,
+                        }
+                    ],
+                }
+
 
 class TestSmartlyCameraListView:
     """Tests for SmartlyCameraListView."""
