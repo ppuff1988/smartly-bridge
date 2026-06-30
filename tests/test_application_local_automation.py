@@ -513,6 +513,49 @@ def test_update_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
     }
 
 
+def test_update_rule_persistence_error_matches_api_vnext_fixture() -> None:
+    """Local automation update persistence error remains stable for Platform clients."""
+    existing_rule = LocalAutomationRule(
+        rule_id="rule-left-single",
+        trigger=AutomationTrigger(
+            device_id="ldev_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    store = FakeAutomationRuleStore([existing_rule], fail_update=True)
+
+    result = LocalAutomationRuleUpdateUseCase(store).execute(
+        "rule-left-single",
+        {
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "double_press",
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_off",
+                }
+            ],
+        },
+    )
+
+    assert result.status == 500
+    assert result.body == _fixture("local-automation-update-error.json")
+
+
 def test_delete_rule_removes_existing_rule() -> None:
     """Deleting a local automation rule removes the stored rule."""
     store = FakeAutomationRuleStore(
@@ -623,6 +666,32 @@ def test_delete_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
             }
         ],
     }
+
+
+def test_delete_rule_persistence_error_matches_api_vnext_fixture() -> None:
+    """Local automation delete persistence error remains stable for Platform clients."""
+    existing_rule = LocalAutomationRule(
+        rule_id="rule-left-single",
+        trigger=AutomationTrigger(
+            device_id="ldev_button",
+            capability="button_event",
+            event="single_press",
+        ),
+        actions=[
+            AutomationAction(
+                type="device_command",
+                device_id="ldev_light",
+                capability="power",
+                command="turn_on",
+            )
+        ],
+    )
+    store = FakeAutomationRuleStore([existing_rule], fail_delete=True)
+
+    result = LocalAutomationRuleDeleteUseCase(store).execute("rule-left-single")
+
+    assert result.status == 500
+    assert result.body == _fixture("local-automation-delete-error.json")
 
 
 @pytest.mark.asyncio
