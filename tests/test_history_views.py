@@ -825,6 +825,44 @@ class TestSmartlyHistoryBatchView:
             }
 
     @pytest.mark.asyncio
+    async def test_no_allowed_entities_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test denied batch entities returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.history.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=False,
+            ):
+                view = SmartlyHistoryBatchView(mock_request)
+                response = await view.post()
+
+                assert response.status == 403
+                data = json.loads(response.body)
+                assert data == {
+                    "error": "no_allowed_entities",
+                    "schema_version": "2026.06",
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "NO_ALLOWED_ENTITIES",
+                            "message": "no allowed entities",
+                            "target": "history.batch.entity_ids",
+                            "retryable": False,
+                        }
+                    ],
+                }
+
+    @pytest.mark.asyncio
     async def test_successful_batch_query(self, mock_request, mock_hass):
         """Test successful batch history query."""
         mock_state = MagicMock()

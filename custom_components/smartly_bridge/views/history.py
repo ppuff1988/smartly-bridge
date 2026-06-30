@@ -684,10 +684,12 @@ class SmartlyHistoryBatchView(web.View):
         )
 
         if not allowed_entity_ids:
-            return web.json_response(
-                {"error": "no_allowed_entities"},
+            result = _history_error_response(
+                "no_allowed_entities",
                 status=403,
+                target="history.batch.entity_ids",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Parse time parameters
         time_result = self._parse_time_range(body)
