@@ -115,7 +115,20 @@ class TestSmartlyCameraSnapshotView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data["error"] == "invalid_signature"
+            assert data == {
+                "error": "invalid_signature",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "INVALID_SIGNATURE",
+                        "message": "invalid signature",
+                        "target": "camera.auth",
+                        "retryable": False,
+                    }
+                ],
+            }
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
