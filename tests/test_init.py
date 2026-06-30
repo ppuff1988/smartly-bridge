@@ -82,6 +82,7 @@ class TestSetup:
             HomeAssistantSmartlyCommandExecutor,
             InMemoryDeviceEventDeduplicator,
         )
+        from custom_components.smartly_bridge.application.control import ControlUseCase
         from custom_components.smartly_bridge.auth import NonceCache
         from custom_components.smartly_bridge.camera import CameraManager
         from custom_components.smartly_bridge.push import StatePushManager
@@ -99,6 +100,10 @@ class TestSetup:
             await async_setup_entry(mock_hass, mock_config_entry)
 
         runtime_adapters = mock_hass.data[DOMAIN]["runtime_adapters"]
+        assert isinstance(
+            runtime_adapters["control_use_case"],
+            ControlUseCase,
+        )
         assert isinstance(
             runtime_adapters["device_event_publisher"],
             HomeAssistantDeviceEventPublisher,

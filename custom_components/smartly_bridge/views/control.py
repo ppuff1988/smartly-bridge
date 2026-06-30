@@ -138,6 +138,19 @@ class SmartlyControlView(web.View):
             HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
         )
 
+    def _control_use_case(self) -> Any:
+        """Return the setup-created legacy control use case."""
+        integration_data = self.hass.data.setdefault(DOMAIN, {})
+        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+        return runtime_adapters.setdefault(
+            "control_use_case",
+            ControlUseCase(
+                HomeAssistantEntityPolicy(self.hass),
+                HomeAssistantControlGateway(self.hass),
+                LoggingAuditAdapter(_LOGGER),
+            ),
+        )
+
     async def post(self) -> web.Response:
         """Handle control request from Platform."""
         # Get integration data
@@ -218,12 +231,7 @@ class SmartlyControlView(web.View):
             result = control_error_response("missing_required_fields", status=400)
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
-        use_case = ControlUseCase(
-            HomeAssistantEntityPolicy(self.hass),
-            HomeAssistantControlGateway(self.hass),
-            LoggingAuditAdapter(_LOGGER),
-        )
-        result = await use_case.execute(
+        result = await self._control_use_case().execute(
             auth_result.client_id or "unknown",
             ControlCommand(
                 entity_id=entity_id,

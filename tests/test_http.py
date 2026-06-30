@@ -9,7 +9,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.application.control import SmartlyCommand
+from custom_components.smartly_bridge.application.control import ControlCommand, SmartlyCommand
 from custom_components.smartly_bridge.const import (
     API_PATH_CONTROL,
     API_PATH_DEVICE_EVENTS,
@@ -51,6 +51,32 @@ class FakeSmartlyCommandExecutor:
                 "data": {
                     "command_id": command.command_id,
                     "status": "completed",
+                },
+                "warnings": [],
+                "errors": [],
+            }
+        )
+
+
+class FakeControlUseCase:
+    """Legacy ControlCommand use case used to verify runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, ControlCommand]] = []
+
+    async def execute(self, client_id: str, command: ControlCommand) -> BridgeResponse:
+        """Record and accept a legacy control command."""
+        self.calls.append((client_id, command))
+        return BridgeResponse(
+            {
+                "success": True,
+                "schema_version": "2026.06",
+                "entity_id": command.entity_id,
+                "action": command.action,
+                "service_data": command.service_data,
+                "data": {
+                    "entity_id": command.entity_id,
+                    "action": command.action,
                 },
                 "warnings": [],
                 "errors": [],
@@ -1067,6 +1093,61 @@ class TestControlEndpointFullFlow:
         )
 
         await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_legacy_command_uses_setup_runtime_use_case(
+        self, mock_hass, mock_config_entry
+    ):
+        """Legacy entity/action control path executes through setup-created use case."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        use_case = FakeControlUseCase()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {
+                "control_use_case": use_case,
+            },
+        }
+        body = {
+            "entity_id": "light.kitchen",
+            "action": "turn_on",
+            "service_data": {"brightness_pct": 50},
+            "actor": {"source": "legacy-test"},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.control.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True, client_id="test_client", error=None
+            )
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        assert use_case.calls == [
+            (
+                "test_client",
+                ControlCommand(
+                    entity_id="light.kitchen",
+                    action="turn_on",
+                    service_data={"brightness_pct": 50},
+                    actor={"source": "legacy-test"},
+                ),
+            )
+        ]
 
     @pytest.mark.asyncio
     async def test_control_vnext_command_uses_setup_runtime_executor(

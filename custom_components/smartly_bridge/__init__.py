@@ -55,11 +55,15 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Platform Bridge from a config entry."""
     from .adapters.home_assistant import (
+        HomeAssistantControlGateway,
         HomeAssistantDeviceEventPublisher,
+        HomeAssistantEntityPolicy,
         HomeAssistantLocalAutomationRuleStore,
         HomeAssistantSmartlyCommandExecutor,
         InMemoryDeviceEventDeduplicator,
+        LoggingAuditAdapter,
     )
+    from .application.control import ControlUseCase
     from .auth import NonceCache, RateLimiter
     from .camera import CameraManager
     from .push import StatePushManager
@@ -89,6 +93,11 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     await webrtc_manager.start()
 
     runtime_adapters = {
+        "control_use_case": ControlUseCase(
+            HomeAssistantEntityPolicy(hass),
+            HomeAssistantControlGateway(hass),
+            LoggingAuditAdapter(_LOGGER),
+        ),
         "device_event_publisher": HomeAssistantDeviceEventPublisher(hass),
         "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
         "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
