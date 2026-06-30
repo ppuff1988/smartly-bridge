@@ -145,6 +145,33 @@ class TestSmartlyHistoryView:
         assert data["error"] == "client_secret_not_configured"
 
     @pytest.mark.asyncio
+    async def test_client_secret_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test missing client secret failure returns API vNext envelope."""
+        mock_hass.data[DOMAIN]["config_entry"].data = {"allowed_cidrs": ""}
+
+        view = SmartlyHistoryView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "client_secret_not_configured",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "CLIENT_SECRET_NOT_CONFIGURED",
+                    "message": "client secret not configured",
+                    "target": "history.config",
+                    "retryable": False,
+                }
+            ],
+        }
+
+    @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
         """Test authentication failure."""
         with patch(

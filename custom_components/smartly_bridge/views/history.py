@@ -362,10 +362,12 @@ class SmartlyHistoryView(web.View):
             return web.json_response(result.body, status=result.status, headers=result.headers)
 
         if not data.get(CONF_CLIENT_SECRET):
-            return web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="history.config",
             )
+            return web.json_response(result.body, status=result.status, headers=result.headers)
 
         # Verify authentication and rate limit
         auth_result, error_response = await self._verify_auth_and_rate_limit(data)
