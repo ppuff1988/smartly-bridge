@@ -1094,6 +1094,44 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_ice_view_webrtc_not_available_returns_envelope(
+        self, mock_hass_with_webrtc
+    ):
+        """Test ICE request returns API vNext envelope when WebRTC manager is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        mock_hass_with_webrtc.data[DOMAIN].pop("webrtc_manager")
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={
+                "session_id": "test-session",
+                "candidate": {"candidate": "candidate:1"},
+            }
+        )
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "webrtc_not_available",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "WEBRTC_NOT_AVAILABLE",
+                    "message": "webrtc not available",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests
