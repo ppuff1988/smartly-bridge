@@ -616,6 +616,38 @@ async def test_smartly_command_success_response_includes_vnext_envelope() -> Non
     }
 
 
+@pytest.mark.asyncio
+async def test_smartly_command_success_matches_api_vnext_fixture() -> None:
+    """Command success full response remains stable for legacy and vNext clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "command-success.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 204},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-fixture-success",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 80},
+        ),
+    )
+
+    assert result.body == expected_body
+
+
 @pytest.mark.parametrize(
     ("command_name", "delta", "expected_step"),
     [
@@ -1685,6 +1717,30 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
         "source_entity_id": "light.kitchen",
         "expected_state": {},
     }
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_error_matches_api_vnext_fixture() -> None:
+    """Command error full response remains stable for legacy and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "command-error.json"
+    expected_body = json.loads(fixture_path.read_text())
+    audit = FakeAudit()
+    gateway = FakeControlGateway()
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-fixture-error",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 150},
+        ),
+    )
+
+    assert result.body == expected_body
 
 
 @pytest.mark.asyncio

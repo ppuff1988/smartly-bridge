@@ -1,0 +1,36 @@
+{
+  "success": true,
+  "schema_version": "2026.06",
+  "command_id": "cmd-fixture-success",
+  "status": "completed",
+  "device_id": "ldev_light_kitchen",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "entity_id": "light.kitchen",
+  "expected_state": {
+    "brightness": {
+      "value": 80,
+      "unit": "percent"
+    }
+  },
+  "new_state": "on",
+  "new_attributes": {
+    "brightness": 204
+  },
+  "data": {
+    "command_id": "cmd-fixture-success",
+    "status": "completed",
+    "device_id": "ldev_light_kitchen",
+    "capability": "brightness",
+    "command": "set_brightness",
+    "expected_state": {
+      "brightness": {
+        "value": 80,
+        "unit": "percent"
+      }
+    },
+    "source_entity_id": "light.kitchen"
+  },
+  "warnings": [],
+  "errors": []
+}
