@@ -245,9 +245,11 @@ class SmartlyWebRTCOfferView(BaseView):
 
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
+            result = _webrtc_error_response("invalid_entity_id", status=400)
             return web.json_response(
-                {"error": "invalid_entity_id"},
-                status=400,
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Parse request body
