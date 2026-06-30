@@ -14,6 +14,7 @@ from custom_components.smartly_bridge.const import (
     DOMAIN,
     HISTORY_MAX_DURATION_DAYS,
     HISTORY_MAX_ENTITIES_BATCH,
+    RATE_WINDOW,
 )
 from custom_components.smartly_bridge.views.history import (
     SmartlyHistoryBatchView,
@@ -218,7 +219,7 @@ class TestSmartlyHistoryView:
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
-        """Test rate limiting."""
+        """Test rate limiting returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.history.verify_request",
             new_callable=AsyncMock,
@@ -232,8 +233,23 @@ class TestSmartlyHistoryView:
             response = await view.get()
 
             assert response.status == 429
+            assert response.headers["Retry-After"] == str(RATE_WINDOW)
+            assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
-            assert data["error"] == "rate_limited"
+            assert data == {
+                "error": "rate_limited",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "RATE_LIMITED",
+                        "message": "rate limited",
+                        "target": "history.rate_limit",
+                        "retryable": False,
+                    }
+                ],
+            }
 
     @pytest.mark.asyncio
     async def test_entity_id_required(self, mock_request, mock_hass):
