@@ -842,6 +842,37 @@ class TestWebRTCViews:
             ],
         }
 
+    @pytest.mark.asyncio
+    async def test_offer_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope with invalid JSON."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == {
+            "error": "invalid_json",
+            "message": "Request body must be valid JSON",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_JSON",
+                    "message": "invalid json",
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        }
+
 
 # ============================================================================
 # Integration Tests

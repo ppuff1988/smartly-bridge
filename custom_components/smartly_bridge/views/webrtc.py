@@ -256,9 +256,15 @@ class SmartlyWebRTCOfferView(BaseView):
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "invalid_json", "message": "Request body must be valid JSON"},
+            result = _webrtc_error_response(
+                "invalid_json",
                 status=400,
+                legacy_fields={"message": "Request body must be valid JSON"},
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         token_str = body.get("token")
