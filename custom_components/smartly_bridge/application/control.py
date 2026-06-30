@@ -474,10 +474,19 @@ def _has_valid_source_setting_params(
             return False
         minimum = attributes.get("min")
         maximum = attributes.get("max")
+        step = attributes.get("step")
         if isinstance(minimum, (int, float)) and value < minimum:
             return False
         if isinstance(maximum, (int, float)) and value > maximum:
             return False
+        if (
+            isinstance(minimum, (int, float))
+            and isinstance(step, (int, float))
+            and step > 0
+        ):
+            offset = (float(value) - float(minimum)) / float(step)
+            if abs(offset - round(offset)) > 1e-9:
+                return False
     if command.capability == "option_setting" and command.command == "select_option":
         option = command.params.get("option")
         options = attributes.get("options")

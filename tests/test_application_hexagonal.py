@@ -1455,6 +1455,53 @@ async def test_smartly_command_use_case_rejects_numeric_setting_outside_range() 
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_numeric_setting_invalid_step() -> None:
+    """Numeric setting commands honor source number step constraints."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="number.presence_detection_delay",
+            state="1.5",
+            attributes={"min": 1, "max": 120, "step": 0.5, "unit_of_measurement": "s"},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_zigbee_presence_1", "numeric_setting"): "number.presence_detection_delay"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-delay-invalid-step",
+            device_id="ldev_zigbee_presence_1",
+            capability="numeric_setting",
+            command="set_value",
+            params={"value": 1.25},
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["error"] == "invalid_params"
+    assert result.body["expected_state"] == {}
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "number.presence_detection_delay",
+            "set_value",
+            "invalid_params",
+            {
+                "command_id": "cmd-setting-delay-invalid-step",
+                "logical_device_id": "ldev_zigbee_presence_1",
+                "capability": "numeric_setting",
+                "source_entity_id": "number.presence_detection_delay",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_passes_setting_key_to_target_resolver() -> None:
     """Setting command params are available to resolver-specific target selection."""
     audit = FakeAudit()
