@@ -8,6 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+from custom_components.smartly_bridge.application.local_automation import (
+    AutomationAction,
+    AutomationTrigger,
+    LocalAutomationRule,
+)
 from custom_components.smartly_bridge.const import API_PATH_LOCAL_AUTOMATION_RULES, DOMAIN
 from custom_components.smartly_bridge.views.local_automation import (
     SmartlyLocalAutomationRulesView,
@@ -71,6 +76,48 @@ def _configure_integration(mock_hass: MagicMock) -> None:
     }
 
 
+class FakeLocalAutomationRuleStore:
+    """Rule store used to verify setup-created runtime adapter wiring."""
+
+    def __init__(self) -> None:
+        self.list_calls = 0
+
+    def list_rules(self) -> list[LocalAutomationRule]:
+        """Return configured local automation rules."""
+        self.list_calls += 1
+        return [
+            LocalAutomationRule(
+                rule_id="runtime-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_runtime_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_runtime_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+
+    def create_rule(self, rule: LocalAutomationRule) -> bool:
+        """Persist a new rule."""
+        return True
+
+    def update_rule(self, rule: LocalAutomationRule) -> bool:
+        """Replace a rule."""
+        return True
+
+    def delete_rule(self, rule_id: str) -> bool:
+        """Delete a rule."""
+        return True
+
+
 @pytest.mark.asyncio
 async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
     """GET local automation rules returns stored canonical rules."""
@@ -121,6 +168,36 @@ async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
         "warnings": [],
         "errors": [],
     }
+
+
+@pytest.mark.asyncio
+async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
+    mock_hass,
+) -> None:
+    """GET local automation rules reads through setup-created runtime adapters."""
+    _configure_integration(mock_hass)
+    store = FakeLocalAutomationRuleStore()
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {
+        "local_automation_rule_store": store,
+    }
+    request = _request_for_rules(mock_hass)
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).get()
+
+    assert response.status == 200
+    payload = json.loads(response.body)
+    assert store.list_calls == 1
+    assert payload["rules"][0]["rule_id"] == "runtime-left-single"
+    assert payload["rules"][0]["trigger"]["device_id"] == "ldev_runtime_button"
 
 
 @pytest.mark.asyncio

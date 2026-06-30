@@ -36,6 +36,15 @@ _LOGGER = logging.getLogger(__name__)
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
+    def _rule_store(self) -> Any:
+        """Return the setup-created local automation rule store."""
+        integration_data = self.hass.data.setdefault(DOMAIN, {})
+        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+        return runtime_adapters.setdefault(
+            "local_automation_rule_store",
+            HomeAssistantLocalAutomationRuleStore(self.hass),
+        )
+
     async def _authorize(self, service: str) -> web.Response | str:
         """Authorize a local automation rule management request."""
         data = self._get_integration_data()
@@ -116,9 +125,7 @@ class SmartlyLocalAutomationRulesView(BaseView):
         auth = await self._authorize("local_automation_rules")
         if isinstance(auth, web.Response):
             return auth
-        result = LocalAutomationRulesListUseCase(
-            HomeAssistantLocalAutomationRuleStore(self.hass)
-        ).execute()
+        result = LocalAutomationRulesListUseCase(self._rule_store()).execute()
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
     async def post(self) -> web.Response:
@@ -129,9 +136,7 @@ class SmartlyLocalAutomationRulesView(BaseView):
         payload = await self._json_payload()
         if isinstance(payload, web.Response):
             return payload
-        result = LocalAutomationRuleCreateUseCase(
-            HomeAssistantLocalAutomationRuleStore(self.hass)
-        ).execute(payload)
+        result = LocalAutomationRuleCreateUseCase(self._rule_store()).execute(payload)
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
     async def put(self) -> web.Response:
@@ -143,9 +148,10 @@ class SmartlyLocalAutomationRulesView(BaseView):
         if isinstance(payload, web.Response):
             return payload
         rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
-        result = LocalAutomationRuleUpdateUseCase(
-            HomeAssistantLocalAutomationRuleStore(self.hass)
-        ).execute(rule_id if isinstance(rule_id, str) else "", payload)
+        result = LocalAutomationRuleUpdateUseCase(self._rule_store()).execute(
+            rule_id if isinstance(rule_id, str) else "",
+            payload,
+        )
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
     async def delete(self) -> web.Response:
@@ -157,9 +163,9 @@ class SmartlyLocalAutomationRulesView(BaseView):
         if isinstance(payload, web.Response):
             return payload
         rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
-        result = LocalAutomationRuleDeleteUseCase(
-            HomeAssistantLocalAutomationRuleStore(self.hass)
-        ).execute(rule_id if isinstance(rule_id, str) else "")
+        result = LocalAutomationRuleDeleteUseCase(self._rule_store()).execute(
+            rule_id if isinstance(rule_id, str) else ""
+        )
         return web.json_response(result.body, status=result.status, headers=result.headers)
 
     async def _json_payload(self) -> dict[str, Any] | web.Response:
