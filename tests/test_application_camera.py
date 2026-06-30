@@ -504,6 +504,15 @@ async def test_camera_hls_info_response_includes_vnext_envelope() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_info_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS info full response remains stable for legacy and vNext clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "info")
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-hls-info.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_info_not_found_response_includes_vnext_envelope() -> None:
     """HLS info not-found responses expose API vNext envelope fields."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "info")
@@ -537,6 +546,15 @@ async def test_camera_hls_stats_response_includes_vnext_envelope() -> None:
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_stats_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS stats full response remains stable for legacy and vNext clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stats")
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-hls-stats.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_stop_success_response_includes_vnext_envelope() -> None:
     """HLS stop success responses expose API vNext envelope fields."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stop")
@@ -551,6 +569,15 @@ async def test_camera_hls_stop_success_response_includes_vnext_envelope() -> Non
 
 
 @pytest.mark.asyncio
+async def test_camera_hls_stop_success_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS stop success full response remains stable for legacy and vNext clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stop")
+
+    assert result.status == 200
+    assert result.body == _fixture("camera-hls-stop.json")
+
+
+@pytest.mark.asyncio
 async def test_camera_hls_stop_not_found_response_includes_vnext_envelope() -> None:
     """HLS stop not-found responses expose API vNext envelope fields."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "stop")
@@ -562,6 +589,15 @@ async def test_camera_hls_stop_not_found_response_includes_vnext_envelope() -> N
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
     assert result.body["data"] == {"success": False, "action": "stopped"}
+
+
+@pytest.mark.asyncio
+async def test_camera_hls_stop_not_found_response_matches_api_vnext_fixture() -> None:
+    """Camera HLS stop 404 full response remains stable for legacy and vNext clients."""
+    result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "stop")
+
+    assert result.status == 404
+    assert result.body == _fixture("camera-hls-stop-not-found.json")
 
 
 @pytest.mark.asyncio
