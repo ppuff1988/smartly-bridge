@@ -766,6 +766,19 @@ async def test_camera_snapshot_use_case_returns_unavailable_for_missing_snapshot
     ]
 
 
+@pytest.mark.asyncio
+async def test_camera_snapshot_unavailable_matches_api_vnext_fixture() -> None:
+    """Camera snapshot unavailable response remains stable for legacy and vNext clients."""
+    result = await CameraSnapshotUseCase(FakeCameraGateway()).execute(
+        "camera.missing",
+        force_refresh=False,
+        if_none_match=None,
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("camera-snapshot-unavailable.json")
+
+
 def test_camera_stream_use_case_returns_mjpeg_headers() -> None:
     """Stream use case owns the MJPEG response header contract."""
     result = CameraStreamUseCase().execute()
