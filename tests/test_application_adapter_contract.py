@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from custom_components.smartly_bridge.application.adapter_contract import (
     validate_adapter_manifest,
+    validate_adapter_manifest_set,
 )
 
 
@@ -105,3 +106,39 @@ def test_adapter_manifest_rejects_missing_contract_versions() -> None:
             "message": "Missing required contract version: device_abstraction",
         }
     ]
+
+
+def test_adapter_manifest_set_rejects_match_priority_collisions() -> None:
+    """Overlapping adapter scopes must not share the same match priority."""
+    first = _valid_manifest()
+    second = _valid_manifest()
+    second["id"] = "home_assistant.light.generic"
+    second["name"] = "Home Assistant Generic Light Adapter"
+
+    result = validate_adapter_manifest_set([first, second])
+
+    assert result.is_valid is False
+    assert result.errors == [
+        {
+            "code": "MATCH_PRIORITY_COLLISION",
+            "path": "manifests[1].match_priority",
+            "message": (
+                "Match priority collides with home_assistant.light for "
+                "source home_assistant and domain light."
+            ),
+        }
+    ]
+
+
+def test_adapter_manifest_set_allows_distinct_match_priority_scopes() -> None:
+    """The same match priority is allowed when adapter scopes do not overlap."""
+    first = _valid_manifest()
+    second = _valid_manifest()
+    second["id"] = "home_assistant.switch"
+    second["name"] = "Home Assistant Switch Adapter"
+    second["supported_domains"] = ["switch"]
+
+    result = validate_adapter_manifest_set([first, second])
+
+    assert result.is_valid is True
+    assert result.errors == []

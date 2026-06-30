@@ -136,6 +136,53 @@ def validate_adapter_manifest(manifest: dict[str, Any]) -> AdapterManifestValida
     return AdapterManifestValidationResult(errors)
 
 
+def validate_adapter_manifest_set(
+    manifests: list[dict[str, Any]],
+) -> AdapterManifestValidationResult:
+    """Validate a set of adapter manifests for cross-adapter contract conflicts."""
+    errors: list[dict[str, str]] = []
+    valid_manifest_indexes: list[int] = []
+
+    for index, manifest in enumerate(manifests):
+        result = validate_adapter_manifest(manifest)
+        if result.errors:
+            errors.extend(_prefix_errors(result.errors, f"manifests[{index}]"))
+        else:
+            valid_manifest_indexes.append(index)
+
+    for current_position, current_index in enumerate(valid_manifest_indexes):
+        current = manifests[current_index]
+        for previous_index in valid_manifest_indexes[:current_position]:
+            previous = manifests[previous_index]
+            if (
+                previous["adapter_type"] != current["adapter_type"]
+                or previous["match_priority"] != current["match_priority"]
+            ):
+                continue
+
+            shared_sources = sorted(
+                set(previous["supported_sources"]) & set(current["supported_sources"])
+            )
+            shared_domains = sorted(
+                set(previous["supported_domains"]) & set(current["supported_domains"])
+            )
+            if not shared_sources or not shared_domains:
+                continue
+
+            errors.append(
+                _error(
+                    "MATCH_PRIORITY_COLLISION",
+                    f"manifests[{current_index}].match_priority",
+                    (
+                        f"Match priority collides with {previous['id']} for "
+                        f"source {shared_sources[0]} and domain {shared_domains[0]}."
+                    ),
+                )
+            )
+
+    return AdapterManifestValidationResult(errors)
+
+
 def _validate_required_string(
     manifest: dict[str, Any],
     key: str,
@@ -232,3 +279,13 @@ def _validate_permissions(
 
 def _error(code: str, path: str, message: str) -> dict[str, str]:
     return {"code": code, "path": path, "message": message}
+
+
+def _prefix_errors(errors: list[dict[str, str]], prefix: str) -> list[dict[str, str]]:
+    return [
+        {
+            **error,
+            "path": f"{prefix}.{error['path']}",
+        }
+        for error in errors
+    ]
