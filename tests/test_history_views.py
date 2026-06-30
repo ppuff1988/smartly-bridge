@@ -253,7 +253,7 @@ class TestSmartlyHistoryView:
 
     @pytest.mark.asyncio
     async def test_entity_id_required(self, mock_request, mock_hass):
-        """Test error when entity_id is missing."""
+        """Test missing entity_id returns API vNext envelope."""
         mock_request.match_info = {}
 
         with patch(
@@ -270,7 +270,20 @@ class TestSmartlyHistoryView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "entity_id_required"
+            assert data == {
+                "error": "entity_id_required",
+                "schema_version": "2026.06",
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "ENTITY_ID_REQUIRED",
+                        "message": "entity id required",
+                        "target": "history.entity_id",
+                        "retryable": False,
+                    }
+                ],
+            }
 
     @pytest.mark.asyncio
     async def test_entity_not_allowed(self, mock_request, mock_hass):
