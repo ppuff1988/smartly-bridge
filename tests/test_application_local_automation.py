@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import json
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -142,6 +144,39 @@ def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:
     }
 
 
+def test_list_rules_response_matches_api_vnext_fixture() -> None:
+    """Local automation list full response remains stable for Platform editor clients."""
+    fixture_path = (
+        Path(__file__).parent / "fixtures" / "api-vnext" / "local-automation-list.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    store = FakeAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="stored-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+
+    result = LocalAutomationRulesListUseCase(store).execute()
+
+    assert result.body == expected_body
+
+
 def test_create_rule_persists_canonical_rule_payload() -> None:
     """Creating a local automation rule persists canonical trigger/action config."""
     store = FakeAutomationRuleStore([])
@@ -235,6 +270,39 @@ def test_create_rule_rejects_when_store_cannot_persist() -> None:
             }
         ],
     }
+
+
+def test_create_rule_persistence_error_matches_api_vnext_fixture() -> None:
+    """Local automation create error response remains stable for Platform clients."""
+    fixture_path = (
+        Path(__file__).parent
+        / "fixtures"
+        / "api-vnext"
+        / "local-automation-create-error.json"
+    )
+    expected_body = json.loads(fixture_path.read_text())
+    store = FakeAutomationRuleStore([], fail_create=True)
+
+    result = LocalAutomationRuleCreateUseCase(store).execute(
+        {
+            "rule_id": "rule-left-single",
+            "trigger": {
+                "device_id": "ldev_button",
+                "capability": "button_event",
+                "event": "single_press",
+            },
+            "actions": [
+                {
+                    "type": "device_command",
+                    "device_id": "ldev_light",
+                    "capability": "power",
+                    "command": "turn_on",
+                }
+            ],
+        }
+    )
+
+    assert result.body == expected_body
 
 
 def test_update_rule_replaces_existing_canonical_rule() -> None:
