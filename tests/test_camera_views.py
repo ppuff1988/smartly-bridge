@@ -939,6 +939,38 @@ class TestSmartlyCameraConfigView:
             }
 
     @pytest.mark.asyncio
+    async def test_config_camera_manager_not_initialized(self, mock_request, mock_hass):
+        """Test config view returns API vNext envelope without camera manager."""
+        mock_hass.data[DOMAIN]["camera_manager"] = None
+        mock_request.json = AsyncMock(return_value={"action": "list"})
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            view = SmartlyCameraConfigView(mock_request)
+            response = await view.post()
+
+            assert response.status == 500
+            data = json.loads(response.body)
+            assert data == {
+                "error": "camera_manager_not_initialized",
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "CAMERA_MANAGER_NOT_INITIALIZED",
+                        "message": "camera manager not initialized",
+                        "target": "camera.manager",
+                        "retryable": False,
+                    }
+                ],
+            }
+
+    @pytest.mark.asyncio
     async def test_config_register_camera(self, mock_request, mock_hass):
         """Test registering a camera."""
         mock_request.json = AsyncMock(

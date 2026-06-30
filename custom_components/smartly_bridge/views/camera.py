@@ -598,9 +598,15 @@ class SmartlyCameraConfigView(BaseView):
         # Get camera manager
         camera_manager = self.hass.data[DOMAIN].get("camera_manager")
         if camera_manager is None:
-            return web.json_response(
-                {"error": "camera_manager_not_initialized"},
+            result = _camera_error_response(
+                "camera_manager_not_initialized",
                 status=500,
+                target="camera.manager",
+            )
+            return web.json_response(
+                result.body,
+                status=result.status,
+                headers=result.headers,
             )
 
         result = await CameraConfigUseCase(
