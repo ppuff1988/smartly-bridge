@@ -25,6 +25,7 @@ from custom_components.smartly_bridge.views.camera import (
     _authorize_camera_request,
     _parse_camera_config_command,
     _parse_camera_hls_action,
+    _parse_camera_list_options,
     _parse_camera_snapshot_options,
     _require_camera_manager,
     _resolve_camera_gateway,
@@ -1151,10 +1152,25 @@ class TestSmartlyCameraListView:
         request = MagicMock()
         request.app = {"hass": mock_hass}
         request.headers = {"X-Client-Id": "test_client"}
+        request.query = {}
         request.transport = MagicMock()
         request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         request.read = AsyncMock(return_value=b"")
         return request
+
+    def test_parse_camera_list_options_defaults_to_summary(self, mock_request):
+        """Camera list options parser defaults to summary responses."""
+        result = _parse_camera_list_options(mock_request)
+
+        assert result.include_capabilities is False
+
+    def test_parse_camera_list_options_enables_capabilities(self, mock_request):
+        """Camera list options parser adapts legacy capabilities query flag."""
+        mock_request.query = {"capabilities": "true"}
+
+        result = _parse_camera_list_options(mock_request)
+
+        assert result.include_capabilities is True
 
     @pytest.mark.asyncio
     async def test_list_integration_not_configured(self, mock_request, mock_hass):

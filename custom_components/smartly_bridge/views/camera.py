@@ -131,6 +131,13 @@ class CameraSnapshotRequestOptions:
     if_none_match: str | None = None
 
 
+@dataclass(frozen=True)
+class CameraListRequestOptions:
+    """Request options adapted for the camera list application use case."""
+
+    include_capabilities: bool = False
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -377,6 +384,13 @@ def _parse_camera_snapshot_options(request: web.Request) -> CameraSnapshotReques
     )
 
 
+def _parse_camera_list_options(request: web.Request) -> CameraListRequestOptions:
+    """Return camera list request options expected by the application use case."""
+    return CameraListRequestOptions(
+        include_capabilities=request.query.get("capabilities", "").lower() == "true"
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -544,11 +558,9 @@ class SmartlyCameraListView(BaseView):
         if gateway_resolution.response is not None:
             return gateway_resolution.response
 
-        # Check if detailed capabilities requested
-        include_capabilities = self.request.query.get("capabilities", "").lower() == "true"
-
+        options = _parse_camera_list_options(self.request)
         result = await CameraListUseCase(gateway_resolution.gateway).execute(
-            include_capabilities=include_capabilities
+            include_capabilities=options.include_capabilities
         )
         return _json_response(
             result.body,
