@@ -407,21 +407,36 @@ def _local_automation_rule_to_config(rule: LocalAutomationRule) -> dict[str, Any
     }
 
 
+def _smartly_command_use_case(hass: Any, logger: Any) -> SmartlyCommandUseCase:
+    """Build the Home Assistant-backed canonical command use case."""
+    return SmartlyCommandUseCase(
+        HomeAssistantEntityPolicy(hass),
+        HomeAssistantControlGateway(hass),
+        LoggingAuditAdapter(logger),
+        HomeAssistantCommandTargetResolver(hass),
+    )
+
+
 class HomeAssistantSmartlyCommandExecutor:
     """SmartlyCommand executor backed by Home Assistant control adapters."""
 
-    def __init__(self, hass: Any, logger: Any) -> None:
+    def __init__(
+        self,
+        hass: Any,
+        logger: Any,
+        *,
+        use_case_factory: Callable[[Any, Any], Any] = _smartly_command_use_case,
+    ) -> None:
         self._hass = hass
         self._logger = logger
+        self._use_case_factory = use_case_factory
 
     async def execute(self, client_id: str, command: SmartlyCommand) -> Any:
         """Execute a canonical Smartly command through Home Assistant."""
-        return await SmartlyCommandUseCase(
-            HomeAssistantEntityPolicy(self._hass),
-            HomeAssistantControlGateway(self._hass),
-            LoggingAuditAdapter(self._logger),
-            HomeAssistantCommandTargetResolver(self._hass),
-        ).execute(client_id, command)
+        return await self._use_case_factory(self._hass, self._logger).execute(
+            client_id,
+            command,
+        )
 
 
 class HomeAssistantEntityPolicy:
