@@ -11,7 +11,7 @@ from typing import TYPE_CHECKING, Any, Callable
 import aiohttp
 
 from .acl import get_allowed_entities
-from .adapters.home_assistant import HomeAssistantHistoryGateway
+from .adapters.home_assistant import _home_assistant_history_gateway
 from .audit import log_push_fail, log_push_success
 from .auth import sign_outgoing_request
 from .const import (
@@ -61,10 +61,10 @@ def _push_history_gateway(hass: HomeAssistant, semaphore_factory: Callable[[], A
         runtime_adapters = integration_data.setdefault("runtime_adapters", {})
         history_gateway = runtime_adapters.get("history_gateway")
         if history_gateway is None:
-            history_gateway = HomeAssistantHistoryGateway(hass, semaphore_factory)
+            history_gateway = _home_assistant_history_gateway(hass, semaphore_factory)
             runtime_adapters["history_gateway"] = history_gateway
         return history_gateway
-    return HomeAssistantHistoryGateway(hass, semaphore_factory)
+    return _home_assistant_history_gateway(hass, semaphore_factory)
 
 
 class StatePushManager:

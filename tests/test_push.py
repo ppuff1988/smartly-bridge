@@ -45,7 +45,7 @@ class TestStatePushManager:
         }
 
         with patch(
-            "custom_components.smartly_bridge.push.HomeAssistantHistoryGateway"
+            "custom_components.smartly_bridge.push._home_assistant_history_gateway"
         ) as mock_gateway:
             result = _push_history_gateway(mock_hass, MagicMock())
 
@@ -358,7 +358,7 @@ class TestStatePushManager:
         fallback_gateway = MagicMock()
         fallback_gateway.query_states = AsyncMock(return_value=[])
         with patch(
-            "custom_components.smartly_bridge.push.HomeAssistantHistoryGateway",
+            "custom_components.smartly_bridge.push._home_assistant_history_gateway",
             return_value=fallback_gateway,
         ) as gateway:
             await push_manager._queue_event("sensor.temperature", None, mock_new_state)

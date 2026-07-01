@@ -21,6 +21,10 @@ from custom_components.smartly_bridge.application.history import (
     SingleHistoryQuery,
     StatisticsQuery,
 )
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantHistoryGateway,
+    _home_assistant_history_gateway,
+)
 from custom_components.smartly_bridge.views.history import (
     SmartlyHistoryBatchView,
     SmartlyHistoryView,
@@ -107,6 +111,13 @@ class FakeRuntimeHistoryGateway:
         ]
 
 
+def test_home_assistant_history_gateway_factory_builds_legacy_gateway(mock_hass) -> None:
+    """Home Assistant history gateway factory preserves the legacy gateway type."""
+    gateway = _home_assistant_history_gateway(mock_hass, MagicMock())
+
+    assert isinstance(gateway, HomeAssistantHistoryGateway)
+
+
 def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     """History read gateway resolver returns the setup-created runtime port."""
     from custom_components.smartly_bridge.views.history import _history_read_gateway
@@ -117,7 +128,7 @@ def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway"
+        "custom_components.smartly_bridge.views.history._home_assistant_history_gateway"
     ) as mock_gateway:
         result = _history_read_gateway(mock_hass)
 
@@ -611,7 +622,7 @@ class TestSmartlyHistoryView:
                 return_value=True,
             ),
             patch(
-                "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway",
+                "custom_components.smartly_bridge.views.history._home_assistant_history_gateway",
             ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
@@ -1189,7 +1200,7 @@ class TestSmartlyHistoryBatchView:
                 return_value=True,
             ),
             patch(
-                "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway",
+                "custom_components.smartly_bridge.views.history._home_assistant_history_gateway",
             ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
@@ -1632,7 +1643,7 @@ class TestSmartlyStatisticsView:
                 return_value=True,
             ),
             patch(
-                "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway",
+                "custom_components.smartly_bridge.views.history._home_assistant_history_gateway",
             ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")

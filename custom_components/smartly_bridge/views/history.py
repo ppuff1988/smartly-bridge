@@ -18,7 +18,7 @@ from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.util import dt as dt_util
 
 from ..acl import is_entity_allowed
-from ..adapters.home_assistant import HomeAssistantHistoryGateway
+from ..adapters.home_assistant import _home_assistant_history_gateway
 from ..application.history import (
     BatchHistoryQuery,
     BatchHistoryUseCase,
@@ -73,7 +73,7 @@ def _history_read_gateway(hass: HomeAssistant) -> Any:
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("history_gateway")
     if gateway is None:
-        gateway = HomeAssistantHistoryGateway(hass, _get_history_semaphore)
+        gateway = _home_assistant_history_gateway(hass, _get_history_semaphore)
         runtime_adapters["history_gateway"] = gateway
     return gateway
 

@@ -441,12 +441,20 @@ def _smartly_command_use_case(hass: Any, logger: Any) -> SmartlyCommandUseCase:
     )
 
 
+def _home_assistant_history_gateway(
+    hass: Any,
+    history_semaphore_factory: Callable[[], Any],
+) -> Any:
+    """Build the Home Assistant-backed legacy history gateway."""
+    return HomeAssistantHistoryGateway(hass, history_semaphore_factory)
+
+
 def _state_sync_history_gateway(
     hass: Any,
     history_semaphore_factory: Callable[[], Any],
 ) -> Any:
     """Build the Home Assistant-backed history gateway for state sync charts."""
-    return HomeAssistantHistoryGateway(hass, history_semaphore_factory)
+    return _home_assistant_history_gateway(hass, history_semaphore_factory)
 
 
 class HomeAssistantSmartlyCommandExecutor:
