@@ -222,6 +222,22 @@ class TestSmartlyCameraSnapshotView:
         }
 
     @pytest.mark.asyncio
+    async def test_snapshot_integration_not_configured_matches_api_vnext_fixture(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Snapshot integration error response remains stable for legacy and vNext clients."""
+        mock_hass.data = {}
+
+        response = await SmartlyCameraSnapshotView(mock_request).get()
+
+        assert response.status == 500
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "camera-snapshot-integration-not-configured.json"
+        )
+
+    @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request, mock_hass):
         """Test authentication failure."""
         with patch(
