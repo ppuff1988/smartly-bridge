@@ -12,10 +12,8 @@ from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
     DEVICE_EVENT_TYPE,
-    _home_assistant_device_event_publisher,
     _home_assistant_local_automation_rule_store,
     _home_assistant_smartly_command_executor,
-    _in_memory_device_event_deduplicator,
 )
 from ..application.device_events import (
     DeviceEventCommand,
@@ -97,31 +95,18 @@ def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
 def _device_event_publisher(
     integration_data: dict[str, Any],
     hass: HomeAssistant,
-    publisher_factory: Callable[[Any], Any] = _home_assistant_device_event_publisher,
-) -> Any:
-    """Return the setup-created event publisher or create a fallback."""
+) -> Any | None:
+    """Return the setup-created event publisher."""
     adapters = _runtime_adapters(integration_data)
-    publisher = adapters.get("device_event_publisher")
-    if publisher is None:
-        publisher = publisher_factory(hass)
-        adapters["device_event_publisher"] = publisher
-    return publisher
+    return adapters.get("device_event_publisher")
 
 
 def _device_event_deduplicator(
     integration_data: dict[str, Any],
-    deduplicator_factory: Callable[[], Any] = _in_memory_device_event_deduplicator,
-) -> Any:
-    """Return the setup-created event deduplicator or create a fallback."""
+) -> Any | None:
+    """Return the setup-created event deduplicator."""
     adapters = _runtime_adapters(integration_data)
-    deduplicator = adapters.get("device_event_deduplicator")
-    if deduplicator is None:
-        deduplicator = integration_data.get("device_event_deduplicator")
-        if deduplicator is None:
-            deduplicator = deduplicator_factory()
-            integration_data["device_event_deduplicator"] = deduplicator
-        adapters["device_event_deduplicator"] = deduplicator
-    return deduplicator
+    return adapters.get("device_event_deduplicator")
 
 
 def _local_automation_use_case(
@@ -468,8 +453,43 @@ class SmartlyDeviceEventsView(web.View):
             )
 
         integration_data = self.hass.data[DOMAIN]
+        command = DeviceEventCommand(
+            device_id=device_id,
+            type=event_type,
+            action=action,
+            timestamp=timestamp,
+            meta=meta or {},
+        )
         publisher = _device_event_publisher(integration_data, self.hass)
+        if publisher is None:
+            result = device_event_error_response(
+                command=command,
+                error="device_event_publisher_unavailable",
+                status=500,
+                message="Device event publisher not initialized",
+                target="device_event.publisher",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
         deduplicator = _device_event_deduplicator(integration_data)
+        if deduplicator is None:
+            result = device_event_error_response(
+                command=command,
+                error="device_event_deduplicator_unavailable",
+                status=500,
+                message="Device event deduplicator not initialized",
+                target="device_event.deduplicator",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         automation = _build_local_automation(integration_data, self.hass)
         result = await _ingest_device_event(
@@ -477,13 +497,7 @@ class SmartlyDeviceEventsView(web.View):
             deduplicator,
             automation,
             auth_result.client_id or "unknown",
-            DeviceEventCommand(
-                device_id=device_id,
-                type=event_type,
-                action=action,
-                timestamp=timestamp,
-                meta=meta or {},
-            ),
+            command,
         )
 
         return _json_response(

@@ -62,6 +62,10 @@ def _configure_integration(mock_hass: MagicMock) -> None:
         "nonce_cache": NonceCache(),
         "rate_limiter": RateLimiter(60, 60),
     }
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {
+        "device_event_publisher": _home_assistant_device_event_publisher(mock_hass),
+        "device_event_deduplicator": _in_memory_device_event_deduplicator(),
+    }
 
 
 class FakeDeviceEventPublisher:
@@ -369,37 +373,22 @@ def test_device_event_publisher_resolver_uses_runtime_publisher() -> None:
         }
     }
 
-    with patch(
-        "custom_components.smartly_bridge.views.device_events._home_assistant_device_event_publisher"
-    ) as mock_publisher:
-        result = _device_event_publisher(integration_data, MagicMock())
+    result = _device_event_publisher(integration_data, MagicMock())
 
     assert result is publisher
-    mock_publisher.assert_not_called()
 
 
-def test_device_event_publisher_resolver_uses_injected_fallback_factory() -> None:
-    """Device event publisher resolver accepts an injected fallback factory."""
+def test_device_event_publisher_resolver_requires_runtime_publisher() -> None:
+    """Device event publisher resolver does not create a fallback."""
     from custom_components.smartly_bridge.views.device_events import _device_event_publisher
 
-    publisher = FakeDeviceEventPublisher()
-    factory_calls = []
     integration_data = {"runtime_adapters": {}}
     hass = MagicMock()
 
-    def publisher_factory(received_hass):
-        factory_calls.append(received_hass)
-        return publisher
+    result = _device_event_publisher(integration_data, hass)
 
-    result = _device_event_publisher(
-        integration_data,
-        hass,
-        publisher_factory=publisher_factory,
-    )
-
-    assert result is publisher
-    assert integration_data["runtime_adapters"]["device_event_publisher"] is publisher
-    assert factory_calls == [hass]
+    assert result is None
+    assert "device_event_publisher" not in integration_data["runtime_adapters"]
 
 
 def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
@@ -413,36 +402,22 @@ def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
         }
     }
 
-    with patch(
-        "custom_components.smartly_bridge.views.device_events._in_memory_device_event_deduplicator"
-    ) as mock_deduplicator:
-        result = _device_event_deduplicator(integration_data)
+    result = _device_event_deduplicator(integration_data)
 
     assert result is deduplicator
-    mock_deduplicator.assert_not_called()
 
 
-def test_device_event_deduplicator_resolver_uses_injected_fallback_factory() -> None:
-    """Device event deduplicator resolver accepts an injected fallback factory."""
+def test_device_event_deduplicator_resolver_requires_runtime_deduplicator() -> None:
+    """Device event deduplicator resolver does not create a fallback."""
     from custom_components.smartly_bridge.views.device_events import _device_event_deduplicator
 
-    deduplicator = InMemoryDeviceEventDeduplicator()
-    factory_calls = []
     integration_data = {"runtime_adapters": {}}
 
-    def deduplicator_factory():
-        factory_calls.append("called")
-        return deduplicator
+    result = _device_event_deduplicator(integration_data)
 
-    result = _device_event_deduplicator(
-        integration_data,
-        deduplicator_factory=deduplicator_factory,
-    )
-
-    assert result is deduplicator
-    assert integration_data["runtime_adapters"]["device_event_deduplicator"] is deduplicator
-    assert integration_data["device_event_deduplicator"] is deduplicator
-    assert factory_calls == ["called"]
+    assert result is None
+    assert "device_event_deduplicator" not in integration_data["runtime_adapters"]
+    assert "device_event_deduplicator" not in integration_data
 
 
 class TestDeviceEventsEndpoint:
@@ -530,6 +505,96 @@ class TestDeviceEventsEndpoint:
         assert payload["correlation_id"] == "corr-device-001"
         assert payload["success"] is True
         assert payload["device_id"] == "device_abc123"
+
+    @pytest.mark.asyncio
+    async def test_device_event_requires_setup_runtime_publisher(self, mock_hass):
+        """Device events fail when setup did not create the event publisher."""
+        _configure_integration(mock_hass)
+        mock_hass.data[DOMAIN]["runtime_adapters"].pop("device_event_publisher")
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "device_event_publisher_unavailable",
+            "message": "Device event publisher not initialized",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "device_abc123",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "DEVICE_EVENT_PUBLISHER_UNAVAILABLE",
+                    "message": "Device event publisher not initialized",
+                    "target": "device_event.publisher",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "device_event_publisher"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
+
+    @pytest.mark.asyncio
+    async def test_device_event_requires_setup_runtime_deduplicator(self, mock_hass):
+        """Device events fail when setup did not create the event deduplicator."""
+        _configure_integration(mock_hass)
+        mock_hass.data[DOMAIN]["runtime_adapters"].pop("device_event_deduplicator")
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "device_event_deduplicator_unavailable",
+            "message": "Device event deduplicator not initialized",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "device_abc123",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "DEVICE_EVENT_DEDUPLICATOR_UNAVAILABLE",
+                    "message": "Device event deduplicator not initialized",
+                    "target": "device_event.deduplicator",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "device_event_deduplicator"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
 
     @pytest.mark.asyncio
     async def test_device_event_rejects_unsupported_action(self, mock_hass):
