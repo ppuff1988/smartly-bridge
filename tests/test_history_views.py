@@ -302,6 +302,54 @@ async def test_query_statistics_forwards_query_to_application_use_case() -> None
     assert "query_statistics" in gateway.calls
 
 
+@pytest.mark.asyncio
+async def test_query_statistics_uses_injected_use_case_factory() -> None:
+    """Statistics invocation adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.history import _query_statistics
+
+    class FakeStatisticsUseCase:
+        def __init__(self) -> None:
+            self.queries = []
+
+        async def execute(self, query: StatisticsQuery) -> BridgeResponse:
+            self.queries.append(query)
+            return BridgeResponse(
+                {
+                    "success": True,
+                    "entity_id": query.entity_id,
+                    "period": query.period,
+                    "data": {"entity_id": query.entity_id, "period": query.period},
+                },
+                status=200,
+            )
+
+    gateway = FakeRuntimeHistoryGateway()
+    use_case = FakeStatisticsUseCase()
+    factory_calls = []
+    query = StatisticsQuery(
+        entity_id="sensor.energy",
+        start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+        end_time=datetime.fromisoformat("2026-01-02T00:00:00+00:00"),
+        period="hour",
+    )
+
+    def use_case_factory(received_gateway):
+        factory_calls.append(received_gateway)
+        return use_case
+
+    result = await _query_statistics(
+        gateway,
+        query,
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 200
+    assert result.body["entity_id"] == "sensor.energy"
+    assert result.body["period"] == "hour"
+    assert factory_calls == [gateway]
+    assert use_case.queries == [query]
+
+
 class TestHelperFunctions:
     """Tests for helper functions."""
 

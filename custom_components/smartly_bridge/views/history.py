@@ -138,9 +138,18 @@ async def _query_batch_history(
     return await use_case_factory(gateway).execute(query)
 
 
-async def _query_statistics(gateway: Any, query: StatisticsQuery) -> Any:
+def _statistics_use_case(gateway: Any) -> StatisticsUseCase:
+    """Build the statistics application use case."""
+    return StatisticsUseCase(gateway)
+
+
+async def _query_statistics(
+    gateway: Any,
+    query: StatisticsQuery,
+    use_case_factory: Callable[[Any], Any] = _statistics_use_case,
+) -> Any:
     """Execute the statistics query use case with a history gateway port."""
-    return await StatisticsUseCase(gateway).execute(query)
+    return await use_case_factory(gateway).execute(query)
 
 
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
