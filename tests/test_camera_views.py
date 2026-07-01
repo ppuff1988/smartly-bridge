@@ -25,6 +25,7 @@ from custom_components.smartly_bridge.views.camera import (
     _authorize_camera_request,
     _parse_camera_config_command,
     _parse_camera_hls_action,
+    _parse_camera_snapshot_options,
     _require_camera_manager,
     _resolve_camera_gateway,
     _validate_camera_entity_id,
@@ -270,6 +271,29 @@ class TestSmartlyCameraSnapshotView:
         assert result.response is None
         assert result.gateway is gateway
         fallback_gateway.assert_not_called()
+
+    def test_parse_camera_snapshot_options_defaults_to_cached_request(
+        self,
+        mock_request,
+    ):
+        """Snapshot options parser defaults to cached snapshots without ETag."""
+        result = _parse_camera_snapshot_options(mock_request)
+
+        assert result.force_refresh is False
+        assert result.if_none_match is None
+
+    def test_parse_camera_snapshot_options_adapts_refresh_and_etag(
+        self,
+        mock_request,
+    ):
+        """Snapshot options parser adapts legacy refresh and ETag controls."""
+        mock_request.query = {"refresh": "true"}
+        mock_request.headers = {"If-None-Match": '"snapshot-etag"'}
+
+        result = _parse_camera_snapshot_options(mock_request)
+
+        assert result.force_refresh is True
+        assert result.if_none_match == '"snapshot-etag"'
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):

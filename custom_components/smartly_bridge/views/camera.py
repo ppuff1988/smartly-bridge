@@ -123,6 +123,14 @@ class CameraConfigCommandParseResult:
     response: web.Response | None = None
 
 
+@dataclass(frozen=True)
+class CameraSnapshotRequestOptions:
+    """Request options adapted for the snapshot application use case."""
+
+    force_refresh: bool = False
+    if_none_match: str | None = None
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -361,6 +369,14 @@ def _parse_camera_hls_action(request: web.Request) -> str:
     return request.query.get("action", "start")
 
 
+def _parse_camera_snapshot_options(request: web.Request) -> CameraSnapshotRequestOptions:
+    """Return snapshot request options expected by the application use case."""
+    return CameraSnapshotRequestOptions(
+        force_refresh=request.query.get("refresh", "").lower() == "true",
+        if_none_match=request.headers.get("If-None-Match"),
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -391,14 +407,11 @@ class SmartlyCameraSnapshotView(BaseView):
             return gateway_resolution.response
         camera_gateway = gateway_resolution.gateway
 
-        # Check for conditional request (ETag)
-        if_none_match = self.request.headers.get("If-None-Match")
-        force_refresh = self.request.query.get("refresh", "").lower() == "true"
-
+        options = _parse_camera_snapshot_options(self.request)
         result = await CameraSnapshotUseCase(camera_gateway).execute(
             entity_id,
-            force_refresh=force_refresh,
-            if_none_match=if_none_match,
+            force_refresh=options.force_refresh,
+            if_none_match=options.if_none_match,
         )
 
         if result.status == 304:
