@@ -244,7 +244,7 @@ def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> N
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.local_automation.HomeAssistantLocalAutomationRuleStore"
+        "custom_components.smartly_bridge.views.local_automation._home_assistant_local_automation_rule_store"
     ) as mock_store:
         result = _local_automation_rule_store(mock_hass)
 
@@ -319,7 +319,7 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
     with patch(
         "custom_components.smartly_bridge.views.local_automation.verify_request"
     ) as mock_verify, patch(
-        "custom_components.smartly_bridge.views.local_automation.HomeAssistantLocalAutomationRuleStore"
+        "custom_components.smartly_bridge.views.local_automation._home_assistant_local_automation_rule_store"
     ) as mock_store:
         mock_verify.return_value = MagicMock(
             success=True,

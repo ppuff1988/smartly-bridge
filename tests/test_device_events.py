@@ -208,7 +208,7 @@ def test_build_local_automation_does_not_create_fallback_when_runtime_adapters_e
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.device_events.HomeAssistantLocalAutomationRuleStore"
+        "custom_components.smartly_bridge.views.device_events._home_assistant_local_automation_rule_store"
     ) as mock_rule_store, patch(
         "custom_components.smartly_bridge.views.device_events.HomeAssistantSmartlyCommandExecutor"
     ) as mock_executor:

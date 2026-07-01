@@ -407,6 +407,11 @@ def _local_automation_rule_to_config(rule: LocalAutomationRule) -> dict[str, Any
     }
 
 
+def _home_assistant_local_automation_rule_store(hass: Any) -> HomeAssistantLocalAutomationRuleStore:
+    """Build the Home Assistant-backed legacy local automation rule store."""
+    return HomeAssistantLocalAutomationRuleStore(hass)
+
+
 def _home_assistant_control_use_case(hass: Any, logger: Any) -> ControlUseCase:
     """Build the Home Assistant-backed legacy control use case."""
     return ControlUseCase(

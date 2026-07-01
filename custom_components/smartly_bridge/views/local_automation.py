@@ -9,7 +9,7 @@ from typing import Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import HomeAssistantLocalAutomationRuleStore
+from ..adapters.home_assistant import _home_assistant_local_automation_rule_store
 from ..application.local_automation import (
     LocalAutomationRuleCreateUseCase,
     LocalAutomationRuleDeleteUseCase,
@@ -88,7 +88,7 @@ def _local_automation_rule_store(hass: Any) -> Any:
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     rule_store = runtime_adapters.get("local_automation_rule_store")
     if rule_store is None:
-        rule_store = HomeAssistantLocalAutomationRuleStore(hass)
+        rule_store = _home_assistant_local_automation_rule_store(hass)
         runtime_adapters["local_automation_rule_store"] = rule_store
     return rule_store
 
