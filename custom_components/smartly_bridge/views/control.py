@@ -11,14 +11,11 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
-    HomeAssistantControlGateway,
-    HomeAssistantEntityPolicy,
     HomeAssistantSmartlyCommandExecutor,
-    LoggingAuditAdapter,
+    _home_assistant_control_use_case,
 )
 from ..application.control import (
     ControlCommand,
-    ControlUseCase,
     SmartlyCommand,
     control_error_response,
 )
@@ -168,11 +165,7 @@ def _control_use_case(hass: Any) -> Any:
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     use_case = runtime_adapters.get("control_use_case")
     if use_case is None:
-        use_case = ControlUseCase(
-            HomeAssistantEntityPolicy(hass),
-            HomeAssistantControlGateway(hass),
-            LoggingAuditAdapter(_LOGGER),
-        )
+        use_case = _home_assistant_control_use_case(hass, _LOGGER)
         runtime_adapters["control_use_case"] = use_case
     return use_case
 

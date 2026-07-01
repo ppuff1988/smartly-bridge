@@ -15,7 +15,7 @@ from ..acl import (
     is_service_allowed,
 )
 from ..audit import log_control, log_deny
-from ..application.control import SmartlyCommand, SmartlyCommandUseCase
+from ..application.control import ControlUseCase, SmartlyCommand, SmartlyCommandUseCase
 from ..application.local_automation import (
     AutomationAction,
     AutomationTrigger,
@@ -405,6 +405,15 @@ def _local_automation_rule_to_config(rule: LocalAutomationRule) -> dict[str, Any
             for action in rule.actions
         ],
     }
+
+
+def _home_assistant_control_use_case(hass: Any, logger: Any) -> ControlUseCase:
+    """Build the Home Assistant-backed legacy control use case."""
+    return ControlUseCase(
+        HomeAssistantEntityPolicy(hass),
+        HomeAssistantControlGateway(hass),
+        LoggingAuditAdapter(logger),
+    )
 
 
 def _smartly_command_use_case(hass: Any, logger: Any) -> SmartlyCommandUseCase:

@@ -178,7 +178,7 @@ def test_control_use_case_resolver_uses_runtime_use_case(mock_hass) -> None:
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.control.ControlUseCase"
+        "custom_components.smartly_bridge.views.control._home_assistant_control_use_case"
     ) as mock_use_case:
         result = _control_use_case(mock_hass)
 
@@ -1497,8 +1497,8 @@ class TestControlEndpointFullFlow:
         with patch(
             "custom_components.smartly_bridge.views.control.verify_request"
         ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.control.HomeAssistantControlGateway"
-        ) as mock_gateway:
+            "custom_components.smartly_bridge.views.control._home_assistant_control_use_case"
+        ) as mock_control_use_case:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None
             )
@@ -1506,7 +1506,7 @@ class TestControlEndpointFullFlow:
             response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
-        mock_gateway.assert_not_called()
+        mock_control_use_case.assert_not_called()
         assert use_case.calls == [
             (
                 "test_client",

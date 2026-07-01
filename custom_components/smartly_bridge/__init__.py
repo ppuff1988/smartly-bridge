@@ -61,9 +61,7 @@ def _build_runtime_adapters(
     """Build setup-created runtime ports used by legacy views."""
     from .adapters.home_assistant import (
         HomeAssistantCameraGateway,
-        HomeAssistantControlGateway,
         HomeAssistantDeviceEventPublisher,
-        HomeAssistantEntityPolicy,
         HomeAssistantHistoryGateway,
         HomeAssistantLocalAutomationRuleStore,
         HomeAssistantRawDiagnosticStore,
@@ -72,17 +70,12 @@ def _build_runtime_adapters(
         HomeAssistantSyncGateway,
         HomeAssistantWebRTCGateway,
         InMemoryDeviceEventDeduplicator,
-        LoggingAuditAdapter,
+        _home_assistant_control_use_case,
     )
-    from .application.control import ControlUseCase
     from .views.history import _get_history_semaphore
 
     return {
-        "control_use_case": ControlUseCase(
-            HomeAssistantEntityPolicy(hass),
-            HomeAssistantControlGateway(hass),
-            LoggingAuditAdapter(logger),
-        ),
+        "control_use_case": _home_assistant_control_use_case(hass, logger),
         "device_event_publisher": HomeAssistantDeviceEventPublisher(hass),
         "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
         "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
