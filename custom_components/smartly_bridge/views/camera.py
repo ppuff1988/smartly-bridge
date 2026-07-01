@@ -45,17 +45,14 @@ from .base import BaseView
 _LOGGER = logging.getLogger(__name__)
 
 
-def _camera_gateway(hass: Any, camera_manager: Any) -> Any:
-    """Return the setup-created camera gateway."""
-    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    gateway = runtime_adapters.get("camera_gateway")
-    if gateway is None:
-        gateway = HomeAssistantCameraGateway(
-            hass,
-            camera_manager,
-            allowed_entities_fn=get_allowed_entities,
-        )
-        runtime_adapters["camera_gateway"] = gateway
+def _create_fallback_camera_gateway(hass: Any, camera_manager: Any) -> Any:
+    """Create and store a legacy Home Assistant camera gateway fallback."""
+    gateway = HomeAssistantCameraGateway(
+        hass,
+        camera_manager,
+        allowed_entities_fn=get_allowed_entities,
+    )
+    hass.data[DOMAIN].setdefault("runtime_adapters", {})["camera_gateway"] = gateway
     return gateway
 
 
@@ -107,6 +104,14 @@ class CameraEntityIdValidationResult:
     """Result of validating a camera entity ID from the HTTP path."""
 
     entity_id: str = ""
+    response: web.Response | None = None
+
+
+@dataclass(frozen=True)
+class CameraGatewayResolutionResult:
+    """Result of resolving the camera application gateway port."""
+
+    gateway: Any | None = None
     response: web.Response | None = None
 
 
@@ -278,6 +283,25 @@ def _validate_camera_entity_id(
     return CameraEntityIdValidationResult(entity_id=entity_id)
 
 
+def _resolve_camera_gateway(
+    request: web.Request,
+    hass: Any,
+) -> CameraGatewayResolutionResult:
+    """Return the setup-created camera gateway or a legacy fallback gateway."""
+    runtime_adapters = hass.data.get(DOMAIN, {}).setdefault("runtime_adapters", {})
+    gateway = runtime_adapters.get("camera_gateway")
+    if gateway is not None:
+        return CameraGatewayResolutionResult(gateway=gateway)
+
+    manager_guard = _require_camera_manager(request, hass)
+    if manager_guard.response is not None:
+        return CameraGatewayResolutionResult(response=manager_guard.response)
+
+    return CameraGatewayResolutionResult(
+        gateway=_create_fallback_camera_gateway(hass, manager_guard.camera_manager)
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -303,18 +327,16 @@ class SmartlyCameraSnapshotView(BaseView):
         auth_result = guard.auth_result
         assert auth_result is not None
 
-        manager_guard = _require_camera_manager(self.request, self.hass)
-        if manager_guard.response is not None:
-            return manager_guard.response
-        camera_manager = manager_guard.camera_manager
+        gateway_resolution = _resolve_camera_gateway(self.request, self.hass)
+        if gateway_resolution.response is not None:
+            return gateway_resolution.response
+        camera_gateway = gateway_resolution.gateway
 
         # Check for conditional request (ETag)
         if_none_match = self.request.headers.get("If-None-Match")
         force_refresh = self.request.query.get("refresh", "").lower() == "true"
 
-        result = await CameraSnapshotUseCase(
-            _camera_gateway(self.hass, camera_manager)
-        ).execute(
+        result = await CameraSnapshotUseCase(camera_gateway).execute(
             entity_id,
             force_refresh=force_refresh,
             if_none_match=if_none_match,
@@ -397,10 +419,10 @@ class SmartlyCameraStreamView(BaseView):
         auth_result = guard.auth_result
         assert auth_result is not None
 
-        manager_guard = _require_camera_manager(self.request, self.hass)
-        if manager_guard.response is not None:
-            return manager_guard.response
-        camera_manager = manager_guard.camera_manager
+        gateway_resolution = _resolve_camera_gateway(self.request, self.hass)
+        if gateway_resolution.response is not None:
+            return gateway_resolution.response
+        camera_gateway = gateway_resolution.gateway
 
         log_control(
             _LOGGER,
@@ -423,7 +445,7 @@ class SmartlyCameraStreamView(BaseView):
 
         # Stream the camera feed through the setup-created gateway while
         # preserving the existing CameraManager-backed proxy implementation.
-        await _camera_gateway(self.hass, camera_manager).stream_proxy(
+        await camera_gateway.stream_proxy(
             entity_id,
             self.request,
             response,
@@ -446,15 +468,16 @@ class SmartlyCameraListView(BaseView):
         if guard.response is not None:
             return guard.response
 
-        # Get camera manager
-        camera_manager = self.hass.data[DOMAIN].get("camera_manager")
+        gateway_resolution = _resolve_camera_gateway(self.request, self.hass)
+        if gateway_resolution.response is not None:
+            return gateway_resolution.response
 
         # Check if detailed capabilities requested
         include_capabilities = self.request.query.get("capabilities", "").lower() == "true"
 
-        result = await CameraListUseCase(
-            _camera_gateway(self.hass, camera_manager)
-        ).execute(include_capabilities=include_capabilities)
+        result = await CameraListUseCase(gateway_resolution.gateway).execute(
+            include_capabilities=include_capabilities
+        )
         return _json_response(
             result.body,
             self.request,
@@ -509,14 +532,11 @@ class SmartlyCameraConfigView(BaseView):
                 headers=result.headers,
             )
 
-        manager_guard = _require_camera_manager(self.request, self.hass)
-        if manager_guard.response is not None:
-            return manager_guard.response
-        camera_manager = manager_guard.camera_manager
+        gateway_resolution = _resolve_camera_gateway(self.request, self.hass)
+        if gateway_resolution.response is not None:
+            return gateway_resolution.response
 
-        result = await CameraConfigUseCase(
-            _camera_gateway(self.hass, camera_manager)
-        ).execute(
+        result = await CameraConfigUseCase(gateway_resolution.gateway).execute(
             CameraConfigCommand(
                 action=action,
                 entity_id=entity_id,
@@ -559,15 +579,12 @@ class SmartlyCameraHLSInfoView(BaseView):
         auth_result = guard.auth_result
         assert auth_result is not None
 
-        manager_guard = _require_camera_manager(self.request, self.hass)
-        if manager_guard.response is not None:
-            return manager_guard.response
-        camera_manager = manager_guard.camera_manager
+        gateway_resolution = _resolve_camera_gateway(self.request, self.hass)
+        if gateway_resolution.response is not None:
+            return gateway_resolution.response
 
         action = self.request.query.get("action", "start")
-        result = await CameraHLSUseCase(
-            _camera_gateway(self.hass, camera_manager)
-        ).execute(
+        result = await CameraHLSUseCase(gateway_resolution.gateway).execute(
             entity_id,
             action,
         )

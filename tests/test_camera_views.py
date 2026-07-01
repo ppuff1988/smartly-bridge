@@ -24,6 +24,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraStreamView,
     _authorize_camera_request,
     _require_camera_manager,
+    _resolve_camera_gateway,
     _validate_camera_entity_id,
 )
 
@@ -248,6 +249,25 @@ class TestSmartlyCameraSnapshotView:
         assert json.loads(result.response.body) == _api_vnext_fixture(
             "camera-snapshot-invalid-entity-id.json"
         )
+
+    def test_resolve_camera_gateway_prefers_runtime_gateway_without_manager(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Camera gateway resolver uses setup runtime gateway before legacy manager."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_hass.data[DOMAIN]["camera_manager"] = None
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.HomeAssistantCameraGateway"
+        ) as fallback_gateway:
+            result = _resolve_camera_gateway(mock_request, mock_hass)
+
+        assert result.response is None
+        assert result.gateway is gateway
+        fallback_gateway.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):
