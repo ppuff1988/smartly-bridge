@@ -110,6 +110,11 @@ async def _query_single_history(gateway: Any, query: SingleHistoryQuery) -> Any:
     return await SingleHistoryUseCase(gateway).execute(query)
 
 
+async def _query_batch_history(gateway: Any, query: BatchHistoryQuery) -> Any:
+    """Execute the batch history query use case with a history gateway port."""
+    return await BatchHistoryUseCase(gateway).execute(query)
+
+
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
     """Encode cursor for pagination.
 
@@ -796,9 +801,8 @@ class SmartlyHistoryBatchView(web.View):
                 limit = HISTORY_DEFAULT_LIMIT
 
         try:
-            result = await BatchHistoryUseCase(
-                _history_gateway(self.hass)
-            ).execute(
+            result = await _query_batch_history(
+                _history_gateway(self.hass),
                 BatchHistoryQuery(
                     entity_ids=allowed_entity_ids,
                     denied_entity_ids=denied_entity_ids,
