@@ -2650,18 +2650,18 @@ def test_sync_structure_use_case_returns_gateway_structure() -> None:
     result = SyncStructureUseCase(gateway).execute()
 
     assert result.status == 200
-    assert result.body["floors"] == gateway.structure["floors"]
-    assert result.body["areas"] == gateway.structure["areas"]
-    assert result.body["devices"] == gateway.structure["devices"]
-    assert result.body["entities"] == gateway.structure["entities"]
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {**gateway.structure, "device_count": 0}
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
+    assert "floors" not in result.body
+    assert "areas" not in result.body
+    assert "devices" not in result.body
+    assert "entities" not in result.body
 
 
 def test_sync_structure_use_case_includes_vnext_envelope() -> None:
-    """Structure sync exposes API vNext envelope fields alongside legacy fields."""
+    """Structure sync exposes structure data through the API vNext envelope."""
     gateway = FakeSyncGateway()
     result = SyncStructureUseCase(gateway).execute()
 
@@ -2670,7 +2670,7 @@ def test_sync_structure_use_case_includes_vnext_envelope() -> None:
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
     assert result.body["data"] == {**gateway.structure, "device_count": 0}
-    assert result.body["entities"] == gateway.structure["entities"]
+    assert "entities" not in result.body
 
 
 def test_sync_structure_use_case_matches_current_sync_vnext_data_fixture() -> None:
@@ -2686,7 +2686,7 @@ def test_sync_structure_use_case_matches_current_sync_vnext_data_fixture() -> No
 
 
 def test_sync_structure_use_case_matches_current_sync_envelope_fixture() -> None:
-    """Structure sync full response preserves legacy fields and vNext envelope."""
+    """Structure sync full response matches the vNext-only envelope fixture."""
     fixture_path = (
         Path(__file__).parent / "fixtures" / "current-sync" / "structure-envelope.json"
     )

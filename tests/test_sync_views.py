@@ -389,7 +389,8 @@ class TestSmartlySyncView:
 
         assert result.status == 200
         assert gateway.calls == 1
-        assert result.body["entities"] == [
+        assert "entities" not in result.body
+        assert result.body["data"]["entities"] == [
             {"entity_id": "light.runtime", "name": "Runtime Light"}
         ]
         assert result.body["data"]["device_count"] == 0
@@ -463,7 +464,8 @@ class TestSmartlySyncView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["entities"] == [
+        assert "entities" not in data
+        assert data["data"]["entities"] == [
             {"entity_id": "light.runtime", "name": "Runtime Light"}
         ]
 
@@ -486,7 +488,10 @@ class TestSmartlySyncView:
         assert response.status == 200
         data = json.loads(response.body)
         assert gateway.calls == 1
-        assert data["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
+        assert "entities" not in data
+        assert data["data"]["entities"] == [
+            {"entity_id": "light.runtime", "name": "Runtime Light"}
+        ]
 
     @pytest.mark.asyncio
     async def test_structure_sync_requires_setup_runtime_gateway(

@@ -1,12 +1,4 @@
 {
-  "floors": [],
-  "areas": [],
-  "devices": [],
-  "entities": [
-    {
-      "entity_id": "light.kitchen"
-    }
-  ],
   "schema_version": "2026.06",
   "data": {
     "floors": [],

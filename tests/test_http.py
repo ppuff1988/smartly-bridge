@@ -472,10 +472,14 @@ class TestSyncEndpoint:
 
         assert response.status == 200
         body = json.loads(response.body)
-        assert "floors" in body
-        assert "areas" in body
-        assert "devices" in body
-        assert "entities" in body
+        assert "floors" not in body
+        assert "areas" not in body
+        assert "devices" not in body
+        assert "entities" not in body
+        assert "floors" in body["data"]
+        assert "areas" in body["data"]
+        assert "devices" in body["data"]
+        assert "entities" in body["data"]
         gateway.get_structure.assert_called_once_with()
 
 

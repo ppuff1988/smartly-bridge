@@ -46,7 +46,6 @@ class SyncStructureUseCase:
         }
         return BridgeResponse(
             {
-                **structure,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": data,
                 "warnings": [],
