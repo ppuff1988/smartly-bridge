@@ -23,8 +23,6 @@ class FakeRawDiagnosticFetchUseCase:
         self.refs.append(raw_ref)
         return BridgeResponse(
             {
-                "success": True,
-                "raw_ref": raw_ref,
                 "data": {"raw_ref": raw_ref},
             },
             status=200,
@@ -83,4 +81,4 @@ def test_fetch_raw_diagnostic_uses_injected_use_case_factory() -> None:
     assert result.status == 200
     assert factory_calls == [store]
     assert use_case.refs == ["raw_light_001"]
-    assert result.body["raw_ref"] == "raw_light_001"
+    assert result.body["data"]["raw_ref"] == "raw_light_001"

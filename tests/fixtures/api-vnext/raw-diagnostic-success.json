@@ -1,7 +1,5 @@
 {
-  "success": true,
   "schema_version": "2026.06",
-  "raw_ref": "raw_light_001",
   "data": {
     "raw_ref": "raw_light_001",
     "payload": {

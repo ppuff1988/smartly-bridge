@@ -51,9 +51,7 @@ def test_raw_diagnostic_fetch_masks_sensitive_payload() -> None:
     assert result.status == 200
     assert store.refs == ["raw_light_001"]
     assert result.body == {
-        "success": True,
         "schema_version": "2026.06",
-        "raw_ref": "raw_light_001",
         "data": {
             "raw_ref": "raw_light_001",
             "payload": {
@@ -101,10 +99,7 @@ def test_raw_diagnostic_fetch_returns_not_found_for_missing_ref() -> None:
     assert result.status == 404
     assert store.refs == ["raw_missing"]
     assert result.body == {
-        "success": False,
         "schema_version": "2026.06",
-        "raw_ref": "raw_missing",
-        "error": "raw_diagnostic_not_found",
         "data": {"raw_ref": "raw_missing", "status": "not_found"},
         "warnings": [],
         "errors": [
@@ -138,8 +133,6 @@ def test_raw_diagnostic_error_response_uses_diagnostic_contract() -> None:
 
     assert result.status == 401
     assert result.body == {
-        "error": "auth_failed",
-        "message": "Raw diagnostic request authentication failed",
         "schema_version": "2026.06",
         "data": {"status": "rejected"},
         "warnings": [],

@@ -1,6 +1,4 @@
 {
-  "error": "auth_failed",
-  "message": "Raw diagnostic request authentication failed",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"

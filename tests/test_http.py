@@ -606,9 +606,7 @@ class TestRawDiagnosticEndpoint:
         assert response.status == 200
         assert store.refs == ["raw_light_001"]
         assert json.loads(response.body) == {
-            "success": True,
             "schema_version": "2026.06",
-            "raw_ref": "raw_light_001",
             "data": {
                 "raw_ref": "raw_light_001",
                 "payload": {
@@ -711,8 +709,6 @@ class TestRawDiagnosticEndpoint:
 
         assert response.status == 401
         assert json.loads(response.body) == {
-            "error": "auth_failed",
-            "message": "Raw diagnostic request authentication failed",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -773,8 +769,6 @@ class TestRawDiagnosticEndpoint:
         assert response.status == 500
         assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
         assert json.loads(response.body) == {
-            "error": "raw_diagnostic_store_unavailable",
-            "message": "Raw diagnostic store runtime adapter is not available",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],

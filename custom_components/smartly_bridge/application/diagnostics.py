@@ -31,8 +31,6 @@ def raw_diagnostic_error_response(
     """Return a raw diagnostic API vNext error response."""
     return BridgeResponse(
         {
-            "error": error,
-            "message": message,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -61,10 +59,7 @@ class RawDiagnosticFetchUseCase:
         if payload is None:
             return BridgeResponse(
                 {
-                    "success": False,
                     "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                    "raw_ref": raw_ref,
-                    "error": "raw_diagnostic_not_found",
                     "data": {"raw_ref": raw_ref, "status": "not_found"},
                     "warnings": [],
                     "errors": [
@@ -83,9 +78,7 @@ class RawDiagnosticFetchUseCase:
         masked_payload = _mask_sensitive_payload(payload)
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "raw_ref": raw_ref,
                 "data": {
                     "raw_ref": raw_ref,
                     "payload": masked_payload,

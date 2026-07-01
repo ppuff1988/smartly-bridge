@@ -1,8 +1,5 @@
 {
-  "success": false,
   "schema_version": "2026.06",
-  "raw_ref": "raw_missing",
-  "error": "raw_diagnostic_not_found",
   "data": {
     "raw_ref": "raw_missing",
     "status": "not_found"
