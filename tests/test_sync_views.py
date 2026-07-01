@@ -37,6 +37,29 @@ class FakeSyncStructureGateway:
         }
 
 
+class FakeSyncStructureUseCase:
+    """Sync structure use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def execute(self):
+        """Record invocation and return a fixed response."""
+        self.calls += 1
+        return type(
+            "FakeSyncStructureResult",
+            (),
+            {
+                "status": 200,
+                "headers": {},
+                "body": {
+                    "entities": [{"entity_id": "light.factory"}],
+                    "data": {"device_count": 1},
+                },
+            },
+        )()
+
+
 class FakeSyncStatesGateway:
     """Sync states gateway used to verify setup runtime wiring."""
 
@@ -350,6 +373,28 @@ class TestSmartlySyncView:
             {"entity_id": "light.runtime", "name": "Runtime Light"}
         ]
         assert result.body["data"]["device_count"] == 0
+
+    def test_build_sync_structure_uses_injected_use_case_factory(self):
+        """Sync structure invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_structure
+
+        gateway = FakeSyncStructureGateway()
+        use_case = FakeSyncStructureUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = _build_sync_structure(
+            gateway,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == 1
+        assert result.body["entities"] == [{"entity_id": "light.factory"}]
 
     def test_home_assistant_sync_structure_gateway_factory_builds_legacy_gateway(
         self, mock_hass

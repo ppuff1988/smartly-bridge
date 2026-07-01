@@ -1,7 +1,7 @@
 """Sync views for Smartly Bridge integration."""
 
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -59,9 +59,18 @@ def _json_response(
     )
 
 
-def _build_sync_structure(gateway: Any) -> Any:
+def _sync_structure_use_case(gateway: Any) -> SyncStructureUseCase:
+    """Build the sync structure application use case."""
+    return SyncStructureUseCase(gateway)
+
+
+def _build_sync_structure(
+    gateway: Any,
+    *,
+    use_case_factory: Callable[[Any], Any] = _sync_structure_use_case,
+) -> Any:
     """Execute the sync structure use case with a resolved gateway port."""
-    return SyncStructureUseCase(gateway).execute()
+    return use_case_factory(gateway).execute()
 
 
 async def _build_sync_states(
