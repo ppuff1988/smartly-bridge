@@ -19,6 +19,7 @@ from custom_components.smartly_bridge.const import (
 from custom_components.smartly_bridge.application.history import (
     BatchHistoryQuery,
     SingleHistoryQuery,
+    StatisticsQuery,
 )
 from custom_components.smartly_bridge.views.history import (
     SmartlyHistoryBatchView,
@@ -150,6 +151,28 @@ async def test_query_batch_history_forwards_query_to_application_use_case() -> N
     assert set(result.body["history"]) == {"sensor.temperature", "sensor.humidity"}
     assert result.body["denied_entities"] == ["sensor.private"]
     assert "query_batch_states" in gateway.calls
+
+
+@pytest.mark.asyncio
+async def test_query_statistics_forwards_query_to_application_use_case() -> None:
+    """Statistics invocation adapter forwards query to the recorder gateway."""
+    from custom_components.smartly_bridge.views.history import _query_statistics
+
+    gateway = FakeRuntimeHistoryGateway()
+    query = StatisticsQuery(
+        entity_id="sensor.energy",
+        start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+        end_time=datetime.fromisoformat("2026-01-02T00:00:00+00:00"),
+        period="hour",
+    )
+
+    result = await _query_statistics(gateway, query)
+
+    assert result.status == 200
+    assert result.body["entity_id"] == "sensor.energy"
+    assert result.body["period"] == "hour"
+    assert result.body["statistics"][0]["mean"] == 150.5
+    assert "query_statistics" in gateway.calls
 
 
 class TestHelperFunctions:

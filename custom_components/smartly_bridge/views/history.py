@@ -115,6 +115,11 @@ async def _query_batch_history(gateway: Any, query: BatchHistoryQuery) -> Any:
     return await BatchHistoryUseCase(gateway).execute(query)
 
 
+async def _query_statistics(gateway: Any, query: StatisticsQuery) -> Any:
+    """Execute the statistics query use case with a history gateway port."""
+    return await StatisticsUseCase(gateway).execute(query)
+
+
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
     """Encode cursor for pagination.
 
@@ -1015,9 +1020,8 @@ class SmartlyStatisticsView(web.View):
             )
 
         try:
-            result = await StatisticsUseCase(
-                _history_gateway(self.hass)
-            ).execute(
+            result = await _query_statistics(
+                _history_gateway(self.hass),
                 StatisticsQuery(
                     entity_id=entity_id,
                     start_time=start_time,
