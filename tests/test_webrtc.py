@@ -820,6 +820,24 @@ class TestWebRTCViews:
         assert gateway.session.ice_candidates == [candidate]
 
     @pytest.mark.asyncio
+    async def test_close_webrtc_session_forwards_entity_and_session(self):
+        """WebRTC hangup invocation adapter forwards entity and session payload."""
+        from custom_components.smartly_bridge.views.webrtc import _close_webrtc_session
+
+        gateway = FakeWebRTCGateway()
+
+        result = await _close_webrtc_session(
+            gateway,
+            entity_id="camera.front_door",
+            session_id=gateway.session.token[:16],
+        )
+
+        assert result.status == 200
+        assert result.body["status"] == "closed"
+        assert gateway.calls == ["get_session_by_partial_token", "close_session"]
+        assert gateway.closed_tokens == [gateway.session.token]
+
+    @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
         """Test token request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView

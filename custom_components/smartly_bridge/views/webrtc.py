@@ -133,6 +133,19 @@ async def _add_webrtc_ice_candidate(
     )
 
 
+async def _close_webrtc_session(
+    gateway: Any,
+    *,
+    entity_id: str,
+    session_id: str,
+) -> Any:
+    """Execute the WebRTC hangup use case with parsed HTTP shell inputs."""
+    return await WebRTCHangupUseCase(gateway).execute(
+        entity_id=entity_id,
+        session_id=session_id,
+    )
+
+
 class SmartlyWebRTCTokenView(BaseView):
     """Handle POST /api/smartly/camera/{entity_id}/webrtc requests.
 
@@ -624,7 +637,8 @@ class SmartlyWebRTCHangupView(BaseView):
                 headers=result.headers,
             )
 
-        result = await WebRTCHangupUseCase(_webrtc_gateway(self.hass, webrtc_manager)).execute(
+        result = await _close_webrtc_session(
+            _webrtc_gateway(self.hass, webrtc_manager),
             entity_id=entity_id,
             session_id=session_id,
         )
