@@ -64,12 +64,15 @@ def _fetch_raw_diagnostic(
     return use_case_factory(store).execute(raw_ref)
 
 
-def _raw_diagnostic_store(hass: Any) -> Any:
+def _raw_diagnostic_store(
+    hass: Any,
+    store_factory: Callable[[Any], Any] = _home_assistant_raw_diagnostic_store,
+) -> Any:
     """Return the setup-created raw diagnostic store or create a legacy fallback."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     store = runtime_adapters.get("raw_diagnostic_store")
     if store is None:
-        store = _home_assistant_raw_diagnostic_store(hass)
+        store = store_factory(hass)
         runtime_adapters["raw_diagnostic_store"] = store
     return store
 

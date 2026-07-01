@@ -760,6 +760,26 @@ class TestRawDiagnosticEndpoint:
         assert result is store
         mock_store.assert_not_called()
 
+    def test_raw_diagnostic_store_resolver_uses_injected_fallback_factory(
+        self, mock_hass
+    ):
+        """Raw diagnostic store resolver accepts an injected fallback factory."""
+        from custom_components.smartly_bridge.views.diagnostics import _raw_diagnostic_store
+
+        store = FakeRawDiagnosticStore()
+        factory_calls = []
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+        def store_factory(hass):
+            factory_calls.append(hass)
+            return store
+
+        result = _raw_diagnostic_store(mock_hass, store_factory=store_factory)
+
+        assert result is store
+        assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is store
+        assert factory_calls == [mock_hass]
+
     @pytest.mark.asyncio
     async def test_raw_diagnostic_uses_runtime_store(self, mock_hass, mock_config_entry):
         """Raw diagnostic requests read through the setup-created storage port."""
