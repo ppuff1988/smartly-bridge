@@ -93,11 +93,22 @@ def _create_local_automation_rule(
     return use_case_factory(rule_store).execute(payload)
 
 
+def _local_automation_rule_update_use_case(
+    rule_store: Any,
+) -> LocalAutomationRuleUpdateUseCase:
+    """Build the local automation rule update application use case."""
+    return LocalAutomationRuleUpdateUseCase(rule_store)
+
+
 def _update_local_automation_rule(
-    rule_store: Any, rule_id: str, payload: dict[str, Any]
+    rule_store: Any,
+    rule_id: str,
+    payload: dict[str, Any],
+    *,
+    use_case_factory: Callable[[Any], Any] = _local_automation_rule_update_use_case,
 ) -> Any:
     """Execute the local automation rule update use case with a rule store port."""
-    return LocalAutomationRuleUpdateUseCase(rule_store).execute(rule_id, payload)
+    return use_case_factory(rule_store).execute(rule_id, payload)
 
 
 def _delete_local_automation_rule(rule_store: Any, rule_id: str) -> Any:

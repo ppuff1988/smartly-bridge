@@ -165,6 +165,26 @@ class FakeCreateRuleUseCase:
         )
 
 
+class FakeUpdateRuleUseCase:
+    """Update rule use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, dict]] = []
+
+    def execute(self, rule_id: str, payload: dict) -> BridgeResponse:
+        """Record rule ID/payload and return a fixed response."""
+        self.calls.append((rule_id, payload))
+        return BridgeResponse(
+            {
+                "success": True,
+                "status": "updated",
+                "rule_id": "factory-updated",
+                "data": {"rule_id": "factory-updated"},
+            },
+            status=200,
+        )
+
+
 def test_list_local_automation_rules_reads_store_payload() -> None:
     """Local automation list invocation adapter reads the rule store."""
     from custom_components.smartly_bridge.views.local_automation import (
@@ -322,6 +342,51 @@ def test_update_local_automation_rule_forwards_payload_to_store() -> None:
     assert store.updated_rules[0].enabled is False
     assert store.updated_rules[0].trigger.event == "double_press"
     assert store.updated_rules[0].actions[0].command == "turn_off"
+
+
+def test_update_local_automation_rule_uses_injected_use_case_factory() -> None:
+    """Local automation update adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _update_local_automation_rule,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+    use_case = FakeUpdateRuleUseCase()
+    factory_calls = []
+    payload = {
+        "rule_id": "runtime-left-single",
+        "enabled": False,
+        "trigger": {
+            "device_id": "ldev_button",
+            "capability": "button_event",
+            "event": "double_press",
+            "payload": {"button": "right"},
+        },
+        "actions": [
+            {
+                "type": "device_command",
+                "device_id": "ldev_light",
+                "capability": "power",
+                "command": "turn_off",
+            }
+        ],
+    }
+
+    def use_case_factory(received_store):
+        factory_calls.append(received_store)
+        return use_case
+
+    result = _update_local_automation_rule(
+        store,
+        "runtime-left-single",
+        payload,
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 200
+    assert factory_calls == [store]
+    assert use_case.calls == [("runtime-left-single", payload)]
+    assert result.body["rule_id"] == "factory-updated"
 
 
 def test_delete_local_automation_rule_forwards_rule_id_to_store() -> None:
