@@ -960,6 +960,55 @@ class TestWebRTCViews:
         assert gateway.session.ice_candidates == [candidate]
 
     @pytest.mark.asyncio
+    async def test_add_webrtc_ice_candidate_uses_injected_use_case_factory(self):
+        """WebRTC ICE invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _add_webrtc_ice_candidate
+
+        class FakeICEUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                session_id: str,
+                candidate: dict[str, Any] | None,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, session_id, candidate))
+                return BridgeResponse(
+                    {
+                        "success": True,
+                        "status": "accepted",
+                        "candidates": [{"candidate": "factory-candidate"}],
+                        "data": {"status": "accepted"},
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeICEUseCase()
+        factory_calls = []
+        candidate = {"candidate": "candidate:1", "sdpMid": "0"}
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _add_webrtc_ice_candidate(
+            gateway,
+            entity_id="camera.front_door",
+            session_id="factory-session",
+            candidate=candidate,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "factory-session", candidate)]
+        assert result.body["candidates"] == [{"candidate": "factory-candidate"}]
+
+    @pytest.mark.asyncio
     async def test_close_webrtc_session_forwards_entity_and_session(self):
         """WebRTC hangup invocation adapter forwards entity and session payload."""
         from custom_components.smartly_bridge.views.webrtc import _close_webrtc_session

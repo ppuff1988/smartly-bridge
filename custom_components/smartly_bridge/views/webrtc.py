@@ -135,15 +135,21 @@ async def _create_webrtc_offer(
     )
 
 
+def _webrtc_ice_use_case(gateway: Any) -> WebRTCICEUseCase:
+    """Build the WebRTC ICE application use case."""
+    return WebRTCICEUseCase(gateway)
+
+
 async def _add_webrtc_ice_candidate(
     gateway: Any,
     *,
     entity_id: str,
     session_id: str,
     candidate: dict[str, Any] | None,
+    use_case_factory: Callable[[Any], Any] = _webrtc_ice_use_case,
 ) -> Any:
     """Execute the WebRTC ICE use case with parsed HTTP shell inputs."""
-    return await WebRTCICEUseCase(gateway).execute(
+    return await use_case_factory(gateway).execute(
         entity_id=entity_id,
         session_id=session_id,
         candidate=candidate,
