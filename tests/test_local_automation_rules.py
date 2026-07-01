@@ -82,6 +82,7 @@ class FakeLocalAutomationRuleStore:
     def __init__(self) -> None:
         self.list_calls = 0
         self.created_rules: list[LocalAutomationRule] = []
+        self.updated_rules: list[LocalAutomationRule] = []
 
     def list_rules(self) -> list[LocalAutomationRule]:
         """Return configured local automation rules."""
@@ -113,6 +114,7 @@ class FakeLocalAutomationRuleStore:
 
     def update_rule(self, rule: LocalAutomationRule) -> bool:
         """Replace a rule."""
+        self.updated_rules.append(rule)
         return True
 
     def delete_rule(self, rule_id: str) -> bool:
@@ -172,6 +174,43 @@ def test_create_local_automation_rule_forwards_payload_to_store() -> None:
     assert len(store.created_rules) == 1
     assert store.created_rules[0].trigger.event == "double_press"
     assert store.created_rules[0].actions[0].command == "turn_off"
+
+
+def test_update_local_automation_rule_forwards_payload_to_store() -> None:
+    """Local automation update invocation adapter forwards canonical payload."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _update_local_automation_rule,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+    payload = {
+        "rule_id": "runtime-left-single",
+        "enabled": False,
+        "trigger": {
+            "device_id": "ldev_button",
+            "capability": "button_event",
+            "event": "double_press",
+            "payload": {"button": "right"},
+        },
+        "actions": [
+            {
+                "type": "device_command",
+                "device_id": "ldev_light",
+                "capability": "power",
+                "command": "turn_off",
+            }
+        ],
+    }
+
+    result = _update_local_automation_rule(store, "runtime-left-single", payload)
+
+    assert result.status == 200
+    assert result.body["status"] == "updated"
+    assert result.body["rule_id"] == "runtime-left-single"
+    assert len(store.updated_rules) == 1
+    assert store.updated_rules[0].enabled is False
+    assert store.updated_rules[0].trigger.event == "double_press"
+    assert store.updated_rules[0].actions[0].command == "turn_off"
 
 
 @pytest.mark.asyncio
