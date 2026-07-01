@@ -233,6 +233,54 @@ async def test_query_batch_history_forwards_query_to_application_use_case() -> N
 
 
 @pytest.mark.asyncio
+async def test_query_batch_history_uses_injected_use_case_factory() -> None:
+    """Batch history invocation adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.history import _query_batch_history
+
+    class FakeBatchHistoryUseCase:
+        def __init__(self) -> None:
+            self.queries = []
+
+        async def execute(self, query: BatchHistoryQuery) -> BridgeResponse:
+            self.queries.append(query)
+            return BridgeResponse(
+                {
+                    "success": True,
+                    "entity_ids": query.entity_ids,
+                    "data": {"entity_ids": query.entity_ids},
+                },
+                status=200,
+            )
+
+    gateway = FakeRuntimeHistoryGateway()
+    use_case = FakeBatchHistoryUseCase()
+    factory_calls = []
+    query = BatchHistoryQuery(
+        entity_ids=["sensor.temperature", "sensor.humidity"],
+        denied_entity_ids=["sensor.private"],
+        start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+        end_time=datetime.fromisoformat("2026-01-01T02:00:00+00:00"),
+        limit=100,
+        significant_changes_only=True,
+    )
+
+    def use_case_factory(received_gateway):
+        factory_calls.append(received_gateway)
+        return use_case
+
+    result = await _query_batch_history(
+        gateway,
+        query,
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 200
+    assert result.body["entity_ids"] == ["sensor.temperature", "sensor.humidity"]
+    assert factory_calls == [gateway]
+    assert use_case.queries == [query]
+
+
+@pytest.mark.asyncio
 async def test_query_statistics_forwards_query_to_application_use_case() -> None:
     """Statistics invocation adapter forwards query to the recorder gateway."""
     from custom_components.smartly_bridge.views.history import _query_statistics

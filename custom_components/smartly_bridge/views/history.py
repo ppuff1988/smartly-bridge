@@ -124,9 +124,18 @@ async def _query_single_history(
     return await use_case_factory(gateway).execute(query)
 
 
-async def _query_batch_history(gateway: Any, query: BatchHistoryQuery) -> Any:
+def _batch_history_use_case(gateway: Any) -> BatchHistoryUseCase:
+    """Build the batch history application use case."""
+    return BatchHistoryUseCase(gateway)
+
+
+async def _query_batch_history(
+    gateway: Any,
+    query: BatchHistoryQuery,
+    use_case_factory: Callable[[Any], Any] = _batch_history_use_case,
+) -> Any:
     """Execute the batch history query use case with a history gateway port."""
-    return await BatchHistoryUseCase(gateway).execute(query)
+    return await use_case_factory(gateway).execute(query)
 
 
 async def _query_statistics(gateway: Any, query: StatisticsQuery) -> Any:
