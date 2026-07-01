@@ -103,6 +103,21 @@ async def _create_webrtc_token(
     )
 
 
+async def _create_webrtc_offer(
+    gateway: Any,
+    *,
+    entity_id: str,
+    token: str,
+    sdp_offer: str,
+) -> Any:
+    """Execute the WebRTC offer use case with parsed HTTP shell inputs."""
+    return await WebRTCOfferUseCase(gateway).execute(
+        entity_id=entity_id,
+        token=token,
+        sdp_offer=sdp_offer,
+    )
+
+
 class SmartlyWebRTCTokenView(BaseView):
     """Handle POST /api/smartly/camera/{entity_id}/webrtc requests.
 
@@ -383,9 +398,8 @@ class SmartlyWebRTCOfferView(BaseView):
                 headers=result.headers,
             )
 
-        result = await WebRTCOfferUseCase(
-            _webrtc_gateway(self.hass, webrtc_manager)
-        ).execute(
+        result = await _create_webrtc_offer(
+            _webrtc_gateway(self.hass, webrtc_manager),
             entity_id=entity_id,
             token=token_str,
             sdp_offer=sdp_offer,

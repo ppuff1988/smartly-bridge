@@ -761,6 +761,44 @@ class TestWebRTCViews:
         )
 
     @pytest.mark.asyncio
+    async def test_create_webrtc_offer_forwards_token_and_sdp(self):
+        """WebRTC offer invocation adapter forwards token and SDP payload."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_offer
+
+        gateway = FakeWebRTCGateway()
+
+        result = await _create_webrtc_offer(
+            gateway,
+            entity_id="camera.front_door",
+            token="valid-token",
+            sdp_offer="v=0\r\ns=Platform\r\n",
+        )
+
+        assert result.status == 200
+        assert result.body["type"] == "answer"
+        assert result.body["session_id"] == gateway.session.token[:16]
+        assert gateway.calls == [
+            "consume_token",
+            "update_session_state",
+            "create_webrtc_answer",
+            "update_session_state",
+        ]
+        assert gateway.state_updates == [
+            {
+                "token": gateway.session.token,
+                "state": "connecting",
+                "local_sdp": None,
+                "remote_sdp": "v=0\r\ns=Platform\r\n",
+            },
+            {
+                "token": gateway.session.token,
+                "state": "connected",
+                "local_sdp": "v=0\r\ns=Smartly Bridge\r\n",
+                "remote_sdp": None,
+            },
+        ]
+
+    @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
         """Test token request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
