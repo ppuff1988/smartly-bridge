@@ -106,6 +106,14 @@ class FakeSmartlyCommandExecutor:
         )
 
 
+class FakeLocalAutomationUseCase:
+    """Local automation use case used to verify assembly factory wiring."""
+
+    def __init__(self, rule_store: object, command_executor: object) -> None:
+        self.rule_store = rule_store
+        self.command_executor = command_executor
+
+
 class FakeDeviceEventUseCase:
     """Device event use case used to verify invocation factory wiring."""
 
@@ -295,6 +303,59 @@ def test_build_local_automation_does_not_create_fallback_when_runtime_adapters_e
     assert automation is not None
     mock_rule_store.assert_not_called()
     mock_executor.assert_not_called()
+
+
+def test_build_local_automation_uses_injected_use_case_factory() -> None:
+    """Local automation assembly accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.device_events import _build_local_automation
+
+    rule_store = FakeLocalAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="device_abc123",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+    command_executor = FakeSmartlyCommandExecutor()
+    integration_data = {
+        "runtime_adapters": {
+            "local_automation_rule_store": rule_store,
+            "smartly_command_executor": command_executor,
+        }
+    }
+    factory_calls: list[tuple[object, object]] = []
+
+    def use_case_factory(received_rule_store, received_command_executor):
+        factory_calls.append((received_rule_store, received_command_executor))
+        return FakeLocalAutomationUseCase(
+            received_rule_store,
+            received_command_executor,
+        )
+
+    automation = _build_local_automation(
+        integration_data,
+        MagicMock(),
+        use_case_factory=use_case_factory,
+    )
+
+    assert isinstance(automation, FakeLocalAutomationUseCase)
+    assert factory_calls == [(rule_store, command_executor)]
+    assert automation.rule_store is rule_store
+    assert automation.command_executor is command_executor
 
 
 def test_device_event_publisher_resolver_uses_runtime_publisher() -> None:

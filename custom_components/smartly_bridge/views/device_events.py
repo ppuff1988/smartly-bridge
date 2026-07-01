@@ -117,8 +117,22 @@ def _device_event_deduplicator(integration_data: dict[str, Any]) -> Any:
     return deduplicator
 
 
+def _local_automation_use_case(
+    rule_store: Any,
+    command_executor: Any,
+) -> LocalAutomationUseCase:
+    """Build the local automation application use case."""
+    return LocalAutomationUseCase(
+        rule_store,
+        command_executor,
+    )
+
+
 def _build_local_automation(
-    integration_data: dict[str, Any], hass: HomeAssistant
+    integration_data: dict[str, Any],
+    hass: HomeAssistant,
+    *,
+    use_case_factory: Callable[[Any, Any], Any] = _local_automation_use_case,
 ) -> LocalAutomationUseCase | None:
     """Build local automation from runtime adapters when rules are configured."""
     if not _has_local_automation_rules(integration_data):
@@ -132,7 +146,7 @@ def _build_local_automation(
     if command_executor is None:
         command_executor = _home_assistant_smartly_command_executor(hass, _LOGGER)
         adapters["smartly_command_executor"] = command_executor
-    return LocalAutomationUseCase(
+    return use_case_factory(
         rule_store,
         command_executor,
     )
