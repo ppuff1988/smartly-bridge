@@ -102,6 +102,14 @@ class CameraManagerGuardResult:
     response: web.Response | None = None
 
 
+@dataclass(frozen=True)
+class CameraEntityIdValidationResult:
+    """Result of validating a camera entity ID from the HTTP path."""
+
+    entity_id: str = ""
+    response: web.Response | None = None
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -247,26 +255,41 @@ def _require_camera_manager(
     return CameraManagerGuardResult(camera_manager=camera_manager)
 
 
+def _validate_camera_entity_id(
+    request: web.Request,
+    entity_id: str,
+) -> CameraEntityIdValidationResult:
+    """Return a camera entity ID or a legacy-compatible invalid entity response."""
+    if not entity_id or not entity_id.startswith("camera."):
+        result = _camera_error_response(
+            "invalid_entity_id",
+            status=400,
+            target="camera.entity_id",
+        )
+        return CameraEntityIdValidationResult(
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=result.headers,
+            )
+        )
+
+    return CameraEntityIdValidationResult(entity_id=entity_id)
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
     async def get(self) -> web.Response:
         """Handle camera snapshot request."""
-        entity_id = self.request.match_info.get("entity_id", "")
-
-        # Validate entity_id format
-        if not entity_id or not entity_id.startswith("camera."):
-            result = _camera_error_response(
-                "invalid_entity_id",
-                status=400,
-                target="camera.entity_id",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        validation = _validate_camera_entity_id(
+            self.request,
+            self.request.match_info.get("entity_id", ""),
+        )
+        if validation.response is not None:
+            return validation.response
+        entity_id = validation.entity_id
 
         guard = await _authorize_camera_request(
             self.request,
@@ -328,7 +351,7 @@ class SmartlyCameraStreamView(BaseView):
 
     async def get(self) -> web.StreamResponse:
         """Handle camera stream request."""
-        entity_id = self.request.match_info.get("entity_id", "")
+        raw_entity_id = self.request.match_info.get("entity_id", "")
 
         # Log detailed request information
         _LOGGER.info(
@@ -344,7 +367,7 @@ class SmartlyCameraStreamView(BaseView):
             "  X-Forwarded-For: %s\n"
             "  X-Real-IP: %s\n"
             "  X-Stream-Token: %s",
-            entity_id,
+            raw_entity_id,
             self.request.method,
             self.request.path,
             self.request.query_string,
@@ -357,19 +380,10 @@ class SmartlyCameraStreamView(BaseView):
             self.request.headers.get("X-Stream-Token", "N/A"),
         )
 
-        # Validate entity_id format
-        if not entity_id or not entity_id.startswith("camera."):
-            result = _camera_error_response(
-                "invalid_entity_id",
-                status=400,
-                target="camera.entity_id",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        validation = _validate_camera_entity_id(self.request, raw_entity_id)
+        if validation.response is not None:
+            return validation.response
+        entity_id = validation.entity_id
 
         guard = await _authorize_camera_request(
             self.request,
@@ -525,21 +539,13 @@ class SmartlyCameraHLSInfoView(BaseView):
 
     async def get(self) -> web.Response:
         """Handle HLS stream info/start request."""
-        entity_id = self.request.match_info.get("entity_id", "")
-
-        # Validate entity_id format
-        if not entity_id or not entity_id.startswith("camera."):
-            result = _camera_error_response(
-                "invalid_entity_id",
-                status=400,
-                target="camera.entity_id",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        validation = _validate_camera_entity_id(
+            self.request,
+            self.request.match_info.get("entity_id", ""),
+        )
+        if validation.response is not None:
+            return validation.response
+        entity_id = validation.entity_id
 
         guard = await _authorize_camera_request(
             self.request,
