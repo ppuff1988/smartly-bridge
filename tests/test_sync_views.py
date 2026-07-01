@@ -586,6 +586,7 @@ class TestSmartlySyncStatesView:
                             )
                         ),
                     ),
+                    "raw_diagnostic_store": FakeRawDiagnosticRecorder(),
                 },
             }
         }
@@ -881,6 +882,7 @@ class TestSmartlySyncStatesView:
         gateway = FakeSyncStatesGateway()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {
             "sync_states_gateway": gateway,
+            "raw_diagnostic_store": FakeRawDiagnosticRecorder(),
         }
 
         with patch(
@@ -958,33 +960,59 @@ class TestSmartlySyncStatesView:
             "raw_diagnostic_store": recorder,
         }
 
-        with patch(
-            "custom_components.smartly_bridge.views.sync._home_assistant_raw_diagnostic_store"
-        ) as mock_store:
-            result = _raw_diagnostic_recorder(mock_hass)
+        result = _raw_diagnostic_recorder(mock_hass)
 
         assert result is recorder
-        mock_store.assert_not_called()
 
-    def test_raw_diagnostic_recorder_resolver_uses_injected_fallback_factory(
-        self, mock_hass
-    ):
-        """Raw diagnostic recorder resolver accepts an injected fallback factory."""
+    def test_raw_diagnostic_recorder_resolver_requires_runtime_store(self, mock_hass):
+        """Raw diagnostic recorder resolver does not create a request-time fallback."""
         from custom_components.smartly_bridge.views.sync import _raw_diagnostic_recorder
 
-        recorder = FakeRawDiagnosticRecorder()
-        factory_calls = []
         mock_hass.data[DOMAIN]["runtime_adapters"] = {}
 
-        def store_factory(hass):
-            factory_calls.append(hass)
-            return recorder
+        result = _raw_diagnostic_recorder(mock_hass)
 
-        result = _raw_diagnostic_recorder(mock_hass, store_factory=store_factory)
+        assert result is None
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
-        assert result is recorder
-        assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is recorder
-        assert factory_calls == [mock_hass]
+    @pytest.mark.asyncio
+    async def test_states_sync_requires_setup_raw_diagnostic_store(
+        self, mock_request, mock_hass
+    ):
+        """State sync rejects requests when the setup raw diagnostic store is missing."""
+        gateway = FakeSyncStatesGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "raw_diagnostic_store_unavailable",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "RAW_DIAGNOSTIC_STORE_UNAVAILABLE",
+                    "message": "raw diagnostic store unavailable",
+                    "target": "sync.states.raw_diagnostic_store",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "raw_diagnostic_store"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
 
     @pytest.mark.asyncio
     async def test_successful_states_sync_echoes_request_correlation_headers(
@@ -1031,15 +1059,12 @@ class TestSmartlySyncStatesView:
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
-        ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.sync._home_assistant_raw_diagnostic_store"
-        ) as mock_store:
+        ) as mock_verify:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
             response = await SmartlySyncStatesView(mock_request).get()
 
         assert response.status == 200
-        mock_store.assert_not_called()
         data = json.loads(response.body)
         raw_ref = "raw_ldev_camera_runtime"
         assert gateway.calls == 1

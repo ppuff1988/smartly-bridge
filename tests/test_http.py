@@ -1016,6 +1016,7 @@ class TestStatesEndpoint:
                         sync_views.get_allowed_entities(hass_arg, entity_registry)
                     ),
                 ),
+                "raw_diagnostic_store": MagicMock(),
             },
         }
 

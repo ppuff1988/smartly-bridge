@@ -8,9 +8,6 @@ from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
 from ..acl import get_allowed_entities
-from ..adapters.home_assistant import (
-    _home_assistant_raw_diagnostic_store,
-)
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
@@ -112,17 +109,10 @@ def _sync_states_gateway(hass: HomeAssistant) -> Any | None:
     return runtime_adapters.get("sync_states_gateway")
 
 
-def _raw_diagnostic_recorder(
-    hass: HomeAssistant,
-    store_factory: Callable[[HomeAssistant], Any] = _home_assistant_raw_diagnostic_store,
-) -> Any:
-    """Return the setup-created raw diagnostic recorder or create a legacy fallback."""
+def _raw_diagnostic_recorder(hass: HomeAssistant) -> Any | None:
+    """Return the setup-created raw diagnostic recorder."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    store = runtime_adapters.get("raw_diagnostic_store")
-    if store is None:
-        store = store_factory(hass)
-        runtime_adapters["raw_diagnostic_store"] = store
-    return store
+    return runtime_adapters.get("raw_diagnostic_store")
 
 
 class SmartlySyncView(web.View):
@@ -267,7 +257,7 @@ class SmartlySyncStatesView(web.View):
         """Return the setup-created sync states gateway."""
         return _sync_states_gateway(self.hass)
 
-    def _raw_diagnostic_recorder(self) -> Any:
+    def _raw_diagnostic_recorder(self) -> Any | None:
         """Return the setup-created raw diagnostic recorder."""
         return _raw_diagnostic_recorder(self.hass)
 
@@ -358,10 +348,24 @@ class SmartlySyncStatesView(web.View):
                 headers=result.headers,
             )
 
+        raw_diagnostic_recorder = self._raw_diagnostic_recorder()
+        if raw_diagnostic_recorder is None:
+            result = sync_error_response(
+                "raw_diagnostic_store_unavailable",
+                status=500,
+                target="sync.states.raw_diagnostic_store",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _build_sync_states(
             gateway,
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
-            raw_diagnostic_recorder=self._raw_diagnostic_recorder(),
+            raw_diagnostic_recorder=raw_diagnostic_recorder,
         )
         return _json_response(
             result.body,
