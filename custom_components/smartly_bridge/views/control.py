@@ -11,8 +11,8 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
-    HomeAssistantSmartlyCommandExecutor,
     _home_assistant_control_use_case,
+    _home_assistant_smartly_command_executor,
 )
 from ..application.control import (
     ControlCommand,
@@ -154,7 +154,7 @@ def _smartly_command_executor(hass: Any) -> Any:
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     executor = runtime_adapters.get("smartly_command_executor")
     if executor is None:
-        executor = HomeAssistantSmartlyCommandExecutor(hass, _LOGGER)
+        executor = _home_assistant_smartly_command_executor(hass, _LOGGER)
         runtime_adapters["smartly_command_executor"] = executor
     return executor
 

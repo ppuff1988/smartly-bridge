@@ -9,6 +9,7 @@ import pytest
 from custom_components.smartly_bridge.adapters.home_assistant import (
     HomeAssistantSmartlyCommandExecutor,
     _home_assistant_control_use_case,
+    _home_assistant_smartly_command_executor,
 )
 from custom_components.smartly_bridge.application.control import ControlUseCase, SmartlyCommand
 from custom_components.smartly_bridge.domain.models import BridgeResponse
@@ -34,6 +35,16 @@ def test_home_assistant_control_use_case_factory_builds_legacy_control_use_case(
     use_case = _home_assistant_control_use_case(hass, logger)
 
     assert isinstance(use_case, ControlUseCase)
+
+
+def test_home_assistant_smartly_command_executor_factory_builds_legacy_executor() -> None:
+    """Smartly command executor factory centralizes legacy executor wiring."""
+    hass = MagicMock()
+    logger = MagicMock()
+
+    executor = _home_assistant_smartly_command_executor(hass, logger)
+
+    assert isinstance(executor, HomeAssistantSmartlyCommandExecutor)
 
 
 @pytest.mark.asyncio

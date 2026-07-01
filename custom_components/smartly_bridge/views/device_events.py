@@ -12,9 +12,9 @@ from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
     DEVICE_EVENT_TYPE,
-    HomeAssistantSmartlyCommandExecutor,
     _home_assistant_device_event_publisher,
     _home_assistant_local_automation_rule_store,
+    _home_assistant_smartly_command_executor,
     _in_memory_device_event_deduplicator,
 )
 from ..application.device_events import (
@@ -130,7 +130,7 @@ def _build_local_automation(
         adapters["local_automation_rule_store"] = rule_store
     command_executor = adapters.get("smartly_command_executor")
     if command_executor is None:
-        command_executor = HomeAssistantSmartlyCommandExecutor(hass, _LOGGER)
+        command_executor = _home_assistant_smartly_command_executor(hass, _LOGGER)
         adapters["smartly_command_executor"] = command_executor
     return LocalAutomationUseCase(
         rule_store,

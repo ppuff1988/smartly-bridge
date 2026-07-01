@@ -471,6 +471,13 @@ class HomeAssistantSmartlyCommandExecutor:
         )
 
 
+def _home_assistant_smartly_command_executor(
+    hass: Any, logger: Any
+) -> HomeAssistantSmartlyCommandExecutor:
+    """Build the Home Assistant-backed legacy SmartlyCommand executor."""
+    return HomeAssistantSmartlyCommandExecutor(hass, logger)
+
+
 class HomeAssistantEntityPolicy:
     """Entity and service policy backed by Home Assistant registries."""
 

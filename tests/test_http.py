@@ -158,7 +158,7 @@ def test_smartly_command_executor_resolver_uses_runtime_executor(mock_hass) -> N
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.control.HomeAssistantSmartlyCommandExecutor"
+        "custom_components.smartly_bridge.views.control._home_assistant_smartly_command_executor"
     ) as mock_executor:
         result = _smartly_command_executor(mock_hass)
 
@@ -1607,7 +1607,7 @@ class TestControlEndpointFullFlow:
         with patch(
             "custom_components.smartly_bridge.views.control.verify_request"
         ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.control.HomeAssistantSmartlyCommandExecutor"
+            "custom_components.smartly_bridge.views.control._home_assistant_smartly_command_executor"
         ) as mock_executor:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None

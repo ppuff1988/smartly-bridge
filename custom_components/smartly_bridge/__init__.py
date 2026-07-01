@@ -64,12 +64,12 @@ def _build_runtime_adapters(
         HomeAssistantHistoryGateway,
         HomeAssistantRawDiagnosticStore,
         HomeAssistantStateSyncGateway,
-        HomeAssistantSmartlyCommandExecutor,
         HomeAssistantSyncGateway,
         HomeAssistantWebRTCGateway,
         _home_assistant_control_use_case,
         _home_assistant_device_event_publisher,
         _home_assistant_local_automation_rule_store,
+        _home_assistant_smartly_command_executor,
         _in_memory_device_event_deduplicator,
     )
     from .views.history import _get_history_semaphore
@@ -79,7 +79,7 @@ def _build_runtime_adapters(
         "device_event_publisher": _home_assistant_device_event_publisher(hass),
         "device_event_deduplicator": _in_memory_device_event_deduplicator(),
         "local_automation_rule_store": _home_assistant_local_automation_rule_store(hass),
-        "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, logger),
+        "smartly_command_executor": _home_assistant_smartly_command_executor(hass, logger),
         "camera_gateway": HomeAssistantCameraGateway(hass, camera_manager),
         "history_gateway": HomeAssistantHistoryGateway(hass, _get_history_semaphore),
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
