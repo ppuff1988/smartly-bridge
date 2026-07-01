@@ -67,6 +67,31 @@ def _configure_control_runtime_adapters(mock_hass, *, logger: object | None = No
     )
 
 
+def assert_control_error_body(
+    body: dict[str, object],
+    *,
+    code: str,
+    message: str,
+    target: str = "control",
+    retryable: bool = False,
+) -> None:
+    """Assert control endpoint errors use API vNext fields only."""
+    assert "error" not in body
+    assert body == {
+        "schema_version": "2026.06",
+        "data": {"status": "rejected"},
+        "warnings": [],
+        "errors": [
+            {
+                "code": code,
+                "message": message,
+                "target": target,
+                "retryable": retryable,
+            }
+        ],
+    }
+
+
 class FakeRawDiagnosticStore:
     """Raw diagnostic store used to verify runtime wiring."""
 
@@ -191,20 +216,11 @@ class TestControlEndpoint:
         response = await SmartlyControlView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "error": "integration_not_configured",
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "control",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert_control_error_body(
+            json.loads(response.body),
+            code="INTEGRATION_NOT_CONFIGURED",
+            message="integration not configured",
+        )
 
     @pytest.mark.asyncio
     async def test_control_missing_headers(self):
@@ -327,20 +343,11 @@ class TestControlEndpoint:
             response = await SmartlyControlView(request).post()
 
         assert response.status == 401
-        assert json.loads(response.body) == {
-            "error": "invalid_signature",
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_SIGNATURE",
-                    "message": "invalid signature",
-                    "target": "control",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert_control_error_body(
+            json.loads(response.body),
+            code="INVALID_SIGNATURE",
+            message="invalid signature",
+        )
 
     @pytest.mark.asyncio
     async def test_control_rate_limited(self):
@@ -392,20 +399,11 @@ class TestControlEndpoint:
         assert response.status == 429
         assert response.headers["Retry-After"] == "60"
         assert response.headers["X-RateLimit-Remaining"] == "0"
-        assert json.loads(response.body) == {
-            "error": "rate_limited",
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "RATE_LIMITED",
-                    "message": "rate limited",
-                    "target": "control",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert_control_error_body(
+            json.loads(response.body),
+            code="RATE_LIMITED",
+            message="rate limited",
+        )
 
 
 class TestSyncEndpoint:
@@ -961,20 +959,7 @@ class TestControlEndpointFullFlow:
 
             assert response.status == 400
             body = json.loads(response.text)
-            assert body == {
-                "error": "invalid_json",
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_JSON",
-                        "message": "invalid json",
-                        "target": "control",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert_control_error_body(body, code="INVALID_JSON", message="invalid json")
 
         await nonce_cache.stop()
 
@@ -1034,20 +1019,11 @@ class TestControlEndpointFullFlow:
 
             assert response.status == 400
             body = json.loads(response.text)
-            assert body == {
-                "error": "missing_required_fields",
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "MISSING_REQUIRED_FIELDS",
-                        "message": "missing required fields",
-                        "target": "control",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert_control_error_body(
+                body,
+                code="MISSING_REQUIRED_FIELDS",
+                message="missing required fields",
+            )
 
         await nonce_cache.stop()
 
@@ -1091,20 +1067,11 @@ class TestControlEndpointFullFlow:
             response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "error": "missing_required_fields",
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_REQUIRED_FIELDS",
-                    "message": "missing required fields",
-                    "target": "control",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert_control_error_body(
+            json.loads(response.body),
+            code="MISSING_REQUIRED_FIELDS",
+            message="missing required fields",
+        )
         assert "control_use_case" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
@@ -1146,20 +1113,11 @@ class TestControlEndpointFullFlow:
             response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "error": "missing_required_fields",
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_REQUIRED_FIELDS",
-                    "message": "missing required fields",
-                    "target": "control",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert_control_error_body(
+            json.loads(response.body),
+            code="MISSING_REQUIRED_FIELDS",
+            message="missing required fields",
+        )
         assert "control_use_case" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
@@ -1315,20 +1273,11 @@ class TestControlEndpointFullFlow:
             response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "error": "smartly_command_executor_unavailable",
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
-                    "message": "smartly command executor unavailable",
-                    "target": "control",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert_control_error_body(
+            json.loads(response.body),
+            code="SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
+            message="smartly command executor unavailable",
+        )
         assert (
             "smartly_command_executor"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]

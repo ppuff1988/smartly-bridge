@@ -145,6 +145,12 @@ def assert_smartly_command_error(
     assert result.body["data"]["source_entity_id"] == source_entity_id
 
 
+def assert_control_error(result: BridgeResponse, error_code: str) -> None:
+    """Assert source control errors use API vNext fields only."""
+    assert "error" not in result.body
+    assert result.body["errors"][0]["code"] == error_code.upper()
+
+
 def test_cover_tilt_position_service_is_allowed() -> None:
     """Cover tilt commands are allowed by the real service whitelist."""
     assert is_service_allowed("cover", "set_cover_tilt_position") is True
@@ -247,7 +253,7 @@ async def test_control_use_case_denies_entity_before_service_call() -> None:
     )
 
     assert result.status == 403
-    assert result.body["error"] == "entity_not_allowed"
+    assert_control_error(result, "entity_not_allowed")
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -285,7 +291,7 @@ async def test_control_use_case_denies_service_before_service_call() -> None:
     )
 
     assert result.status == 403
-    assert result.body["error"] == "service_not_allowed"
+    assert_control_error(result, "service_not_allowed")
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -367,7 +373,7 @@ async def test_control_use_case_reports_service_call_failure() -> None:
     )
 
     assert result.status == 500
-    assert result.body["error"] == "service_call_failed"
+    assert_control_error(result, "service_call_failed")
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []

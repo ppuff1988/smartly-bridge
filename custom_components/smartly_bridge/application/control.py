@@ -789,14 +789,13 @@ def _rgb_color_state(params: dict[str, Any]) -> dict[str, int] | None:
 
 
 def control_error_response(error: str, *, status: int) -> BridgeResponse:
-    """Return a legacy-compatible API vNext control error response."""
+    """Return an API vNext control error response."""
     code, message, target = SMARTLY_COMMAND_ERROR_DETAILS.get(
         error,
         (error.upper(), error.replace("_", " "), "control"),
     )
     return BridgeResponse(
         {
-            "error": error,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -848,7 +847,7 @@ def _smartly_command_error_response(
 ) -> BridgeResponse:
     """Return the API vNext canonical command error response shape."""
     result = error if isinstance(error, BridgeResponse) else None
-    error_code = result.body.get("error") if result else error
+    error_code = _bridge_response_error_code(result) if result else error
     response_status = result.status if result else status
     if response_status is None:
         response_status = 500
@@ -867,6 +866,23 @@ def _smartly_command_error_response(
         status=response_status,
         headers=result.headers if result else {},
     )
+
+
+def _bridge_response_error_code(result: BridgeResponse) -> str:
+    """Return a stable snake_case error code from a vNext BridgeResponse."""
+    legacy_error = result.body.get("error")
+    if isinstance(legacy_error, str):
+        return legacy_error
+
+    errors = result.body.get("errors")
+    if isinstance(errors, list) and errors:
+        first_error = errors[0]
+        if isinstance(first_error, dict):
+            code = first_error.get("code")
+            if isinstance(code, str):
+                return code.lower()
+
+    return "command_failed"
 
 
 def _smartly_command_vnext_error(error_code: Any, status: int) -> dict[str, Any]:
