@@ -657,6 +657,21 @@ class TestRawDiagnosticEndpoint:
         assert result.body["data"]["payload"]["access_token"] == "<redacted>"
         assert result.body["data"]["payload"]["attributes"]["host"] == "<redacted>"
 
+    def test_raw_diagnostic_store_resolver_uses_runtime_store(self, mock_hass):
+        """Raw diagnostic store resolver returns the setup-created storage port."""
+        from custom_components.smartly_bridge.views.diagnostics import _raw_diagnostic_store
+
+        store = FakeRawDiagnosticStore()
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {"raw_diagnostic_store": store}}
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.HomeAssistantRawDiagnosticStore"
+        ) as mock_store:
+            result = _raw_diagnostic_store(mock_hass)
+
+        assert result is store
+        mock_store.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_raw_diagnostic_uses_runtime_store(self, mock_hass, mock_config_entry):
         """Raw diagnostic requests read through the setup-created storage port."""

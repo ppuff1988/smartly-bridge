@@ -54,17 +54,22 @@ def _fetch_raw_diagnostic(store: Any, *, raw_ref: str) -> Any:
     return RawDiagnosticFetchUseCase(store).execute(raw_ref)
 
 
+def _raw_diagnostic_store(hass: Any) -> Any:
+    """Return the setup-created raw diagnostic store or create a legacy fallback."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    store = runtime_adapters.get("raw_diagnostic_store")
+    if store is None:
+        store = HomeAssistantRawDiagnosticStore(hass)
+        runtime_adapters["raw_diagnostic_store"] = store
+    return store
+
+
 class SmartlyRawDiagnosticView(BaseView):
     """Handle GET /api/smartly/diagnostics/raw/{raw_ref} requests."""
 
     def _raw_diagnostic_store(self) -> Any:
         """Return the setup-created raw diagnostic store."""
-        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        store = runtime_adapters.get("raw_diagnostic_store")
-        if store is None:
-            store = HomeAssistantRawDiagnosticStore(self.hass)
-            runtime_adapters["raw_diagnostic_store"] = store
-        return store
+        return _raw_diagnostic_store(self.hass)
 
     async def _authorize(self) -> web.Response | str:
         """Authorize a raw diagnostic request."""
