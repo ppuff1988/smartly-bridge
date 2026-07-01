@@ -675,6 +675,23 @@ class TestSmartlySyncStatesView:
         assert gateway.calls == 1
         assert data["states"][0]["entity_id"] == "light.runtime"
 
+    def test_sync_states_gateway_resolver_uses_runtime_gateway(self, mock_hass):
+        """Sync states gateway resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.views.sync import _sync_states_gateway
+
+        gateway = FakeSyncStatesGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.HomeAssistantStateSyncGateway"
+        ) as mock_gateway:
+            result = _sync_states_gateway(mock_hass)
+
+        assert result is gateway
+        mock_gateway.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_successful_states_sync_echoes_request_correlation_headers(
         self, mock_request, mock_hass

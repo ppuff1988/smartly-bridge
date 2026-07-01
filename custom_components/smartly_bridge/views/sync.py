@@ -92,6 +92,19 @@ def _sync_structure_gateway(hass: HomeAssistant) -> Any:
     return gateway
 
 
+def _sync_states_gateway(hass: HomeAssistant) -> Any:
+    """Return the setup-created sync states gateway or create a legacy fallback."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    gateway = runtime_adapters.get("sync_states_gateway")
+    if gateway is None:
+        gateway = HomeAssistantStateSyncGateway(
+            hass,
+            allowed_entities_fn=get_allowed_entities,
+        )
+        runtime_adapters["sync_states_gateway"] = gateway
+    return gateway
+
+
 class SmartlySyncView(web.View):
     """Handle GET /api/smartly/sync/structure requests."""
 
@@ -218,15 +231,7 @@ class SmartlySyncStatesView(web.View):
 
     def _sync_states_gateway(self) -> Any:
         """Return the setup-created sync states gateway."""
-        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        gateway = runtime_adapters.get("sync_states_gateway")
-        if gateway is None:
-            gateway = HomeAssistantStateSyncGateway(
-                self.hass,
-                allowed_entities_fn=get_allowed_entities,
-            )
-            runtime_adapters["sync_states_gateway"] = gateway
-        return gateway
+        return _sync_states_gateway(self.hass)
 
     def _raw_diagnostic_recorder(self) -> Any:
         """Return the setup-created raw diagnostic recorder."""
