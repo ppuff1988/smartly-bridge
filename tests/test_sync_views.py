@@ -78,6 +78,28 @@ class FakeDiagnosticSyncStatesGateway:
         ]
 
 
+class FakeHistoryGateway:
+    """History gateway used to verify state sync bridge chart wiring."""
+
+    def __init__(self, states: list[object]) -> None:
+        self.states = states
+        self.calls: list[tuple[str, object, object, bool]] = []
+
+    async def query_states(
+        self,
+        entity_id: str,
+        start_time: object,
+        end_time: object,
+        *,
+        significant_changes_only: bool = False,
+    ) -> list[object]:
+        """Record the history query and return configured states."""
+        self.calls.append(
+            (entity_id, start_time, end_time, significant_changes_only)
+        )
+        return self.states
+
+
 class FakeRawDiagnosticRecorder:
     """Raw diagnostic recorder used to verify setup runtime wiring."""
 
@@ -87,6 +109,65 @@ class FakeRawDiagnosticRecorder:
     def record_raw_diagnostic(self, raw_ref: str, payload: dict) -> None:
         """Record raw diagnostic payloads."""
         self.payloads[raw_ref] = payload
+
+
+@pytest.mark.asyncio
+async def test_state_sync_bridge_chart_uses_injected_history_gateway_factory(
+    mock_hass,
+) -> None:
+    """State sync bridge charts use the injected history gateway factory."""
+    entity_id = "sensor.temperature"
+    state = MagicMock()
+    state.state = "24.567"
+    state.attributes = {
+        "device_class": "temperature",
+        "unit_of_measurement": "°C",
+    }
+    state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+    state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+    history_state = MagicMock()
+    history_state.state = "24.1"
+    history_state.last_updated.isoformat.return_value = "2026-06-26T04:00:00+00:00"
+    history_gateway = FakeHistoryGateway([history_state])
+    factory_calls: list[tuple[object, object]] = []
+
+    def history_gateway_factory(
+        hass_arg: object,
+        semaphore_factory_arg: object,
+    ) -> FakeHistoryGateway:
+        factory_calls.append((hass_arg, semaphore_factory_arg))
+        return history_gateway
+
+    registry = MagicMock()
+    registry.entities = {}
+    registry.async_get.return_value = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels=set(),
+        device_id=None,
+    )
+    mock_hass.states.get.return_value = state
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=registry):
+        snapshots = await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=[entity_id]),
+            history_gateway_factory=history_gateway_factory,
+        ).list_states()
+
+    assert len(factory_calls) == 1
+    assert factory_calls[0][0] is mock_hass
+    assert callable(factory_calls[0][1])
+    assert history_gateway.calls[0][0] == entity_id
+    assert history_gateway.calls[0][3] is True
+    assert snapshots[0].bridge_chart == {
+        "metric": "temperature",
+        "unit": "°C",
+        "points": [
+            {"at": "2026-06-26T04:00:00+00:00", "value": 24.1},
+            {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
+        ],
+    }
 
 
 class TestSmartlySyncView:

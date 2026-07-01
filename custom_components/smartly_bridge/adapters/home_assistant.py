@@ -417,6 +417,14 @@ def _smartly_command_use_case(hass: Any, logger: Any) -> SmartlyCommandUseCase:
     )
 
 
+def _state_sync_history_gateway(
+    hass: Any,
+    history_semaphore_factory: Callable[[], Any],
+) -> Any:
+    """Build the Home Assistant-backed history gateway for state sync charts."""
+    return HomeAssistantHistoryGateway(hass, history_semaphore_factory)
+
+
 class HomeAssistantSmartlyCommandExecutor:
     """SmartlyCommand executor backed by Home Assistant control adapters."""
 
@@ -715,11 +723,15 @@ class HomeAssistantStateSyncGateway:
         *,
         allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
         history_semaphore_factory: Callable[[], Any] | None = None,
+        history_gateway_factory: Callable[
+            [Any, Callable[[], Any]], Any
+        ] = _state_sync_history_gateway,
     ) -> None:
         self._hass = hass
         self._allowed_entities_fn = allowed_entities_fn
         self._history_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
         self._history_semaphore_factory = history_semaphore_factory or self._get_history_semaphore
+        self._history_gateway_factory = history_gateway_factory
 
     async def list_states(self) -> list[EntityStateSnapshot]:
         """Return allowed entity state snapshots."""
@@ -905,7 +917,10 @@ class HomeAssistantStateSyncGateway:
 
         end_time = _history_end_time(getattr(state, "last_updated", None))
         start_time = end_time - timedelta(hours=BRIDGE_CHART_LOOKBACK_HOURS)
-        history_gateway = HomeAssistantHistoryGateway(self._hass, self._history_semaphore_factory)
+        history_gateway = self._history_gateway_factory(
+            self._hass,
+            self._history_semaphore_factory,
+        )
         history_states = await history_gateway.query_states(
             entity_id,
             start_time,
