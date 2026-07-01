@@ -1,0 +1,16 @@
+{
+  "error": "entity_not_allowed",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ENTITY_NOT_ALLOWED",
+      "message": "entity not allowed",
+      "target": "camera.entity_id",
+      "retryable": false
+    }
+  ]
+}

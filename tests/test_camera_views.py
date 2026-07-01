@@ -382,6 +382,30 @@ class TestSmartlyCameraSnapshotView:
                 }
 
     @pytest.mark.asyncio
+    async def test_snapshot_entity_not_allowed_matches_api_vnext_fixture(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Snapshot entity-denied response remains stable for legacy and vNext clients."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=False,
+            ):
+                response = await SmartlyCameraSnapshotView(mock_request).get()
+
+                assert response.status == 403
+                assert json.loads(response.body) == _api_vnext_fixture(
+                    "camera-snapshot-entity-not-allowed.json"
+                )
+
+    @pytest.mark.asyncio
     async def test_camera_manager_not_initialized(self, mock_request, mock_hass):
         """Test error when camera manager not initialized."""
         with patch(
