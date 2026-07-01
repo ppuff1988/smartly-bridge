@@ -10,7 +10,6 @@ from homeassistant.core import HomeAssistant
 from ..acl import get_allowed_entities
 from ..adapters.home_assistant import (
     _home_assistant_raw_diagnostic_store,
-    _home_assistant_sync_states_gateway,
 )
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
@@ -107,17 +106,10 @@ def _sync_structure_gateway(hass: HomeAssistant) -> Any | None:
     return runtime_adapters.get("sync_structure_gateway")
 
 
-def _sync_states_gateway(hass: HomeAssistant) -> Any:
-    """Return the setup-created sync states gateway or create a legacy fallback."""
+def _sync_states_gateway(hass: HomeAssistant) -> Any | None:
+    """Return the setup-created sync states gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    gateway = runtime_adapters.get("sync_states_gateway")
-    if gateway is None:
-        gateway = _home_assistant_sync_states_gateway(
-            hass,
-            allowed_entities_fn=get_allowed_entities,
-        )
-        runtime_adapters["sync_states_gateway"] = gateway
-    return gateway
+    return runtime_adapters.get("sync_states_gateway")
 
 
 def _raw_diagnostic_recorder(
@@ -271,7 +263,7 @@ class SmartlySyncStatesView(web.View):
 
         return None
 
-    def _sync_states_gateway(self) -> Any:
+    def _sync_states_gateway(self) -> Any | None:
         """Return the setup-created sync states gateway."""
         return _sync_states_gateway(self.hass)
 
@@ -352,8 +344,22 @@ class SmartlySyncStatesView(web.View):
                 },
             )
 
+        gateway = self._sync_states_gateway()
+        if gateway is None:
+            result = sync_error_response(
+                "sync_states_gateway_unavailable",
+                status=500,
+                target="sync.states.gateway",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _build_sync_states(
-            self._sync_states_gateway(),
+            gateway,
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
             raw_diagnostic_recorder=self._raw_diagnostic_recorder(),
         )

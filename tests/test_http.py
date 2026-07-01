@@ -994,6 +994,10 @@ class TestStatesEndpoint:
 
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.adapters.home_assistant import (
+            _home_assistant_sync_states_gateway,
+        )
+        from custom_components.smartly_bridge.views import sync as sync_views
         from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView
 
         # Setup integration data
@@ -1005,6 +1009,14 @@ class TestStatesEndpoint:
             "config_entry": mock_config_entry,
             "nonce_cache": nonce_cache,
             "rate_limiter": rate_limiter,
+            "runtime_adapters": {
+                "sync_states_gateway": _home_assistant_sync_states_gateway(
+                    mock_hass,
+                    allowed_entities_fn=lambda hass_arg, entity_registry: (
+                        sync_views.get_allowed_entities(hass_arg, entity_registry)
+                    ),
+                ),
+            },
         }
 
         # Mock entity state

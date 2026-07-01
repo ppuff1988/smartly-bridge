@@ -562,6 +562,8 @@ class TestSmartlySyncStatesView:
     @pytest.fixture
     def mock_hass(self):
         """Create mock Home Assistant instance."""
+        from custom_components.smartly_bridge.views import sync as sync_views
+
         hass = MagicMock()
         hass.data = {
             DOMAIN: {
@@ -574,6 +576,17 @@ class TestSmartlySyncStatesView:
                 ),
                 "nonce_cache": NonceCache(),
                 "rate_limiter": RateLimiter(60, 60),
+                "runtime_adapters": {
+                    "sync_states_gateway": _home_assistant_sync_states_gateway(
+                        hass,
+                        allowed_entities_fn=lambda hass_arg, entity_registry: (
+                            sync_views.get_allowed_entities(
+                                hass_arg,
+                                entity_registry,
+                            )
+                        ),
+                    ),
+                },
             }
         }
         return hass
@@ -873,18 +886,55 @@ class TestSmartlySyncStatesView:
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
-        ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.sync._home_assistant_sync_states_gateway"
-        ) as mock_gateway:
+        ) as mock_verify:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
             response = await SmartlySyncStatesView(mock_request).get()
 
         assert response.status == 200
-        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert data["states"][0]["entity_id"] == "light.runtime"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_requires_setup_runtime_gateway(
+        self, mock_request, mock_hass
+    ):
+        """State sync rejects requests when the setup runtime gateway is missing."""
+        recorder = FakeRawDiagnosticRecorder()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "sync_states_gateway_unavailable",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "SYNC_STATES_GATEWAY_UNAVAILABLE",
+                    "message": "sync states gateway unavailable",
+                    "target": "sync.states.gateway",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "sync_states_gateway"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
+        assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is recorder
 
     def test_sync_states_gateway_resolver_uses_runtime_gateway(self, mock_hass):
         """Sync states gateway resolver returns the setup-created runtime port."""
@@ -895,13 +945,9 @@ class TestSmartlySyncStatesView:
             "sync_states_gateway": gateway,
         }
 
-        with patch(
-            "custom_components.smartly_bridge.views.sync._home_assistant_sync_states_gateway"
-        ) as mock_gateway:
-            result = _sync_states_gateway(mock_hass)
+        result = _sync_states_gateway(mock_hass)
 
         assert result is gateway
-        mock_gateway.assert_not_called()
 
     def test_raw_diagnostic_recorder_resolver_uses_runtime_store(self, mock_hass):
         """Raw diagnostic recorder resolver returns the setup-created runtime port."""
