@@ -1,0 +1,16 @@
+{
+  "error": "invalid_signature",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_SIGNATURE",
+      "message": "invalid signature",
+      "target": "camera.auth",
+      "retryable": false
+    }
+  ]
+}

@@ -267,6 +267,29 @@ class TestSmartlyCameraSnapshotView:
             }
 
     @pytest.mark.asyncio
+    async def test_snapshot_auth_failure_matches_api_vnext_fixture(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Snapshot auth failure response remains stable for legacy and vNext clients."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(
+                success=False,
+                error="invalid_signature",
+            )
+
+            response = await SmartlyCameraSnapshotView(mock_request).get()
+
+            assert response.status == 401
+            assert json.loads(response.body) == _api_vnext_fixture(
+                "camera-snapshot-auth-failure.json"
+            )
+
+    @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
         """Test rate limiting."""
         with patch(
