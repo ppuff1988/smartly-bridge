@@ -83,6 +83,7 @@ class FakeLocalAutomationRuleStore:
         self.list_calls = 0
         self.created_rules: list[LocalAutomationRule] = []
         self.updated_rules: list[LocalAutomationRule] = []
+        self.deleted_rule_ids: list[str] = []
 
     def list_rules(self) -> list[LocalAutomationRule]:
         """Return configured local automation rules."""
@@ -119,6 +120,7 @@ class FakeLocalAutomationRuleStore:
 
     def delete_rule(self, rule_id: str) -> bool:
         """Delete a rule."""
+        self.deleted_rule_ids.append(rule_id)
         return True
 
 
@@ -211,6 +213,22 @@ def test_update_local_automation_rule_forwards_payload_to_store() -> None:
     assert store.updated_rules[0].enabled is False
     assert store.updated_rules[0].trigger.event == "double_press"
     assert store.updated_rules[0].actions[0].command == "turn_off"
+
+
+def test_delete_local_automation_rule_forwards_rule_id_to_store() -> None:
+    """Local automation delete invocation adapter forwards canonical rule ID."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _delete_local_automation_rule,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+
+    result = _delete_local_automation_rule(store, "runtime-left-single")
+
+    assert result.status == 200
+    assert result.body["status"] == "deleted"
+    assert result.body["rule_id"] == "runtime-left-single"
+    assert store.deleted_rule_ids == ["runtime-left-single"]
 
 
 @pytest.mark.asyncio
