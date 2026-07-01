@@ -107,6 +107,24 @@ class FakeRuntimeHistoryGateway:
         ]
 
 
+def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
+    """History read gateway resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.history import _history_read_gateway
+
+    gateway = FakeRuntimeHistoryGateway()
+    mock_hass.data[DOMAIN] = {
+        "runtime_adapters": {"history_gateway": gateway}
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.history.HomeAssistantHistoryGateway"
+    ) as mock_gateway:
+        result = _history_read_gateway(mock_hass)
+
+    assert result is gateway
+    mock_gateway.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_query_single_history_forwards_query_to_application_use_case() -> None:
     """Single history invocation adapter forwards query to the recorder gateway."""

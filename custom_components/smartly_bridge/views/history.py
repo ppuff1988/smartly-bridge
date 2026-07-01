@@ -68,14 +68,19 @@ def _get_history_semaphore() -> asyncio.Semaphore:
     return _history_query_semaphore
 
 
-def _history_gateway(hass: HomeAssistant) -> Any:
-    """Return the setup-created history gateway."""
+def _history_read_gateway(hass: HomeAssistant) -> Any:
+    """Return the setup-created history gateway or create a fallback."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("history_gateway")
     if gateway is None:
         gateway = HomeAssistantHistoryGateway(hass, _get_history_semaphore)
         runtime_adapters["history_gateway"] = gateway
     return gateway
+
+
+def _history_gateway(hass: HomeAssistant) -> Any:
+    """Return the setup-created history gateway."""
+    return _history_read_gateway(hass)
 
 
 def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
