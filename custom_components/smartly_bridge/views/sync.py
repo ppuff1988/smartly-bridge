@@ -129,12 +129,15 @@ def _sync_states_gateway(hass: HomeAssistant) -> Any:
     return gateway
 
 
-def _raw_diagnostic_recorder(hass: HomeAssistant) -> Any:
+def _raw_diagnostic_recorder(
+    hass: HomeAssistant,
+    store_factory: Callable[[HomeAssistant], Any] = _home_assistant_raw_diagnostic_store,
+) -> Any:
     """Return the setup-created raw diagnostic recorder or create a legacy fallback."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     store = runtime_adapters.get("raw_diagnostic_store")
     if store is None:
-        store = _home_assistant_raw_diagnostic_store(hass)
+        store = store_factory(hass)
         runtime_adapters["raw_diagnostic_store"] = store
     return store
 

@@ -916,6 +916,26 @@ class TestSmartlySyncStatesView:
         assert result is recorder
         mock_store.assert_not_called()
 
+    def test_raw_diagnostic_recorder_resolver_uses_injected_fallback_factory(
+        self, mock_hass
+    ):
+        """Raw diagnostic recorder resolver accepts an injected fallback factory."""
+        from custom_components.smartly_bridge.views.sync import _raw_diagnostic_recorder
+
+        recorder = FakeRawDiagnosticRecorder()
+        factory_calls = []
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        def store_factory(hass):
+            factory_calls.append(hass)
+            return recorder
+
+        result = _raw_diagnostic_recorder(mock_hass, store_factory=store_factory)
+
+        assert result is recorder
+        assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is recorder
+        assert factory_calls == [mock_hass]
+
     @pytest.mark.asyncio
     async def test_successful_states_sync_echoes_request_correlation_headers(
         self, mock_request, mock_hass
