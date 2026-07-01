@@ -12,10 +12,9 @@ SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
 
 def sync_error_response(error: str, *, status: int, target: str) -> BridgeResponse:
-    """Return a legacy-compatible API vNext sync error response."""
+    """Return an API vNext sync error response."""
     return BridgeResponse(
         {
-            "error": error,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],

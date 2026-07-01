@@ -274,7 +274,6 @@ class TestSmartlySyncView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -317,7 +316,6 @@ class TestSmartlySyncView:
             assert response.status == 401
             data = json.loads(response.body)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -368,7 +366,6 @@ class TestSmartlySyncView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -509,7 +506,6 @@ class TestSmartlySyncView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "sync_structure_gateway_unavailable",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -623,7 +619,6 @@ class TestSmartlySyncStatesView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -666,7 +661,6 @@ class TestSmartlySyncStatesView:
             assert response.status == 401
             data = json.loads(response.body)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -717,7 +711,6 @@ class TestSmartlySyncStatesView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -919,7 +912,6 @@ class TestSmartlySyncStatesView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "sync_states_gateway_unavailable",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -996,7 +988,6 @@ class TestSmartlySyncStatesView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "raw_diagnostic_store_unavailable",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
