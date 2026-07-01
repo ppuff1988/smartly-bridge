@@ -23,6 +23,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
     _authorize_camera_request,
+    _build_camera_stream_log_context,
     _parse_camera_config_command,
     _parse_camera_hls_action,
     _parse_camera_list_options,
@@ -789,10 +790,39 @@ class TestSmartlyCameraStreamView:
         request.app = {"hass": mock_hass}
         request.headers = {"X-Client-Id": "test_client"}
         request.match_info = {"entity_id": "camera.test"}
+        request.method = "GET"
+        request.path = "/api/smartly/camera/camera.test/stream"
+        request.query_string = "profile=main"
+        request.query = {"profile": "main"}
+        request.remote = "10.0.0.5"
         request.transport = MagicMock()
         request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         request.read = AsyncMock(return_value=b"")
         return request
+
+    def test_build_camera_stream_log_context_adapts_request_fields(self, mock_request):
+        """Stream log context adapter preserves legacy request diagnostics."""
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Client-IP": "203.0.113.10",
+            "X-Forwarded-For": "203.0.113.10, 10.0.0.5",
+            "X-Real-IP": "203.0.113.10",
+            "X-Stream-Token": "stream-token",
+        }
+
+        result = _build_camera_stream_log_context(mock_request, "camera.front_door")
+
+        assert result.entity_id == "camera.front_door"
+        assert result.method == "GET"
+        assert result.path == "/api/smartly/camera/camera.test/stream"
+        assert result.query_string == "profile=main"
+        assert result.query_params == {"profile": "main"}
+        assert result.headers == mock_request.headers
+        assert result.remote == "10.0.0.5"
+        assert result.client_ip == "203.0.113.10"
+        assert result.x_forwarded_for == "203.0.113.10, 10.0.0.5"
+        assert result.x_real_ip == "203.0.113.10"
+        assert result.x_stream_token == "stream-token"
 
     @pytest.mark.asyncio
     async def test_stream_invalid_entity_id(self, mock_request):

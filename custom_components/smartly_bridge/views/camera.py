@@ -138,6 +138,23 @@ class CameraListRequestOptions:
     include_capabilities: bool = False
 
 
+@dataclass(frozen=True)
+class CameraStreamLogContext:
+    """Diagnostic request fields logged by the MJPEG stream shell."""
+
+    entity_id: str
+    method: str
+    path: str
+    query_string: str
+    query_params: dict[str, Any]
+    headers: dict[str, Any]
+    remote: Any
+    client_ip: str
+    x_forwarded_for: str
+    x_real_ip: str
+    x_stream_token: str
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -391,6 +408,26 @@ def _parse_camera_list_options(request: web.Request) -> CameraListRequestOptions
     )
 
 
+def _build_camera_stream_log_context(
+    request: web.Request,
+    entity_id: str,
+) -> CameraStreamLogContext:
+    """Return legacy MJPEG stream request diagnostics for logging."""
+    return CameraStreamLogContext(
+        entity_id=entity_id,
+        method=request.method,
+        path=request.path,
+        query_string=request.query_string,
+        query_params=dict(request.query),
+        headers=dict(request.headers),
+        remote=request.remote,
+        client_ip=request.headers.get("X-Client-IP", "N/A"),
+        x_forwarded_for=request.headers.get("X-Forwarded-For", "N/A"),
+        x_real_ip=request.headers.get("X-Real-IP", "N/A"),
+        x_stream_token=request.headers.get("X-Stream-Token", "N/A"),
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -461,7 +498,7 @@ class SmartlyCameraStreamView(BaseView):
         """Handle camera stream request."""
         raw_entity_id = self.request.match_info.get("entity_id", "")
 
-        # Log detailed request information
+        log_context = _build_camera_stream_log_context(self.request, raw_entity_id)
         _LOGGER.info(
             "Camera stream request received:\n"
             "  Entity ID: %s\n"
@@ -475,17 +512,17 @@ class SmartlyCameraStreamView(BaseView):
             "  X-Forwarded-For: %s\n"
             "  X-Real-IP: %s\n"
             "  X-Stream-Token: %s",
-            raw_entity_id,
-            self.request.method,
-            self.request.path,
-            self.request.query_string,
-            dict(self.request.query),
-            dict(self.request.headers),
-            self.request.remote,
-            self.request.headers.get("X-Client-IP", "N/A"),
-            self.request.headers.get("X-Forwarded-For", "N/A"),
-            self.request.headers.get("X-Real-IP", "N/A"),
-            self.request.headers.get("X-Stream-Token", "N/A"),
+            log_context.entity_id,
+            log_context.method,
+            log_context.path,
+            log_context.query_string,
+            log_context.query_params,
+            log_context.headers,
+            log_context.remote,
+            log_context.client_ip,
+            log_context.x_forwarded_for,
+            log_context.x_real_ip,
+            log_context.x_stream_token,
         )
 
         validation = _validate_camera_entity_id(self.request, raw_entity_id)
