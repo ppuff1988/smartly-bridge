@@ -448,6 +448,13 @@ async def _capture_camera_snapshot(
     )
 
 
+async def _list_cameras(camera_gateway: Any, options: CameraListRequestOptions) -> Any:
+    """Execute the camera list use case with HTTP-adapted request options."""
+    return await CameraListUseCase(camera_gateway).execute(
+        include_capabilities=options.include_capabilities
+    )
+
+
 def _build_camera_stream_log_context(
     request: web.Request,
     entity_id: str,
@@ -674,9 +681,7 @@ class SmartlyCameraListView(BaseView):
             return gateway_resolution.response
 
         options = _parse_camera_list_options(self.request)
-        result = await CameraListUseCase(gateway_resolution.gateway).execute(
-            include_capabilities=options.include_capabilities
-        )
+        result = await _list_cameras(gateway_resolution.gateway, options)
         return _adapt_camera_json_response(result, self.request)
 
 

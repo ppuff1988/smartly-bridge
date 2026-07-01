@@ -30,6 +30,7 @@ from custom_components.smartly_bridge.views.camera import (
     _capture_camera_snapshot,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
+    _list_cameras,
     _log_camera_control_event,
     _prepare_camera_stream_response,
     _parse_camera_config_command,
@@ -1423,6 +1424,31 @@ class TestSmartlyCameraListView:
             "request_id": "req-123",
             "correlation_id": "corr-456",
         }
+
+    @pytest.mark.asyncio
+    async def test_list_cameras_forwards_legacy_capabilities_flag(
+        self,
+        mock_request,
+    ):
+        """Camera list invocation adapter forwards the legacy capabilities flag."""
+        gateway = FakeRuntimeCameraGateway()
+        mock_request.query = {"capabilities": "true"}
+
+        result = await _list_cameras(
+            gateway,
+            _parse_camera_list_options(mock_request),
+        )
+
+        assert result.status == 200
+        assert result.body["count"] == 1
+        assert result.body["cameras"][0]["capabilities"]["snapshot"] is True
+        assert gateway.calls == [
+            "list_allowed_camera_ids",
+            "get_camera_state",
+            "get_stream_info",
+            "get_cache_stats",
+            "get_hls_stats",
+        ]
 
     @pytest.mark.asyncio
     async def test_list_integration_not_configured(self, mock_request, mock_hass):
