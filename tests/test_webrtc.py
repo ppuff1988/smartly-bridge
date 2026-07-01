@@ -888,6 +888,57 @@ class TestWebRTCViews:
         ]
 
     @pytest.mark.asyncio
+    async def test_create_webrtc_offer_uses_injected_use_case_factory(self):
+        """WebRTC offer invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_offer
+
+        class FakeOfferUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                token: str,
+                sdp_offer: str,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, token, sdp_offer))
+                return BridgeResponse(
+                    {
+                        "success": True,
+                        "type": "answer",
+                        "sdp": "factory-answer",
+                        "session_id": "factory-session",
+                        "data": {"session_id": "factory-session"},
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeOfferUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _create_webrtc_offer(
+            gateway,
+            entity_id="camera.front_door",
+            token="valid-token",
+            sdp_offer="v=0\r\ns=Platform\r\n",
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [
+            ("camera.front_door", "valid-token", "v=0\r\ns=Platform\r\n")
+        ]
+        assert result.body["session_id"] == "factory-session"
+
+    @pytest.mark.asyncio
     async def test_add_webrtc_ice_candidate_forwards_session_and_candidate(self):
         """WebRTC ICE invocation adapter forwards session and candidate payload."""
         from custom_components.smartly_bridge.views.webrtc import _add_webrtc_ice_candidate

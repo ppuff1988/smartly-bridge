@@ -114,15 +114,21 @@ async def _create_webrtc_token(
     )
 
 
+def _webrtc_offer_use_case(gateway: Any) -> WebRTCOfferUseCase:
+    """Build the WebRTC offer application use case."""
+    return WebRTCOfferUseCase(gateway)
+
+
 async def _create_webrtc_offer(
     gateway: Any,
     *,
     entity_id: str,
     token: str,
     sdp_offer: str,
+    use_case_factory: Callable[[Any], Any] = _webrtc_offer_use_case,
 ) -> Any:
     """Execute the WebRTC offer use case with parsed HTTP shell inputs."""
-    return await WebRTCOfferUseCase(gateway).execute(
+    return await use_case_factory(gateway).execute(
         entity_id=entity_id,
         token=token,
         sdp_offer=sdp_offer,
