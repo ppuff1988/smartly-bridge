@@ -82,18 +82,23 @@ def _delete_local_automation_rule(rule_store: Any, rule_id: str) -> Any:
     return LocalAutomationRuleDeleteUseCase(rule_store).execute(rule_id)
 
 
+def _local_automation_rule_store(hass: Any) -> Any:
+    """Return the setup-created local automation rule store or create a fallback."""
+    integration_data = hass.data.setdefault(DOMAIN, {})
+    runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+    rule_store = runtime_adapters.get("local_automation_rule_store")
+    if rule_store is None:
+        rule_store = HomeAssistantLocalAutomationRuleStore(hass)
+        runtime_adapters["local_automation_rule_store"] = rule_store
+    return rule_store
+
+
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
     def _rule_store(self) -> Any:
         """Return the setup-created local automation rule store."""
-        integration_data = self.hass.data.setdefault(DOMAIN, {})
-        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-        rule_store = runtime_adapters.get("local_automation_rule_store")
-        if rule_store is None:
-            rule_store = HomeAssistantLocalAutomationRuleStore(self.hass)
-            runtime_adapters["local_automation_rule_store"] = rule_store
-        return rule_store
+        return _local_automation_rule_store(self.hass)
 
     async def _authorize(self, service: str) -> web.Response | str:
         """Authorize a local automation rule management request."""

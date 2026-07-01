@@ -231,6 +231,27 @@ def test_delete_local_automation_rule_forwards_rule_id_to_store() -> None:
     assert store.deleted_rule_ids == ["runtime-left-single"]
 
 
+def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> None:
+    """Local automation rule store resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _local_automation_rule_store,
+    )
+
+    _configure_integration(mock_hass)
+    store = FakeLocalAutomationRuleStore()
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {
+        "local_automation_rule_store": store,
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.HomeAssistantLocalAutomationRuleStore"
+    ) as mock_store:
+        result = _local_automation_rule_store(mock_hass)
+
+    assert result is store
+    mock_store.assert_not_called()
+
+
 @pytest.mark.asyncio
 async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
     """GET local automation rules returns stored canonical rules."""
