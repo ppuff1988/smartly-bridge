@@ -22,6 +22,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraListView,
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
+    _authorize_camera_request,
 )
 
 
@@ -159,6 +160,39 @@ class TestSmartlyCameraSnapshotView:
         request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         request.read = AsyncMock(return_value=b"")
         return request
+
+    @pytest.mark.asyncio
+    async def test_camera_request_guard_accepts_authenticated_allowed_entity(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Camera HTTP shell guard returns auth context for allowed camera requests."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="guard-client")
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=True)
+
+            with patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=True,
+            ) as mock_allowed:
+                result = await _authorize_camera_request(
+                    mock_request,
+                    mock_hass,
+                    entity_id="camera.test",
+                    service="camera_snapshot",
+                    require_entity_allowed=True,
+                )
+
+        assert result.response is None
+        assert result.auth_result is not None
+        assert result.auth_result.client_id == "guard-client"
+        rate_limiter.check.assert_awaited_once_with("guard-client")
+        mock_allowed.assert_called_once()
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):

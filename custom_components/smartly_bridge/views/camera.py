@@ -8,6 +8,7 @@ Provides HTTP API endpoints for camera operations including:
 
 import json
 import logging
+from dataclasses import dataclass
 from typing import Any
 
 from aiohttp import web
@@ -25,7 +26,7 @@ from ..application.camera import (
     _camera_error_response,
 )
 from ..audit import log_control, log_deny
-from ..auth import RateLimiter, verify_request
+from ..auth import AuthResult, RateLimiter, verify_request
 from ..const import (
     API_PATH_CAMERA_CONFIG,
     API_PATH_CAMERA_HLS_INFO,
@@ -85,6 +86,135 @@ def _json_response(
     )
 
 
+@dataclass(frozen=True)
+class CameraRequestGuardResult:
+    """Result of the camera HTTP shell authorization guard."""
+
+    auth_result: AuthResult | None = None
+    response: web.Response | None = None
+
+
+async def _authorize_camera_request(
+    request: web.Request,
+    hass: Any,
+    *,
+    entity_id: str,
+    service: str,
+    require_entity_allowed: bool = False,
+) -> CameraRequestGuardResult:
+    """Authorize a camera HTTP request and return auth context or a response."""
+    integration_data = hass.data.get(DOMAIN)
+    config_entry = integration_data.get("config_entry") if integration_data else None
+    if config_entry is None:
+        result = _camera_error_response(
+            "integration_not_configured",
+            status=500,
+            target="camera.config",
+        )
+        return CameraRequestGuardResult(
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=result.headers,
+            )
+        )
+
+    client_secret = config_entry.data.get(CONF_CLIENT_SECRET)
+    allowed_cidrs = config_entry.data.get(CONF_ALLOWED_CIDRS, "")
+    trust_proxy_mode = config_entry.data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
+    nonce_cache = integration_data["nonce_cache"]
+    rate_limiter: RateLimiter = integration_data["rate_limiter"]
+
+    auth_result = await verify_request(
+        request,
+        client_secret,
+        nonce_cache,
+        allowed_cidrs,
+        trust_proxy_mode,
+    )
+
+    if not auth_result.success:
+        log_deny(
+            _LOGGER,
+            client_id=request.headers.get("X-Client-Id", "unknown"),
+            entity_id=entity_id,
+            service=service,
+            reason=auth_result.error or "auth_failed",
+        )
+        result = _camera_error_response(
+            auth_result.error or "auth_failed",
+            status=401,
+            target="camera.auth",
+        )
+        return CameraRequestGuardResult(
+            auth_result=auth_result,
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=result.headers,
+            ),
+        )
+
+    if not await rate_limiter.check(auth_result.client_id or ""):
+        log_deny(
+            _LOGGER,
+            client_id=auth_result.client_id or "unknown",
+            entity_id=entity_id,
+            service=service,
+            reason="rate_limited",
+        )
+        result = _camera_error_response(
+            "rate_limited",
+            status=429,
+            target="camera.rate_limit",
+        )
+        headers = {
+            **result.headers,
+            "Retry-After": str(RATE_WINDOW),
+            "X-RateLimit-Remaining": "0",
+        }
+        return CameraRequestGuardResult(
+            auth_result=auth_result,
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=headers,
+            ),
+        )
+
+    if require_entity_allowed:
+        from homeassistant.helpers import entity_registry as er
+
+        entity_registry = er.async_get(hass)
+        if not is_entity_allowed(hass, entity_id, entity_registry):
+            log_deny(
+                _LOGGER,
+                client_id=auth_result.client_id or "unknown",
+                entity_id=entity_id,
+                service=service,
+                reason="entity_not_allowed",
+            )
+            result = _camera_error_response(
+                "entity_not_allowed",
+                status=403,
+                target="camera.entity_id",
+            )
+            return CameraRequestGuardResult(
+                auth_result=auth_result,
+                response=_json_response(
+                    result.body,
+                    request,
+                    status=result.status,
+                    headers=result.headers,
+                ),
+            )
+
+    return CameraRequestGuardResult(auth_result=auth_result)
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -106,105 +236,17 @@ class SmartlyCameraSnapshotView(BaseView):
                 headers=result.headers,
             )
 
-        # Get integration data
-        data = self._get_integration_data()
-        if data is None:
-            result = _camera_error_response(
-                "integration_not_configured",
-                status=500,
-                target="camera.config",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        client_secret = data.get(CONF_CLIENT_SECRET)
-        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
-        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
-        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
-        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
-
-        # Verify authentication
-        auth_result = await verify_request(
+        guard = await _authorize_camera_request(
             self.request,
-            client_secret,
-            nonce_cache,
-            allowed_cidrs,
-            trust_proxy_mode,
+            self.hass,
+            entity_id=entity_id,
+            service="camera_snapshot",
+            require_entity_allowed=True,
         )
-
-        if not auth_result.success:
-            log_deny(
-                _LOGGER,
-                client_id=self.request.headers.get("X-Client-Id", "unknown"),
-                entity_id=entity_id,
-                service="camera_snapshot",
-                reason=auth_result.error or "auth_failed",
-            )
-            result = _camera_error_response(
-                auth_result.error or "auth_failed",
-                status=401,
-                target="camera.auth",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        # Check rate limit
-        if not await rate_limiter.check(auth_result.client_id or ""):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_snapshot",
-                reason="rate_limited",
-            )
-            result = _camera_error_response(
-                "rate_limited",
-                status=429,
-                target="camera.rate_limit",
-            )
-            headers = {
-                **result.headers,
-                "Retry-After": str(RATE_WINDOW),
-                "X-RateLimit-Remaining": "0",
-            }
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=headers,
-            )
-
-        # Check if entity is allowed
-        from homeassistant.helpers import entity_registry as er
-
-        entity_registry = er.async_get(self.hass)
-        if not is_entity_allowed(self.hass, entity_id, entity_registry):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_snapshot",
-                reason="entity_not_allowed",
-            )
-            result = _camera_error_response(
-                "entity_not_allowed",
-                status=403,
-                target="camera.entity_id",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        if guard.response is not None:
+            return guard.response
+        auth_result = guard.auth_result
+        assert auth_result is not None
 
         camera_manager = self.hass.data[DOMAIN].get("camera_manager")
         if camera_manager is None:
@@ -306,105 +348,17 @@ class SmartlyCameraStreamView(BaseView):
                 headers=result.headers,
             )
 
-        # Get integration data
-        data = self._get_integration_data()
-        if data is None:
-            result = _camera_error_response(
-                "integration_not_configured",
-                status=500,
-                target="camera.config",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        client_secret = data.get(CONF_CLIENT_SECRET)
-        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
-        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
-        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
-        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
-
-        # Verify authentication
-        auth_result = await verify_request(
+        guard = await _authorize_camera_request(
             self.request,
-            client_secret,
-            nonce_cache,
-            allowed_cidrs,
-            trust_proxy_mode,
+            self.hass,
+            entity_id=entity_id,
+            service="camera_stream",
+            require_entity_allowed=True,
         )
-
-        if not auth_result.success:
-            log_deny(
-                _LOGGER,
-                client_id=self.request.headers.get("X-Client-Id", "unknown"),
-                entity_id=entity_id,
-                service="camera_stream",
-                reason=auth_result.error or "auth_failed",
-            )
-            result = _camera_error_response(
-                auth_result.error or "auth_failed",
-                status=401,
-                target="camera.auth",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        # Check rate limit (less strict for streaming)
-        if not await rate_limiter.check(auth_result.client_id or ""):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_stream",
-                reason="rate_limited",
-            )
-            result = _camera_error_response(
-                "rate_limited",
-                status=429,
-                target="camera.rate_limit",
-            )
-            headers = {
-                **result.headers,
-                "Retry-After": str(RATE_WINDOW),
-                "X-RateLimit-Remaining": "0",
-            }
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=headers,
-            )
-
-        # Check if entity is allowed
-        from homeassistant.helpers import entity_registry as er
-
-        entity_registry = er.async_get(self.hass)
-        if not is_entity_allowed(self.hass, entity_id, entity_registry):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_stream",
-                reason="entity_not_allowed",
-            )
-            result = _camera_error_response(
-                "entity_not_allowed",
-                status=403,
-                target="camera.entity_id",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        if guard.response is not None:
+            return guard.response
+        auth_result = guard.auth_result
+        assert auth_result is not None
 
         # Get camera manager
         from ..camera import CameraManager
@@ -458,81 +412,14 @@ class SmartlyCameraListView(BaseView):
 
     async def get(self) -> web.Response:
         """Handle camera list request."""
-        # Get integration data
-        data = self._get_integration_data()
-        if data is None:
-            result = _camera_error_response(
-                "integration_not_configured",
-                status=500,
-                target="camera.config",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        client_secret = data.get(CONF_CLIENT_SECRET)
-        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
-        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
-        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
-        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
-
-        # Verify authentication
-        auth_result = await verify_request(
+        guard = await _authorize_camera_request(
             self.request,
-            client_secret,
-            nonce_cache,
-            allowed_cidrs,
-            trust_proxy_mode,
+            self.hass,
+            entity_id="",
+            service="camera_list",
         )
-
-        if not auth_result.success:
-            log_deny(
-                _LOGGER,
-                client_id=self.request.headers.get("X-Client-Id", "unknown"),
-                entity_id="",
-                service="camera_list",
-                reason=auth_result.error or "auth_failed",
-            )
-            result = _camera_error_response(
-                auth_result.error or "auth_failed",
-                status=401,
-                target="camera.auth",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        # Check rate limit
-        if not await rate_limiter.check(auth_result.client_id or ""):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id="",
-                service="camera_list",
-                reason="rate_limited",
-            )
-            result = _camera_error_response(
-                "rate_limited",
-                status=429,
-                target="camera.rate_limit",
-            )
-            headers = {
-                **result.headers,
-                "Retry-After": str(RATE_WINDOW),
-                "X-RateLimit-Remaining": "0",
-            }
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=headers,
-            )
+        if guard.response is not None:
+            return guard.response
 
         # Get camera manager
         camera_manager = self.hass.data[DOMAIN].get("camera_manager")
@@ -556,81 +443,14 @@ class SmartlyCameraConfigView(BaseView):
 
     async def post(self) -> web.Response:
         """Handle camera configuration request."""
-        # Get integration data
-        data = self._get_integration_data()
-        if data is None:
-            result = _camera_error_response(
-                "integration_not_configured",
-                status=500,
-                target="camera.config",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        client_secret = data.get(CONF_CLIENT_SECRET)
-        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
-        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
-        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
-        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
-
-        # Verify authentication
-        auth_result = await verify_request(
+        guard = await _authorize_camera_request(
             self.request,
-            client_secret,
-            nonce_cache,
-            allowed_cidrs,
-            trust_proxy_mode,
+            self.hass,
+            entity_id="",
+            service="camera_config",
         )
-
-        if not auth_result.success:
-            log_deny(
-                _LOGGER,
-                client_id=self.request.headers.get("X-Client-Id", "unknown"),
-                entity_id="",
-                service="camera_config",
-                reason=auth_result.error or "auth_failed",
-            )
-            result = _camera_error_response(
-                auth_result.error or "auth_failed",
-                status=401,
-                target="camera.auth",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        # Check rate limit
-        if not await rate_limiter.check(auth_result.client_id or ""):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id="",
-                service="camera_config",
-                reason="rate_limited",
-            )
-            result = _camera_error_response(
-                "rate_limited",
-                status=429,
-                target="camera.rate_limit",
-            )
-            headers = {
-                **result.headers,
-                "Retry-After": str(RATE_WINDOW),
-                "X-RateLimit-Remaining": "0",
-            }
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=headers,
-            )
+        if guard.response is not None:
+            return guard.response
 
         # Parse request body
         try:
@@ -720,105 +540,17 @@ class SmartlyCameraHLSInfoView(BaseView):
                 headers=result.headers,
             )
 
-        # Get integration data
-        data = self._get_integration_data()
-        if data is None:
-            result = _camera_error_response(
-                "integration_not_configured",
-                status=500,
-                target="camera.config",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        client_secret = data.get(CONF_CLIENT_SECRET)
-        allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
-        trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
-        nonce_cache = self.hass.data[DOMAIN]["nonce_cache"]
-        rate_limiter: RateLimiter = self.hass.data[DOMAIN]["rate_limiter"]
-
-        # Verify authentication
-        auth_result = await verify_request(
+        guard = await _authorize_camera_request(
             self.request,
-            client_secret,
-            nonce_cache,
-            allowed_cidrs,
-            trust_proxy_mode,
+            self.hass,
+            entity_id=entity_id,
+            service="camera_hls",
+            require_entity_allowed=True,
         )
-
-        if not auth_result.success:
-            log_deny(
-                _LOGGER,
-                client_id=self.request.headers.get("X-Client-Id", "unknown"),
-                entity_id=entity_id,
-                service="camera_hls",
-                reason=auth_result.error or "auth_failed",
-            )
-            result = _camera_error_response(
-                auth_result.error or "auth_failed",
-                status=401,
-                target="camera.auth",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        # Check rate limit
-        if not await rate_limiter.check(auth_result.client_id or ""):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_hls",
-                reason="rate_limited",
-            )
-            result = _camera_error_response(
-                "rate_limited",
-                status=429,
-                target="camera.rate_limit",
-            )
-            headers = {
-                **result.headers,
-                "Retry-After": str(RATE_WINDOW),
-                "X-RateLimit-Remaining": "0",
-            }
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=headers,
-            )
-
-        # Check if entity is allowed
-        from homeassistant.helpers import entity_registry as er
-
-        entity_registry = er.async_get(self.hass)
-        if not is_entity_allowed(self.hass, entity_id, entity_registry):
-            log_deny(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_hls",
-                reason="entity_not_allowed",
-            )
-            result = _camera_error_response(
-                "entity_not_allowed",
-                status=403,
-                target="camera.entity_id",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        if guard.response is not None:
+            return guard.response
+        auth_result = guard.auth_result
+        assert auth_result is not None
 
         # Get camera manager
         from ..camera import CameraManager
