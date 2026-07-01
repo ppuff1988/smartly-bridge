@@ -65,6 +65,11 @@ def _list_local_automation_rules(rule_store: Any) -> Any:
     return LocalAutomationRulesListUseCase(rule_store).execute()
 
 
+def _create_local_automation_rule(rule_store: Any, payload: dict[str, Any]) -> Any:
+    """Execute the local automation rule create use case with a rule store port."""
+    return LocalAutomationRuleCreateUseCase(rule_store).execute(payload)
+
+
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
@@ -177,7 +182,7 @@ class SmartlyLocalAutomationRulesView(BaseView):
         payload = await self._json_payload()
         if isinstance(payload, web.Response):
             return payload
-        result = LocalAutomationRuleCreateUseCase(self._rule_store()).execute(payload)
+        result = _create_local_automation_rule(self._rule_store(), payload)
         return _json_response(
             result.body,
             self.request,

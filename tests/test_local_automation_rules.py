@@ -81,6 +81,7 @@ class FakeLocalAutomationRuleStore:
 
     def __init__(self) -> None:
         self.list_calls = 0
+        self.created_rules: list[LocalAutomationRule] = []
 
     def list_rules(self) -> list[LocalAutomationRule]:
         """Return configured local automation rules."""
@@ -107,6 +108,7 @@ class FakeLocalAutomationRuleStore:
 
     def create_rule(self, rule: LocalAutomationRule) -> bool:
         """Persist a new rule."""
+        self.created_rules.append(rule)
         return True
 
     def update_rule(self, rule: LocalAutomationRule) -> bool:
@@ -135,6 +137,41 @@ def test_list_local_automation_rules_reads_store_payload() -> None:
     assert result.body["data"]["rules"][0]["trigger"]["device_id"] == (
         "ldev_runtime_button"
     )
+
+
+def test_create_local_automation_rule_forwards_payload_to_store() -> None:
+    """Local automation create invocation adapter forwards canonical payload."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _create_local_automation_rule,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+    payload = {
+        "rule_id": "new-left-double",
+        "trigger": {
+            "device_id": "ldev_button",
+            "capability": "button_event",
+            "event": "double_press",
+            "payload": {"button": "left"},
+        },
+        "actions": [
+            {
+                "type": "device_command",
+                "device_id": "ldev_light",
+                "capability": "power",
+                "command": "turn_off",
+            }
+        ],
+    }
+
+    result = _create_local_automation_rule(store, payload)
+
+    assert result.status == 201
+    assert result.body["status"] == "created"
+    assert result.body["rule_id"] == "new-left-double"
+    assert len(store.created_rules) == 1
+    assert store.created_rules[0].trigger.event == "double_press"
+    assert store.created_rules[0].actions[0].command == "turn_off"
 
 
 @pytest.mark.asyncio
