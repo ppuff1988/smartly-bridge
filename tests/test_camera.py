@@ -8,6 +8,9 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    _home_assistant_camera_gateway,
+)
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import CAMERA_CACHE_TTL, DOMAIN
 
@@ -672,6 +675,13 @@ class TestCameraHTTPEndpoints:
                 "camera_manager": camera_manager,
             }
         }
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "camera_gateway": _home_assistant_camera_gateway(
+                mock_hass,
+                camera_manager,
+                allowed_entities_fn=lambda hass, registry: ["camera.front_door"],
+            )
+        }
 
         # Mock entity registry with camera entity
         mock_entry = MagicMock()
@@ -713,11 +723,7 @@ class TestCameraHTTPEndpoints:
 
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
-            with patch(
-                "custom_components.smartly_bridge.views.camera.get_allowed_entities",
-                return_value=["camera.front_door"],
-            ):
-                view = SmartlyCameraListView(request)
-                response = await view.get()
+            view = SmartlyCameraListView(request)
+            response = await view.get()
 
-                assert response.status == 200
+            assert response.status == 200

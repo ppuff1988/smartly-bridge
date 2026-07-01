@@ -14,8 +14,7 @@ from typing import Any, Callable
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..acl import get_allowed_entities, is_entity_allowed
-from ..adapters.home_assistant import _home_assistant_camera_gateway
+from ..acl import is_entity_allowed
 from ..application.camera import (
     CameraConfigCommand,
     CameraConfigUseCase,
@@ -43,17 +42,6 @@ from ..const import (
 from .base import BaseView
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _create_fallback_camera_gateway(hass: Any, camera_manager: Any) -> Any:
-    """Create and store a legacy Home Assistant camera gateway fallback."""
-    gateway = _home_assistant_camera_gateway(
-        hass,
-        camera_manager,
-        allowed_entities_fn=get_allowed_entities,
-    )
-    hass.data[DOMAIN].setdefault("runtime_adapters", {})["camera_gateway"] = gateway
-    return gateway
 
 
 def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
@@ -88,14 +76,6 @@ class CameraRequestGuardResult:
     """Result of the camera HTTP shell authorization guard."""
 
     auth_result: AuthResult | None = None
-    response: web.Response | None = None
-
-
-@dataclass(frozen=True)
-class CameraManagerGuardResult:
-    """Result of resolving the camera runtime manager."""
-
-    camera_manager: Any | None = None
     response: web.Response | None = None
 
 
@@ -284,30 +264,6 @@ async def _authorize_camera_request(
     return CameraRequestGuardResult(auth_result=auth_result)
 
 
-def _require_camera_manager(
-    request: web.Request,
-    hass: Any,
-) -> CameraManagerGuardResult:
-    """Return the camera manager or a legacy-compatible manager error response."""
-    camera_manager = hass.data.get(DOMAIN, {}).get("camera_manager")
-    if camera_manager is None:
-        result = _camera_error_response(
-            "camera_manager_not_initialized",
-            status=500,
-            target="camera.manager",
-        )
-        return CameraManagerGuardResult(
-            response=_json_response(
-                result.body,
-                request,
-                status=result.status,
-                headers=result.headers,
-            )
-        )
-
-    return CameraManagerGuardResult(camera_manager=camera_manager)
-
-
 def _validate_camera_entity_id(
     request: web.Request,
     entity_id: str,
@@ -340,18 +296,24 @@ def _resolve_camera_gateway(
     request: web.Request,
     hass: Any,
 ) -> CameraGatewayResolutionResult:
-    """Return the setup-created camera gateway or a legacy fallback gateway."""
+    """Return the setup-created camera gateway."""
     runtime_adapters = hass.data.get(DOMAIN, {}).setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("camera_gateway")
     if gateway is not None:
         return CameraGatewayResolutionResult(gateway=gateway)
 
-    manager_guard = _require_camera_manager(request, hass)
-    if manager_guard.response is not None:
-        return CameraGatewayResolutionResult(response=manager_guard.response)
-
+    result = _camera_error_response(
+        "camera_gateway_unavailable",
+        status=500,
+        target="camera.gateway",
+    )
     return CameraGatewayResolutionResult(
-        gateway=_create_fallback_camera_gateway(hass, manager_guard.camera_manager)
+        response=_json_response(
+            result.body,
+            request,
+            status=result.status,
+            headers=result.headers,
+        )
     )
 
 

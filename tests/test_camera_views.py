@@ -46,7 +46,6 @@ from custom_components.smartly_bridge.views.camera import (
     _parse_camera_hls_action,
     _parse_camera_list_options,
     _parse_camera_snapshot_options,
-    _require_camera_manager,
     _resolve_camera_gateway,
     _validate_camera_entity_id,
 )
@@ -56,6 +55,41 @@ def _api_vnext_fixture(name: str) -> dict:
     """Load an API vNext fixture by filename."""
     fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / name
     return json.loads(fixture_path.read_text())
+
+
+def _camera_gateway_unavailable_body() -> dict:
+    """Expected response when setup did not create the camera gateway."""
+    return {
+        "error": "camera_gateway_unavailable",
+        "schema_version": SMARTLY_API_SCHEMA_VERSION,
+        "data": {"status": "rejected"},
+        "warnings": [],
+        "errors": [
+            {
+                "code": "CAMERA_GATEWAY_UNAVAILABLE",
+                "message": "camera gateway unavailable",
+                "target": "camera.gateway",
+                "retryable": False,
+            }
+        ],
+    }
+
+
+def _configure_camera_runtime_gateway(
+    hass,
+    camera_manager=None,
+    *,
+    allowed_entities_fn=None,
+):
+    """Install a setup-created Home Assistant camera gateway for view tests."""
+    camera_manager = camera_manager or hass.data[DOMAIN].get("camera_manager")
+    gateway = _home_assistant_camera_gateway(
+        hass,
+        camera_manager,
+        **({"allowed_entities_fn": allowed_entities_fn} if allowed_entities_fn else {}),
+    )
+    hass.data[DOMAIN].setdefault("runtime_adapters", {})["camera_gateway"] = gateway
+    return gateway
 
 
 class FakeRuntimeCameraGateway:
@@ -274,35 +308,6 @@ class TestSmartlyCameraSnapshotView:
             result="started",
         )
 
-    def test_require_camera_manager_returns_existing_runtime_manager(
-        self,
-        mock_request,
-        mock_hass,
-    ):
-        """Camera manager guard returns the runtime manager when available."""
-        camera_manager = object()
-        mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
-
-        result = _require_camera_manager(mock_request, mock_hass)
-
-        assert result.response is None
-        assert result.camera_manager is camera_manager
-
-    def test_require_camera_manager_returns_legacy_vnext_error(
-        self,
-        mock_request,
-        mock_hass,
-    ):
-        """Camera manager guard preserves manager-missing legacy and vNext response."""
-        result = _require_camera_manager(mock_request, mock_hass)
-
-        assert result.camera_manager is None
-        assert result.response is not None
-        assert result.response.status == 500
-        assert json.loads(result.response.body) == _api_vnext_fixture(
-            "camera-snapshot-manager-not-initialized.json"
-        )
-
     def test_validate_camera_entity_id_accepts_camera_entity(
         self,
         mock_request,
@@ -355,14 +360,27 @@ class TestSmartlyCameraSnapshotView:
         mock_hass.data[DOMAIN]["camera_manager"] = None
         mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
 
-        with patch(
-            "custom_components.smartly_bridge.views.camera._home_assistant_camera_gateway"
-        ) as fallback_gateway:
-            result = _resolve_camera_gateway(mock_request, mock_hass)
+        result = _resolve_camera_gateway(mock_request, mock_hass)
 
         assert result.response is None
         assert result.gateway is gateway
-        fallback_gateway.assert_not_called()
+
+    def test_resolve_camera_gateway_requires_runtime_gateway(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Camera gateway resolver does not create a request-time fallback."""
+        mock_hass.data[DOMAIN]["camera_manager"] = MagicMock()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        result = _resolve_camera_gateway(mock_request, mock_hass)
+
+        assert result.gateway is None
+        assert result.response is not None
+        assert result.response.status == 500
+        assert json.loads(result.response.body) == _camera_gateway_unavailable_body()
+        assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     def test_parse_camera_snapshot_options_defaults_to_cached_request(
         self,
@@ -780,8 +798,9 @@ class TestSmartlyCameraSnapshotView:
                 )
 
     @pytest.mark.asyncio
-    async def test_camera_manager_not_initialized(self, mock_request, mock_hass):
-        """Test error when camera manager not initialized."""
+    async def test_camera_gateway_unavailable(self, mock_request, mock_hass):
+        """Test error when setup-created camera gateway is missing."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -796,29 +815,17 @@ class TestSmartlyCameraSnapshotView:
                 response = await view.get()
 
                 assert response.status == 500
-                data = json.loads(response.body)
-                assert data == {
-                    "error": "camera_manager_not_initialized",
-                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "CAMERA_MANAGER_NOT_INITIALIZED",
-                            "message": "camera manager not initialized",
-                            "target": "camera.manager",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert json.loads(response.body) == _camera_gateway_unavailable_body()
+                assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
-    async def test_snapshot_camera_manager_not_initialized_matches_api_vnext_fixture(
+    async def test_snapshot_camera_gateway_unavailable_matches_api_vnext_contract(
         self,
         mock_request,
         mock_hass,
     ):
-        """Snapshot manager-missing response remains stable for legacy and vNext clients."""
+        """Snapshot gateway-missing response remains stable for vNext clients."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -832,15 +839,15 @@ class TestSmartlyCameraSnapshotView:
                 response = await SmartlyCameraSnapshotView(mock_request).get()
 
                 assert response.status == 500
-                assert json.loads(response.body) == _api_vnext_fixture(
-                    "camera-snapshot-manager-not-initialized.json"
-                )
+                assert json.loads(response.body) == _camera_gateway_unavailable_body()
+                assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_successful_snapshot_with_etag_match(self, mock_request, mock_hass):
         """Test successful snapshot with ETag match (304 Not Modified)."""
         camera_manager = CameraManager(mock_hass)
         mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
+        _configure_camera_runtime_gateway(mock_hass, camera_manager)
 
         # Mock camera manager to return not modified
         camera_manager.get_snapshot = AsyncMock(return_value=(None, True))
@@ -870,6 +877,7 @@ class TestSmartlyCameraSnapshotView:
 
         camera_manager = CameraManager(mock_hass)
         mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
+        _configure_camera_runtime_gateway(mock_hass, camera_manager)
 
         # Create mock snapshot
         snapshot = CameraSnapshot(
@@ -916,9 +924,6 @@ class TestSmartlyCameraSnapshotView:
                 "custom_components.smartly_bridge.views.camera.is_entity_allowed",
                 return_value=True,
             ),
-            patch(
-                "custom_components.smartly_bridge.views.camera._home_assistant_camera_gateway",
-            ) as gateway_cls,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
@@ -928,13 +933,13 @@ class TestSmartlyCameraSnapshotView:
         assert response.body == b"runtime-image"
         assert response.headers["ETag"] == "runtime-etag"
         assert gateway.calls == ["get_snapshot"]
-        gateway_cls.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_snapshot_unavailable(self, mock_request, mock_hass):
         """Test snapshot unavailable."""
         camera_manager = CameraManager(mock_hass)
         mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
+        _configure_camera_runtime_gateway(mock_hass, camera_manager)
 
         camera_manager.get_snapshot = AsyncMock(return_value=(None, False))
 
@@ -962,6 +967,7 @@ class TestSmartlyCameraSnapshotView:
 
         camera_manager = CameraManager(mock_hass)
         mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
+        _configure_camera_runtime_gateway(mock_hass, camera_manager)
 
         snapshot = CameraSnapshot(
             entity_id="camera.test",
@@ -1373,8 +1379,9 @@ class TestSmartlyCameraStreamView:
                 )
 
     @pytest.mark.asyncio
-    async def test_stream_camera_manager_not_initialized(self, mock_request, mock_hass):
-        """Test stream view returns API vNext envelope when manager is missing."""
+    async def test_stream_camera_gateway_unavailable(self, mock_request, mock_hass):
+        """Test stream view returns API vNext envelope when gateway is missing."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -1389,29 +1396,17 @@ class TestSmartlyCameraStreamView:
                 response = await view.get()
 
                 assert response.status == 500
-                data = json.loads(response.body)
-                assert data == {
-                    "error": "camera_manager_not_initialized",
-                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "CAMERA_MANAGER_NOT_INITIALIZED",
-                            "message": "camera manager not initialized",
-                            "target": "camera.manager",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert json.loads(response.body) == _camera_gateway_unavailable_body()
+                assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
-    async def test_stream_camera_manager_not_initialized_matches_api_vnext_fixture(
+    async def test_stream_camera_gateway_unavailable_matches_api_vnext_contract(
         self,
         mock_request,
         mock_hass,
     ):
-        """Stream manager missing response remains stable for legacy and vNext clients."""
+        """Stream gateway-missing response remains stable for vNext clients."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -1425,9 +1420,8 @@ class TestSmartlyCameraStreamView:
                 response = await SmartlyCameraStreamView(mock_request).get()
 
                 assert response.status == 500
-                assert json.loads(response.body) == _api_vnext_fixture(
-                    "camera-stream-manager-not-initialized.json"
-                )
+                assert json.loads(response.body) == _camera_gateway_unavailable_body()
+                assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_stream_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -1488,6 +1482,7 @@ class TestSmartlyCameraListView:
                 "camera_manager": camera_manager,
             }
         }
+        _configure_camera_runtime_gateway(hass, camera_manager)
         return hass
 
     @pytest.fixture
@@ -1693,58 +1688,62 @@ class TestSmartlyCameraListView:
     @pytest.mark.asyncio
     async def test_list_success_with_cameras(self, mock_request, mock_hass):
         """Test successful camera list retrieval."""
+        _configure_camera_runtime_gateway(
+            mock_hass,
+            allowed_entities_fn=lambda hass, registry: [
+                "camera.front_door",
+                "camera.backyard",
+                "light.kitchen",
+            ],
+        )
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
         ) as mock_verify:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
-            with patch(
-                "custom_components.smartly_bridge.views.camera.get_allowed_entities",
-                return_value=["camera.front_door", "camera.backyard", "light.kitchen"],
-            ):
-                # Mock camera states
-                mock_state1 = MagicMock()
-                mock_state1.state = "idle"
-                mock_state1.attributes = {
-                    "friendly_name": "Front Door",
-                    "is_streaming": False,
-                    "brand": "Reolink",
-                    "model_name": "RLC-410",
-                    "supported_features": 3,
-                }
+            # Mock camera states
+            mock_state1 = MagicMock()
+            mock_state1.state = "idle"
+            mock_state1.attributes = {
+                "friendly_name": "Front Door",
+                "is_streaming": False,
+                "brand": "Reolink",
+                "model_name": "RLC-410",
+                "supported_features": 3,
+            }
 
-                mock_state2 = MagicMock()
-                mock_state2.state = "streaming"
-                mock_state2.attributes = {
-                    "friendly_name": "Backyard",
-                    "is_streaming": True,
-                    "brand": None,
-                    "model_name": None,
-                    "supported_features": 1,
-                }
+            mock_state2 = MagicMock()
+            mock_state2.state = "streaming"
+            mock_state2.attributes = {
+                "friendly_name": "Backyard",
+                "is_streaming": True,
+                "brand": None,
+                "model_name": None,
+                "supported_features": 1,
+            }
 
-                def get_state(entity_id):
-                    if entity_id == "camera.front_door":
-                        return mock_state1
-                    elif entity_id == "camera.backyard":
-                        return mock_state2
-                    return None
+            def get_state(entity_id):
+                if entity_id == "camera.front_door":
+                    return mock_state1
+                elif entity_id == "camera.backyard":
+                    return mock_state2
+                return None
 
-                mock_hass.states.get = get_state
+            mock_hass.states.get = get_state
 
-                view = SmartlyCameraListView(mock_request)
-                response = await view.get()
+            view = SmartlyCameraListView(mock_request)
+            response = await view.get()
 
-                assert response.status == 200
-                data = json.loads(response.body)
-                assert data["count"] == 2
-                assert len(data["cameras"]) == 2
+            assert response.status == 200
+            data = json.loads(response.body)
+            assert data["count"] == 2
+            assert len(data["cameras"]) == 2
 
-                # Verify camera data
-                camera_ids = [c["entity_id"] for c in data["cameras"]]
-                assert "camera.front_door" in camera_ids
-                assert "camera.backyard" in camera_ids
+            # Verify camera data
+            camera_ids = [c["entity_id"] for c in data["cameras"]]
+            assert "camera.front_door" in camera_ids
+            assert "camera.backyard" in camera_ids
 
     @pytest.mark.asyncio
     async def test_list_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -1823,6 +1822,7 @@ class TestSmartlyCameraConfigView:
                 "camera_manager": camera_manager,
             }
         }
+        _configure_camera_runtime_gateway(hass, camera_manager)
         return hass
 
     @pytest.fixture
@@ -2098,9 +2098,10 @@ class TestSmartlyCameraConfigView:
             }
 
     @pytest.mark.asyncio
-    async def test_config_camera_manager_not_initialized(self, mock_request, mock_hass):
-        """Test config view returns API vNext envelope without camera manager."""
+    async def test_config_camera_gateway_unavailable(self, mock_request, mock_hass):
+        """Test config view returns API vNext envelope without camera gateway."""
         mock_hass.data[DOMAIN]["camera_manager"] = None
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
         mock_request.json = AsyncMock(return_value={"action": "list"})
 
         with patch(
@@ -2113,21 +2114,8 @@ class TestSmartlyCameraConfigView:
             response = await view.post()
 
             assert response.status == 500
-            data = json.loads(response.body)
-            assert data == {
-                "error": "camera_manager_not_initialized",
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "CAMERA_MANAGER_NOT_INITIALIZED",
-                        "message": "camera manager not initialized",
-                        "target": "camera.manager",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert json.loads(response.body) == _camera_gateway_unavailable_body()
+            assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_config_register_camera(self, mock_request, mock_hass):
@@ -2590,8 +2578,8 @@ class TestSmartlyCameraHLSInfoView:
             assert data == _api_vnext_fixture("camera-hls-view-entity-not-allowed.json")
 
     @pytest.mark.asyncio
-    async def test_hls_camera_manager_not_initialized(self, mock_request, mock_hass):
-        """Test HLS view returns API vNext envelope without camera manager."""
+    async def test_hls_camera_gateway_unavailable(self, mock_request, mock_hass):
+        """Test HLS view returns API vNext envelope without camera gateway."""
         mock_request.match_info = {"entity_id": "camera.test"}
         rate_limiter = RateLimiter(60, 60)
         rate_limiter.check = AsyncMock(return_value=True)
@@ -2607,6 +2595,7 @@ class TestSmartlyCameraHLSInfoView:
                 "nonce_cache": NonceCache(),
                 "rate_limiter": rate_limiter,
                 "camera_manager": None,
+                "runtime_adapters": {},
             }
         }
 
@@ -2626,8 +2615,8 @@ class TestSmartlyCameraHLSInfoView:
             response = await view.get()
 
             assert response.status == 500
-            data = json.loads(response.body)
-            assert data == _api_vnext_fixture("camera-hls-view-manager-not-initialized.json")
+            assert json.loads(response.body) == _camera_gateway_unavailable_body()
+            assert "camera_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_hls_start_uses_setup_runtime_gateway(self, mock_request, mock_hass):
