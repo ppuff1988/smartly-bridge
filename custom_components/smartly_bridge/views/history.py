@@ -105,6 +105,11 @@ def _json_response(
     )
 
 
+async def _query_single_history(gateway: Any, query: SingleHistoryQuery) -> Any:
+    """Execute the single history query use case with a history gateway port."""
+    return await SingleHistoryUseCase(gateway).execute(query)
+
+
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
     """Encode cursor for pagination.
 
@@ -507,9 +512,8 @@ class SmartlyHistoryView(web.View):
         )
 
         try:
-            result = await SingleHistoryUseCase(
-                _history_gateway(self.hass)
-            ).execute(
+            result = await _query_single_history(
+                _history_gateway(self.hass),
                 SingleHistoryQuery(
                     entity_id=entity_id,
                     start_time=query_start_time,

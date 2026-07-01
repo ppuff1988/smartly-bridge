@@ -16,6 +16,7 @@ from custom_components.smartly_bridge.const import (
     HISTORY_MAX_ENTITIES_BATCH,
     RATE_WINDOW,
 )
+from custom_components.smartly_bridge.application.history import SingleHistoryQuery
 from custom_components.smartly_bridge.views.history import (
     SmartlyHistoryBatchView,
     SmartlyHistoryView,
@@ -100,6 +101,29 @@ class FakeRuntimeHistoryGateway:
                 "sum": 3612.0,
             }
         ]
+
+
+@pytest.mark.asyncio
+async def test_query_single_history_forwards_query_to_application_use_case() -> None:
+    """Single history invocation adapter forwards query to the recorder gateway."""
+    from custom_components.smartly_bridge.views.history import _query_single_history
+
+    gateway = FakeRuntimeHistoryGateway()
+    query = SingleHistoryQuery(
+        entity_id="sensor.temperature",
+        start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+        end_time=datetime.fromisoformat("2026-01-01T02:00:00+00:00"),
+        significant_changes_only=True,
+        limit=100,
+        page_size=100,
+        use_pagination=False,
+    )
+
+    result = await _query_single_history(gateway, query)
+
+    assert result.status == 200
+    assert result.body["entity_id"] == "sensor.temperature"
+    assert "query_states" in gateway.calls
 
 
 class TestHelperFunctions:
