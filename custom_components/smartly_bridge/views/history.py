@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.core import HomeAssistant
@@ -110,9 +110,18 @@ def _json_response(
     )
 
 
-async def _query_single_history(gateway: Any, query: SingleHistoryQuery) -> Any:
+def _single_history_use_case(gateway: Any) -> SingleHistoryUseCase:
+    """Build the single history application use case."""
+    return SingleHistoryUseCase(gateway)
+
+
+async def _query_single_history(
+    gateway: Any,
+    query: SingleHistoryQuery,
+    use_case_factory: Callable[[Any], Any] = _single_history_use_case,
+) -> Any:
     """Execute the single history query use case with a history gateway port."""
-    return await SingleHistoryUseCase(gateway).execute(query)
+    return await use_case_factory(gateway).execute(query)
 
 
 async def _query_batch_history(gateway: Any, query: BatchHistoryQuery) -> Any:

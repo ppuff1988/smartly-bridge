@@ -25,6 +25,7 @@ from custom_components.smartly_bridge.adapters.home_assistant import (
     HomeAssistantHistoryGateway,
     _home_assistant_history_gateway,
 )
+from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.history import (
     SmartlyHistoryBatchView,
     SmartlyHistoryView,
@@ -157,6 +158,55 @@ async def test_query_single_history_forwards_query_to_application_use_case() -> 
     assert result.status == 200
     assert result.body["entity_id"] == "sensor.temperature"
     assert "query_states" in gateway.calls
+
+
+@pytest.mark.asyncio
+async def test_query_single_history_uses_injected_use_case_factory() -> None:
+    """Single history invocation adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.history import _query_single_history
+
+    class FakeSingleHistoryUseCase:
+        def __init__(self) -> None:
+            self.queries = []
+
+        async def execute(self, query: SingleHistoryQuery) -> BridgeResponse:
+            self.queries.append(query)
+            return BridgeResponse(
+                {
+                    "success": True,
+                    "entity_id": query.entity_id,
+                    "data": {"entity_id": query.entity_id},
+                },
+                status=200,
+            )
+
+    gateway = FakeRuntimeHistoryGateway()
+    use_case = FakeSingleHistoryUseCase()
+    factory_calls = []
+    query = SingleHistoryQuery(
+        entity_id="sensor.temperature",
+        start_time=datetime.fromisoformat("2026-01-01T00:00:00+00:00"),
+        end_time=datetime.fromisoformat("2026-01-01T02:00:00+00:00"),
+        significant_changes_only=True,
+        limit=100,
+        page_size=100,
+        use_pagination=False,
+    )
+
+    def use_case_factory(received_gateway):
+        factory_calls.append(received_gateway)
+        return use_case
+
+    result = await _query_single_history(
+        gateway,
+        query,
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 200
+    assert result.body["entity_id"] == "sensor.temperature"
+    assert factory_calls == [gateway]
+    assert use_case.queries == [query]
 
 
 @pytest.mark.asyncio
