@@ -24,6 +24,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraStreamView,
     _authorize_camera_request,
     _build_camera_stream_log_context,
+    _camera_hls_audit_event,
     _prepare_camera_stream_response,
     _parse_camera_config_command,
     _parse_camera_hls_action,
@@ -1897,6 +1898,31 @@ class TestSmartlyCameraHLSInfoView:
         mock_request.query = {"action": "stop"}
 
         assert _parse_camera_hls_action(mock_request) == "stop"
+
+    def test_camera_hls_audit_event_records_successful_start(self):
+        """HLS audit adapter records successful start actions."""
+        event = _camera_hls_audit_event("start", 200)
+
+        assert event is not None
+        assert event.service == "camera_hls_start"
+        assert event.result == "success"
+
+    def test_camera_hls_audit_event_records_stop_outcome(self):
+        """HLS audit adapter records stop success and not-found outcomes."""
+        success_event = _camera_hls_audit_event("stop", 200)
+        not_found_event = _camera_hls_audit_event("stop", 404)
+
+        assert success_event is not None
+        assert success_event.service == "camera_hls_stop"
+        assert success_event.result == "success"
+        assert not_found_event is not None
+        assert not_found_event.service == "camera_hls_stop"
+        assert not_found_event.result == "not_found"
+
+    def test_camera_hls_audit_event_skips_unknown_or_failed_start(self):
+        """HLS audit adapter skips non-audited actions."""
+        assert _camera_hls_audit_event("start", 404) is None
+        assert _camera_hls_audit_event("unknown", 400) is None
 
     @pytest.mark.asyncio
     async def test_hls_invalid_entity_id(self, mock_request):

@@ -155,6 +155,14 @@ class CameraStreamLogContext:
     x_stream_token: str
 
 
+@dataclass(frozen=True)
+class CameraHLSAuditEvent:
+    """Audit event emitted by the HLS HTTP shell."""
+
+    service: str
+    result: str
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -391,6 +399,20 @@ async def _parse_camera_config_command(
 def _parse_camera_hls_action(request: web.Request) -> str:
     """Return the HLS action requested by the HTTP query."""
     return request.query.get("action", "start")
+
+
+def _camera_hls_audit_event(action: str, status: int) -> CameraHLSAuditEvent | None:
+    """Return the audit event for an HLS action result, if one should be logged."""
+    if action == "stop":
+        return CameraHLSAuditEvent(
+            service="camera_hls_stop",
+            result="success" if status == 200 else "not_found",
+        )
+
+    if action in ("start", "") and status == 200:
+        return CameraHLSAuditEvent(service="camera_hls_start", result="success")
+
+    return None
 
 
 def _parse_camera_snapshot_options(request: web.Request) -> CameraSnapshotRequestOptions:
@@ -680,22 +702,14 @@ class SmartlyCameraHLSInfoView(BaseView):
             action,
         )
 
-        if action == "stop":
+        audit_event = _camera_hls_audit_event(action, result.status)
+        if audit_event is not None:
             log_control(
                 _LOGGER,
                 client_id=auth_result.client_id or "unknown",
                 entity_id=entity_id,
-                service="camera_hls_stop",
-                result="success" if result.status == 200 else "not_found",
-            )
-
-        if action in ("start", "") and result.status == 200:
-            log_control(
-                _LOGGER,
-                client_id=auth_result.client_id or "unknown",
-                entity_id=entity_id,
-                service="camera_hls_start",
-                result="success",
+                service=audit_event.service,
+                result=audit_event.result,
             )
 
         return _json_response(
