@@ -265,6 +265,23 @@ class TestSmartlySyncView:
         ]
         assert result.body["data"]["device_count"] == 0
 
+    def test_sync_structure_gateway_resolver_uses_runtime_gateway(self, mock_hass):
+        """Sync structure gateway resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.views.sync import _sync_structure_gateway
+
+        gateway = FakeSyncStructureGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.HomeAssistantSyncGateway"
+        ) as mock_gateway:
+            result = _sync_structure_gateway(mock_hass)
+
+        assert result is gateway
+        mock_gateway.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_successful_sync(self, mock_request, mock_hass):
         """Test successful sync request."""

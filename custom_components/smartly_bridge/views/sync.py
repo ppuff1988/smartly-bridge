@@ -78,6 +78,20 @@ async def _build_sync_states(
     ).execute()
 
 
+def _sync_structure_gateway(hass: HomeAssistant) -> Any:
+    """Return the setup-created sync structure gateway or create a legacy fallback."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    gateway = runtime_adapters.get("sync_structure_gateway")
+    if gateway is None:
+        gateway = HomeAssistantSyncGateway(
+            hass,
+            allowed_entities_fn=get_allowed_entities,
+            structure_fn=get_structure,
+        )
+        runtime_adapters["sync_structure_gateway"] = gateway
+    return gateway
+
+
 class SmartlySyncView(web.View):
     """Handle GET /api/smartly/sync/structure requests."""
 
@@ -99,16 +113,7 @@ class SmartlySyncView(web.View):
 
     def _sync_structure_gateway(self) -> Any:
         """Return the setup-created sync structure gateway."""
-        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        gateway = runtime_adapters.get("sync_structure_gateway")
-        if gateway is None:
-            gateway = HomeAssistantSyncGateway(
-                self.hass,
-                allowed_entities_fn=get_allowed_entities,
-                structure_fn=get_structure,
-            )
-            runtime_adapters["sync_structure_gateway"] = gateway
-        return gateway
+        return _sync_structure_gateway(self.hass)
 
     async def get(self) -> web.Response:
         """Handle sync request from Platform."""
