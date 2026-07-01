@@ -527,6 +527,30 @@ class TestSmartlySyncStatesView:
             }
 
     @pytest.mark.asyncio
+    async def test_build_sync_states_forwards_read_path_and_raw_recorder(self):
+        """Sync states invocation adapter forwards read path and raw recorder."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_states
+
+        gateway = FakeDiagnosticSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+
+        result = await _build_sync_states(
+            gateway,
+            use_logical_devices=True,
+            raw_diagnostic_recorder=recorder,
+        )
+
+        raw_ref = "raw_ldev_camera_runtime"
+        assert result.status == 200
+        assert gateway.calls == 1
+        assert result.body["read_path"] == "logical_devices"
+        assert result.body["data"]["read_path"] == "logical_devices"
+        assert result.body["logical_devices"][0]["raw_refs"][0]["raw_ref"] == raw_ref
+        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
+            "camera.runtime"
+        )
+
+    @pytest.mark.asyncio
     async def test_successful_states_sync(self, mock_request, mock_hass):
         """Test successful states sync request."""
         from datetime import datetime, timezone

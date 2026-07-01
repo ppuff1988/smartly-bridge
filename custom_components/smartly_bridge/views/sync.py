@@ -64,6 +64,20 @@ def _build_sync_structure(gateway: Any) -> Any:
     return SyncStructureUseCase(gateway).execute()
 
 
+async def _build_sync_states(
+    gateway: Any,
+    *,
+    use_logical_devices: bool,
+    raw_diagnostic_recorder: Any,
+) -> Any:
+    """Execute the sync states use case with resolved gateway ports."""
+    return await SyncStatesUseCase(
+        gateway,
+        use_logical_devices=use_logical_devices,
+        raw_diagnostic_recorder=raw_diagnostic_recorder,
+    ).execute()
+
+
 class SmartlySyncView(web.View):
     """Handle GET /api/smartly/sync/structure requests."""
 
@@ -291,11 +305,11 @@ class SmartlySyncStatesView(web.View):
                 },
             )
 
-        result = await SyncStatesUseCase(
+        result = await _build_sync_states(
             self._sync_states_gateway(),
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
             raw_diagnostic_recorder=self._raw_diagnostic_recorder(),
-        ).execute()
+        )
         return _json_response(
             result.body,
             self.request,
