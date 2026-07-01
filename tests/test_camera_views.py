@@ -24,6 +24,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraStreamView,
     _authorize_camera_request,
     _build_camera_stream_log_context,
+    _prepare_camera_stream_response,
     _parse_camera_config_command,
     _parse_camera_hls_action,
     _parse_camera_list_options,
@@ -823,6 +824,37 @@ class TestSmartlyCameraStreamView:
         assert result.x_forwarded_for == "203.0.113.10, 10.0.0.5"
         assert result.x_real_ip == "203.0.113.10"
         assert result.x_stream_token == "stream-token"
+
+    @pytest.mark.asyncio
+    async def test_prepare_camera_stream_response_uses_mjpeg_contract(
+        self,
+        mock_request,
+    ):
+        """Stream response adapter prepares a non-compressed MJPEG response."""
+        stream_response = MagicMock()
+        stream_response.prepare = AsyncMock()
+        stream_response.enable_compression = MagicMock()
+
+        with patch(
+            "custom_components.smartly_bridge.views.camera.web.StreamResponse",
+            return_value=stream_response,
+        ) as response_factory:
+            result = await _prepare_camera_stream_response(mock_request)
+
+        assert result is stream_response
+        response_factory.assert_called_once_with(
+            status=200,
+            headers={
+                "Content-Type": "multipart/x-mixed-replace;boundary=frame",
+                "Cache-Control": "no-cache, no-store, must-revalidate",
+                "Pragma": "no-cache",
+                "Expires": "0",
+                "Connection": "close",
+                "X-Smartly-Response-Mode": "stream",
+            },
+        )
+        stream_response.enable_compression.assert_called_once_with(False)
+        stream_response.prepare.assert_awaited_once_with(mock_request)
 
     @pytest.mark.asyncio
     async def test_stream_invalid_entity_id(self, mock_request):

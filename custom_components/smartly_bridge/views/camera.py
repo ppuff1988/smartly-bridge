@@ -428,6 +428,15 @@ def _build_camera_stream_log_context(
     )
 
 
+async def _prepare_camera_stream_response(request: web.Request) -> web.StreamResponse:
+    """Prepare the legacy MJPEG stream response metadata for proxy streaming."""
+    stream_result = CameraStreamUseCase().execute()
+    response = web.StreamResponse(status=stream_result.status, headers=stream_result.headers)
+    response.enable_compression(False)
+    await response.prepare(request)
+    return response
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -556,16 +565,9 @@ class SmartlyCameraStreamView(BaseView):
         )
 
         # MJPEG uses multipart/x-mixed-replace boundaries, which break when
-        # chunked encoding wraps the stream. The Connection header from the
-        # use case keeps this response in the non-chunked path expected by clients.
-        stream_result = CameraStreamUseCase().execute()
-        response = web.StreamResponse(status=stream_result.status, headers=stream_result.headers)
-
-        # Explicitly disable compression to avoid any encoding
-        response.enable_compression(False)
-
-        await response.prepare(self.request)
-
+        # chunked encoding wraps the stream. The Connection header prepared by
+        # the stream response adapter keeps this response in the non-chunked path.
+        response = await _prepare_camera_stream_response(self.request)
         # Stream the camera feed through the setup-created gateway while
         # preserving the existing CameraManager-backed proxy implementation.
         await camera_gateway.stream_proxy(
