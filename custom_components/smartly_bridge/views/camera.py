@@ -331,6 +331,11 @@ def _validate_camera_entity_id(
     return CameraEntityIdValidationResult(entity_id=entity_id)
 
 
+def _camera_entity_id_from_request(request: web.Request) -> str:
+    """Return the raw camera entity id from the HTTP path."""
+    return request.match_info.get("entity_id", "")
+
+
 def _resolve_camera_gateway(
     request: web.Request,
     hass: Any,
@@ -514,7 +519,7 @@ class SmartlyCameraSnapshotView(BaseView):
         """Handle camera snapshot request."""
         validation = _validate_camera_entity_id(
             self.request,
-            self.request.match_info.get("entity_id", ""),
+            _camera_entity_id_from_request(self.request),
         )
         if validation.response is not None:
             return validation.response
@@ -563,7 +568,7 @@ class SmartlyCameraStreamView(BaseView):
 
     async def get(self) -> web.StreamResponse:
         """Handle camera stream request."""
-        raw_entity_id = self.request.match_info.get("entity_id", "")
+        raw_entity_id = _camera_entity_id_from_request(self.request)
 
         log_context = _build_camera_stream_log_context(self.request, raw_entity_id)
         _LOGGER.info(
@@ -700,7 +705,7 @@ class SmartlyCameraHLSInfoView(BaseView):
         """Handle HLS stream info/start request."""
         validation = _validate_camera_entity_id(
             self.request,
-            self.request.match_info.get("entity_id", ""),
+            _camera_entity_id_from_request(self.request),
         )
         if validation.response is not None:
             return validation.response

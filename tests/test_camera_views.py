@@ -26,6 +26,7 @@ from custom_components.smartly_bridge.views.camera import (
     _adapt_camera_snapshot_response,
     _adapt_camera_json_response,
     _authorize_camera_request,
+    _camera_entity_id_from_request,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
     _log_camera_control_event,
@@ -304,6 +305,24 @@ class TestSmartlyCameraSnapshotView:
         assert json.loads(result.response.body) == _api_vnext_fixture(
             "camera-snapshot-invalid-entity-id.json"
         )
+
+    def test_camera_entity_id_from_request_reads_path_entity(
+        self,
+        mock_request,
+    ):
+        """Camera entity-id adapter reads the raw path entity_id."""
+        mock_request.match_info = {"entity_id": "camera.front_door"}
+
+        assert _camera_entity_id_from_request(mock_request) == "camera.front_door"
+
+    def test_camera_entity_id_from_request_defaults_missing_path_entity(
+        self,
+        mock_request,
+    ):
+        """Camera entity-id adapter preserves the legacy empty path fallback."""
+        mock_request.match_info = {}
+
+        assert _camera_entity_id_from_request(mock_request) == ""
 
     def test_resolve_camera_gateway_prefers_runtime_gateway_without_manager(
         self,
