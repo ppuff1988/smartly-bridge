@@ -111,9 +111,21 @@ def _update_local_automation_rule(
     return use_case_factory(rule_store).execute(rule_id, payload)
 
 
-def _delete_local_automation_rule(rule_store: Any, rule_id: str) -> Any:
+def _local_automation_rule_delete_use_case(
+    rule_store: Any,
+) -> LocalAutomationRuleDeleteUseCase:
+    """Build the local automation rule delete application use case."""
+    return LocalAutomationRuleDeleteUseCase(rule_store)
+
+
+def _delete_local_automation_rule(
+    rule_store: Any,
+    rule_id: str,
+    *,
+    use_case_factory: Callable[[Any], Any] = _local_automation_rule_delete_use_case,
+) -> Any:
     """Execute the local automation rule delete use case with a rule store port."""
-    return LocalAutomationRuleDeleteUseCase(rule_store).execute(rule_id)
+    return use_case_factory(rule_store).execute(rule_id)
 
 
 def _local_automation_rule_store(hass: Any) -> Any:

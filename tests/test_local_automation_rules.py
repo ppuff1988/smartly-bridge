@@ -185,6 +185,26 @@ class FakeUpdateRuleUseCase:
         )
 
 
+class FakeDeleteRuleUseCase:
+    """Delete rule use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.rule_ids: list[str] = []
+
+    def execute(self, rule_id: str) -> BridgeResponse:
+        """Record rule ID and return a fixed response."""
+        self.rule_ids.append(rule_id)
+        return BridgeResponse(
+            {
+                "success": True,
+                "status": "deleted",
+                "rule_id": "factory-deleted",
+                "data": {"rule_id": "factory-deleted"},
+            },
+            status=200,
+        )
+
+
 def test_list_local_automation_rules_reads_store_payload() -> None:
     """Local automation list invocation adapter reads the rule store."""
     from custom_components.smartly_bridge.views.local_automation import (
@@ -403,6 +423,32 @@ def test_delete_local_automation_rule_forwards_rule_id_to_store() -> None:
     assert result.body["status"] == "deleted"
     assert result.body["rule_id"] == "runtime-left-single"
     assert store.deleted_rule_ids == ["runtime-left-single"]
+
+
+def test_delete_local_automation_rule_uses_injected_use_case_factory() -> None:
+    """Local automation delete adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _delete_local_automation_rule,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+    use_case = FakeDeleteRuleUseCase()
+    factory_calls = []
+
+    def use_case_factory(received_store):
+        factory_calls.append(received_store)
+        return use_case
+
+    result = _delete_local_automation_rule(
+        store,
+        "runtime-left-single",
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 200
+    assert factory_calls == [store]
+    assert use_case.rule_ids == ["runtime-left-single"]
+    assert result.body["rule_id"] == "factory-deleted"
 
 
 def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> None:
