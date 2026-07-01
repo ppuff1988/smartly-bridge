@@ -148,13 +148,16 @@ async def _execute_smartly_command(
     return await executor.execute(client_id, command)
 
 
-def _smartly_command_executor(hass: Any) -> Any:
+def _smartly_command_executor(
+    hass: Any,
+    executor_factory: Callable[[Any, Any], Any] = _home_assistant_smartly_command_executor,
+) -> Any:
     """Return the setup-created canonical command executor or create a fallback."""
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     executor = runtime_adapters.get("smartly_command_executor")
     if executor is None:
-        executor = _home_assistant_smartly_command_executor(hass, _LOGGER)
+        executor = executor_factory(hass, _LOGGER)
         runtime_adapters["smartly_command_executor"] = executor
     return executor
 

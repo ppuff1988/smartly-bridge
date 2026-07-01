@@ -166,6 +166,34 @@ def test_smartly_command_executor_resolver_uses_runtime_executor(mock_hass) -> N
     mock_executor.assert_not_called()
 
 
+def test_smartly_command_executor_resolver_uses_injected_fallback_factory(
+    mock_hass,
+) -> None:
+    """SmartlyCommand executor resolver accepts an injected fallback factory."""
+    from custom_components.smartly_bridge.views.control import _smartly_command_executor
+
+    executor = FakeSmartlyCommandExecutor()
+    factory_calls = []
+    mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+    def executor_factory(received_hass, received_logger):
+        factory_calls.append((received_hass, received_logger))
+        return executor
+
+    result = _smartly_command_executor(
+        mock_hass,
+        executor_factory=executor_factory,
+    )
+
+    assert result is executor
+    assert (
+        mock_hass.data[DOMAIN]["runtime_adapters"]["smartly_command_executor"]
+        is executor
+    )
+    assert len(factory_calls) == 1
+    assert factory_calls[0][0] is mock_hass
+
+
 def test_control_use_case_resolver_uses_runtime_use_case(mock_hass) -> None:
     """Control use case resolver returns the setup-created runtime port."""
     from custom_components.smartly_bridge.views.control import _control_use_case
