@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .audit import log_integration_event
 from .const import CONF_CLIENT_ID, CONF_INSTANCE_ID, DOMAIN, RATE_LIMIT, RATE_WINDOW
@@ -52,8 +52,13 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     return True
 
 
-async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Set up Platform Bridge from a config entry."""
+def _build_runtime_adapters(
+    hass: HomeAssistant,
+    camera_manager: Any,
+    webrtc_manager: Any,
+    logger: logging.Logger,
+) -> dict[str, Any]:
+    """Build setup-created runtime ports used by legacy views."""
     from .adapters.home_assistant import (
         HomeAssistantCameraGateway,
         HomeAssistantControlGateway,
@@ -70,10 +75,32 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         LoggingAuditAdapter,
     )
     from .application.control import ControlUseCase
+    from .views.history import _get_history_semaphore
+
+    return {
+        "control_use_case": ControlUseCase(
+            HomeAssistantEntityPolicy(hass),
+            HomeAssistantControlGateway(hass),
+            LoggingAuditAdapter(logger),
+        ),
+        "device_event_publisher": HomeAssistantDeviceEventPublisher(hass),
+        "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
+        "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
+        "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, logger),
+        "camera_gateway": HomeAssistantCameraGateway(hass, camera_manager),
+        "history_gateway": HomeAssistantHistoryGateway(hass, _get_history_semaphore),
+        "sync_structure_gateway": HomeAssistantSyncGateway(hass),
+        "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
+        "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),
+        "raw_diagnostic_store": HomeAssistantRawDiagnosticStore(hass),
+    }
+
+
+async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Set up Platform Bridge from a config entry."""
     from .auth import NonceCache, RateLimiter
     from .camera import CameraManager
     from .push import StatePushManager
-    from .views.history import _get_history_semaphore
     from .webrtc import WebRTCTokenManager
 
     log_integration_event(_LOGGER, "setup_start", f"instance={entry.data.get(CONF_INSTANCE_ID)}")
@@ -99,23 +126,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     webrtc_manager = WebRTCTokenManager(hass)
     await webrtc_manager.start()
 
-    runtime_adapters = {
-        "control_use_case": ControlUseCase(
-            HomeAssistantEntityPolicy(hass),
-            HomeAssistantControlGateway(hass),
-            LoggingAuditAdapter(_LOGGER),
-        ),
-        "device_event_publisher": HomeAssistantDeviceEventPublisher(hass),
-        "device_event_deduplicator": InMemoryDeviceEventDeduplicator(),
-        "local_automation_rule_store": HomeAssistantLocalAutomationRuleStore(hass),
-        "smartly_command_executor": HomeAssistantSmartlyCommandExecutor(hass, _LOGGER),
-        "camera_gateway": HomeAssistantCameraGateway(hass, camera_manager),
-        "history_gateway": HomeAssistantHistoryGateway(hass, _get_history_semaphore),
-        "sync_structure_gateway": HomeAssistantSyncGateway(hass),
-        "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
-        "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),
-        "raw_diagnostic_store": HomeAssistantRawDiagnosticStore(hass),
-    }
+    runtime_adapters = _build_runtime_adapters(
+        hass,
+        camera_manager,
+        webrtc_manager,
+        _LOGGER,
+    )
 
     # Store in hass.data
     domain_data.update(
