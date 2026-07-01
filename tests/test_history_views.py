@@ -128,37 +128,21 @@ def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
         "runtime_adapters": {"history_gateway": gateway}
     }
 
-    with patch(
-        "custom_components.smartly_bridge.views.history._home_assistant_history_gateway"
-    ) as mock_gateway:
-        result = _history_read_gateway(mock_hass)
+    result = _history_read_gateway(mock_hass)
 
     assert result is gateway
-    mock_gateway.assert_not_called()
 
 
-def test_history_read_gateway_resolver_uses_injected_fallback_factory(
-    mock_hass,
-) -> None:
-    """History read gateway resolver accepts an injected fallback factory."""
-    from custom_components.smartly_bridge.views.history import (
-        _get_history_semaphore,
-        _history_read_gateway,
-    )
+def test_history_read_gateway_resolver_requires_runtime_gateway(mock_hass) -> None:
+    """History read gateway resolver does not create a request-time fallback."""
+    from custom_components.smartly_bridge.views.history import _history_read_gateway
 
-    gateway = FakeRuntimeHistoryGateway()
-    factory_calls = []
     mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
 
-    def gateway_factory(hass, semaphore_factory):
-        factory_calls.append((hass, semaphore_factory))
-        return gateway
+    result = _history_read_gateway(mock_hass)
 
-    result = _history_read_gateway(mock_hass, gateway_factory=gateway_factory)
-
-    assert result is gateway
-    assert mock_hass.data[DOMAIN]["runtime_adapters"]["history_gateway"] is gateway
-    assert factory_calls == [(mock_hass, _get_history_semaphore)]
+    assert result is None
+    assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
 
 @pytest.mark.asyncio
@@ -430,6 +414,9 @@ class TestSmartlyHistoryView:
                 "nonce_cache": NonceCache(),
                 "rate_limiter": RateLimiter(60, 60),
             }
+        }
+        hass.data[DOMAIN]["runtime_adapters"] = {
+            "history_gateway": _home_assistant_history_gateway(hass, MagicMock())
         }
         hass.async_add_executor_job = AsyncMock()
         return hass
@@ -791,9 +778,6 @@ class TestSmartlyHistoryView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ),
-            patch(
-                "custom_components.smartly_bridge.views.history._home_assistant_history_gateway",
-            ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
             mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
@@ -801,11 +785,51 @@ class TestSmartlyHistoryView:
             response = await SmartlyHistoryView(mock_request).get()
 
         assert response.status == 200
-        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert data["entity_id"] == "sensor.temperature"
         assert data["history"][0]["state"] == 11.0
         assert gateway.calls == ["query_states", "get_current_attributes"]
+
+    @pytest.mark.asyncio
+    async def test_single_history_requires_setup_runtime_gateway(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Single history requests fail when setup did not create the gateway."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyHistoryView(mock_request).get()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "history_gateway_unavailable",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "HISTORY_GATEWAY_UNAVAILABLE",
+                    "message": "history gateway unavailable",
+                    "target": "history.gateway",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_single_history_response_includes_request_context_headers(
@@ -944,6 +968,9 @@ class TestSmartlyHistoryBatchView:
                 "nonce_cache": NonceCache(),
                 "rate_limiter": RateLimiter(60, 60),
             }
+        }
+        hass.data[DOMAIN]["runtime_adapters"] = {
+            "history_gateway": _home_assistant_history_gateway(hass, MagicMock())
         }
         hass.async_add_executor_job = AsyncMock()
         return hass
@@ -1369,9 +1396,6 @@ class TestSmartlyHistoryBatchView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ),
-            patch(
-                "custom_components.smartly_bridge.views.history._home_assistant_history_gateway",
-            ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
             mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
@@ -1379,7 +1403,6 @@ class TestSmartlyHistoryBatchView:
             response = await SmartlyHistoryBatchView(mock_request).post()
 
         assert response.status == 200
-        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert sorted(data["history"]) == ["sensor.temp1", "sensor.temp2"]
         assert data["history"]["sensor.temp1"][0]["state"] == 11.0
@@ -1388,6 +1411,47 @@ class TestSmartlyHistoryBatchView:
             "get_current_attributes",
             "get_current_attributes",
         ]
+
+    @pytest.mark.asyncio
+    async def test_batch_history_requires_setup_runtime_gateway(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Batch history requests fail when setup did not create the gateway."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyHistoryBatchView(mock_request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "history_gateway_unavailable",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "HISTORY_GATEWAY_UNAVAILABLE",
+                    "message": "history gateway unavailable",
+                    "target": "history.gateway",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_batch_query_timeout_returns_api_vnext_envelope(
@@ -1497,6 +1561,9 @@ class TestSmartlyStatisticsView:
                 "nonce_cache": NonceCache(),
                 "rate_limiter": RateLimiter(60, 60),
             }
+        }
+        hass.data[DOMAIN]["runtime_adapters"] = {
+            "history_gateway": _home_assistant_history_gateway(hass, MagicMock())
         }
         hass.async_add_executor_job = AsyncMock()
         return hass
@@ -1812,9 +1879,6 @@ class TestSmartlyStatisticsView:
                 "custom_components.smartly_bridge.views.history.is_entity_allowed",
                 return_value=True,
             ),
-            patch(
-                "custom_components.smartly_bridge.views.history._home_assistant_history_gateway",
-            ) as mock_gateway,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")
             mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
@@ -1822,11 +1886,51 @@ class TestSmartlyStatisticsView:
             response = await SmartlyStatisticsView(mock_request).get()
 
         assert response.status == 200
-        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert data["entity_id"] == "sensor.power"
         assert data["statistics"][0]["mean"] == 150.5
         assert gateway.calls == ["query_statistics"]
+
+    @pytest.mark.asyncio
+    async def test_statistics_requires_setup_runtime_gateway(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Statistics requests fail when setup did not create the gateway."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.history.verify_request",
+                new_callable=AsyncMock,
+            ) as mock_verify,
+            patch(
+                "custom_components.smartly_bridge.views.history.is_entity_allowed",
+                return_value=True,
+            ),
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            mock_hass.data[DOMAIN]["rate_limiter"].check = AsyncMock(return_value=True)
+
+            response = await SmartlyStatisticsView(mock_request).get()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "history_gateway_unavailable",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "HISTORY_GATEWAY_UNAVAILABLE",
+                    "message": "history gateway unavailable",
+                    "target": "history.gateway",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_statistics_query_failure_returns_api_vnext_envelope(
@@ -1892,6 +1996,9 @@ class TestCursorPagination:
                 "nonce_cache": NonceCache(),
                 "rate_limiter": RateLimiter(60, 60),
             }
+        }
+        hass.data[DOMAIN]["runtime_adapters"] = {
+            "history_gateway": _home_assistant_history_gateway(hass, MagicMock())
         }
         hass.async_add_executor_job = AsyncMock()
         return hass

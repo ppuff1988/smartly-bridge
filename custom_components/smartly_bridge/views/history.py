@@ -18,7 +18,6 @@ from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.util import dt as dt_util
 
 from ..acl import is_entity_allowed
-from ..adapters.home_assistant import _home_assistant_history_gateway
 from ..application.history import (
     BatchHistoryQuery,
     BatchHistoryUseCase,
@@ -70,22 +69,24 @@ def _get_history_semaphore() -> asyncio.Semaphore:
 
 def _history_read_gateway(
     hass: HomeAssistant,
-    gateway_factory: Callable[[HomeAssistant, Callable[[], asyncio.Semaphore]], Any] = (
-        _home_assistant_history_gateway
-    ),
-) -> Any:
-    """Return the setup-created history gateway or create a fallback."""
+) -> Any | None:
+    """Return the setup-created history gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    gateway = runtime_adapters.get("history_gateway")
-    if gateway is None:
-        gateway = gateway_factory(hass, _get_history_semaphore)
-        runtime_adapters["history_gateway"] = gateway
-    return gateway
+    return runtime_adapters.get("history_gateway")
 
 
-def _history_gateway(hass: HomeAssistant) -> Any:
+def _history_gateway(hass: HomeAssistant) -> Any | None:
     """Return the setup-created history gateway."""
     return _history_read_gateway(hass)
+
+
+def _history_gateway_unavailable_response() -> Any:
+    """Return the API response for a missing setup-created history gateway."""
+    return _history_error_response(
+        "history_gateway_unavailable",
+        status=500,
+        target="history.gateway",
+    )
 
 
 def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
@@ -558,9 +559,16 @@ class SmartlyHistoryView(web.View):
             start_time, end_time, cursor_data, entity_id
         )
 
+        gateway = _history_gateway(self.hass)
+        if gateway is None:
+            result = _history_gateway_unavailable_response()
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
+
         try:
             result = await _query_single_history(
-                _history_gateway(self.hass),
+                gateway,
                 SingleHistoryQuery(
                     entity_id=entity_id,
                     start_time=query_start_time,
@@ -842,9 +850,16 @@ class SmartlyHistoryBatchView(web.View):
             except (ValueError, TypeError):
                 limit = HISTORY_DEFAULT_LIMIT
 
+        gateway = _history_gateway(self.hass)
+        if gateway is None:
+            result = _history_gateway_unavailable_response()
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
+
         try:
             result = await _query_batch_history(
-                _history_gateway(self.hass),
+                gateway,
                 BatchHistoryQuery(
                     entity_ids=allowed_entity_ids,
                     denied_entity_ids=denied_entity_ids,
@@ -1056,9 +1071,16 @@ class SmartlyStatisticsView(web.View):
                 result.body, self.request, status=result.status, headers=result.headers
             )
 
+        gateway = _history_gateway(self.hass)
+        if gateway is None:
+            result = _history_gateway_unavailable_response()
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
+
         try:
             result = await _query_statistics(
-                _history_gateway(self.hass),
+                gateway,
                 StatisticsQuery(
                     entity_id=entity_id,
                     start_time=start_time,

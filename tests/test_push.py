@@ -44,13 +44,20 @@ class TestStatePushManager:
             "runtime_adapters": {"history_gateway": history_gateway}
         }
 
-        with patch(
-            "custom_components.smartly_bridge.push._home_assistant_history_gateway"
-        ) as mock_gateway:
-            result = _push_history_gateway(mock_hass, MagicMock())
+        result = _push_history_gateway(mock_hass, MagicMock())
 
         assert result is history_gateway
-        mock_gateway.assert_not_called()
+
+    def test_push_history_gateway_resolver_requires_runtime_gateway(self, mock_hass):
+        """Push history gateway resolver does not create a request-time fallback."""
+        from custom_components.smartly_bridge.push import _push_history_gateway
+
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+        result = _push_history_gateway(mock_hass, MagicMock())
+
+        assert result is None
+        assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_state_to_dict(self, push_manager):
@@ -141,14 +148,13 @@ class TestStatePushManager:
             history_state.last_updated.isoformat.return_value = updated
             history.append(history_state)
 
-        with patch(
-            "custom_components.smartly_bridge.adapters.home_assistant."
-            "HomeAssistantHistoryGateway.query_states",
-            new_callable=AsyncMock,
-        ) as mock_query_states:
-            mock_query_states.return_value = history
+        history_gateway = MagicMock()
+        history_gateway.query_states = AsyncMock(return_value=history)
+        push_manager.hass.data[DOMAIN] = {
+            "runtime_adapters": {"history_gateway": history_gateway}
+        }
 
-            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+        await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
         event = push_manager._pending_events[0]
         assert event["entity_id"] == "sensor.temperature"
@@ -169,7 +175,7 @@ class TestStatePushManager:
         }
         assert event["last_changed"] == "2026-06-26T06:00:00"
         assert event["last_updated"] == "2026-06-26T06:00:00"
-        mock_query_states.assert_awaited_once()
+        history_gateway.query_states.assert_awaited_once()
 
     @pytest.mark.asyncio
     async def test_queue_event_merges_sibling_linkquality_signal_metadata(
@@ -286,17 +292,18 @@ class TestStatePushManager:
         mock_new_state.last_changed = datetime(2026, 6, 26, 6, 0, 0)
         mock_new_state.last_updated = datetime(2026, 6, 26, 6, 0, 0)
 
-        with patch(
-            "custom_components.smartly_bridge.adapters.home_assistant."
-            "HomeAssistantHistoryGateway.query_states",
-            new_callable=AsyncMock,
-        ) as mock_query_states:
-            mock_query_states.return_value = [
+        history_gateway = MagicMock()
+        history_gateway.query_states = AsyncMock(
+            return_value=[
                 {"s": "24.1", "lu": 1782432000},
                 {"s": "24.567", "lu": 1782453600},
             ]
+        )
+        push_manager.hass.data[DOMAIN] = {
+            "runtime_adapters": {"history_gateway": history_gateway}
+        }
 
-            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+        await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
         event = push_manager._pending_events[0]
         assert event["attributes"]["bridge_chart"]["points"] == [
@@ -316,16 +323,15 @@ class TestStatePushManager:
         mock_new_state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
         mock_new_state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
 
-        with patch(
-            "custom_components.smartly_bridge.adapters.home_assistant."
-            "HomeAssistantHistoryGateway.query_states",
-            new_callable=AsyncMock,
-        ) as mock_query_states:
-            mock_query_states.return_value = []
+        history_gateway = MagicMock()
+        history_gateway.query_states = AsyncMock(return_value=[])
+        push_manager.hass.data[DOMAIN] = {
+            "runtime_adapters": {"history_gateway": history_gateway}
+        }
 
-            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+        await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
-        _, start_time, end_time = mock_query_states.await_args.args
+        _, start_time, end_time = history_gateway.query_states.await_args.args
         assert start_time == datetime(2026, 6, 26, 4, 0, 0, tzinfo=timezone.utc)
         assert end_time == datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
 
@@ -355,21 +361,39 @@ class TestStatePushManager:
             "runtime_adapters": {"history_gateway": history_gateway}
         }
 
-        fallback_gateway = MagicMock()
-        fallback_gateway.query_states = AsyncMock(return_value=[])
-        with patch(
-            "custom_components.smartly_bridge.push._home_assistant_history_gateway",
-            return_value=fallback_gateway,
-        ) as gateway:
-            await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+        await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
-        gateway.assert_not_called()
         history_gateway.query_states.assert_awaited_once()
         event = push_manager._pending_events[0]
         assert event["attributes"]["bridge_chart"]["points"] == [
             {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
             {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
         ]
+
+    @pytest.mark.asyncio
+    async def test_queue_event_bridge_chart_requires_setup_runtime_history_gateway(
+        self,
+        push_manager,
+        mock_hass,
+    ):
+        """Pushed chart history falls back to current state when runtime gateway is missing."""
+        mock_new_state = MagicMock()
+        mock_new_state.state = "24.567"
+        mock_new_state.attributes = {
+            "device_class": "temperature",
+            "unit_of_measurement": "°C",
+        }
+        mock_new_state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+        mock_new_state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+        await push_manager._queue_event("sensor.temperature", None, mock_new_state)
+
+        event = push_manager._pending_events[0]
+        assert event["attributes"]["bridge_chart"]["points"] == [
+            {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
+        ]
+        assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     def test_bridge_chart_limits_dense_two_hour_points(self):
         """Dense two-hour chart history is downsampled for compact payloads."""
