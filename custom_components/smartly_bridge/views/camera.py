@@ -435,13 +435,19 @@ def _parse_camera_list_options(request: web.Request) -> CameraListRequestOptions
     )
 
 
+def _camera_snapshot_use_case(camera_gateway: Any) -> CameraSnapshotUseCase:
+    """Build the camera snapshot application use case."""
+    return CameraSnapshotUseCase(camera_gateway)
+
+
 async def _capture_camera_snapshot(
     camera_gateway: Any,
     entity_id: str,
     options: CameraSnapshotRequestOptions,
+    use_case_factory: Callable[[Any], Any] = _camera_snapshot_use_case,
 ) -> Any:
     """Execute the snapshot use case with HTTP-adapted request options."""
-    return await CameraSnapshotUseCase(camera_gateway).execute(
+    return await use_case_factory(camera_gateway).execute(
         entity_id,
         force_refresh=options.force_refresh,
         if_none_match=options.if_none_match,

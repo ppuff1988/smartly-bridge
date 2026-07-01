@@ -485,6 +485,56 @@ class TestSmartlyCameraSnapshotView:
         )
 
     @pytest.mark.asyncio
+    async def test_capture_camera_snapshot_uses_injected_use_case_factory(
+        self,
+        mock_request,
+    ):
+        """Snapshot invocation adapter accepts an injected use-case factory."""
+
+        class FakeSnapshotUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                entity_id: str,
+                *,
+                force_refresh: bool = False,
+                if_none_match: str | None = None,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, force_refresh, if_none_match))
+                snapshot = DomainCameraSnapshot(
+                    entity_id=entity_id,
+                    image_data=b"factory-image",
+                    content_type="image/jpeg",
+                    timestamp=123.45,
+                    etag="factory-etag",
+                )
+                return BridgeResponse({"snapshot": snapshot}, status=200)
+
+        gateway = FakeRuntimeCameraGateway()
+        use_case = FakeSnapshotUseCase()
+        factory_calls = []
+        mock_request.query = {"refresh": "true"}
+        mock_request.headers = {"If-None-Match": '"factory-etag"'}
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _capture_camera_snapshot(
+            gateway,
+            "camera.front_door",
+            _parse_camera_snapshot_options(mock_request),
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", True, '"factory-etag"')]
+        assert result.body["snapshot"].image_data == b"factory-image"
+
+    @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):
         """Test snapshot view rejects invalid entity_id."""
         mock_request.match_info = {"entity_id": "invalid_entity"}
