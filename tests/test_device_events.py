@@ -219,6 +219,46 @@ def test_build_local_automation_does_not_create_fallback_when_runtime_adapters_e
     mock_executor.assert_not_called()
 
 
+def test_device_event_publisher_resolver_uses_runtime_publisher() -> None:
+    """Device event publisher resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.device_events import _device_event_publisher
+
+    publisher = FakeDeviceEventPublisher()
+    integration_data = {
+        "runtime_adapters": {
+            "device_event_publisher": publisher,
+        }
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.device_events.HomeAssistantDeviceEventPublisher"
+    ) as mock_publisher:
+        result = _device_event_publisher(integration_data, MagicMock())
+
+    assert result is publisher
+    mock_publisher.assert_not_called()
+
+
+def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
+    """Device event deduplicator resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.device_events import _device_event_deduplicator
+
+    deduplicator = InMemoryDeviceEventDeduplicator()
+    integration_data = {
+        "runtime_adapters": {
+            "device_event_deduplicator": deduplicator,
+        }
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.device_events.InMemoryDeviceEventDeduplicator"
+    ) as mock_deduplicator:
+        result = _device_event_deduplicator(integration_data)
+
+    assert result is deduplicator
+    mock_deduplicator.assert_not_called()
+
+
 class TestDeviceEventsEndpoint:
     """Tests for /api/smartly/devices/{device_id}/events endpoint."""
 

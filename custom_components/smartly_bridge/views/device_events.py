@@ -94,6 +94,29 @@ def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
     return integration_data.setdefault("runtime_adapters", {})
 
 
+def _device_event_publisher(integration_data: dict[str, Any], hass: HomeAssistant) -> Any:
+    """Return the setup-created event publisher or create a fallback."""
+    adapters = _runtime_adapters(integration_data)
+    publisher = adapters.get("device_event_publisher")
+    if publisher is None:
+        publisher = HomeAssistantDeviceEventPublisher(hass)
+        adapters["device_event_publisher"] = publisher
+    return publisher
+
+
+def _device_event_deduplicator(integration_data: dict[str, Any]) -> Any:
+    """Return the setup-created event deduplicator or create a fallback."""
+    adapters = _runtime_adapters(integration_data)
+    deduplicator = adapters.get("device_event_deduplicator")
+    if deduplicator is None:
+        deduplicator = integration_data.get("device_event_deduplicator")
+        if deduplicator is None:
+            deduplicator = InMemoryDeviceEventDeduplicator()
+            integration_data["device_event_deduplicator"] = deduplicator
+        adapters["device_event_deduplicator"] = deduplicator
+    return deduplicator
+
+
 def _build_local_automation(
     integration_data: dict[str, Any], hass: HomeAssistant
 ) -> LocalAutomationUseCase | None:
@@ -409,18 +432,8 @@ class SmartlyDeviceEventsView(web.View):
             )
 
         integration_data = self.hass.data[DOMAIN]
-        adapters = _runtime_adapters(integration_data)
-        publisher = adapters.setdefault(
-            "device_event_publisher",
-            HomeAssistantDeviceEventPublisher(self.hass),
-        )
-        deduplicator = adapters.get("device_event_deduplicator")
-        if deduplicator is None:
-            deduplicator = integration_data.setdefault(
-                "device_event_deduplicator",
-                InMemoryDeviceEventDeduplicator(),
-            )
-            adapters["device_event_deduplicator"] = deduplicator
+        publisher = _device_event_publisher(integration_data, self.hass)
+        deduplicator = _device_event_deduplicator(integration_data)
 
         automation = _build_local_automation(integration_data, self.hass)
         result = await _ingest_device_event(
