@@ -435,6 +435,19 @@ def _parse_camera_list_options(request: web.Request) -> CameraListRequestOptions
     )
 
 
+async def _capture_camera_snapshot(
+    camera_gateway: Any,
+    entity_id: str,
+    options: CameraSnapshotRequestOptions,
+) -> Any:
+    """Execute the snapshot use case with HTTP-adapted request options."""
+    return await CameraSnapshotUseCase(camera_gateway).execute(
+        entity_id,
+        force_refresh=options.force_refresh,
+        if_none_match=options.if_none_match,
+    )
+
+
 def _build_camera_stream_log_context(
     request: web.Request,
     entity_id: str,
@@ -543,10 +556,10 @@ class SmartlyCameraSnapshotView(BaseView):
         camera_gateway = gateway_resolution.gateway
 
         options = _parse_camera_snapshot_options(self.request)
-        result = await CameraSnapshotUseCase(camera_gateway).execute(
+        result = await _capture_camera_snapshot(
+            camera_gateway,
             entity_id,
-            force_refresh=options.force_refresh,
-            if_none_match=options.if_none_match,
+            options,
         )
 
         if result.status in (304, 404):

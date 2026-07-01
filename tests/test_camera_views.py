@@ -27,6 +27,7 @@ from custom_components.smartly_bridge.views.camera import (
     _adapt_camera_json_response,
     _authorize_camera_request,
     _camera_entity_id_from_request,
+    _capture_camera_snapshot,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
     _log_camera_control_event,
@@ -416,6 +417,52 @@ class TestSmartlyCameraSnapshotView:
         assert response.content_type == "image/jpeg"
         assert response.headers["ETag"] == "snapshot-etag"
         assert response.headers["Cache-Control"] == "private, max-age=10"
+
+    @pytest.mark.asyncio
+    async def test_capture_camera_snapshot_forwards_legacy_cache_controls(
+        self,
+        mock_request,
+    ):
+        """Snapshot invocation adapter forwards entity, refresh, and ETag options."""
+
+        class RecordingSnapshotGateway:
+            def __init__(self) -> None:
+                self.snapshot_args: tuple[str, bool, str | None] | None = None
+
+            async def get_snapshot(
+                self,
+                entity_id: str,
+                force_refresh: bool = False,
+                if_none_match: str | None = None,
+            ) -> tuple[DomainCameraSnapshot | None, bool]:
+                self.snapshot_args = (entity_id, force_refresh, if_none_match)
+                return (
+                    DomainCameraSnapshot(
+                        entity_id=entity_id,
+                        image_data=b"image",
+                        content_type="image/jpeg",
+                        timestamp=123.45,
+                        etag="snapshot-etag",
+                    ),
+                    False,
+                )
+
+        gateway = RecordingSnapshotGateway()
+        mock_request.query = {"refresh": "true"}
+        mock_request.headers = {"If-None-Match": '"snapshot-etag"'}
+
+        result = await _capture_camera_snapshot(
+            gateway,
+            "camera.front_door",
+            _parse_camera_snapshot_options(mock_request),
+        )
+
+        assert result.status == 200
+        assert gateway.snapshot_args == (
+            "camera.front_door",
+            True,
+            '"snapshot-etag"',
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):
