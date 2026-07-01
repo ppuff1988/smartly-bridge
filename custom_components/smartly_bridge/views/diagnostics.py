@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -49,9 +49,19 @@ def _json_response(
     )
 
 
-def _fetch_raw_diagnostic(store: Any, *, raw_ref: str) -> Any:
+def _raw_diagnostic_fetch_use_case(store: Any) -> RawDiagnosticFetchUseCase:
+    """Build the raw diagnostic fetch application use case."""
+    return RawDiagnosticFetchUseCase(store)
+
+
+def _fetch_raw_diagnostic(
+    store: Any,
+    *,
+    raw_ref: str,
+    use_case_factory: Callable[[Any], Any] = _raw_diagnostic_fetch_use_case,
+) -> Any:
     """Execute the raw diagnostic fetch use case with a resolved store port."""
-    return RawDiagnosticFetchUseCase(store).execute(raw_ref)
+    return use_case_factory(store).execute(raw_ref)
 
 
 def _raw_diagnostic_store(hass: Any) -> Any:
