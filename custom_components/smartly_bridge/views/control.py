@@ -151,6 +151,32 @@ async def _execute_smartly_command(
     return await executor.execute(client_id, command)
 
 
+def _smartly_command_executor(hass: Any) -> Any:
+    """Return the setup-created canonical command executor or create a fallback."""
+    integration_data = hass.data.setdefault(DOMAIN, {})
+    runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+    executor = runtime_adapters.get("smartly_command_executor")
+    if executor is None:
+        executor = HomeAssistantSmartlyCommandExecutor(hass, _LOGGER)
+        runtime_adapters["smartly_command_executor"] = executor
+    return executor
+
+
+def _control_use_case(hass: Any) -> Any:
+    """Return the setup-created legacy control use case or create a fallback."""
+    integration_data = hass.data.setdefault(DOMAIN, {})
+    runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+    use_case = runtime_adapters.get("control_use_case")
+    if use_case is None:
+        use_case = ControlUseCase(
+            HomeAssistantEntityPolicy(hass),
+            HomeAssistantControlGateway(hass),
+            LoggingAuditAdapter(_LOGGER),
+        )
+        runtime_adapters["control_use_case"] = use_case
+    return use_case
+
+
 class SmartlyControlView(web.View):
     """Handle POST /api/smartly/control requests."""
 
@@ -172,27 +198,11 @@ class SmartlyControlView(web.View):
 
     def _smartly_command_executor(self) -> Any:
         """Return the setup-created canonical command executor."""
-        integration_data = self.hass.data.setdefault(DOMAIN, {})
-        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-        executor = runtime_adapters.get("smartly_command_executor")
-        if executor is None:
-            executor = HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER)
-            runtime_adapters["smartly_command_executor"] = executor
-        return executor
+        return _smartly_command_executor(self.hass)
 
     def _control_use_case(self) -> Any:
         """Return the setup-created legacy control use case."""
-        integration_data = self.hass.data.setdefault(DOMAIN, {})
-        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-        use_case = runtime_adapters.get("control_use_case")
-        if use_case is None:
-            use_case = ControlUseCase(
-                HomeAssistantEntityPolicy(self.hass),
-                HomeAssistantControlGateway(self.hass),
-                LoggingAuditAdapter(_LOGGER),
-            )
-            runtime_adapters["control_use_case"] = use_case
-        return use_case
+        return _control_use_case(self.hass)
 
     async def post(self) -> web.Response:
         """Handle control request from Platform."""

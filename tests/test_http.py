@@ -146,6 +146,46 @@ def test_control_request_prefers_entity_id_over_device_id_alias() -> None:
     assert _entity_id_from_body(body) == "number.presence_detection_delay"
 
 
+def test_smartly_command_executor_resolver_uses_runtime_executor(mock_hass) -> None:
+    """SmartlyCommand executor resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.control import _smartly_command_executor
+
+    executor = FakeSmartlyCommandExecutor()
+    mock_hass.data[DOMAIN] = {
+        "runtime_adapters": {
+            "smartly_command_executor": executor,
+        },
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.control.HomeAssistantSmartlyCommandExecutor"
+    ) as mock_executor:
+        result = _smartly_command_executor(mock_hass)
+
+    assert result is executor
+    mock_executor.assert_not_called()
+
+
+def test_control_use_case_resolver_uses_runtime_use_case(mock_hass) -> None:
+    """Control use case resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.control import _control_use_case
+
+    use_case = FakeControlUseCase()
+    mock_hass.data[DOMAIN] = {
+        "runtime_adapters": {
+            "control_use_case": use_case,
+        },
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.control.ControlUseCase"
+    ) as mock_use_case:
+        result = _control_use_case(mock_hass)
+
+    assert result is use_case
+    mock_use_case.assert_not_called()
+
+
 def test_control_request_normalizes_platform_button_command() -> None:
     """Platform device commands normalize to canonical Home Assistant control fields."""
     body = {
