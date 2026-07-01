@@ -997,6 +997,22 @@ class TestSmartlyCameraStreamView:
         assert result.x_real_ip == "203.0.113.10"
         assert result.x_stream_token == "stream-token"
 
+    def test_prepare_camera_stream_returns_application_stream_contract(self):
+        """Stream invocation adapter returns the MJPEG application contract."""
+        from custom_components.smartly_bridge.views.camera import _prepare_camera_stream
+
+        result = _prepare_camera_stream()
+
+        assert result.status == 200
+        assert result.headers == {
+            "Content-Type": "multipart/x-mixed-replace;boundary=frame",
+            "Cache-Control": "no-cache, no-store, must-revalidate",
+            "Pragma": "no-cache",
+            "Expires": "0",
+            "Connection": "close",
+            "X-Smartly-Response-Mode": "stream",
+        }
+
     @pytest.mark.asyncio
     async def test_prepare_camera_stream_response_uses_mjpeg_contract(
         self,

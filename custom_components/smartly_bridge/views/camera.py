@@ -472,6 +472,11 @@ async def _handle_camera_hls(
     return await CameraHLSUseCase(camera_gateway).execute(entity_id, action)
 
 
+def _prepare_camera_stream() -> Any:
+    """Execute the camera stream use case for MJPEG response metadata."""
+    return CameraStreamUseCase().execute()
+
+
 def _build_camera_stream_log_context(
     request: web.Request,
     entity_id: str,
@@ -494,7 +499,7 @@ def _build_camera_stream_log_context(
 
 async def _prepare_camera_stream_response(request: web.Request) -> web.StreamResponse:
     """Prepare the legacy MJPEG stream response metadata for proxy streaming."""
-    stream_result = CameraStreamUseCase().execute()
+    stream_result = _prepare_camera_stream()
     response = web.StreamResponse(status=stream_result.status, headers=stream_result.headers)
     response.enable_compression(False)
     await response.prepare(request)
