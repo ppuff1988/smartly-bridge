@@ -699,6 +699,20 @@ class HomeAssistantSyncGateway:
         )
 
 
+def _home_assistant_sync_structure_gateway(
+    hass: Any,
+    *,
+    allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+    structure_fn: Callable[[Any, list[str], Any, Any, Any, Any], dict[str, Any]] = get_structure,
+) -> HomeAssistantSyncGateway:
+    """Build the Home Assistant-backed legacy sync structure gateway."""
+    return HomeAssistantSyncGateway(
+        hass,
+        allowed_entities_fn=allowed_entities_fn,
+        structure_fn=structure_fn,
+    )
+
+
 class HomeAssistantRawDiagnosticStore:
     """Raw diagnostic store backed by Home Assistant runtime data."""
 

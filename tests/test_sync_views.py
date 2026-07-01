@@ -8,7 +8,11 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.adapters.home_assistant import HomeAssistantStateSyncGateway
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantStateSyncGateway,
+    HomeAssistantSyncGateway,
+    _home_assistant_sync_structure_gateway,
+)
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
@@ -346,6 +350,14 @@ class TestSmartlySyncView:
         ]
         assert result.body["data"]["device_count"] == 0
 
+    def test_home_assistant_sync_structure_gateway_factory_builds_legacy_gateway(
+        self, mock_hass
+    ):
+        """Home Assistant sync structure factory preserves the legacy gateway type."""
+        gateway = _home_assistant_sync_structure_gateway(mock_hass)
+
+        assert isinstance(gateway, HomeAssistantSyncGateway)
+
     def test_sync_structure_gateway_resolver_uses_runtime_gateway(self, mock_hass):
         """Sync structure gateway resolver returns the setup-created runtime port."""
         from custom_components.smartly_bridge.views.sync import _sync_structure_gateway
@@ -356,7 +368,7 @@ class TestSmartlySyncView:
         }
 
         with patch(
-            "custom_components.smartly_bridge.views.sync.HomeAssistantSyncGateway"
+            "custom_components.smartly_bridge.views.sync._home_assistant_sync_structure_gateway"
         ) as mock_gateway:
             result = _sync_structure_gateway(mock_hass)
 
@@ -422,7 +434,7 @@ class TestSmartlySyncView:
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
         ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.sync.HomeAssistantSyncGateway"
+            "custom_components.smartly_bridge.views.sync._home_assistant_sync_structure_gateway"
         ) as mock_gateway:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 

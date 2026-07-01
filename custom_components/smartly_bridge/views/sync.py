@@ -10,8 +10,8 @@ from homeassistant.core import HomeAssistant
 from ..acl import get_allowed_entities, get_structure
 from ..adapters.home_assistant import (
     HomeAssistantStateSyncGateway,
-    HomeAssistantSyncGateway,
     _home_assistant_raw_diagnostic_store,
+    _home_assistant_sync_structure_gateway,
 )
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
@@ -83,7 +83,7 @@ def _sync_structure_gateway(hass: HomeAssistant) -> Any:
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("sync_structure_gateway")
     if gateway is None:
-        gateway = HomeAssistantSyncGateway(
+        gateway = _home_assistant_sync_structure_gateway(
             hass,
             allowed_entities_fn=get_allowed_entities,
             structure_fn=get_structure,
