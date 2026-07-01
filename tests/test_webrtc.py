@@ -143,40 +143,25 @@ def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
         },
     }
 
-    with patch(
-        "custom_components.smartly_bridge.views.webrtc._home_assistant_web_rtc_gateway"
-    ) as mock_gateway:
-        result = _web_rtc_gateway(mock_hass, manager)
+    result = _web_rtc_gateway(mock_hass, manager)
 
     assert result is gateway
-    mock_gateway.assert_not_called()
 
 
-def test_web_rtc_gateway_resolver_uses_injected_fallback_factory(mock_hass) -> None:
-    """WebRTC gateway resolver accepts an injected fallback factory."""
+def test_web_rtc_gateway_resolver_requires_runtime_gateway(mock_hass) -> None:
+    """WebRTC gateway resolver does not create a request-time fallback."""
     from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
 
-    gateway = FakeWebRTCGateway()
     manager = MagicMock()
-    factory_calls = []
     mock_hass.data[DOMAIN] = {
         "webrtc_manager": manager,
         "runtime_adapters": {},
     }
 
-    def gateway_factory(hass, webrtc_manager):
-        factory_calls.append((hass, webrtc_manager))
-        return gateway
+    result = _web_rtc_gateway(mock_hass, manager)
 
-    result = _web_rtc_gateway(
-        mock_hass,
-        manager,
-        gateway_factory=gateway_factory,
-    )
-
-    assert result is gateway
-    assert mock_hass.data[DOMAIN]["runtime_adapters"]["webrtc_gateway"] is gateway
-    assert factory_calls == [(mock_hass, manager)]
+    assert result is None
+    assert "webrtc_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
 
 # ============================================================================
@@ -1250,6 +1235,35 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-token-not-available.json")
 
     @pytest.mark.asyncio
+    async def test_token_view_requires_setup_runtime_gateway(self, mock_hass_with_webrtc):
+        """Token requests fail when setup did not create the WebRTC gateway."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {}
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            response = await SmartlyWebRTCTokenView(request).post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-not-available.json")
+        assert "webrtc_gateway" not in mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
     async def test_token_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
         """Token requests execute through the setup-created WebRTC gateway."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
@@ -1267,9 +1281,6 @@ class TestWebRTCViews:
             patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
             patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
             patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
-            patch(
-                "custom_components.smartly_bridge.views.webrtc._home_assistant_web_rtc_gateway"
-            ) as gateway_cls,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test_client")
             mock_registry_get.return_value = MagicMock()
@@ -1281,7 +1292,6 @@ class TestWebRTCViews:
         data = json.loads(response.body)
         assert data["token"] == "token123"
         assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
-        gateway_cls.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_token_view_response_includes_request_context_headers(

@@ -20,7 +20,6 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..acl import is_entity_allowed
-from ..adapters.home_assistant import _home_assistant_web_rtc_gateway
 from ..application.webrtc import (
     WebRTCHangupUseCase,
     WebRTCICEUseCase,
@@ -53,21 +52,14 @@ _LOGGER = logging.getLogger(__name__)
 
 def _web_rtc_gateway(
     hass: Any,
-    webrtc_manager: WebRTCTokenManager,
-    gateway_factory: Callable[[Any, WebRTCTokenManager], Any] = (
-        _home_assistant_web_rtc_gateway
-    ),
-) -> Any:
-    """Return the setup-created WebRTC gateway or create a fallback."""
+    _webrtc_manager: WebRTCTokenManager,
+) -> Any | None:
+    """Return the setup-created WebRTC gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    gateway = runtime_adapters.get("webrtc_gateway")
-    if gateway is None:
-        gateway = gateway_factory(hass, webrtc_manager)
-        runtime_adapters["webrtc_gateway"] = gateway
-    return gateway
+    return runtime_adapters.get("webrtc_gateway")
 
 
-def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
+def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any | None:
     """Return the setup-created WebRTC gateway."""
     return _web_rtc_gateway(hass, webrtc_manager)
 
@@ -324,8 +316,22 @@ class SmartlyWebRTCTokenView(BaseView):
                 headers=result.headers,
             )
 
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response(
+                "webrtc_not_available",
+                status=500,
+                legacy_fields={"message": "WebRTC manager not initialized"},
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _create_webrtc_token(
-            _webrtc_gateway(self.hass, webrtc_manager),
+            gateway,
             entity_id=entity_id,
             client_id=auth_result.client_id or "unknown",
             turn_config={
@@ -461,8 +467,18 @@ class SmartlyWebRTCOfferView(BaseView):
                 headers=result.headers,
             )
 
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _create_webrtc_offer(
-            _webrtc_gateway(self.hass, webrtc_manager),
+            gateway,
             entity_id=entity_id,
             token=token_str,
             sdp_offer=sdp_offer,
@@ -594,8 +610,18 @@ class SmartlyWebRTCICEView(BaseView):
                 headers=result.headers,
             )
 
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _add_webrtc_ice_candidate(
-            _webrtc_gateway(self.hass, webrtc_manager),
+            gateway,
             entity_id=entity_id,
             session_id=session_id,
             candidate=candidate,
@@ -672,8 +698,18 @@ class SmartlyWebRTCHangupView(BaseView):
                 headers=result.headers,
             )
 
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _close_webrtc_session(
-            _webrtc_gateway(self.hass, webrtc_manager),
+            gateway,
             entity_id=entity_id,
             session_id=session_id,
         )
