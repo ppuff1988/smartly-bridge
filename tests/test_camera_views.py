@@ -636,6 +636,22 @@ class TestSmartlyCameraStreamView:
         }
 
     @pytest.mark.asyncio
+    async def test_stream_integration_not_configured_matches_api_vnext_fixture(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Stream integration error response remains stable for legacy and vNext clients."""
+        mock_hass.data = {}
+
+        response = await SmartlyCameraStreamView(mock_request).get()
+
+        assert response.status == 500
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "camera-stream-integration-not-configured.json"
+        )
+
+    @pytest.mark.asyncio
     async def test_stream_rate_limited(self, mock_request, mock_hass):
         """Test stream rate limiting."""
         with patch(
