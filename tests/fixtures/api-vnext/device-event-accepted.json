@@ -1,29 +1,15 @@
 {
-  "success": true,
   "schema_version": "2026.06",
-  "event_id": "evt_fixed",
-  "device_id": "device_abc123",
-  "action": "single_left",
-  "received_at": "2026-06-29T00:00:00Z",
-  "capability": "button_event",
-  "event": "single_press",
-  "payload": {
-    "button": "left"
-  },
-  "events": [
-    {
-      "event_id": "evt_fixed",
-      "device_id": "device_abc123",
-      "capability": "button_event",
-      "event": "single_press",
-      "payload": {
-        "button": "left"
-      },
-      "occurred_at": "2026-06-27T10:20:00.000Z"
-    }
-  ],
   "data": {
     "event_id": "evt_fixed",
+    "device_id": "device_abc123",
+    "action": "single_left",
+    "received_at": "2026-06-29T00:00:00Z",
+    "capability": "button_event",
+    "event": "single_press",
+    "payload": {
+      "button": "left"
+    },
     "status": "accepted",
     "events": [
       {

@@ -91,27 +91,15 @@ async def test_button_action_is_published_with_canonical_event_payload() -> None
 
     assert result.status == 202
     assert result.body == {
-        "success": True,
         "schema_version": "2026.06",
-        "event_id": "evt_fixed",
-        "device_id": "device_abc123",
-        "action": "single_left",
-        "received_at": "2026-06-29T00:00:00Z",
-        "capability": "button_event",
-        "event": "single_press",
-        "payload": {"button": "left"},
-        "events": [
-            {
-                "event_id": "evt_fixed",
-                "device_id": "device_abc123",
-                "capability": "button_event",
-                "event": "single_press",
-                "payload": {"button": "left"},
-                "occurred_at": "2026-06-27T10:20:00.000Z",
-            }
-        ],
         "data": {
             "event_id": "evt_fixed",
+            "device_id": "device_abc123",
+            "action": "single_left",
+            "received_at": "2026-06-29T00:00:00Z",
+            "capability": "button_event",
+            "event": "single_press",
+            "payload": {"button": "left"},
             "status": "accepted",
             "events": [
                 {
@@ -175,12 +163,18 @@ async def test_button_action_response_includes_vnext_envelope() -> None:
     )
 
     assert result.status == 202
-    assert result.body["success"] is True
+    assert set(result.body) == {"schema_version", "data", "warnings", "errors"}
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
     assert result.body["data"] == {
         "event_id": "evt_fixed",
+        "device_id": "device_abc123",
+        "action": "single_left",
+        "received_at": "2026-06-29T00:00:00Z",
+        "capability": "button_event",
+        "event": "single_press",
+        "payload": {"button": "left"},
         "status": "accepted",
         "events": [
             {
@@ -241,33 +235,20 @@ async def test_duplicate_button_action_reuses_event_id_without_republishing() ->
     second = await use_case.execute("client-1", command)
 
     assert first.status == 202
-    assert first.body["event_id"] == "evt_first"
+    assert first.body["data"]["event_id"] == "evt_first"
     assert second.status == 200
     assert second.body == {
-        "success": True,
         "schema_version": "2026.06",
-        "duplicate": True,
-        "status": "duplicate",
-        "event_id": "evt_first",
-        "device_id": "device_abc123",
-        "action": "single_left",
-        "received_at": "2026-06-29T00:00:00Z",
-        "capability": "button_event",
-        "event": "single_press",
-        "payload": {"button": "left"},
-        "events": [
-            {
-                "event_id": "evt_first",
-                "device_id": "device_abc123",
-                "capability": "button_event",
-                "event": "single_press",
-                "payload": {"button": "left"},
-                "occurred_at": "2026-06-27T10:20:00.000Z",
-            }
-        ],
         "data": {
             "event_id": "evt_first",
+            "device_id": "device_abc123",
+            "action": "single_left",
+            "received_at": "2026-06-29T00:00:00Z",
+            "capability": "button_event",
+            "event": "single_press",
+            "payload": {"button": "left"},
             "status": "duplicate",
+            "duplicate": True,
             "events": [
                 {
                     "event_id": "evt_first",
@@ -321,7 +302,7 @@ async def test_button_action_triggers_local_automation_once() -> None:
             },
         )
     ]
-    assert result.body["automations"] == [
+    assert result.body["data"]["automations"] == [
         {
             "rule_id": "rule-left-single",
             "action_index": 0,
@@ -331,7 +312,6 @@ async def test_button_action_triggers_local_automation_once() -> None:
             "response_status": 200,
         }
     ]
-    assert result.body["data"]["automations"] == result.body["automations"]
 
 
 @pytest.mark.asyncio
@@ -386,14 +366,20 @@ async def test_duplicate_button_action_response_includes_vnext_envelope() -> Non
     duplicate = await use_case.execute("client-1", command)
 
     assert duplicate.status == 200
-    assert duplicate.body["success"] is True
-    assert duplicate.body["duplicate"] is True
+    assert set(duplicate.body) == {"schema_version", "data", "warnings", "errors"}
     assert duplicate.body["schema_version"] == "2026.06"
     assert duplicate.body["warnings"] == []
     assert duplicate.body["errors"] == []
     assert duplicate.body["data"] == {
         "event_id": "evt_first",
+        "device_id": "device_abc123",
+        "action": "single_left",
+        "received_at": "2026-06-29T00:00:00Z",
+        "capability": "button_event",
+        "event": "single_press",
+        "payload": {"button": "left"},
         "status": "duplicate",
+        "duplicate": True,
         "events": [
             {
                 "event_id": "evt_first",
@@ -454,10 +440,10 @@ async def test_rotate_button_action_is_published_with_canonical_event_payload() 
     )
 
     assert result.status == 202
-    assert result.body["capability"] == "button_event"
-    assert result.body["event"] == "rotate_left"
-    assert result.body["payload"] == {"direction": "left"}
-    assert result.body["events"] == [
+    assert result.body["data"]["capability"] == "button_event"
+    assert result.body["data"]["event"] == "rotate_left"
+    assert result.body["data"]["payload"] == {"direction": "left"}
+    assert result.body["data"]["events"] == [
         {
             "event_id": "evt_rotate",
             "device_id": "device_knob",
@@ -502,8 +488,8 @@ async def test_button_action_alias_formats_are_normalized_to_canonical_events(
     )
 
     assert result.status == 202
-    assert result.body["event"] == "single_press"
-    assert result.body["payload"] == {"button": expected_button}
+    assert result.body["data"]["event"] == "single_press"
+    assert result.body["data"]["payload"] == {"button": expected_button}
     assert publisher.events[0]["event"] == "single_press"
     assert publisher.events[0]["payload"] == {"button": expected_button}
 
@@ -530,8 +516,6 @@ async def test_unsupported_button_action_is_rejected_before_publish() -> None:
 
     assert result.status == 400
     assert result.body == {
-        "error": "invalid_action",
-        "message": "Unsupported button action",
         "schema_version": "2026.06",
         "data": {
             "device_id": "device_abc123",
@@ -571,8 +555,7 @@ async def test_unsupported_button_action_response_includes_vnext_error_envelope(
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_action"
-    assert result.body["message"] == "Unsupported button action"
+    assert set(result.body) == {"schema_version", "data", "warnings", "errors"}
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {
         "device_id": "device_abc123",
@@ -639,8 +622,6 @@ async def test_unsupported_rotate_direction_is_rejected_before_publish() -> None
 
     assert result.status == 400
     assert result.body == {
-        "error": "invalid_action",
-        "message": "Unsupported button action",
         "schema_version": "2026.06",
         "data": {
             "device_id": "device_abc123",

@@ -146,9 +146,13 @@ class FakeDeviceEventUseCase:
         self.calls.append((client_id, command))
         return BridgeResponse(
             {
-                "success": True,
-                "device_id": command.device_id,
-                "action": command.action,
+                "schema_version": "2026.06",
+                "data": {
+                    "device_id": command.device_id,
+                    "action": command.action,
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=202,
         )
@@ -194,8 +198,8 @@ async def test_ingest_device_event_forwards_command_to_application_use_case() ->
     )
 
     assert result.status == 202
-    assert result.body["device_id"] == "device_abc123"
-    assert result.body["action"] == "single_left"
+    assert result.body["data"]["device_id"] == "device_abc123"
+    assert result.body["data"]["action"] == "single_left"
     assert publisher.events[0]["device_id"] == "device_abc123"
     assert publisher.events[0]["event"] == "single_press"
 
@@ -237,7 +241,7 @@ async def test_ingest_device_event_uses_injected_use_case_factory() -> None:
     assert result.status == 202
     assert factory_calls == [(publisher, deduplicator, automation)]
     assert use_case.calls == [("client-1", command)]
-    assert result.body["device_id"] == "device_abc123"
+    assert result.body["data"]["device_id"] == "device_abc123"
 
 
 def test_build_local_automation_reuses_setup_runtime_adapters() -> None:
@@ -538,16 +542,16 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 202
         payload = json.loads(response.body)
-        assert payload["success"] is True
-        assert payload["device_id"] == "device_abc123"
-        assert payload["action"] == "single_left"
-        assert payload["event_id"].startswith("evt_")
-        assert payload["capability"] == "button_event"
-        assert payload["event"] == "single_press"
-        assert payload["payload"] == {"button": "left"}
-        assert payload["events"] == [
+        assert set(payload) == {"schema_version", "data", "warnings", "errors"}
+        assert payload["data"]["device_id"] == "device_abc123"
+        assert payload["data"]["action"] == "single_left"
+        assert payload["data"]["event_id"].startswith("evt_")
+        assert payload["data"]["capability"] == "button_event"
+        assert payload["data"]["event"] == "single_press"
+        assert payload["data"]["payload"] == {"button": "left"}
+        assert payload["data"]["events"] == [
             {
-                "event_id": payload["event_id"],
+                "event_id": payload["data"]["event_id"],
                 "device_id": "device_abc123",
                 "capability": "button_event",
                 "event": "single_press",
@@ -555,7 +559,7 @@ class TestDeviceEventsEndpoint:
                 "occurred_at": "2026-06-27T10:20:00.000Z",
             }
         ]
-        assert "received_at" in payload
+        assert "received_at" in payload["data"]
         mock_hass.bus.async_fire.assert_called_once()
         event_type, event_data = mock_hass.bus.async_fire.call_args.args
         assert event_type == "smartly_bridge_device_event"
@@ -592,8 +596,7 @@ class TestDeviceEventsEndpoint:
         payload = json.loads(response.body)
         assert payload["request_id"] == "req-device-001"
         assert payload["correlation_id"] == "corr-device-001"
-        assert payload["success"] is True
-        assert payload["device_id"] == "device_abc123"
+        assert payload["data"]["device_id"] == "device_abc123"
 
     @pytest.mark.asyncio
     async def test_device_event_requires_setup_runtime_publisher(self, mock_hass):
@@ -618,8 +621,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "device_event_publisher_unavailable",
-            "message": "Device event publisher not initialized",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -663,8 +664,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "device_event_deduplicator_unavailable",
-            "message": "Device event deduplicator not initialized",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -737,8 +736,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "local_automation_rule_store_unavailable",
-            "message": "Local automation rule store not initialized",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "ldev_button",
@@ -813,8 +810,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "smartly_command_executor_unavailable",
-            "message": "Smartly command executor not initialized",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "ldev_button",
@@ -857,7 +852,7 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 400
-        assert json.loads(response.body)["error"] == "invalid_action"
+        assert json.loads(response.body)["errors"][0]["code"] == "INVALID_ACTION"
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -879,8 +874,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 400
         assert json.loads(response.body) == {
-            "error": "invalid_json",
-            "message": "Invalid JSON body",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -927,8 +920,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 401
         assert json.loads(response.body) == {
-            "error": "invalid_signature",
-            "message": "Device event request authentication failed",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -979,8 +970,6 @@ class TestDeviceEventsEndpoint:
         assert response.headers["Retry-After"] == "60"
         assert response.headers["X-RateLimit-Remaining"] == "0"
         assert json.loads(response.body) == {
-            "error": "rate_limited",
-            "message": "Device event request was rate limited",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -1018,8 +1007,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "integration_not_configured",
-            "message": "Smartly Bridge integration is not configured",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -1061,8 +1048,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 400
         assert json.loads(response.body) == {
-            "error": "missing_required_fields",
-            "message": "Missing required event fields",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -1105,8 +1090,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 400
         assert json.loads(response.body) == {
-            "error": "invalid_action",
-            "message": "Unsupported button action",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -1149,8 +1132,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 400
         assert json.loads(response.body) == {
-            "error": "invalid_timestamp",
-            "message": "Invalid event timestamp",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -1194,8 +1175,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 400
         assert json.loads(response.body) == {
-            "error": "invalid_meta",
-            "message": "Invalid event metadata",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",
@@ -1235,8 +1214,8 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 202
         payload = json.loads(response.body)
-        assert payload["event"] == "single_press"
-        assert payload["payload"] == {"button": "left"}
+        assert payload["data"]["event"] == "single_press"
+        assert payload["data"]["payload"] == {"button": "left"}
         mock_hass.bus.async_fire.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1265,9 +1244,12 @@ class TestDeviceEventsEndpoint:
         first_payload = json.loads(first.body)
         assert second.status == 200
         second_payload = json.loads(second.body)
-        assert second_payload["duplicate"] is True
-        assert second_payload["event_id"] == first_payload["event_id"]
-        assert second_payload["events"][0]["event_id"] == first_payload["event_id"]
+        assert second_payload["data"]["duplicate"] is True
+        assert second_payload["data"]["event_id"] == first_payload["data"]["event_id"]
+        assert (
+            second_payload["data"]["events"][0]["event_id"]
+            == first_payload["data"]["event_id"]
+        )
         mock_hass.bus.async_fire.assert_called_once()
 
     @pytest.mark.asyncio
@@ -1360,17 +1342,18 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 202
         payload = json.loads(response.body)
-        assert payload["automations"] == [
+        assert payload["data"]["automations"] == [
             {
                 "rule_id": "rule-left-single",
                 "action_index": 0,
                 "type": "device_command",
-                "command_id": f"auto_{payload['event_id']}_rule-left-single_0",
+                "command_id": (
+                    f"auto_{payload['data']['event_id']}_rule-left-single_0"
+                ),
                 "status": "completed",
                 "response_status": 200,
             }
         ]
-        assert payload["data"]["automations"] == payload["automations"]
         mock_hass.services.async_call.assert_awaited_once_with(
             "light",
             "turn_on",
@@ -1443,12 +1426,14 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 202
         payload = json.loads(response.body)
-        assert payload["automations"] == [
+        assert payload["data"]["automations"] == [
             {
                 "rule_id": "stored-left-single",
                 "action_index": 0,
                 "type": "device_command",
-                "command_id": f"auto_{payload['event_id']}_stored-left-single_0",
+                "command_id": (
+                    f"auto_{payload['data']['event_id']}_stored-left-single_0"
+                ),
                 "status": "completed",
                 "response_status": 200,
             }
@@ -1518,12 +1503,14 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 202
         payload = json.loads(response.body)
-        assert payload["automations"] == [
+        assert payload["data"]["automations"] == [
             {
                 "rule_id": "runtime-left-single",
                 "action_index": 0,
                 "type": "device_command",
-                "command_id": f"auto_{payload['event_id']}_runtime-left-single_0",
+                "command_id": (
+                    f"auto_{payload['data']['event_id']}_runtime-left-single_0"
+                ),
                 "status": "completed",
                 "response_status": 200,
             }
@@ -1554,8 +1541,6 @@ class TestDeviceEventsEndpoint:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "device_event_failed",
-            "message": "RuntimeError: event bus unavailable",
             "schema_version": "2026.06",
             "data": {
                 "device_id": "device_abc123",

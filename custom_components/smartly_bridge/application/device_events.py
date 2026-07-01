@@ -118,16 +118,13 @@ class DeviceEventUseCase:
             )
 
         body = {
-            "success": True,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "event_id": event_id,
-            "device_id": command.device_id,
-            "action": command.action,
-            "received_at": received_at,
-            **canonical,
-            "events": [canonical_event],
             "data": {
                 "event_id": event_id,
+                "device_id": command.device_id,
+                "action": command.action,
+                "received_at": received_at,
+                **canonical,
                 "status": "accepted",
                 "events": [canonical_event],
             },
@@ -135,7 +132,6 @@ class DeviceEventUseCase:
             "errors": [],
         }
         if self._automation is not None:
-            body["automations"] = automation_results
             body["data"]["automations"] = automation_results
         return BridgeResponse(body, status=202)
 
@@ -180,19 +176,15 @@ def _duplicate_event_response(
     """Return the canonical duplicate event response."""
     return BridgeResponse(
         {
-            "success": True,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "duplicate": True,
-            "status": "duplicate",
-            "event_id": event_id,
-            "device_id": command.device_id,
-            "action": command.action,
-            "received_at": received_at,
-            **canonical,
-            "events": [canonical_event],
             "data": {
                 "event_id": event_id,
+                "device_id": command.device_id,
+                "action": command.action,
+                "received_at": received_at,
+                **canonical,
                 "status": "duplicate",
+                "duplicate": True,
                 "events": [canonical_event],
             },
             "warnings": [],
@@ -210,11 +202,9 @@ def device_event_error_response(
     target: str,
     status: int = 400,
 ) -> BridgeResponse:
-    """Return a legacy-compatible API vNext event error response."""
+    """Return an API vNext event error response."""
     return BridgeResponse(
         {
-            "error": error,
-            "message": message,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {
                 "device_id": command.device_id,
