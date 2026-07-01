@@ -2338,6 +2338,49 @@ class TestSmartlyCameraHLSInfoView:
         assert gateway.calls == ["start_hls_stream"]
 
     @pytest.mark.asyncio
+    async def test_handle_camera_hls_uses_injected_use_case_factory(self):
+        """HLS invocation adapter accepts an injected use-case factory."""
+
+        class FakeCameraHLSUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(self, entity_id: str, action: str) -> BridgeResponse:
+                self.calls.append((entity_id, action))
+                return BridgeResponse(
+                    {
+                        "success": True,
+                        "action": action,
+                        "entity_id": entity_id,
+                        "data": {
+                            "action": action,
+                            "entity_id": entity_id,
+                        },
+                    },
+                    status=200,
+                )
+
+        gateway = FakeRuntimeCameraGateway()
+        use_case = FakeCameraHLSUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _handle_camera_hls(
+            gateway,
+            "camera.runtime",
+            "start",
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.runtime", "start")]
+        assert result.body["action"] == "start"
+
+    @pytest.mark.asyncio
     async def test_hls_invalid_entity_id(self, mock_request):
         """Test HLS view returns API vNext envelope for invalid entity_id."""
         view = SmartlyCameraHLSInfoView(mock_request)

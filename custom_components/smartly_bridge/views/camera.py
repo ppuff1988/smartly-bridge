@@ -484,13 +484,19 @@ async def _configure_camera(
     return await use_case_factory(camera_gateway).execute(command)
 
 
+def _camera_hls_use_case(camera_gateway: Any) -> CameraHLSUseCase:
+    """Build the camera HLS application use case."""
+    return CameraHLSUseCase(camera_gateway)
+
+
 async def _handle_camera_hls(
     camera_gateway: Any,
     entity_id: str,
     action: str,
+    use_case_factory: Callable[[Any], Any] = _camera_hls_use_case,
 ) -> Any:
     """Execute the camera HLS use case with parsed request input."""
-    return await CameraHLSUseCase(camera_gateway).execute(entity_id, action)
+    return await use_case_factory(camera_gateway).execute(entity_id, action)
 
 
 def _prepare_camera_stream() -> Any:
