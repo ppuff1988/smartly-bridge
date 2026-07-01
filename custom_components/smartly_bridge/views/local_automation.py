@@ -128,13 +128,16 @@ def _delete_local_automation_rule(
     return use_case_factory(rule_store).execute(rule_id)
 
 
-def _local_automation_rule_store(hass: Any) -> Any:
+def _local_automation_rule_store(
+    hass: Any,
+    store_factory: Callable[[Any], Any] = _home_assistant_local_automation_rule_store,
+) -> Any:
     """Return the setup-created local automation rule store or create a fallback."""
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     rule_store = runtime_adapters.get("local_automation_rule_store")
     if rule_store is None:
-        rule_store = _home_assistant_local_automation_rule_store(hass)
+        rule_store = store_factory(hass)
         runtime_adapters["local_automation_rule_store"] = rule_store
     return rule_store
 

@@ -472,6 +472,36 @@ def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> N
     mock_store.assert_not_called()
 
 
+def test_local_automation_rule_store_resolver_uses_injected_fallback_factory(
+    mock_hass,
+) -> None:
+    """Local automation rule store resolver accepts an injected fallback factory."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _local_automation_rule_store,
+    )
+
+    _configure_integration(mock_hass)
+    store = FakeLocalAutomationRuleStore()
+    factory_calls = []
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+    def store_factory(received_hass):
+        factory_calls.append(received_hass)
+        return store
+
+    result = _local_automation_rule_store(
+        mock_hass,
+        store_factory=store_factory,
+    )
+
+    assert result is store
+    assert (
+        mock_hass.data[DOMAIN]["runtime_adapters"]["local_automation_rule_store"]
+        is store
+    )
+    assert factory_calls == [mock_hass]
+
+
 @pytest.mark.asyncio
 async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
     """GET local automation rules returns stored canonical rules."""
