@@ -82,6 +82,29 @@ class FakeSyncStatesGateway:
         ]
 
 
+class FakeSyncStatesUseCase:
+    """Sync states use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def execute(self):
+        """Record invocation and return a fixed response."""
+        self.calls += 1
+        return type(
+            "FakeSyncStatesResult",
+            (),
+            {
+                "status": 200,
+                "headers": {},
+                "body": {
+                    "states": [{"entity_id": "light.factory"}],
+                    "data": {"read_path": "logical_devices"},
+                },
+            },
+        )()
+
+
 class FakeDiagnosticSyncStatesGateway:
     """Sync states gateway with an unsupported diagnostic entity."""
 
@@ -713,6 +736,43 @@ class TestSmartlySyncStatesView:
         assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
             "camera.runtime"
         )
+
+    @pytest.mark.asyncio
+    async def test_build_sync_states_uses_injected_use_case_factory(self):
+        """Sync states invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_states
+
+        gateway = FakeSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+        use_case = FakeSyncStatesUseCase()
+        factory_calls = []
+
+        def use_case_factory(
+            received_gateway,
+            *,
+            use_logical_devices,
+            raw_diagnostic_recorder,
+        ):
+            factory_calls.append(
+                (
+                    received_gateway,
+                    use_logical_devices,
+                    raw_diagnostic_recorder,
+                )
+            )
+            return use_case
+
+        result = await _build_sync_states(
+            gateway,
+            use_logical_devices=True,
+            raw_diagnostic_recorder=recorder,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [(gateway, True, recorder)]
+        assert use_case.calls == 1
+        assert result.body["states"] == [{"entity_id": "light.factory"}]
 
     @pytest.mark.asyncio
     async def test_successful_states_sync(self, mock_request, mock_hass):

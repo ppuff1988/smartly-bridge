@@ -73,14 +73,29 @@ def _build_sync_structure(
     return use_case_factory(gateway).execute()
 
 
+def _sync_states_use_case(
+    gateway: Any,
+    *,
+    use_logical_devices: bool,
+    raw_diagnostic_recorder: Any,
+) -> SyncStatesUseCase:
+    """Build the sync states application use case."""
+    return SyncStatesUseCase(
+        gateway,
+        use_logical_devices=use_logical_devices,
+        raw_diagnostic_recorder=raw_diagnostic_recorder,
+    )
+
+
 async def _build_sync_states(
     gateway: Any,
     *,
     use_logical_devices: bool,
     raw_diagnostic_recorder: Any,
+    use_case_factory: Callable[..., Any] = _sync_states_use_case,
 ) -> Any:
     """Execute the sync states use case with resolved gateway ports."""
-    return await SyncStatesUseCase(
+    return await use_case_factory(
         gateway,
         use_logical_devices=use_logical_devices,
         raw_diagnostic_recorder=raw_diagnostic_recorder,
