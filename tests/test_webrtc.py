@@ -151,6 +151,34 @@ def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     assert result is gateway
     mock_gateway.assert_not_called()
 
+
+def test_web_rtc_gateway_resolver_uses_injected_fallback_factory(mock_hass) -> None:
+    """WebRTC gateway resolver accepts an injected fallback factory."""
+    from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
+
+    gateway = FakeWebRTCGateway()
+    manager = MagicMock()
+    factory_calls = []
+    mock_hass.data[DOMAIN] = {
+        "webrtc_manager": manager,
+        "runtime_adapters": {},
+    }
+
+    def gateway_factory(hass, webrtc_manager):
+        factory_calls.append((hass, webrtc_manager))
+        return gateway
+
+    result = _web_rtc_gateway(
+        mock_hass,
+        manager,
+        gateway_factory=gateway_factory,
+    )
+
+    assert result is gateway
+    assert mock_hass.data[DOMAIN]["runtime_adapters"]["webrtc_gateway"] is gateway
+    assert factory_calls == [(mock_hass, manager)]
+
+
 # ============================================================================
 # WebRTCToken Tests
 # ============================================================================

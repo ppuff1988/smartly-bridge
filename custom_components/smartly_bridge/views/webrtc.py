@@ -51,12 +51,18 @@ from .base import BaseView
 _LOGGER = logging.getLogger(__name__)
 
 
-def _web_rtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
+def _web_rtc_gateway(
+    hass: Any,
+    webrtc_manager: WebRTCTokenManager,
+    gateway_factory: Callable[[Any, WebRTCTokenManager], Any] = (
+        _home_assistant_web_rtc_gateway
+    ),
+) -> Any:
     """Return the setup-created WebRTC gateway or create a fallback."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("webrtc_gateway")
     if gateway is None:
-        gateway = _home_assistant_web_rtc_gateway(hass, webrtc_manager)
+        gateway = gateway_factory(hass, webrtc_manager)
         runtime_adapters["webrtc_gateway"] = gateway
     return gateway
 
