@@ -108,14 +108,17 @@ def _device_event_publisher(
     return publisher
 
 
-def _device_event_deduplicator(integration_data: dict[str, Any]) -> Any:
+def _device_event_deduplicator(
+    integration_data: dict[str, Any],
+    deduplicator_factory: Callable[[], Any] = _in_memory_device_event_deduplicator,
+) -> Any:
     """Return the setup-created event deduplicator or create a fallback."""
     adapters = _runtime_adapters(integration_data)
     deduplicator = adapters.get("device_event_deduplicator")
     if deduplicator is None:
         deduplicator = integration_data.get("device_event_deduplicator")
         if deduplicator is None:
-            deduplicator = _in_memory_device_event_deduplicator()
+            deduplicator = deduplicator_factory()
             integration_data["device_event_deduplicator"] = deduplicator
         adapters["device_event_deduplicator"] = deduplicator
     return deduplicator

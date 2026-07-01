@@ -422,6 +422,29 @@ def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
     mock_deduplicator.assert_not_called()
 
 
+def test_device_event_deduplicator_resolver_uses_injected_fallback_factory() -> None:
+    """Device event deduplicator resolver accepts an injected fallback factory."""
+    from custom_components.smartly_bridge.views.device_events import _device_event_deduplicator
+
+    deduplicator = InMemoryDeviceEventDeduplicator()
+    factory_calls = []
+    integration_data = {"runtime_adapters": {}}
+
+    def deduplicator_factory():
+        factory_calls.append("called")
+        return deduplicator
+
+    result = _device_event_deduplicator(
+        integration_data,
+        deduplicator_factory=deduplicator_factory,
+    )
+
+    assert result is deduplicator
+    assert integration_data["runtime_adapters"]["device_event_deduplicator"] is deduplicator
+    assert integration_data["device_event_deduplicator"] is deduplicator
+    assert factory_calls == ["called"]
+
+
 class TestDeviceEventsEndpoint:
     """Tests for /api/smartly/devices/{device_id}/events endpoint."""
 
