@@ -144,6 +144,13 @@ async def _execute_legacy_control_command(
     return await use_case.execute(client_id, command)
 
 
+async def _execute_smartly_command(
+    executor: Any, client_id: str, command: SmartlyCommand
+) -> Any:
+    """Execute the canonical SmartlyCommand with the selected runtime port."""
+    return await executor.execute(client_id, command)
+
+
 class SmartlyControlView(web.View):
     """Handle POST /api/smartly/control requests."""
 
@@ -267,7 +274,8 @@ class SmartlyControlView(web.View):
 
         smartly_command = _smartly_command_from_body(body)
         if smartly_command is not None:
-            result = await self._smartly_command_executor().execute(
+            result = await _execute_smartly_command(
+                self._smartly_command_executor(),
                 auth_result.client_id or "unknown",
                 smartly_command,
             )

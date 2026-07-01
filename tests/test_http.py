@@ -235,6 +235,30 @@ async def test_execute_legacy_control_command_forwards_command_to_use_case() -> 
     assert use_case.calls == [("client-1", command)]
 
 
+@pytest.mark.asyncio
+async def test_execute_smartly_command_forwards_command_to_executor() -> None:
+    """SmartlyCommand invocation adapter forwards client and command."""
+    from custom_components.smartly_bridge.views.control import (
+        _execute_smartly_command,
+    )
+
+    executor = FakeSmartlyCommandExecutor()
+    command = SmartlyCommand(
+        command_id="cmd-1",
+        device_id="ldev_light_kitchen",
+        capability="brightness",
+        command="set_brightness",
+        params={"value": 80},
+    )
+
+    result = await _execute_smartly_command(executor, "client-1", command)
+
+    assert result.status == 200
+    assert result.body["command_id"] == "cmd-1"
+    assert result.body["status"] == "completed"
+    assert executor.calls == [("client-1", command)]
+
+
 def test_control_request_does_not_forward_routing_target_as_service_data() -> None:
     """Frontend routing targets are not forwarded to Home Assistant services."""
     body = {
