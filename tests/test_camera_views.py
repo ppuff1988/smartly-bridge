@@ -24,6 +24,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
     _adapt_camera_snapshot_response,
+    _adapt_camera_json_response,
     _authorize_camera_request,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
@@ -1287,6 +1288,30 @@ class TestSmartlyCameraListView:
         result = _parse_camera_list_options(mock_request)
 
         assert result.include_capabilities is True
+
+    def test_adapt_camera_json_response_preserves_result_metadata(self, mock_request):
+        """Camera JSON adapter preserves body, status, headers, and request context."""
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-123",
+            "X-Correlation-Id": "corr-456",
+        }
+        result = BridgeResponse(
+            {"count": 0, "cameras": []},
+            status=202,
+            headers={"X-Camera-Test": "yes"},
+        )
+
+        response = _adapt_camera_json_response(result, mock_request)
+
+        assert response.status == 202
+        assert response.headers["X-Camera-Test"] == "yes"
+        assert json.loads(response.body) == {
+            "count": 0,
+            "cameras": [],
+            "request_id": "req-123",
+            "correlation_id": "corr-456",
+        }
 
     @pytest.mark.asyncio
     async def test_list_integration_not_configured(self, mock_request, mock_hass):

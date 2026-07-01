@@ -479,6 +479,16 @@ def _adapt_camera_snapshot_response(result: Any, request: web.Request) -> web.Re
     )
 
 
+def _adapt_camera_json_response(result: Any, request: web.Request) -> web.Response:
+    """Adapt a camera application response into a JSON HTTP response."""
+    return _json_response(
+        result.body,
+        request,
+        status=result.status,
+        headers=result.headers,
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -631,12 +641,7 @@ class SmartlyCameraListView(BaseView):
         result = await CameraListUseCase(gateway_resolution.gateway).execute(
             include_capabilities=options.include_capabilities
         )
-        return _json_response(
-            result.body,
-            self.request,
-            status=result.status,
-            headers=result.headers,
-        )
+        return _adapt_camera_json_response(result, self.request)
 
 
 class SmartlyCameraConfigView(BaseView):
@@ -664,12 +669,7 @@ class SmartlyCameraConfigView(BaseView):
             return gateway_resolution.response
 
         result = await CameraConfigUseCase(gateway_resolution.gateway).execute(command)
-        return _json_response(
-            result.body,
-            self.request,
-            status=result.status,
-            headers=result.headers,
-        )
+        return _adapt_camera_json_response(result, self.request)
 
 
 class SmartlyCameraHLSInfoView(BaseView):
@@ -720,12 +720,7 @@ class SmartlyCameraHLSInfoView(BaseView):
                 result=audit_event.result,
             )
 
-        return _json_response(
-            result.body,
-            self.request,
-            status=result.status,
-            headers=result.headers,
-        )
+        return _adapt_camera_json_response(result, self.request)
 
 
 # Wrapper classes for Home Assistant view registration
