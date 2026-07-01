@@ -463,6 +463,15 @@ async def _configure_camera(
     return await CameraConfigUseCase(camera_gateway).execute(command)
 
 
+async def _handle_camera_hls(
+    camera_gateway: Any,
+    entity_id: str,
+    action: str,
+) -> Any:
+    """Execute the camera HLS use case with parsed request input."""
+    return await CameraHLSUseCase(camera_gateway).execute(entity_id, action)
+
+
 def _build_camera_stream_log_context(
     request: web.Request,
     entity_id: str,
@@ -754,10 +763,7 @@ class SmartlyCameraHLSInfoView(BaseView):
             return gateway_resolution.response
 
         action = _parse_camera_hls_action(self.request)
-        result = await CameraHLSUseCase(gateway_resolution.gateway).execute(
-            entity_id,
-            action,
-        )
+        result = await _handle_camera_hls(gateway_resolution.gateway, entity_id, action)
 
         audit_event = _camera_hls_audit_event(action, result.status)
         if audit_event is not None:

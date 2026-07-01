@@ -34,6 +34,7 @@ from custom_components.smartly_bridge.views.camera import (
     _capture_camera_snapshot,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
+    _handle_camera_hls,
     _list_cameras,
     _log_camera_control_event,
     _prepare_camera_stream_response,
@@ -2160,6 +2161,18 @@ class TestSmartlyCameraHLSInfoView:
         """HLS audit adapter skips non-audited actions."""
         assert _camera_hls_audit_event("start", 404) is None
         assert _camera_hls_audit_event("unknown", 400) is None
+
+    @pytest.mark.asyncio
+    async def test_handle_camera_hls_forwards_entity_and_action(self):
+        """HLS invocation adapter forwards entity_id and action to the use case."""
+        gateway = FakeRuntimeCameraGateway()
+
+        result = await _handle_camera_hls(gateway, "camera.runtime", "start")
+
+        assert result.status == 200
+        assert result.body["playlist_url"] == "/api/hls/runtime.m3u8"
+        assert result.body["entity_id"] == "camera.runtime"
+        assert gateway.calls == ["start_hls_stream"]
 
     @pytest.mark.asyncio
     async def test_hls_invalid_entity_id(self, mock_request):
