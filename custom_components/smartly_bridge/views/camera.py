@@ -9,7 +9,7 @@ Provides HTTP API endpoints for camera operations including:
 import json
 import logging
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -448,9 +448,18 @@ async def _capture_camera_snapshot(
     )
 
 
-async def _list_cameras(camera_gateway: Any, options: CameraListRequestOptions) -> Any:
+def _camera_list_use_case(camera_gateway: Any) -> CameraListUseCase:
+    """Build the camera list application use case."""
+    return CameraListUseCase(camera_gateway)
+
+
+async def _list_cameras(
+    camera_gateway: Any,
+    options: CameraListRequestOptions,
+    use_case_factory: Callable[[Any], Any] = _camera_list_use_case,
+) -> Any:
     """Execute the camera list use case with HTTP-adapted request options."""
-    return await CameraListUseCase(camera_gateway).execute(
+    return await use_case_factory(camera_gateway).execute(
         include_capabilities=options.include_capabilities
     )
 

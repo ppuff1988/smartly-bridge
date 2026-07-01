@@ -1486,6 +1486,45 @@ class TestSmartlyCameraListView:
         ]
 
     @pytest.mark.asyncio
+    async def test_list_cameras_uses_injected_use_case_factory(self, mock_request):
+        """Camera list invocation adapter accepts an injected use-case factory."""
+
+        class FakeCameraListUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(self, *, include_capabilities: bool = False) -> BridgeResponse:
+                self.calls.append(include_capabilities)
+                return BridgeResponse(
+                    {
+                        "cameras": [{"entity_id": "camera.factory"}],
+                        "count": 1,
+                        "data": {"count": 1},
+                    },
+                    status=200,
+                )
+
+        gateway = FakeRuntimeCameraGateway()
+        use_case = FakeCameraListUseCase()
+        factory_calls = []
+        mock_request.query = {"capabilities": "true"}
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _list_cameras(
+            gateway,
+            _parse_camera_list_options(mock_request),
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [True]
+        assert result.body["cameras"] == [{"entity_id": "camera.factory"}]
+
+    @pytest.mark.asyncio
     async def test_list_integration_not_configured(self, mock_request, mock_hass):
         """Test list view returns API vNext envelope when integration is missing."""
         mock_hass.data = {}
