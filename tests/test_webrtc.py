@@ -115,6 +115,28 @@ class FakeWebRTCGateway:
         self.closed_tokens.append(token)
         return True
 
+
+def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
+    """WebRTC gateway resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
+
+    gateway = FakeWebRTCGateway()
+    manager = MagicMock()
+    mock_hass.data[DOMAIN] = {
+        "webrtc_manager": manager,
+        "runtime_adapters": {
+            "webrtc_gateway": gateway,
+        },
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.webrtc.HomeAssistantWebRTCGateway"
+    ) as mock_gateway:
+        result = _web_rtc_gateway(mock_hass, manager)
+
+    assert result is gateway
+    mock_gateway.assert_not_called()
+
 # ============================================================================
 # WebRTCToken Tests
 # ============================================================================

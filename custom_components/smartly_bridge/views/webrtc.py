@@ -51,14 +51,19 @@ from .base import BaseView
 _LOGGER = logging.getLogger(__name__)
 
 
-def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
-    """Return the setup-created WebRTC gateway."""
+def _web_rtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
+    """Return the setup-created WebRTC gateway or create a fallback."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("webrtc_gateway")
     if gateway is None:
         gateway = HomeAssistantWebRTCGateway(hass, webrtc_manager)
         runtime_adapters["webrtc_gateway"] = gateway
     return gateway
+
+
+def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
+    """Return the setup-created WebRTC gateway."""
+    return _web_rtc_gateway(hass, webrtc_manager)
 
 
 def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
