@@ -19,6 +19,10 @@ from custom_components.smartly_bridge.application.webrtc import (
     WebRTCOfferUseCase,
     WebRTCHangupUseCase,
 )
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantWebRTCGateway,
+    _home_assistant_web_rtc_gateway,
+)
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache
 from custom_components.smartly_bridge.const import DOMAIN, RATE_WINDOW
 from custom_components.smartly_bridge.webrtc import (
@@ -116,6 +120,15 @@ class FakeWebRTCGateway:
         return True
 
 
+def test_home_assistant_web_rtc_gateway_factory_builds_legacy_gateway(mock_hass) -> None:
+    """Home Assistant WebRTC gateway factory preserves the legacy gateway type."""
+    manager = MagicMock()
+
+    gateway = _home_assistant_web_rtc_gateway(mock_hass, manager)
+
+    assert isinstance(gateway, HomeAssistantWebRTCGateway)
+
+
 def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     """WebRTC gateway resolver returns the setup-created runtime port."""
     from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
@@ -130,7 +143,7 @@ def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.webrtc.HomeAssistantWebRTCGateway"
+        "custom_components.smartly_bridge.views.webrtc._home_assistant_web_rtc_gateway"
     ) as mock_gateway:
         result = _web_rtc_gateway(mock_hass, manager)
 
@@ -1028,7 +1041,7 @@ class TestWebRTCViews:
             patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
             patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
             patch(
-                "custom_components.smartly_bridge.views.webrtc.HomeAssistantWebRTCGateway"
+                "custom_components.smartly_bridge.views.webrtc._home_assistant_web_rtc_gateway"
             ) as gateway_cls,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test_client")

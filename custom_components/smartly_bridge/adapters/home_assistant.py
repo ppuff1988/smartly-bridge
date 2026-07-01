@@ -1274,6 +1274,14 @@ class HomeAssistantWebRTCGateway:
         return await self._webrtc_manager.close_session(token)
 
 
+def _home_assistant_web_rtc_gateway(
+    hass: Any,
+    webrtc_manager: Any,
+) -> HomeAssistantWebRTCGateway:
+    """Build the Home Assistant-backed legacy WebRTC gateway."""
+    return HomeAssistantWebRTCGateway(hass, webrtc_manager)
+
+
 class HomeAssistantHistoryGateway:
     """History gateway backed by Home Assistant Recorder."""
 

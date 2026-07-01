@@ -20,7 +20,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..acl import is_entity_allowed
-from ..adapters.home_assistant import HomeAssistantWebRTCGateway
+from ..adapters.home_assistant import _home_assistant_web_rtc_gateway
 from ..application.webrtc import (
     WebRTCHangupUseCase,
     WebRTCICEUseCase,
@@ -56,7 +56,7 @@ def _web_rtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any:
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     gateway = runtime_adapters.get("webrtc_gateway")
     if gateway is None:
-        gateway = HomeAssistantWebRTCGateway(hass, webrtc_manager)
+        gateway = _home_assistant_web_rtc_gateway(hass, webrtc_manager)
         runtime_adapters["webrtc_gateway"] = gateway
     return gateway
 

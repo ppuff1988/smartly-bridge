@@ -64,12 +64,12 @@ def _build_runtime_adapters(
         HomeAssistantRawDiagnosticStore,
         HomeAssistantStateSyncGateway,
         HomeAssistantSyncGateway,
-        HomeAssistantWebRTCGateway,
         _home_assistant_camera_gateway,
         _home_assistant_control_use_case,
         _home_assistant_device_event_publisher,
         _home_assistant_local_automation_rule_store,
         _home_assistant_smartly_command_executor,
+        _home_assistant_web_rtc_gateway,
         _in_memory_device_event_deduplicator,
     )
     from .views.history import _get_history_semaphore
@@ -84,7 +84,7 @@ def _build_runtime_adapters(
         "history_gateway": HomeAssistantHistoryGateway(hass, _get_history_semaphore),
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
         "sync_states_gateway": HomeAssistantStateSyncGateway(hass),
-        "webrtc_gateway": HomeAssistantWebRTCGateway(hass, webrtc_manager),
+        "webrtc_gateway": _home_assistant_web_rtc_gateway(hass, webrtc_manager),
         "raw_diagnostic_store": HomeAssistantRawDiagnosticStore(hass),
     }
 
