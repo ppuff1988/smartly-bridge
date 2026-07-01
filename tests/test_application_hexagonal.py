@@ -137,6 +137,14 @@ class FakeResolvedControlUseCase:
         )
 
 
+def assert_smartly_command_error(
+    result: BridgeResponse, error_code: str, source_entity_id: str | None
+) -> None:
+    """Assert SmartlyCommand errors use API vNext fields for client correlation."""
+    assert result.body["errors"][0]["code"] == error_code.upper()
+    assert result.body["data"]["source_entity_id"] == source_entity_id
+
+
 def test_cover_tilt_position_service_is_allowed() -> None:
     """Cover tilt commands are allowed by the real service whitelist."""
     assert is_service_allowed("cover", "set_cover_tilt_position") is True
@@ -1484,7 +1492,9 @@ async def test_smartly_command_use_case_rejects_numeric_setting_outside_range() 
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
+    assert_smartly_command_error(
+        result, "invalid_params", "number.presence_detection_delay"
+    )
     assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
@@ -1531,7 +1541,9 @@ async def test_smartly_command_use_case_rejects_numeric_setting_invalid_step() -
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
+    assert_smartly_command_error(
+        result, "invalid_params", "number.presence_detection_delay"
+    )
     assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
@@ -1654,7 +1666,9 @@ async def test_smartly_command_use_case_rejects_option_setting_unknown_option() 
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
+    assert_smartly_command_error(
+        result, "invalid_params", "select.presence_occupancy_sensitivity"
+    )
     assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
@@ -1779,26 +1793,7 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
 
     assert result.status == 404
     assert result.body == {
-        "success": False,
         "schema_version": "2026.06",
-        "command_id": "cmd-404",
-        "status": "rejected",
-        "adapter_id": "home_assistant",
-        "correlation_id": "cmd-404",
-        "error": "command_target_not_found",
-        "errors": [
-            {
-                "code": "COMMAND_TARGET_NOT_FOUND",
-                "message": "Command target could not be resolved.",
-                "target": "command.device_id",
-                "retryable": False,
-            }
-        ],
-        "device_id": "ldev_unknown",
-        "capability": "power",
-        "command": "turn_on",
-        "entity_id": None,
-        "expected_state": {},
         "data": {
             "command_id": "cmd-404",
             "status": "rejected",
@@ -1810,6 +1805,14 @@ async def test_smartly_command_use_case_rejects_unresolved_target() -> None:
             "expected_state": {},
         },
         "warnings": [],
+        "errors": [
+            {
+                "code": "COMMAND_TARGET_NOT_FOUND",
+                "message": "Command target could not be resolved.",
+                "target": "command.device_id",
+                "retryable": False,
+            }
+        ],
     }
     assert resolver.lookups == [("ldev_unknown", "power")]
     assert gateway.calls == []
@@ -1849,26 +1852,7 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
 
     assert result.status == 400
     assert result.body == {
-        "success": False,
         "schema_version": "2026.06",
-        "command_id": "cmd-unsupported",
-        "status": "rejected",
-        "adapter_id": "home_assistant",
-        "correlation_id": "cmd-unsupported",
-        "error": "command_not_supported",
-        "errors": [
-            {
-                "code": "COMMAND_NOT_SUPPORTED",
-                "message": "Command is not supported by this capability.",
-                "target": "command.command",
-                "retryable": False,
-            }
-        ],
-        "device_id": "ldev_light_kitchen",
-        "capability": "brightness",
-        "command": "turn_on",
-        "entity_id": "light.kitchen",
-        "expected_state": {},
         "data": {
             "command_id": "cmd-unsupported",
             "status": "rejected",
@@ -1881,6 +1865,14 @@ async def test_smartly_command_use_case_rejects_unsupported_command() -> None:
             "expected_state": {},
         },
         "warnings": [],
+        "errors": [
+            {
+                "code": "COMMAND_NOT_SUPPORTED",
+                "message": "Command is not supported by this capability.",
+                "target": "command.command",
+                "retryable": False,
+            }
+        ],
     }
     assert resolver.lookups == [("ldev_light_kitchen", "brightness")]
     assert gateway.calls == []
@@ -1921,26 +1913,7 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
 
     assert result.status == 400
     assert result.body == {
-        "success": False,
         "schema_version": "2026.06",
-        "command_id": "cmd-invalid",
-        "status": "rejected",
-        "adapter_id": "home_assistant",
-        "correlation_id": "cmd-invalid",
-        "error": "invalid_params",
-        "errors": [
-            {
-                "code": "INVALID_PARAMS",
-                "message": "Command params are invalid for this capability.",
-                "target": "command.params",
-                "retryable": False,
-            }
-        ],
-        "device_id": "ldev_light_kitchen",
-        "capability": "brightness",
-        "command": "set_brightness",
-        "entity_id": "light.kitchen",
-        "expected_state": {},
         "data": {
             "command_id": "cmd-invalid",
             "status": "rejected",
@@ -1953,6 +1926,14 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
             "expected_state": {},
         },
         "warnings": [],
+        "errors": [
+            {
+                "code": "INVALID_PARAMS",
+                "message": "Command params are invalid for this capability.",
+                "target": "command.params",
+                "retryable": False,
+            }
+        ],
     }
     assert gateway.calls == []
     assert audit.denials == [
@@ -1991,7 +1972,6 @@ async def test_smartly_command_error_response_includes_vnext_errors_array() -> N
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
     assert result.body["errors"] == [
         {
             "code": "INVALID_PARAMS",
@@ -2004,7 +1984,7 @@ async def test_smartly_command_error_response_includes_vnext_errors_array() -> N
 
 @pytest.mark.asyncio
 async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
-    """Command error responses expose API vNext envelope fields alongside legacy fields."""
+    """Command error responses expose only the API vNext top-level envelope."""
     audit = FakeAudit()
     gateway = FakeControlGateway()
     resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
@@ -2022,12 +2002,30 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
     )
 
     assert result.status == 400
-    assert result.body["success"] is False
-    assert result.body["error"] == "invalid_params"
+    legacy_fields = {
+        "success",
+        "command_id",
+        "status",
+        "adapter_id",
+        "correlation_id",
+        "error",
+        "device_id",
+        "capability",
+        "command",
+        "entity_id",
+        "expected_state",
+    }
+    assert legacy_fields.isdisjoint(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
-    assert result.body["adapter_id"] == "home_assistant"
-    assert result.body["correlation_id"] == "cmd-invalid-envelope"
+    assert result.body["errors"] == [
+        {
+            "code": "INVALID_PARAMS",
+            "message": "Command params are invalid for this capability.",
+            "target": "command.params",
+            "retryable": False,
+        }
+    ]
     assert result.body["data"] == {
         "command_id": "cmd-invalid-envelope",
         "status": "rejected",
@@ -2085,8 +2083,7 @@ async def test_smartly_command_use_case_rejects_invalid_rgb_params() -> None:
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "light.kitchen"
+    assert_smartly_command_error(result, "invalid_params", "light.kitchen")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2124,8 +2121,7 @@ async def test_smartly_command_use_case_rejects_invalid_effect_params() -> None:
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "light.kitchen"
+    assert_smartly_command_error(result, "invalid_params", "light.kitchen")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2165,8 +2161,7 @@ async def test_smartly_command_use_case_rejects_invalid_color_temperature_params
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "light.kitchen"
+    assert_smartly_command_error(result, "invalid_params", "light.kitchen")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2206,8 +2201,7 @@ async def test_smartly_command_use_case_rejects_invalid_target_temperature_param
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "climate.living_room"
+    assert_smartly_command_error(result, "invalid_params", "climate.living_room")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2252,8 +2246,7 @@ async def test_smartly_command_use_case_rejects_invalid_temperature_range_params
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "climate.living_room"
+    assert_smartly_command_error(result, "invalid_params", "climate.living_room")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2293,8 +2286,7 @@ async def test_smartly_command_use_case_rejects_invalid_position_params() -> Non
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "cover.living_curtain"
+    assert_smartly_command_error(result, "invalid_params", "cover.living_curtain")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2334,8 +2326,7 @@ async def test_smartly_command_use_case_rejects_invalid_tilt_position_params() -
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "cover.living_blind"
+    assert_smartly_command_error(result, "invalid_params", "cover.living_blind")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2373,8 +2364,7 @@ async def test_smartly_command_use_case_rejects_invalid_fan_speed_params() -> No
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "fan.bedroom"
+    assert_smartly_command_error(result, "invalid_params", "fan.bedroom")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2414,8 +2404,7 @@ async def test_smartly_command_use_case_rejects_invalid_fan_direction_params() -
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "fan.bedroom"
+    assert_smartly_command_error(result, "invalid_params", "fan.bedroom")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2455,8 +2444,7 @@ async def test_smartly_command_use_case_rejects_invalid_fan_oscillation_params()
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "fan.bedroom"
+    assert_smartly_command_error(result, "invalid_params", "fan.bedroom")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2496,8 +2484,7 @@ async def test_smartly_command_use_case_rejects_invalid_preset_mode_params() -> 
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "climate.living_room"
+    assert_smartly_command_error(result, "invalid_params", "climate.living_room")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2537,8 +2524,7 @@ async def test_smartly_command_use_case_rejects_invalid_swing_mode_params() -> N
     )
 
     assert result.status == 400
-    assert result.body["error"] == "invalid_params"
-    assert result.body["entity_id"] == "climate.living_room"
+    assert_smartly_command_error(result, "invalid_params", "climate.living_room")
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -2582,26 +2568,7 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
 
     assert result.status == 403
     assert result.body == {
-        "success": False,
         "schema_version": "2026.06",
-        "command_id": "cmd-denied",
-        "status": "rejected",
-        "adapter_id": "home_assistant",
-        "correlation_id": "cmd-denied",
-        "error": "service_not_allowed",
-        "errors": [
-            {
-                "code": "SERVICE_NOT_ALLOWED",
-                "message": "Resolved source service is not allowed.",
-                "target": "source.service",
-                "retryable": False,
-            }
-        ],
-        "device_id": "ldev_light_kitchen",
-        "capability": "power",
-        "command": "turn_on",
-        "entity_id": "light.kitchen",
-        "expected_state": {},
         "data": {
             "command_id": "cmd-denied",
             "status": "rejected",
@@ -2614,6 +2581,14 @@ async def test_smartly_command_use_case_returns_rejected_service_error() -> None
             "expected_state": {},
         },
         "warnings": [],
+        "errors": [
+            {
+                "code": "SERVICE_NOT_ALLOWED",
+                "message": "Resolved source service is not allowed.",
+                "target": "source.service",
+                "retryable": False,
+            }
+        ],
     }
     assert gateway.calls == []
 
@@ -2639,26 +2614,7 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
 
     assert result.status == 500
     assert result.body == {
-        "success": False,
         "schema_version": "2026.06",
-        "command_id": "cmd-failed",
-        "status": "failed",
-        "adapter_id": "home_assistant",
-        "correlation_id": "cmd-failed",
-        "error": "service_call_failed",
-        "errors": [
-            {
-                "code": "SERVICE_CALL_FAILED",
-                "message": "Source service call failed.",
-                "target": "source.service",
-                "retryable": True,
-            }
-        ],
-        "device_id": "ldev_light_kitchen",
-        "capability": "power",
-        "command": "turn_on",
-        "entity_id": "light.kitchen",
-        "expected_state": {},
         "data": {
             "command_id": "cmd-failed",
             "status": "failed",
@@ -2671,6 +2627,14 @@ async def test_smartly_command_use_case_returns_failed_source_error() -> None:
             "expected_state": {},
         },
         "warnings": [],
+        "errors": [
+            {
+                "code": "SERVICE_CALL_FAILED",
+                "message": "Source service call failed.",
+                "target": "source.service",
+                "retryable": True,
+            }
+        ],
     }
 
 

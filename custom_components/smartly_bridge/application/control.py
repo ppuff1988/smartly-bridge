@@ -846,7 +846,7 @@ def _smartly_command_error_response(
     error: str | BridgeResponse,
     status: int | None = None,
 ) -> BridgeResponse:
-    """Wrap legacy control errors in the canonical command response shape."""
+    """Return the API vNext canonical command error response shape."""
     result = error if isinstance(error, BridgeResponse) else None
     error_code = result.body.get("error") if result else error
     response_status = result.status if result else status
@@ -859,20 +859,10 @@ def _smartly_command_error_response(
 
     return BridgeResponse(
         {
-            "success": False,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "command_id": command.command_id,
-            "status": command_status,
-            **trace,
-            "error": error_code,
-            "errors": [_smartly_command_vnext_error(error_code, response_status)],
-            "device_id": command.device_id,
-            "capability": command.capability,
-            "command": command.command,
-            "entity_id": entity_id,
-            "expected_state": {},
             "data": data,
             "warnings": [],
+            "errors": [_smartly_command_vnext_error(error_code, response_status)],
         },
         status=response_status,
         headers=result.headers if result else {},
