@@ -118,6 +118,21 @@ async def _create_webrtc_offer(
     )
 
 
+async def _add_webrtc_ice_candidate(
+    gateway: Any,
+    *,
+    entity_id: str,
+    session_id: str,
+    candidate: dict[str, Any] | None,
+) -> Any:
+    """Execute the WebRTC ICE use case with parsed HTTP shell inputs."""
+    return await WebRTCICEUseCase(gateway).execute(
+        entity_id=entity_id,
+        session_id=session_id,
+        candidate=candidate,
+    )
+
+
 class SmartlyWebRTCTokenView(BaseView):
     """Handle POST /api/smartly/camera/{entity_id}/webrtc requests.
 
@@ -531,9 +546,8 @@ class SmartlyWebRTCICEView(BaseView):
                 headers=result.headers,
             )
 
-        result = await WebRTCICEUseCase(
-            _webrtc_gateway(self.hass, webrtc_manager)
-        ).execute(
+        result = await _add_webrtc_ice_candidate(
+            _webrtc_gateway(self.hass, webrtc_manager),
             entity_id=entity_id,
             session_id=session_id,
             candidate=candidate,

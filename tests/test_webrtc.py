@@ -799,6 +799,27 @@ class TestWebRTCViews:
         ]
 
     @pytest.mark.asyncio
+    async def test_add_webrtc_ice_candidate_forwards_session_and_candidate(self):
+        """WebRTC ICE invocation adapter forwards session and candidate payload."""
+        from custom_components.smartly_bridge.views.webrtc import _add_webrtc_ice_candidate
+
+        gateway = FakeWebRTCGateway()
+        candidate = {"candidate": "candidate:1", "sdpMid": "0"}
+
+        result = await _add_webrtc_ice_candidate(
+            gateway,
+            entity_id="camera.front_door",
+            session_id=gateway.session.token[:16],
+            candidate=candidate,
+        )
+
+        assert result.status == 200
+        assert result.body["status"] == "accepted"
+        assert result.body["candidates"] == []
+        assert gateway.calls == ["get_session_by_partial_token"]
+        assert gateway.session.ice_candidates == [candidate]
+
+    @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
         """Test token request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
