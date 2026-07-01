@@ -60,6 +60,11 @@ def _json_response(
     )
 
 
+def _list_local_automation_rules(rule_store: Any) -> Any:
+    """Execute the local automation rules list use case with a rule store port."""
+    return LocalAutomationRulesListUseCase(rule_store).execute()
+
+
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
@@ -156,7 +161,7 @@ class SmartlyLocalAutomationRulesView(BaseView):
         auth = await self._authorize("local_automation_rules")
         if isinstance(auth, web.Response):
             return auth
-        result = LocalAutomationRulesListUseCase(self._rule_store()).execute()
+        result = _list_local_automation_rules(self._rule_store())
         return _json_response(
             result.body,
             self.request,

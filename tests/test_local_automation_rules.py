@@ -118,6 +118,25 @@ class FakeLocalAutomationRuleStore:
         return True
 
 
+def test_list_local_automation_rules_reads_store_payload() -> None:
+    """Local automation list invocation adapter reads the rule store."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _list_local_automation_rules,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+
+    result = _list_local_automation_rules(store)
+
+    assert result.status == 200
+    assert store.list_calls == 1
+    assert result.body["count"] == 1
+    assert result.body["rules"][0]["rule_id"] == "runtime-left-single"
+    assert result.body["data"]["rules"][0]["trigger"]["device_id"] == (
+        "ldev_runtime_button"
+    )
+
+
 @pytest.mark.asyncio
 async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
     """GET local automation rules returns stored canonical rules."""
