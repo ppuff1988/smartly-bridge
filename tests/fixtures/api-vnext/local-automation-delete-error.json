@@ -1,6 +1,4 @@
 {
-  "error": "rule_persistence_failed",
-  "message": "Local automation rule could not be persisted",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"

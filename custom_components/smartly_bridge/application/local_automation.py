@@ -57,10 +57,7 @@ class LocalAutomationRulesListUseCase:
         rules = [_rule_payload(rule) for rule in self._rules.list_rules()]
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "rules": rules,
-                "count": len(rules),
                 "data": {
                     "rules": rules,
                     "count": len(rules),
@@ -105,11 +102,7 @@ class LocalAutomationRuleCreateUseCase:
         body_rule = _rule_payload(rule)
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "status": "created",
-                "rule_id": rule.rule_id,
-                "rule": body_rule,
                 "data": {
                     "status": "created",
                     "rule_id": rule.rule_id,
@@ -160,11 +153,7 @@ class LocalAutomationRuleUpdateUseCase:
         body_rule = _rule_payload(rule)
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "status": "updated",
-                "rule_id": rule.rule_id,
-                "rule": body_rule,
                 "data": {
                     "status": "updated",
                     "rule_id": rule.rule_id,
@@ -211,10 +200,7 @@ class LocalAutomationRuleDeleteUseCase:
             )
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "status": "deleted",
-                "rule_id": rule_id,
                 "data": {
                     "status": "deleted",
                     "rule_id": rule_id,
@@ -429,8 +415,6 @@ def local_automation_rule_error_response(
     """Return a local automation API vNext error response."""
     return BridgeResponse(
         {
-            "error": error,
-            "message": message,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {
                 "status": "rejected",

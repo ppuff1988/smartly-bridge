@@ -138,10 +138,7 @@ def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:
     }
     assert result.status == 200
     assert result.body == {
-        "success": True,
         "schema_version": "2026.06",
-        "rules": [expected_rule],
-        "count": 1,
         "data": {
             "rules": [expected_rule],
             "count": 1,
@@ -225,9 +222,8 @@ def test_create_rule_persists_canonical_rule_payload() -> None:
     )
     assert store.rules == [expected_rule]
     assert result.status == 201
-    assert result.body["success"] is True
-    assert result.body["status"] == "created"
-    assert result.body["rule_id"] == "rule-left-single"
+    assert set(result.body) == {"schema_version", "data", "warnings", "errors"}
+    assert result.body["data"]["status"] == "created"
     assert result.body["data"]["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["rule_id"] == "rule-left-single"
     assert result.body["errors"] == []
@@ -287,8 +283,6 @@ def test_create_rule_rejects_when_store_cannot_persist() -> None:
     assert store.rules == []
     assert result.status == 500
     assert result.body == {
-        "error": "rule_persistence_failed",
-        "message": "Local automation rule could not be persisted",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -397,9 +391,9 @@ def test_update_rule_replaces_existing_canonical_rule() -> None:
     )
     assert store.rules == [expected_rule]
     assert result.status == 200
-    assert result.body["success"] is True
-    assert result.body["status"] == "updated"
-    assert result.body["rule_id"] == "rule-left-single"
+    assert set(result.body) == {"schema_version", "data", "warnings", "errors"}
+    assert result.body["data"]["status"] == "updated"
+    assert result.body["data"]["rule_id"] == "rule-left-single"
     assert result.body["data"]["rule"]["enabled"] is False
     assert result.body["errors"] == []
 
@@ -496,8 +490,6 @@ def test_update_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
     assert store.rules == [existing_rule]
     assert result.status == 500
     assert result.body == {
-        "error": "rule_persistence_failed",
-        "message": "Local automation rule could not be persisted",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -584,10 +576,7 @@ def test_delete_rule_removes_existing_rule() -> None:
     assert store.rules == []
     assert result.status == 200
     assert result.body == {
-        "success": True,
         "schema_version": "2026.06",
-        "status": "deleted",
-        "rule_id": "rule-left-single",
         "data": {
             "status": "deleted",
             "rule_id": "rule-left-single",
@@ -651,8 +640,6 @@ def test_delete_rule_rejects_when_store_cannot_persist_existing_rule() -> None:
     assert store.rules == [existing_rule]
     assert result.status == 500
     assert result.body == {
-        "error": "rule_persistence_failed",
-        "message": "Local automation rule could not be persisted",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",

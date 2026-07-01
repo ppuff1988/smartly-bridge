@@ -144,10 +144,13 @@ class FakeListRulesUseCase:
         self.calls += 1
         return BridgeResponse(
             {
-                "success": True,
-                "rules": [{"rule_id": "factory-rule"}],
-                "count": 1,
-                "data": {"rules": [{"rule_id": "factory-rule"}]},
+                "schema_version": "2026.06",
+                "data": {
+                    "rules": [{"rule_id": "factory-rule"}],
+                    "count": 1,
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )
@@ -164,10 +167,13 @@ class FakeCreateRuleUseCase:
         self.payloads.append(payload)
         return BridgeResponse(
             {
-                "success": True,
-                "status": "created",
-                "rule_id": "factory-created",
-                "data": {"rule_id": "factory-created"},
+                "schema_version": "2026.06",
+                "data": {
+                    "status": "created",
+                    "rule_id": "factory-created",
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=201,
         )
@@ -184,10 +190,13 @@ class FakeUpdateRuleUseCase:
         self.calls.append((rule_id, payload))
         return BridgeResponse(
             {
-                "success": True,
-                "status": "updated",
-                "rule_id": "factory-updated",
-                "data": {"rule_id": "factory-updated"},
+                "schema_version": "2026.06",
+                "data": {
+                    "status": "updated",
+                    "rule_id": "factory-updated",
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )
@@ -204,10 +213,13 @@ class FakeDeleteRuleUseCase:
         self.rule_ids.append(rule_id)
         return BridgeResponse(
             {
-                "success": True,
-                "status": "deleted",
-                "rule_id": "factory-deleted",
-                "data": {"rule_id": "factory-deleted"},
+                "schema_version": "2026.06",
+                "data": {
+                    "status": "deleted",
+                    "rule_id": "factory-deleted",
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )
@@ -225,8 +237,8 @@ def test_list_local_automation_rules_reads_store_payload() -> None:
 
     assert result.status == 200
     assert store.list_calls == 1
-    assert result.body["count"] == 1
-    assert result.body["rules"][0]["rule_id"] == "runtime-left-single"
+    assert result.body["data"]["count"] == 1
+    assert result.body["data"]["rules"][0]["rule_id"] == "runtime-left-single"
     assert result.body["data"]["rules"][0]["trigger"]["device_id"] == (
         "ldev_runtime_button"
     )
@@ -254,7 +266,7 @@ def test_list_local_automation_rules_uses_injected_use_case_factory() -> None:
     assert result.status == 200
     assert factory_calls == [store]
     assert use_case.calls == 1
-    assert result.body["rules"] == [{"rule_id": "factory-rule"}]
+    assert result.body["data"]["rules"] == [{"rule_id": "factory-rule"}]
 
 
 def test_create_local_automation_rule_forwards_payload_to_store() -> None:
@@ -285,8 +297,8 @@ def test_create_local_automation_rule_forwards_payload_to_store() -> None:
     result = _create_local_automation_rule(store, payload)
 
     assert result.status == 201
-    assert result.body["status"] == "created"
-    assert result.body["rule_id"] == "new-left-double"
+    assert result.body["data"]["status"] == "created"
+    assert result.body["data"]["rule_id"] == "new-left-double"
     assert len(store.created_rules) == 1
     assert store.created_rules[0].trigger.event == "double_press"
     assert store.created_rules[0].actions[0].command == "turn_off"
@@ -332,7 +344,7 @@ def test_create_local_automation_rule_uses_injected_use_case_factory() -> None:
     assert result.status == 201
     assert factory_calls == [store]
     assert use_case.payloads == [payload]
-    assert result.body["rule_id"] == "factory-created"
+    assert result.body["data"]["rule_id"] == "factory-created"
 
 
 def test_update_local_automation_rule_forwards_payload_to_store() -> None:
@@ -364,8 +376,8 @@ def test_update_local_automation_rule_forwards_payload_to_store() -> None:
     result = _update_local_automation_rule(store, "runtime-left-single", payload)
 
     assert result.status == 200
-    assert result.body["status"] == "updated"
-    assert result.body["rule_id"] == "runtime-left-single"
+    assert result.body["data"]["status"] == "updated"
+    assert result.body["data"]["rule_id"] == "runtime-left-single"
     assert len(store.updated_rules) == 1
     assert store.updated_rules[0].enabled is False
     assert store.updated_rules[0].trigger.event == "double_press"
@@ -414,7 +426,7 @@ def test_update_local_automation_rule_uses_injected_use_case_factory() -> None:
     assert result.status == 200
     assert factory_calls == [store]
     assert use_case.calls == [("runtime-left-single", payload)]
-    assert result.body["rule_id"] == "factory-updated"
+    assert result.body["data"]["rule_id"] == "factory-updated"
 
 
 def test_delete_local_automation_rule_forwards_rule_id_to_store() -> None:
@@ -428,8 +440,8 @@ def test_delete_local_automation_rule_forwards_rule_id_to_store() -> None:
     result = _delete_local_automation_rule(store, "runtime-left-single")
 
     assert result.status == 200
-    assert result.body["status"] == "deleted"
-    assert result.body["rule_id"] == "runtime-left-single"
+    assert result.body["data"]["status"] == "deleted"
+    assert result.body["data"]["rule_id"] == "runtime-left-single"
     assert store.deleted_rule_ids == ["runtime-left-single"]
 
 
@@ -456,7 +468,7 @@ def test_delete_local_automation_rule_uses_injected_use_case_factory() -> None:
     assert result.status == 200
     assert factory_calls == [store]
     assert use_case.rule_ids == ["runtime-left-single"]
-    assert result.body["rule_id"] == "factory-deleted"
+    assert result.body["data"]["rule_id"] == "factory-deleted"
 
 
 def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> None:
@@ -535,10 +547,7 @@ async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
     assert response.status == 200
     payload = json.loads(response.body)
     assert payload == {
-        "success": True,
         "schema_version": "2026.06",
-        "rules": [expected_rule],
-        "count": 1,
         "data": {
             "rules": [expected_rule],
             "count": 1,
@@ -574,8 +583,10 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
     assert response.status == 200
     payload = json.loads(response.body)
     assert store.list_calls == 1
-    assert payload["rules"][0]["rule_id"] == "runtime-left-single"
-    assert payload["rules"][0]["trigger"]["device_id"] == "ldev_runtime_button"
+    assert payload["data"]["rules"][0]["rule_id"] == "runtime-left-single"
+    assert payload["data"]["rules"][0]["trigger"]["device_id"] == (
+        "ldev_runtime_button"
+    )
 
 
 @pytest.mark.asyncio
@@ -600,8 +611,6 @@ async def test_local_automation_rules_get_requires_setup_runtime_rule_store(
 
     assert response.status == 500
     assert json.loads(response.body) == {
-        "error": "local_automation_rule_store_unavailable",
-        "message": "Local automation rule store not initialized",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -668,8 +677,6 @@ async def test_local_automation_rules_get_not_configured_uses_vnext_error(
 
     assert response.status == 500
     assert json.loads(response.body) == {
-        "error": "integration_not_configured",
-        "message": "Smartly Bridge integration is not configured",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -706,8 +713,6 @@ async def test_local_automation_rules_get_auth_failure_uses_vnext_error(
 
     assert response.status == 401
     assert json.loads(response.body) == {
-        "error": "invalid_signature",
-        "message": "Local automation rule request authentication failed",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -748,8 +753,6 @@ async def test_local_automation_rules_get_rate_limit_uses_vnext_error(
     assert response.headers["Retry-After"] == "60"
     assert response.headers["X-RateLimit-Remaining"] == "0"
     assert json.loads(response.body) == {
-        "error": "rate_limited",
-        "message": "Local automation rule request was rate limited",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -803,9 +806,9 @@ async def test_local_automation_rules_post_creates_stored_rule(mock_hass) -> Non
 
     assert response.status == 201
     payload = json.loads(response.body)
-    assert payload["success"] is True
-    assert payload["status"] == "created"
-    assert payload["rule_id"] == "new-left-double"
+    assert set(payload) == {"schema_version", "data", "warnings", "errors"}
+    assert payload["data"]["status"] == "created"
+    assert payload["data"]["rule_id"] == "new-left-double"
     assert payload["data"]["rule"]["trigger"] == {
         "device_id": "ldev_button",
         "capability": "button_event",
@@ -848,8 +851,6 @@ async def test_local_automation_rules_invalid_json_uses_vnext_error(
 
     assert response.status == 400
     assert json.loads(response.body) == {
-        "error": "invalid_json",
-        "message": "Request body must be valid JSON",
         "schema_version": "2026.06",
         "data": {
             "status": "rejected",
@@ -905,9 +906,9 @@ async def test_local_automation_rules_put_updates_stored_rule(mock_hass) -> None
 
     assert response.status == 200
     payload = json.loads(response.body)
-    assert payload["success"] is True
-    assert payload["status"] == "updated"
-    assert payload["rule_id"] == "stored-left-single"
+    assert set(payload) == {"schema_version", "data", "warnings", "errors"}
+    assert payload["data"]["status"] == "updated"
+    assert payload["data"]["rule_id"] == "stored-left-single"
     assert payload["data"]["rule"]["enabled"] is False
     assert payload["data"]["rule"]["trigger"] == {
         "device_id": "ldev_button",
@@ -942,10 +943,7 @@ async def test_local_automation_rules_delete_removes_stored_rule(mock_hass) -> N
     assert response.status == 200
     payload = json.loads(response.body)
     assert payload == {
-        "success": True,
         "schema_version": "2026.06",
-        "status": "deleted",
-        "rule_id": "stored-left-single",
         "data": {
             "status": "deleted",
             "rule_id": "stored-left-single",

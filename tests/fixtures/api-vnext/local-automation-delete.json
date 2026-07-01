@@ -1,8 +1,5 @@
 {
-  "success": true,
   "schema_version": "2026.06",
-  "status": "deleted",
-  "rule_id": "rule-left-single",
   "data": {
     "status": "deleted",
     "rule_id": "rule-left-single"

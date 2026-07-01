@@ -1,30 +1,5 @@
 {
-  "success": true,
   "schema_version": "2026.06",
-  "rules": [
-    {
-      "rule_id": "stored-left-single",
-      "enabled": true,
-      "trigger": {
-        "device_id": "ldev_button",
-        "capability": "button_event",
-        "event": "single_press",
-        "payload": {
-          "button": "left"
-        }
-      },
-      "actions": [
-        {
-          "type": "device_command",
-          "device_id": "ldev_light",
-          "capability": "power",
-          "command": "turn_on",
-          "params": {}
-        }
-      ]
-    }
-  ],
-  "count": 1,
   "data": {
     "rules": [
       {
