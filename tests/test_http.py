@@ -597,6 +597,19 @@ class TestViewRegistration:
 class TestRawDiagnosticEndpoint:
     """Tests for /api/smartly/diagnostics/raw/{raw_ref} endpoint."""
 
+    def test_fetch_raw_diagnostic_reads_and_masks_store_payload(self):
+        """Raw diagnostic invocation adapter reads and masks store payload."""
+        from custom_components.smartly_bridge.views.diagnostics import _fetch_raw_diagnostic
+
+        store = FakeRawDiagnosticStore()
+
+        result = _fetch_raw_diagnostic(store, raw_ref="raw_light_001")
+
+        assert result.status == 200
+        assert store.refs == ["raw_light_001"]
+        assert result.body["data"]["payload"]["access_token"] == "<redacted>"
+        assert result.body["data"]["payload"]["attributes"]["host"] == "<redacted>"
+
     @pytest.mark.asyncio
     async def test_raw_diagnostic_uses_runtime_store(self, mock_hass, mock_config_entry):
         """Raw diagnostic requests read through the setup-created storage port."""

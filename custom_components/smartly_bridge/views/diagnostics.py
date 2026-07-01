@@ -49,6 +49,11 @@ def _json_response(
     )
 
 
+def _fetch_raw_diagnostic(store: Any, *, raw_ref: str) -> Any:
+    """Execute the raw diagnostic fetch use case with a resolved store port."""
+    return RawDiagnosticFetchUseCase(store).execute(raw_ref)
+
+
 class SmartlyRawDiagnosticView(BaseView):
     """Handle GET /api/smartly/diagnostics/raw/{raw_ref} requests."""
 
@@ -130,7 +135,10 @@ class SmartlyRawDiagnosticView(BaseView):
         if isinstance(auth, web.Response):
             return auth
         raw_ref = self.request.match_info.get("raw_ref", "")
-        result = RawDiagnosticFetchUseCase(self._raw_diagnostic_store()).execute(raw_ref)
+        result = _fetch_raw_diagnostic(
+            self._raw_diagnostic_store(),
+            raw_ref=raw_ref,
+        )
         return _json_response(
             result.body,
             self.request,
