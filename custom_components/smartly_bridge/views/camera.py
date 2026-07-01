@@ -356,6 +356,11 @@ async def _parse_camera_config_command(
     )
 
 
+def _parse_camera_hls_action(request: web.Request) -> str:
+    """Return the HLS action requested by the HTTP query."""
+    return request.query.get("action", "start")
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -605,7 +610,7 @@ class SmartlyCameraHLSInfoView(BaseView):
         if gateway_resolution.response is not None:
             return gateway_resolution.response
 
-        action = self.request.query.get("action", "start")
+        action = _parse_camera_hls_action(self.request)
         result = await CameraHLSUseCase(gateway_resolution.gateway).execute(
             entity_id,
             action,

@@ -24,6 +24,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraStreamView,
     _authorize_camera_request,
     _parse_camera_config_command,
+    _parse_camera_hls_action,
     _require_camera_manager,
     _resolve_camera_gateway,
     _validate_camera_entity_id,
@@ -1782,6 +1783,18 @@ class TestSmartlyCameraHLSInfoView:
         request.match_info = {"entity_id": "invalid_entity"}
         request.query = {}
         return request
+
+    def test_parse_camera_hls_action_defaults_to_start(self, mock_request):
+        """HLS action parser defaults absent action to start."""
+        mock_request.query = {}
+
+        assert _parse_camera_hls_action(mock_request) == "start"
+
+    def test_parse_camera_hls_action_preserves_requested_action(self, mock_request):
+        """HLS action parser adapts query action for the application use case."""
+        mock_request.query = {"action": "stop"}
+
+        assert _parse_camera_hls_action(mock_request) == "stop"
 
     @pytest.mark.asyncio
     async def test_hls_invalid_entity_id(self, mock_request):
