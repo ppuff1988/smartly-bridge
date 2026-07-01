@@ -7,7 +7,6 @@ from typing import Any, Callable
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import _home_assistant_raw_diagnostic_store
 from ..application.diagnostics import RawDiagnosticFetchUseCase, raw_diagnostic_error_response
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -64,17 +63,10 @@ def _fetch_raw_diagnostic(
     return use_case_factory(store).execute(raw_ref)
 
 
-def _raw_diagnostic_store(
-    hass: Any,
-    store_factory: Callable[[Any], Any] = _home_assistant_raw_diagnostic_store,
-) -> Any:
-    """Return the setup-created raw diagnostic store or create a legacy fallback."""
+def _raw_diagnostic_store(hass: Any) -> Any | None:
+    """Return the setup-created raw diagnostic store."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    store = runtime_adapters.get("raw_diagnostic_store")
-    if store is None:
-        store = store_factory(hass)
-        runtime_adapters["raw_diagnostic_store"] = store
-    return store
+    return runtime_adapters.get("raw_diagnostic_store")
 
 
 class SmartlyRawDiagnosticView(BaseView):
@@ -152,9 +144,23 @@ class SmartlyRawDiagnosticView(BaseView):
         auth = await self._authorize()
         if isinstance(auth, web.Response):
             return auth
+        store = self._raw_diagnostic_store()
+        if store is None:
+            result = raw_diagnostic_error_response(
+                "raw_diagnostic_store_unavailable",
+                message="Raw diagnostic store runtime adapter is not available",
+                status=500,
+                target="diagnostics.raw.store",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
         raw_ref = self.request.match_info.get("raw_ref", "")
         result = _fetch_raw_diagnostic(
-            self._raw_diagnostic_store(),
+            store,
             raw_ref=raw_ref,
         )
         return _json_response(

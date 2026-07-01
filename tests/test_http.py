@@ -752,33 +752,20 @@ class TestRawDiagnosticEndpoint:
         store = FakeRawDiagnosticStore()
         mock_hass.data[DOMAIN] = {"runtime_adapters": {"raw_diagnostic_store": store}}
 
-        with patch(
-            "custom_components.smartly_bridge.views.diagnostics._home_assistant_raw_diagnostic_store"
-        ) as mock_store:
-            result = _raw_diagnostic_store(mock_hass)
+        result = _raw_diagnostic_store(mock_hass)
 
         assert result is store
-        mock_store.assert_not_called()
 
-    def test_raw_diagnostic_store_resolver_uses_injected_fallback_factory(
-        self, mock_hass
-    ):
-        """Raw diagnostic store resolver accepts an injected fallback factory."""
+    def test_raw_diagnostic_store_resolver_requires_runtime_store(self, mock_hass):
+        """Raw diagnostic store resolver does not create a request-time fallback."""
         from custom_components.smartly_bridge.views.diagnostics import _raw_diagnostic_store
 
-        store = FakeRawDiagnosticStore()
-        factory_calls = []
         mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
 
-        def store_factory(hass):
-            factory_calls.append(hass)
-            return store
+        result = _raw_diagnostic_store(mock_hass)
 
-        result = _raw_diagnostic_store(mock_hass, store_factory=store_factory)
-
-        assert result is store
-        assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is store
-        assert factory_calls == [mock_hass]
+        assert result is None
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_raw_diagnostic_uses_runtime_store(self, mock_hass, mock_config_entry):
@@ -808,9 +795,7 @@ class TestRawDiagnosticEndpoint:
 
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
-        ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.diagnostics._home_assistant_raw_diagnostic_store"
-        ) as mock_store:
+        ) as mock_verify:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None
             )
@@ -818,7 +803,6 @@ class TestRawDiagnosticEndpoint:
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
         assert response.status == 200
-        mock_store.assert_not_called()
         assert store.refs == ["raw_light_001"]
         assert json.loads(response.body) == {
             "success": True,
@@ -944,10 +928,10 @@ class TestRawDiagnosticEndpoint:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
-    async def test_raw_diagnostic_lazily_creates_runtime_store(
+    async def test_raw_diagnostic_requires_setup_runtime_store(
         self, mock_hass, mock_config_entry
     ):
-        """Raw diagnostic requests fall back to the HA runtime store adapter."""
+        """Raw diagnostic requests require the setup-created storage port."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
 
@@ -985,12 +969,23 @@ class TestRawDiagnosticEndpoint:
 
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
-        assert response.status == 200
-        assert json.loads(response.body)["data"]["payload"] == {
-            "entity_id": "light.kitchen",
-            "access_token": "<redacted>",
+        assert response.status == 500
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        assert json.loads(response.body) == {
+            "error": "raw_diagnostic_store_unavailable",
+            "message": "Raw diagnostic store runtime adapter is not available",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "RAW_DIAGNOSTIC_STORE_UNAVAILABLE",
+                    "message": "Raw diagnostic store runtime adapter is not available",
+                    "target": "diagnostics.raw.store",
+                    "retryable": False,
+                }
+            ],
         }
-        assert "raw_diagnostic_store" in mock_hass.data[DOMAIN]["runtime_adapters"]
 
         await nonce_cache.stop()
 
