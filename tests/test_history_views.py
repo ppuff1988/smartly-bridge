@@ -137,6 +137,30 @@ def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     mock_gateway.assert_not_called()
 
 
+def test_history_read_gateway_resolver_uses_injected_fallback_factory(
+    mock_hass,
+) -> None:
+    """History read gateway resolver accepts an injected fallback factory."""
+    from custom_components.smartly_bridge.views.history import (
+        _get_history_semaphore,
+        _history_read_gateway,
+    )
+
+    gateway = FakeRuntimeHistoryGateway()
+    factory_calls = []
+    mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+    def gateway_factory(hass, semaphore_factory):
+        factory_calls.append((hass, semaphore_factory))
+        return gateway
+
+    result = _history_read_gateway(mock_hass, gateway_factory=gateway_factory)
+
+    assert result is gateway
+    assert mock_hass.data[DOMAIN]["runtime_adapters"]["history_gateway"] is gateway
+    assert factory_calls == [(mock_hass, _get_history_semaphore)]
+
+
 @pytest.mark.asyncio
 async def test_query_single_history_forwards_query_to_application_use_case() -> None:
     """Single history invocation adapter forwards query to the recorder gateway."""
