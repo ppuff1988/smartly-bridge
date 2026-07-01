@@ -5,15 +5,11 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import (
-    _home_assistant_control_use_case,
-    _home_assistant_smartly_command_executor,
-)
 from ..application.control import (
     ControlCommand,
     SmartlyCommand,
@@ -150,30 +146,20 @@ async def _execute_smartly_command(
 
 def _smartly_command_executor(
     hass: Any,
-    executor_factory: Callable[[Any, Any], Any] = _home_assistant_smartly_command_executor,
-) -> Any:
-    """Return the setup-created canonical command executor or create a fallback."""
+) -> Any | None:
+    """Return the setup-created canonical command executor."""
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-    executor = runtime_adapters.get("smartly_command_executor")
-    if executor is None:
-        executor = executor_factory(hass, _LOGGER)
-        runtime_adapters["smartly_command_executor"] = executor
-    return executor
+    return runtime_adapters.get("smartly_command_executor")
 
 
 def _control_use_case(
     hass: Any,
-    use_case_factory: Callable[[Any, Any], Any] = _home_assistant_control_use_case,
-) -> Any:
-    """Return the setup-created legacy control use case or create a fallback."""
+) -> Any | None:
+    """Return the setup-created legacy control use case."""
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-    use_case = runtime_adapters.get("control_use_case")
-    if use_case is None:
-        use_case = use_case_factory(hass, _LOGGER)
-        runtime_adapters["control_use_case"] = use_case
-    return use_case
+    return runtime_adapters.get("control_use_case")
 
 
 class SmartlyControlView(web.View):
@@ -283,8 +269,20 @@ class SmartlyControlView(web.View):
 
         smartly_command = _smartly_command_from_body(body)
         if smartly_command is not None:
+            executor = self._smartly_command_executor()
+            if executor is None:
+                result = control_error_response(
+                    "smartly_command_executor_unavailable",
+                    status=500,
+                )
+                return _json_response(
+                    result.body,
+                    self.request,
+                    status=result.status,
+                    headers=result.headers,
+                )
             result = await _execute_smartly_command(
-                self._smartly_command_executor(),
+                executor,
                 auth_result.client_id or "unknown",
                 smartly_command,
             )
@@ -310,8 +308,18 @@ class SmartlyControlView(web.View):
                 headers=result.headers,
             )
 
+        use_case = self._control_use_case()
+        if use_case is None:
+            result = control_error_response("control_use_case_unavailable", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
         result = await _execute_legacy_control_command(
-            self._control_use_case(),
+            use_case,
             auth_result.client_id or "unknown",
             ControlCommand(
                 entity_id=entity_id,
