@@ -184,6 +184,21 @@ class TestSmartlyCameraSnapshotView:
         }
 
     @pytest.mark.asyncio
+    async def test_snapshot_invalid_entity_id_matches_api_vnext_fixture(
+        self,
+        mock_request,
+    ):
+        """Snapshot invalid entity response remains stable for legacy and vNext clients."""
+        mock_request.match_info = {"entity_id": "invalid_entity"}
+
+        response = await SmartlyCameraSnapshotView(mock_request).get()
+
+        assert response.status == 400
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "camera-snapshot-invalid-entity-id.json"
+        )
+
+    @pytest.mark.asyncio
     async def test_integration_not_configured(self, mock_request, mock_hass):
         """Test error when integration not configured."""
         mock_hass.data = {}
