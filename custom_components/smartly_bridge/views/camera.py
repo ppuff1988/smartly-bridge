@@ -15,7 +15,7 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..acl import get_allowed_entities, is_entity_allowed
-from ..adapters.home_assistant import HomeAssistantCameraGateway
+from ..adapters.home_assistant import _home_assistant_camera_gateway
 from ..application.camera import (
     CameraConfigCommand,
     CameraConfigUseCase,
@@ -47,7 +47,7 @@ _LOGGER = logging.getLogger(__name__)
 
 def _create_fallback_camera_gateway(hass: Any, camera_manager: Any) -> Any:
     """Create and store a legacy Home Assistant camera gateway fallback."""
-    gateway = HomeAssistantCameraGateway(
+    gateway = _home_assistant_camera_gateway(
         hass,
         camera_manager,
         allowed_entities_fn=get_allowed_entities,

@@ -15,6 +15,10 @@ from custom_components.smartly_bridge.application.camera import (
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import DOMAIN
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantCameraGateway,
+    _home_assistant_camera_gateway,
+)
 from custom_components.smartly_bridge.domain.models import (
     BridgeResponse,
     CameraSnapshot as DomainCameraSnapshot,
@@ -145,6 +149,16 @@ class FakeRuntimeCameraGateway:
     async def stream_proxy(self, entity_id, request, response) -> None:
         self.calls.append("stream_proxy")
         self.streamed = (entity_id, request, response)
+
+
+def test_home_assistant_camera_gateway_factory_builds_legacy_gateway() -> None:
+    """Camera gateway factory centralizes legacy camera manager wiring."""
+    hass = MagicMock()
+    camera_manager = MagicMock()
+
+    gateway = _home_assistant_camera_gateway(hass, camera_manager)
+
+    assert isinstance(gateway, HomeAssistantCameraGateway)
 
 
 class TestSmartlyCameraSnapshotView:
@@ -342,7 +356,7 @@ class TestSmartlyCameraSnapshotView:
         mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
 
         with patch(
-            "custom_components.smartly_bridge.views.camera.HomeAssistantCameraGateway"
+            "custom_components.smartly_bridge.views.camera._home_assistant_camera_gateway"
         ) as fallback_gateway:
             result = _resolve_camera_gateway(mock_request, mock_hass)
 
@@ -853,7 +867,7 @@ class TestSmartlyCameraSnapshotView:
                 return_value=True,
             ),
             patch(
-                "custom_components.smartly_bridge.views.camera.HomeAssistantCameraGateway",
+                "custom_components.smartly_bridge.views.camera._home_assistant_camera_gateway",
             ) as gateway_cls,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test")

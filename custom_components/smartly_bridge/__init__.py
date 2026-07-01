@@ -60,12 +60,12 @@ def _build_runtime_adapters(
 ) -> dict[str, Any]:
     """Build setup-created runtime ports used by legacy views."""
     from .adapters.home_assistant import (
-        HomeAssistantCameraGateway,
         HomeAssistantHistoryGateway,
         HomeAssistantRawDiagnosticStore,
         HomeAssistantStateSyncGateway,
         HomeAssistantSyncGateway,
         HomeAssistantWebRTCGateway,
+        _home_assistant_camera_gateway,
         _home_assistant_control_use_case,
         _home_assistant_device_event_publisher,
         _home_assistant_local_automation_rule_store,
@@ -80,7 +80,7 @@ def _build_runtime_adapters(
         "device_event_deduplicator": _in_memory_device_event_deduplicator(),
         "local_automation_rule_store": _home_assistant_local_automation_rule_store(hass),
         "smartly_command_executor": _home_assistant_smartly_command_executor(hass, logger),
-        "camera_gateway": HomeAssistantCameraGateway(hass, camera_manager),
+        "camera_gateway": _home_assistant_camera_gateway(hass, camera_manager),
         "history_gateway": HomeAssistantHistoryGateway(hass, _get_history_semaphore),
         "sync_structure_gateway": HomeAssistantSyncGateway(hass),
         "sync_states_gateway": HomeAssistantStateSyncGateway(hass),

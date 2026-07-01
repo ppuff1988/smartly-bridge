@@ -1098,6 +1098,20 @@ class HomeAssistantCameraGateway:
         await self._camera_manager.stream_proxy(entity_id, request, response)
 
 
+def _home_assistant_camera_gateway(
+    hass: Any,
+    camera_manager: Any,
+    *,
+    allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+) -> HomeAssistantCameraGateway:
+    """Build the Home Assistant-backed legacy camera gateway."""
+    return HomeAssistantCameraGateway(
+        hass,
+        camera_manager,
+        allowed_entities_fn=allowed_entities_fn,
+    )
+
+
 class HomeAssistantWebRTCGateway:
     """WebRTC gateway backed by Home Assistant state and WebRTCTokenManager."""
 
