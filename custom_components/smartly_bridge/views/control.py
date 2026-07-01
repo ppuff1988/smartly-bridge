@@ -4,14 +4,12 @@ from __future__ import annotations
 
 import json
 import logging
-import re
 from typing import TYPE_CHECKING, Any
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..application.control import (
-    ControlCommand,
     SmartlyCommand,
     control_error_response,
 )
@@ -31,58 +29,6 @@ if TYPE_CHECKING:
     from homeassistant.core import HomeAssistant
 
 _LOGGER = logging.getLogger(__name__)
-
-
-def _slug(value: Any) -> str:
-    """Convert Platform identifiers to Home Assistant entity-id segments."""
-    normalized = re.sub(r"[^a-z0-9]+", "_", str(value).lower())
-    return normalized.strip("_")
-
-
-def _service_data_from_body(body: dict[str, Any]) -> dict[str, Any]:
-    """Return service data from the canonical key or frontend data alias."""
-    service_data = body.get("service_data")
-    if service_data is None:
-        service_data = body.get("data", {})
-        if isinstance(service_data, dict) and "target" in service_data:
-            service_data = {key: value for key, value in service_data.items() if key != "target"}
-    return service_data
-
-
-def _entity_id_from_body(body: dict[str, Any]) -> str | None:
-    """Return target entity ID from canonical key or frontend device_id alias."""
-    return body.get("entity_id") or body.get("device_id")
-
-
-def _normalize_control_body(body: dict[str, Any]) -> dict[str, Any]:
-    """Normalize supported Platform control payloads to canonical control fields."""
-    if "capability" not in body and "command" not in body and "target" not in body:
-        return {
-            "entity_id": _entity_id_from_body(body),
-            "action": body.get("action"),
-            "service_data": _service_data_from_body(body),
-            "actor": body.get("actor", {}),
-        }
-
-    device_id = body.get("device_id") or body.get("device")
-    capability = body.get("capability")
-    target = body.get("target")
-    entity_id = body.get("target_entity_id")
-
-    if entity_id is None and isinstance(target, str) and "." in target:
-        entity_id = target
-    elif entity_id is None and device_id and capability:
-        entity_id_parts = [_slug(device_id)]
-        if target:
-            entity_id_parts.append(_slug(target))
-        entity_id = f"{_slug(capability)}.{'_'.join(entity_id_parts)}"
-
-    return {
-        "entity_id": entity_id,
-        "action": body.get("command"),
-        "service_data": _service_data_from_body(body),
-        "actor": body.get("actor", {}),
-    }
 
 
 def _smartly_command_from_body(body: dict[str, Any]) -> SmartlyCommand | None:
@@ -130,13 +76,6 @@ def _json_response(
     )
 
 
-async def _execute_legacy_control_command(
-    use_case: Any, client_id: str, command: ControlCommand
-) -> Any:
-    """Execute the legacy control use case with the selected runtime port."""
-    return await use_case.execute(client_id, command)
-
-
 async def _execute_smartly_command(
     executor: Any, client_id: str, command: SmartlyCommand
 ) -> Any:
@@ -151,15 +90,6 @@ def _smartly_command_executor(
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     return runtime_adapters.get("smartly_command_executor")
-
-
-def _control_use_case(
-    hass: Any,
-) -> Any | None:
-    """Return the setup-created legacy control use case."""
-    integration_data = hass.data.setdefault(DOMAIN, {})
-    runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-    return runtime_adapters.get("control_use_case")
 
 
 class SmartlyControlView(web.View):
@@ -184,10 +114,6 @@ class SmartlyControlView(web.View):
     def _smartly_command_executor(self) -> Any:
         """Return the setup-created canonical command executor."""
         return _smartly_command_executor(self.hass)
-
-    def _control_use_case(self) -> Any:
-        """Return the setup-created legacy control use case."""
-        return _control_use_case(self.hass)
 
     async def post(self) -> web.Response:
         """Handle control request from Platform."""
@@ -293,41 +219,7 @@ class SmartlyControlView(web.View):
                 headers=result.headers,
             )
 
-        normalized_body = _normalize_control_body(body)
-        entity_id = normalized_body["entity_id"]
-        action = normalized_body["action"]
-        service_data = normalized_body["service_data"]
-        actor = normalized_body["actor"]
-
-        if not entity_id or not action:
-            result = control_error_response("missing_required_fields", status=400)
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        use_case = self._control_use_case()
-        if use_case is None:
-            result = control_error_response("control_use_case_unavailable", status=500)
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        result = await _execute_legacy_control_command(
-            use_case,
-            auth_result.client_id or "unknown",
-            ControlCommand(
-                entity_id=entity_id,
-                action=action,
-                service_data=service_data,
-                actor=actor,
-            ),
-        )
+        result = control_error_response("missing_required_fields", status=400)
         return _json_response(
             result.body,
             self.request,
