@@ -212,6 +212,29 @@ def test_control_request_ignores_legacy_body_as_vnext_command() -> None:
     )
 
 
+@pytest.mark.asyncio
+async def test_execute_legacy_control_command_forwards_command_to_use_case() -> None:
+    """Legacy control invocation adapter forwards client and command."""
+    from custom_components.smartly_bridge.views.control import (
+        _execute_legacy_control_command,
+    )
+
+    use_case = FakeControlUseCase()
+    command = ControlCommand(
+        entity_id="light.kitchen",
+        action="turn_on",
+        service_data={"brightness_pct": 50},
+        actor={"source": "platform"},
+    )
+
+    result = await _execute_legacy_control_command(use_case, "client-1", command)
+
+    assert result.status == 200
+    assert result.body["entity_id"] == "light.kitchen"
+    assert result.body["action"] == "turn_on"
+    assert use_case.calls == [("client-1", command)]
+
+
 def test_control_request_does_not_forward_routing_target_as_service_data() -> None:
     """Frontend routing targets are not forwarded to Home Assistant services."""
     body = {

@@ -137,6 +137,13 @@ def _json_response(
     )
 
 
+async def _execute_legacy_control_command(
+    use_case: Any, client_id: str, command: ControlCommand
+) -> Any:
+    """Execute the legacy control use case with the selected runtime port."""
+    return await use_case.execute(client_id, command)
+
+
 class SmartlyControlView(web.View):
     """Handle POST /api/smartly/control requests."""
 
@@ -286,7 +293,8 @@ class SmartlyControlView(web.View):
                 headers=result.headers,
             )
 
-        result = await self._control_use_case().execute(
+        result = await _execute_legacy_control_command(
+            self._control_use_case(),
             auth_result.client_id or "unknown",
             ControlCommand(
                 entity_id=entity_id,
