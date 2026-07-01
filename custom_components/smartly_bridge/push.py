@@ -54,6 +54,19 @@ def _history_end_time(value: Any) -> datetime:
     return datetime.now(timezone.utc)
 
 
+def _push_history_gateway(hass: HomeAssistant, semaphore_factory: Callable[[], Any]) -> Any:
+    """Return the setup-created history gateway for push or create a fallback."""
+    integration_data = hass.data.get(DOMAIN)
+    if isinstance(integration_data, dict):
+        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+        history_gateway = runtime_adapters.get("history_gateway")
+        if history_gateway is None:
+            history_gateway = HomeAssistantHistoryGateway(hass, semaphore_factory)
+            runtime_adapters["history_gateway"] = history_gateway
+        return history_gateway
+    return HomeAssistantHistoryGateway(hass, semaphore_factory)
+
+
 class StatePushManager:
     """Manages pushing state changes to Platform webhook."""
 
@@ -184,18 +197,7 @@ class StatePushManager:
 
     def _history_gateway(self) -> Any:
         """Return the setup-created history gateway, with legacy fallback."""
-        integration_data = self.hass.data.get(DOMAIN)
-        if isinstance(integration_data, dict):
-            runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-            history_gateway = runtime_adapters.get("history_gateway")
-            if history_gateway is None:
-                history_gateway = HomeAssistantHistoryGateway(
-                    self.hass,
-                    self._get_history_semaphore,
-                )
-                runtime_adapters["history_gateway"] = history_gateway
-            return history_gateway
-        return HomeAssistantHistoryGateway(self.hass, self._get_history_semaphore)
+        return _push_history_gateway(self.hass, self._get_history_semaphore)
 
     async def _bridge_chart_for_state(self, entity_id: str, state: State) -> dict[str, Any] | None:
         """Return recent bridge chart history for an eligible sensor."""

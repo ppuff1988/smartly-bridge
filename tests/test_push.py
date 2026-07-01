@@ -35,6 +35,23 @@ class TestStatePushManager:
         assert push_manager._pending_events == []
         assert push_manager._batch_task is None
 
+    def test_push_history_gateway_resolver_uses_runtime_gateway(self, mock_hass):
+        """Push history gateway resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.push import _push_history_gateway
+
+        history_gateway = MagicMock()
+        mock_hass.data[DOMAIN] = {
+            "runtime_adapters": {"history_gateway": history_gateway}
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.push.HomeAssistantHistoryGateway"
+        ) as mock_gateway:
+            result = _push_history_gateway(mock_hass, MagicMock())
+
+        assert result is history_gateway
+        mock_gateway.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_state_to_dict(self, push_manager):
         """Test state object to dict conversion."""
