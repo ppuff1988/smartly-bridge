@@ -319,20 +319,11 @@ class SmartlyCommandUseCase:
         )
         data.update(trace)
         source_result = result.body.get("data", {})
+        data["new_state"] = source_result.get("new_state")
+        data["new_attributes"] = source_result.get("new_attributes")
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "command_id": command.command_id,
-                "status": "completed",
-                **trace,
-                "device_id": command.device_id,
-                "capability": command.capability,
-                "command": command.command,
-                "entity_id": entity_id,
-                "expected_state": expected_state,
-                "new_state": source_result.get("new_state"),
-                "new_attributes": source_result.get("new_attributes"),
                 "data": data,
                 "warnings": [],
                 "errors": [],

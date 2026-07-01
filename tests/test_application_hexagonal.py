@@ -549,7 +549,7 @@ async def test_smartly_command_use_case_dispatches_light_effect_command() -> Non
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"effect": {"value": "rainbow"}}
+    assert result.body["data"]["expected_state"] == {"effect": {"value": "rainbow"}}
     assert gateway.calls == [("light.kitchen", "turn_on", {"effect": "rainbow"})]
 
 
@@ -581,19 +581,7 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
 
     assert result.status == 200
     assert result.body == {
-        "success": True,
         "schema_version": "2026.06",
-        "command_id": "cmd-1",
-        "status": "completed",
-        "adapter_id": "home_assistant",
-        "correlation_id": "cmd-1",
-        "device_id": "ldev_light_kitchen",
-        "capability": "brightness",
-        "command": "set_brightness",
-        "entity_id": "light.kitchen",
-        "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
-        "new_state": "on",
-        "new_attributes": {"brightness": 204},
         "data": {
             "command_id": "cmd-1",
             "status": "completed",
@@ -604,6 +592,8 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
             "correlation_id": "cmd-1",
             "source_entity_id": "light.kitchen",
             "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
+            "new_state": "on",
+            "new_attributes": {"brightness": 204},
         },
         "warnings": [],
         "errors": [],
@@ -672,7 +662,7 @@ async def test_smartly_command_use_case_uses_injected_control_use_case_factory()
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "light.kitchen"
+    assert result.body["data"]["source_entity_id"] == "light.kitchen"
     assert factory_calls == [(policy, gateway, audit)]
     assert len(resolved_control.calls) == 1
     client_id, control_command = resolved_control.calls[0]
@@ -693,8 +683,8 @@ async def test_smartly_command_use_case_uses_injected_control_use_case_factory()
 
 
 @pytest.mark.asyncio
-async def test_smartly_command_success_response_includes_vnext_envelope() -> None:
-    """Command success responses expose API vNext envelope fields alongside legacy fields."""
+async def test_smartly_command_success_response_uses_vnext_envelope_only() -> None:
+    """Command success responses expose source result only through vNext data."""
     audit = FakeAudit()
     gateway = FakeControlGateway(
         EntityStateSnapshot(
@@ -718,12 +708,23 @@ async def test_smartly_command_success_response_includes_vnext_envelope() -> Non
     )
 
     assert result.status == 200
-    assert result.body["success"] is True
+    assert not {
+        "success",
+        "command_id",
+        "status",
+        "adapter_id",
+        "correlation_id",
+        "device_id",
+        "capability",
+        "command",
+        "entity_id",
+        "expected_state",
+        "new_state",
+        "new_attributes",
+    } & result.body.keys()
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
-    assert result.body["adapter_id"] == "home_assistant"
-    assert result.body["correlation_id"] == "cmd-vnext"
     assert result.body["data"] == {
         "command_id": "cmd-vnext",
         "status": "completed",
@@ -734,12 +735,14 @@ async def test_smartly_command_success_response_includes_vnext_envelope() -> Non
         "correlation_id": "cmd-vnext",
         "source_entity_id": "light.kitchen",
         "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
+        "new_state": "on",
+        "new_attributes": {"brightness": 204},
     }
 
 
 @pytest.mark.asyncio
 async def test_smartly_command_success_matches_api_vnext_fixture() -> None:
-    """Command success full response remains stable for legacy and vNext clients."""
+    """Command success full response matches the API vNext envelope contract."""
     fixture_path = (
         Path(__file__).parent / "fixtures" / "api-vnext" / "command-success.json"
     )
@@ -806,7 +809,7 @@ async def test_smartly_command_use_case_dispatches_brightness_delta_commands(
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == [
         ("light.kitchen", "turn_on", {"brightness_step_pct": expected_step})
     ]
@@ -838,7 +841,7 @@ async def test_smartly_command_use_case_returns_power_expected_state() -> None:
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"power": {"value": True}}
+    assert result.body["data"]["expected_state"] == {"power": {"value": True}}
     assert gateway.calls == [("switch.fan", "turn_on", {})]
 
 
@@ -870,7 +873,7 @@ async def test_smartly_command_use_case_returns_color_temperature_expected_state
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "color_temperature": {"value": 4000, "unit": "kelvin"}
     }
     assert gateway.calls == [("light.kitchen", "turn_on", {"color_temp_kelvin": 4000})]
@@ -902,7 +905,7 @@ async def test_smartly_command_use_case_returns_rgb_color_expected_state() -> No
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "rgb_color": {"value": {"r": 255, "g": 120, "b": 40}}
     }
     assert gateway.calls == [("light.kitchen", "turn_on", {"rgb_color": [255, 120, 40]})]
@@ -936,7 +939,7 @@ async def test_smartly_command_use_case_dispatches_cover_position_command() -> N
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "position": {"value": 55, "unit": "percent"}
     }
     assert gateway.calls == [
@@ -972,7 +975,7 @@ async def test_smartly_command_use_case_dispatches_cover_tilt_position_command()
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "tilt_position": {"value": 35, "unit": "percent"}
     }
     assert gateway.calls == [
@@ -1008,7 +1011,7 @@ async def test_smartly_command_use_case_dispatches_cover_open_command() -> None:
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"position": {"value": 100, "unit": "percent"}}
+    assert result.body["data"]["expected_state"] == {"position": {"value": 100, "unit": "percent"}}
     assert gateway.calls == [("cover.living_curtain", "open_cover", {})]
 
 
@@ -1038,7 +1041,7 @@ async def test_smartly_command_use_case_dispatches_fan_speed_command() -> None:
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "fan_speed": {"percentage": 75, "unit": "percent"}
     }
     assert gateway.calls == [("fan.bedroom", "set_percentage", {"percentage": 75})]
@@ -1070,7 +1073,7 @@ async def test_smartly_command_use_case_dispatches_fan_preset_speed_command() ->
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"fan_speed": {"speed": "sleep"}}
+    assert result.body["data"]["expected_state"] == {"fan_speed": {"speed": "sleep"}}
     assert gateway.calls == [("fan.bedroom", "set_preset_mode", {"preset_mode": "sleep"})]
 
 
@@ -1102,7 +1105,7 @@ async def test_smartly_command_use_case_dispatches_fan_direction_command() -> No
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"fan_direction": {"value": "reverse"}}
+    assert result.body["data"]["expected_state"] == {"fan_direction": {"value": "reverse"}}
     assert gateway.calls == [
         ("fan.bedroom", "set_direction", {"direction": "reverse"})
     ]
@@ -1136,7 +1139,7 @@ async def test_smartly_command_use_case_dispatches_fan_oscillation_command() -> 
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"fan_oscillation": {"value": True}}
+    assert result.body["data"]["expected_state"] == {"fan_oscillation": {"value": True}}
     assert gateway.calls == [
         ("fan.bedroom", "oscillate", {"oscillating": True})
     ]
@@ -1170,7 +1173,7 @@ async def test_smartly_command_use_case_dispatches_climate_fan_speed_command() -
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"fan_speed": {"speed": "auto"}}
+    assert result.body["data"]["expected_state"] == {"fan_speed": {"speed": "auto"}}
     assert gateway.calls == [
         ("climate.living_room", "set_fan_mode", {"fan_mode": "auto"})
     ]
@@ -1204,7 +1207,7 @@ async def test_smartly_command_use_case_dispatches_climate_preset_mode_command()
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"preset_mode": {"value": "eco"}}
+    assert result.body["data"]["expected_state"] == {"preset_mode": {"value": "eco"}}
     assert gateway.calls == [
         ("climate.living_room", "set_preset_mode", {"preset_mode": "eco"})
     ]
@@ -1238,7 +1241,7 @@ async def test_smartly_command_use_case_dispatches_climate_swing_mode_command() 
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"swing_mode": {"value": "vertical"}}
+    assert result.body["data"]["expected_state"] == {"swing_mode": {"value": "vertical"}}
     assert gateway.calls == [
         ("climate.living_room", "set_swing_mode", {"swing_mode": "vertical"})
     ]
@@ -1270,7 +1273,7 @@ async def test_smartly_command_use_case_returns_lock_expected_state() -> None:
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"lock": {"value": "locked"}}
+    assert result.body["data"]["expected_state"] == {"lock": {"value": "locked"}}
     assert gateway.calls == [("lock.front_door", "lock", {})]
 
 
@@ -1302,7 +1305,7 @@ async def test_smartly_command_use_case_dispatches_scene_run_command() -> None:
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == [("scene.movie_night", "turn_on", {"transition": 3})]
 
 
@@ -1334,7 +1337,7 @@ async def test_smartly_command_use_case_dispatches_script_run_command() -> None:
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == [
         (
             "script.notify_user",
@@ -1372,7 +1375,7 @@ async def test_smartly_command_use_case_dispatches_button_press_command() -> Non
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert result.body["data"] == {
         "command_id": "cmd-button-press",
         "status": "completed",
@@ -1383,6 +1386,8 @@ async def test_smartly_command_use_case_dispatches_button_press_command() -> Non
         "correlation_id": "cmd-button-press",
         "source_entity_id": "button.desk_scene",
         "expected_state": {},
+        "new_state": "idle",
+        "new_attributes": {},
     }
     assert gateway.calls == [("button.desk_scene", "press", {})]
 
@@ -1415,7 +1420,7 @@ async def test_smartly_command_use_case_dispatches_climate_mode_command() -> Non
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"mode_select": {"value": "cool"}}
+    assert result.body["data"]["expected_state"] == {"mode_select": {"value": "cool"}}
     assert gateway.calls == [("climate.living_room", "set_hvac_mode", {"hvac_mode": "cool"})]
 
 
@@ -1447,7 +1452,7 @@ async def test_smartly_command_use_case_dispatches_numeric_setting_command() -> 
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"numeric_setting": {"value": 20}}
+    assert result.body["data"]["expected_state"] == {"numeric_setting": {"value": 20}}
     assert gateway.calls == [("number.presence_detection_delay", "set_value", {"value": 20})]
 
 
@@ -1480,7 +1485,7 @@ async def test_smartly_command_use_case_rejects_numeric_setting_outside_range() 
 
     assert result.status == 400
     assert result.body["error"] == "invalid_params"
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -1527,7 +1532,7 @@ async def test_smartly_command_use_case_rejects_numeric_setting_invalid_step() -
 
     assert result.status == 400
     assert result.body["error"] == "invalid_params"
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -1610,7 +1615,7 @@ async def test_smartly_command_use_case_dispatches_option_setting_command() -> N
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {"option_setting": {"value": "medium"}}
+    assert result.body["data"]["expected_state"] == {"option_setting": {"value": "medium"}}
     assert gateway.calls == [
         ("select.presence_occupancy_sensitivity", "select_option", {"option": "medium"})
     ]
@@ -1650,7 +1655,7 @@ async def test_smartly_command_use_case_rejects_option_setting_unknown_option() 
 
     assert result.status == 400
     assert result.body["error"] == "invalid_params"
-    assert result.body["expected_state"] == {}
+    assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
         (
@@ -1696,7 +1701,7 @@ async def test_smartly_command_use_case_dispatches_climate_temperature_command()
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "target_temperature": {"value": 24, "unit": "celsius"}
     }
     assert gateway.calls == [
@@ -1737,7 +1742,7 @@ async def test_smartly_command_use_case_dispatches_climate_temperature_range_com
     )
 
     assert result.status == 200
-    assert result.body["expected_state"] == {
+    assert result.body["data"]["expected_state"] == {
         "target_temperature_range": {
             "low": 22,
             "high": 26,

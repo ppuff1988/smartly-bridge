@@ -43,16 +43,13 @@ class FakeSmartlyCommandExecutor:
         self.calls.append((client_id, command))
         return BridgeResponse(
             {
-                "success": True,
                 "schema_version": "2026.06",
-                "command_id": command.command_id,
-                "status": "completed",
-                "device_id": command.device_id,
-                "capability": command.capability,
-                "command": command.command,
                 "data": {
                     "command_id": command.command_id,
                     "status": "completed",
+                    "device_id": command.device_id,
+                    "capability": command.capability,
+                    "command": command.command,
                 },
                 "warnings": [],
                 "errors": [],
@@ -171,8 +168,8 @@ async def test_execute_smartly_command_forwards_command_to_executor() -> None:
     result = await _execute_smartly_command(executor, "client-1", command)
 
     assert result.status == 200
-    assert result.body["command_id"] == "cmd-1"
-    assert result.body["status"] == "completed"
+    assert result.body["data"]["command_id"] == "cmd-1"
+    assert result.body["data"]["status"] == "completed"
     assert executor.calls == [("client-1", command)]
 
 
@@ -1215,8 +1212,8 @@ class TestControlEndpointFullFlow:
         payload = json.loads(response.body)
         assert payload["request_id"] == "req-control-001"
         assert payload["correlation_id"] == "corr-control-001"
-        assert payload["success"] is True
-        assert payload["command_id"] == "cmd-context"
+        assert payload["data"]["command_id"] == "cmd-context"
+        assert payload["data"]["status"] == "completed"
 
     @pytest.mark.asyncio
     async def test_control_vnext_command_uses_setup_runtime_executor(
@@ -1263,7 +1260,7 @@ class TestControlEndpointFullFlow:
 
         assert response.status == 200
         payload = json.loads(response.body)
-        assert payload["command_id"] == "cmd-runtime"
+        assert payload["data"]["command_id"] == "cmd-runtime"
         assert executor.calls == [
             (
                 "test_client",
@@ -1405,19 +1402,7 @@ class TestControlEndpointFullFlow:
 
         assert response.status == 200
         assert json.loads(response.body) == {
-            "success": True,
             "schema_version": "2026.06",
-            "command_id": "cmd-1",
-            "status": "completed",
-            "adapter_id": "home_assistant",
-            "correlation_id": "cmd-1",
-            "device_id": "ldev_ha_device_1",
-            "capability": "brightness",
-            "command": "set_brightness",
-            "entity_id": "light.kitchen",
-            "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
-            "new_state": "on",
-            "new_attributes": {"brightness": 204},
             "data": {
                 "command_id": "cmd-1",
                 "status": "completed",
@@ -1428,6 +1413,8 @@ class TestControlEndpointFullFlow:
                 "correlation_id": "cmd-1",
                 "source_entity_id": "light.kitchen",
                 "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
+                "new_state": "on",
+                "new_attributes": {"brightness": 204},
             },
             "warnings": [],
             "errors": [],
@@ -1509,19 +1496,7 @@ class TestControlEndpointFullFlow:
 
         assert response.status == 200
         assert json.loads(response.body) == {
-            "success": True,
             "schema_version": "2026.06",
-            "command_id": "cmd-button",
-            "status": "completed",
-            "adapter_id": "home_assistant",
-            "correlation_id": "cmd-button",
-            "device_id": "ldev_ha_button_1",
-            "capability": "button_press",
-            "command": "press",
-            "entity_id": "button.desk_scene",
-            "expected_state": {},
-            "new_state": "idle",
-            "new_attributes": {"friendly_name": "Desk Scene"},
             "data": {
                 "command_id": "cmd-button",
                 "status": "completed",
@@ -1532,6 +1507,8 @@ class TestControlEndpointFullFlow:
                 "correlation_id": "cmd-button",
                 "source_entity_id": "button.desk_scene",
                 "expected_state": {},
+                "new_state": "idle",
+                "new_attributes": {"friendly_name": "Desk Scene"},
             },
             "warnings": [],
             "errors": [],
@@ -1640,8 +1617,9 @@ class TestControlEndpointFullFlow:
                 response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
-        assert json.loads(response.body)["entity_id"] == "number.presence_detection_delay"
-        assert json.loads(response.body)["expected_state"] == {
+        payload = json.loads(response.body)
+        assert payload["data"]["source_entity_id"] == "number.presence_detection_delay"
+        assert payload["data"]["expected_state"] == {
             "numeric_setting": {"value": 20}
         }
         mock_hass.services.async_call.assert_awaited_once_with(
@@ -1764,8 +1742,9 @@ class TestControlEndpointFullFlow:
                 response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
-        assert json.loads(response.body)["entity_id"] == "number.presence_cooldown"
-        assert json.loads(response.body)["expected_state"] == {
+        payload = json.loads(response.body)
+        assert payload["data"]["source_entity_id"] == "number.presence_cooldown"
+        assert payload["data"]["expected_state"] == {
             "numeric_setting": {"value": 5}
         }
         mock_hass.services.async_call.assert_awaited_once_with(
@@ -1869,10 +1848,11 @@ class TestControlEndpointFullFlow:
                 response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
-        assert json.loads(response.body)["entity_id"] == (
+        payload = json.loads(response.body)
+        assert payload["data"]["source_entity_id"] == (
             "select.presence_occupancy_sensitivity"
         )
-        assert json.loads(response.body)["expected_state"] == {
+        assert payload["data"]["expected_state"] == {
             "option_setting": {"value": "medium"}
         }
         mock_hass.services.async_call.assert_awaited_once_with(

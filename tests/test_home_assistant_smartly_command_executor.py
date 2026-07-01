@@ -23,7 +23,17 @@ class FakeSmartlyCommandUseCase:
     async def execute(self, client_id: str, command: SmartlyCommand) -> BridgeResponse:
         """Record the command and return an accepted response."""
         self.calls.append((client_id, command))
-        return BridgeResponse({"success": True, "status": "completed"})
+        return BridgeResponse(
+            {
+                "schema_version": "2026.06",
+                "data": {
+                    "command_id": command.command_id,
+                    "status": "completed",
+                },
+                "warnings": [],
+                "errors": [],
+            }
+        )
 
 
 def test_home_assistant_smartly_command_executor_factory_builds_legacy_executor() -> None:
@@ -62,6 +72,6 @@ async def test_smartly_command_executor_uses_injected_use_case_factory() -> None
 
     result = await executor.execute("client-1", command)
 
-    assert result.body["success"] is True
+    assert result.body["data"]["status"] == "completed"
     assert factory_calls == [(hass, logger)]
     assert use_case.calls == [("client-1", command)]

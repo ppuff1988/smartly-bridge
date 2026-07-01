@@ -274,11 +274,20 @@ class LocalAutomationUseCase:
                         "action_index": index,
                         "type": action.type,
                         "command_id": command_id,
-                        "status": response.body.get("status", "unknown"),
+                        "status": _command_response_status(response),
                         "response_status": response.status,
                     }
                 )
         return results
+
+
+def _command_response_status(response: BridgeResponse) -> str:
+    """Return canonical SmartlyCommand status from API vNext data."""
+    data = response.body.get("data")
+    if isinstance(data, dict) and isinstance(data.get("status"), str):
+        return data["status"]
+    status = response.body.get("status")
+    return status if isinstance(status, str) else "unknown"
 
 
 def _event_matches_trigger(event: dict[str, Any], trigger: AutomationTrigger) -> bool:
