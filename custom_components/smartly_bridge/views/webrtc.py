@@ -14,7 +14,7 @@ Authentication Flow:
 
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -93,15 +93,21 @@ def _json_response(
     )
 
 
+def _webrtc_token_use_case(gateway: Any) -> WebRTCTokenUseCase:
+    """Build the WebRTC token application use case."""
+    return WebRTCTokenUseCase(gateway)
+
+
 async def _create_webrtc_token(
     gateway: Any,
     *,
     entity_id: str,
     client_id: str,
     turn_config: dict[str, str],
+    use_case_factory: Callable[[Any], Any] = _webrtc_token_use_case,
 ) -> Any:
     """Execute the WebRTC token use case with parsed HTTP shell inputs."""
-    return await WebRTCTokenUseCase(gateway).execute(
+    return await use_case_factory(gateway).execute(
         entity_id=entity_id,
         client_id=client_id,
         turn_config=turn_config,

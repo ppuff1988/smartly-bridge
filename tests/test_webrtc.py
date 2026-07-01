@@ -25,6 +25,7 @@ from custom_components.smartly_bridge.adapters.home_assistant import (
 )
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache
 from custom_components.smartly_bridge.const import DOMAIN, RATE_WINDOW
+from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.webrtc import (
     WebRTCSession,
     WebRTCToken,
@@ -794,6 +795,59 @@ class TestWebRTCViews:
             "user",
             "secret",
         )
+
+    @pytest.mark.asyncio
+    async def test_create_webrtc_token_uses_injected_use_case_factory(self):
+        """WebRTC token invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_token
+
+        class FakeTokenUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                client_id: str,
+                turn_config: dict[str, str],
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, client_id, turn_config))
+                return BridgeResponse(
+                    {
+                        "success": True,
+                        "token": "factory-token",
+                        "entity_id": entity_id,
+                        "data": {"token": "factory-token"},
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeTokenUseCase()
+        factory_calls = []
+        turn_config = {
+            "turn_url": "turn:turn.example.com:3478",
+            "turn_username": "user",
+            "turn_credential": "secret",
+        }
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _create_webrtc_token(
+            gateway,
+            entity_id="camera.front_door",
+            client_id="platform_client",
+            turn_config=turn_config,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "platform_client", turn_config)]
+        assert result.body["token"] == "factory-token"
 
     @pytest.mark.asyncio
     async def test_create_webrtc_offer_forwards_token_and_sdp(self):
