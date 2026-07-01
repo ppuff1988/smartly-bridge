@@ -105,6 +105,16 @@ def _sync_states_gateway(hass: HomeAssistant) -> Any:
     return gateway
 
 
+def _raw_diagnostic_recorder(hass: HomeAssistant) -> Any:
+    """Return the setup-created raw diagnostic recorder or create a legacy fallback."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    store = runtime_adapters.get("raw_diagnostic_store")
+    if store is None:
+        store = HomeAssistantRawDiagnosticStore(hass)
+        runtime_adapters["raw_diagnostic_store"] = store
+    return store
+
+
 class SmartlySyncView(web.View):
     """Handle GET /api/smartly/sync/structure requests."""
 
@@ -235,12 +245,7 @@ class SmartlySyncStatesView(web.View):
 
     def _raw_diagnostic_recorder(self) -> Any:
         """Return the setup-created raw diagnostic recorder."""
-        runtime_adapters = self.hass.data[DOMAIN].setdefault("runtime_adapters", {})
-        store = runtime_adapters.get("raw_diagnostic_store")
-        if store is None:
-            store = HomeAssistantRawDiagnosticStore(self.hass)
-            runtime_adapters["raw_diagnostic_store"] = store
-        return store
+        return _raw_diagnostic_recorder(self.hass)
 
     async def get(self) -> web.Response:
         """Handle sync states request from Platform."""

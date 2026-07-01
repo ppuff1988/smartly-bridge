@@ -692,6 +692,23 @@ class TestSmartlySyncStatesView:
         assert result is gateway
         mock_gateway.assert_not_called()
 
+    def test_raw_diagnostic_recorder_resolver_uses_runtime_store(self, mock_hass):
+        """Raw diagnostic recorder resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.views.sync import _raw_diagnostic_recorder
+
+        recorder = FakeRawDiagnosticRecorder()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.HomeAssistantRawDiagnosticStore"
+        ) as mock_store:
+            result = _raw_diagnostic_recorder(mock_hass)
+
+        assert result is recorder
+        mock_store.assert_not_called()
+
     @pytest.mark.asyncio
     async def test_successful_states_sync_echoes_request_correlation_headers(
         self, mock_request, mock_hass
