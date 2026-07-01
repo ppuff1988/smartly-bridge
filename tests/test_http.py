@@ -636,40 +636,33 @@ class TestSyncEndpoint:
                 ),
                 "nonce_cache": nonce_cache,
                 "rate_limiter": rate_limiter,
+                "runtime_adapters": {},
             }
         }
 
-        # Mock verify_request and get_structure
-        with (
-            patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify,
-            patch("custom_components.smartly_bridge.acl.get_structure") as mock_structure,
-        ):
+        gateway = MagicMock()
+        gateway.get_structure.return_value = {
+            "floors": [
+                {
+                    "floor_id": "floor_1",
+                    "name": "First Floor",
+                    "icon": None,
+                    "level": 1,
+                }
+            ],
+            "areas": [],
+            "devices": [],
+            "entities": [],
+        }
+        hass.data[DOMAIN]["runtime_adapters"]["sync_structure_gateway"] = gateway
 
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request"
+        ) as mock_verify:
             mock_verify.return_value = MagicMock(success=True, client_id="test_client")
-            mock_structure.return_value = {
-                "floors": [
-                    {
-                        "floor_id": "floor_1",
-                        "name": "First Floor",
-                        "icon": None,
-                        "level": 1,
-                    }
-                ],
-                "areas": [],
-                "devices": [],
-                "entities": [],
-            }
 
-            # Also mock the registry imports inside the get method
-            with (
-                patch("homeassistant.helpers.entity_registry.async_get"),
-                patch("homeassistant.helpers.device_registry.async_get"),
-                patch("homeassistant.helpers.area_registry.async_get"),
-                patch("homeassistant.helpers.floor_registry.async_get"),
-            ):
-
-                view = SmartlySyncView(request)
-                response = await view.get()
+            view = SmartlySyncView(request)
+            response = await view.get()
 
         assert response.status == 200
         body = json.loads(response.body)
@@ -677,6 +670,7 @@ class TestSyncEndpoint:
         assert "areas" in body
         assert "devices" in body
         assert "entities" in body
+        gateway.get_structure.assert_called_once_with()
 
 
 class TestApiPaths:

@@ -7,11 +7,10 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
-from ..acl import get_allowed_entities, get_structure
+from ..acl import get_allowed_entities
 from ..adapters.home_assistant import (
     _home_assistant_raw_diagnostic_store,
     _home_assistant_sync_states_gateway,
-    _home_assistant_sync_structure_gateway,
 )
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
@@ -102,18 +101,10 @@ async def _build_sync_states(
     ).execute()
 
 
-def _sync_structure_gateway(hass: HomeAssistant) -> Any:
-    """Return the setup-created sync structure gateway or create a legacy fallback."""
+def _sync_structure_gateway(hass: HomeAssistant) -> Any | None:
+    """Return the setup-created sync structure gateway."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
-    gateway = runtime_adapters.get("sync_structure_gateway")
-    if gateway is None:
-        gateway = _home_assistant_sync_structure_gateway(
-            hass,
-            allowed_entities_fn=get_allowed_entities,
-            structure_fn=get_structure,
-        )
-        runtime_adapters["sync_structure_gateway"] = gateway
-    return gateway
+    return runtime_adapters.get("sync_structure_gateway")
 
 
 def _sync_states_gateway(hass: HomeAssistant) -> Any:
@@ -161,7 +152,7 @@ class SmartlySyncView(web.View):
 
         return None
 
-    def _sync_structure_gateway(self) -> Any:
+    def _sync_structure_gateway(self) -> Any | None:
         """Return the setup-created sync structure gateway."""
         return _sync_structure_gateway(self.hass)
 
@@ -238,7 +229,21 @@ class SmartlySyncView(web.View):
                 },
             )
 
-        result = _build_sync_structure(self._sync_structure_gateway())
+        gateway = self._sync_structure_gateway()
+        if gateway is None:
+            result = sync_error_response(
+                "sync_structure_gateway_unavailable",
+                status=500,
+                target="sync.structure.gateway",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        result = _build_sync_structure(gateway)
         return _json_response(
             result.body,
             self.request,

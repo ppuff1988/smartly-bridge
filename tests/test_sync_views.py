@@ -444,60 +444,31 @@ class TestSmartlySyncView:
             "sync_structure_gateway": gateway,
         }
 
-        with patch(
-            "custom_components.smartly_bridge.views.sync._home_assistant_sync_structure_gateway"
-        ) as mock_gateway:
-            result = _sync_structure_gateway(mock_hass)
+        result = _sync_structure_gateway(mock_hass)
 
         assert result is gateway
-        mock_gateway.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_successful_sync(self, mock_request, mock_hass):
         """Test successful sync request."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": FakeSyncStructureGateway(),
+        }
+
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
         ) as mock_verify:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
-            with patch(
-                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
-                return_value=["light.kitchen", "switch.bedroom"],
-            ):
-                with patch(
-                    "custom_components.smartly_bridge.views.sync.get_structure",
-                    return_value={
-                        "entities": [
-                            {"entity_id": "light.kitchen", "name": "Kitchen Light"},
-                            {"entity_id": "switch.bedroom", "name": "Bedroom Switch"},
-                        ],
-                        "areas": [],
-                        "devices": [],
-                        "floors": [],
-                    },
-                ), patch(
-                    "homeassistant.helpers.entity_registry.async_get",
-                    return_value=MagicMock(),
-                ), patch(
-                    "homeassistant.helpers.device_registry.async_get",
-                    return_value=MagicMock(),
-                ), patch(
-                    "homeassistant.helpers.area_registry.async_get",
-                    return_value=MagicMock(),
-                ), patch(
-                    "homeassistant.helpers.floor_registry.async_get",
-                    return_value=MagicMock(),
-                ):
-                    view = SmartlySyncView(mock_request)
-                    response = await view.get()
+            view = SmartlySyncView(mock_request)
+            response = await view.get()
 
-                    assert response.status == 200
-                    import json
-
-                    data = json.loads(response.body)
-                    assert "entities" in data
-                    assert len(data["entities"]) == 2
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["entities"] == [
+            {"entity_id": "light.runtime", "name": "Runtime Light"}
+        ]
 
     @pytest.mark.asyncio
     async def test_successful_sync_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -510,18 +481,51 @@ class TestSmartlySyncView:
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
-        ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.sync._home_assistant_sync_structure_gateway"
-        ) as mock_gateway:
+        ) as mock_verify:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
             response = await SmartlySyncView(mock_request).get()
 
         assert response.status == 200
-        mock_gateway.assert_not_called()
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert data["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
+
+    @pytest.mark.asyncio
+    async def test_structure_sync_requires_setup_runtime_gateway(
+        self, mock_request, mock_hass
+    ):
+        """Structure sync rejects requests when the setup runtime gateway is missing."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncView(mock_request).get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == {
+            "error": "sync_structure_gateway_unavailable",
+            "schema_version": "2026.06",
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "SYNC_STRUCTURE_GATEWAY_UNAVAILABLE",
+                    "message": "sync structure gateway unavailable",
+                    "target": "sync.structure.gateway",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "sync_structure_gateway"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
 
     @pytest.mark.asyncio
     async def test_successful_sync_echoes_request_correlation_headers(
