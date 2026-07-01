@@ -378,6 +378,30 @@ def test_device_event_publisher_resolver_uses_runtime_publisher() -> None:
     mock_publisher.assert_not_called()
 
 
+def test_device_event_publisher_resolver_uses_injected_fallback_factory() -> None:
+    """Device event publisher resolver accepts an injected fallback factory."""
+    from custom_components.smartly_bridge.views.device_events import _device_event_publisher
+
+    publisher = FakeDeviceEventPublisher()
+    factory_calls = []
+    integration_data = {"runtime_adapters": {}}
+    hass = MagicMock()
+
+    def publisher_factory(received_hass):
+        factory_calls.append(received_hass)
+        return publisher
+
+    result = _device_event_publisher(
+        integration_data,
+        hass,
+        publisher_factory=publisher_factory,
+    )
+
+    assert result is publisher
+    assert integration_data["runtime_adapters"]["device_event_publisher"] is publisher
+    assert factory_calls == [hass]
+
+
 def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
     """Device event deduplicator resolver returns the setup-created runtime port."""
     from custom_components.smartly_bridge.views.device_events import _device_event_deduplicator

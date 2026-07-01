@@ -94,12 +94,16 @@ def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
     return integration_data.setdefault("runtime_adapters", {})
 
 
-def _device_event_publisher(integration_data: dict[str, Any], hass: HomeAssistant) -> Any:
+def _device_event_publisher(
+    integration_data: dict[str, Any],
+    hass: HomeAssistant,
+    publisher_factory: Callable[[Any], Any] = _home_assistant_device_event_publisher,
+) -> Any:
     """Return the setup-created event publisher or create a fallback."""
     adapters = _runtime_adapters(integration_data)
     publisher = adapters.get("device_event_publisher")
     if publisher is None:
-        publisher = _home_assistant_device_event_publisher(hass)
+        publisher = publisher_factory(hass)
         adapters["device_event_publisher"] = publisher
     return publisher
 
