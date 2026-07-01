@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import json
 import logging
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -60,9 +60,20 @@ def _json_response(
     )
 
 
-def _list_local_automation_rules(rule_store: Any) -> Any:
+def _local_automation_rules_list_use_case(
+    rule_store: Any,
+) -> LocalAutomationRulesListUseCase:
+    """Build the local automation rules list application use case."""
+    return LocalAutomationRulesListUseCase(rule_store)
+
+
+def _list_local_automation_rules(
+    rule_store: Any,
+    *,
+    use_case_factory: Callable[[Any], Any] = _local_automation_rules_list_use_case,
+) -> Any:
     """Execute the local automation rules list use case with a rule store port."""
-    return LocalAutomationRulesListUseCase(rule_store).execute()
+    return use_case_factory(rule_store).execute()
 
 
 def _create_local_automation_rule(rule_store: Any, payload: dict[str, Any]) -> Any:
