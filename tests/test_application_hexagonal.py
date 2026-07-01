@@ -20,7 +20,7 @@ from custom_components.smartly_bridge.application.sync import (
     SyncStructureUseCase,
 )
 from custom_components.smartly_bridge.acl import is_service_allowed
-from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
+from custom_components.smartly_bridge.domain.models import BridgeResponse, EntityStateSnapshot
 
 
 class FakeEntityPolicy:
@@ -110,6 +110,26 @@ class FakeAudit:
         actor: dict[str, Any] | None = None,
     ) -> None:
         self.controls.append((client_id, entity_id, service, result, actor))
+
+
+class FakeResolvedControlUseCase:
+    """Fake resolved source command use case."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, ControlCommand]] = []
+
+    async def execute(self, client_id: str, command: ControlCommand) -> BridgeResponse:
+        """Record the source command and return a successful control response."""
+        self.calls.append((client_id, command))
+        return BridgeResponse(
+            {
+                "success": True,
+                "entity_id": command.entity_id,
+                "action": command.action,
+                "new_state": "on",
+                "new_attributes": {"brightness": 204},
+            }
+        )
 
 
 def test_cover_tilt_position_service_is_allowed() -> None:
@@ -646,6 +666,71 @@ async def test_smartly_command_use_case_dispatches_canonical_brightness_command(
             },
         )
     ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_uses_injected_control_use_case_factory() -> None:
+    """SmartlyCommand dispatches resolved source commands through an injected seam."""
+    audit = FakeAudit()
+    policy = FakeEntityPolicy()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 204},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+    resolved_control = FakeResolvedControlUseCase()
+    factory_calls: list[tuple[object, object, object]] = []
+
+    def control_use_case_factory(
+        policy_arg: object,
+        gateway_arg: object,
+        audit_arg: object,
+    ) -> FakeResolvedControlUseCase:
+        factory_calls.append((policy_arg, gateway_arg, audit_arg))
+        return resolved_control
+
+    use_case = SmartlyCommandUseCase(
+        policy,
+        gateway,
+        audit,
+        resolver,
+        control_use_case_factory=control_use_case_factory,
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-factory",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 80},
+            source={"user_id": "user-1"},
+        ),
+    )
+
+    assert result.status == 200
+    assert result.body["entity_id"] == "light.kitchen"
+    assert factory_calls == [(policy, gateway, audit)]
+    assert len(resolved_control.calls) == 1
+    client_id, control_command = resolved_control.calls[0]
+    assert client_id == "client-1"
+    assert control_command == ControlCommand(
+        entity_id="light.kitchen",
+        action="set_brightness",
+        service_data={"value": 80},
+        actor={
+            "user_id": "user-1",
+            "command_id": "cmd-factory",
+            "logical_device_id": "ldev_light_kitchen",
+            "source_entity_id": "light.kitchen",
+            "capability": "brightness",
+        },
+    )
+    assert gateway.calls == []
 
 
 @pytest.mark.asyncio

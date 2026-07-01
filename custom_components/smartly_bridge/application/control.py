@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, Callable
 
 from ..acl import get_entity_domain
 from ..domain.models import BridgeResponse
@@ -212,11 +212,17 @@ class SmartlyCommandUseCase:
         gateway: ControlGatewayPort,
         audit: AuditPort,
         target_resolver: CommandTargetResolverPort,
+        *,
+        control_use_case_factory: Callable[
+            [EntityPolicyPort, ControlGatewayPort, AuditPort], Any
+        ]
+        | None = None,
     ) -> None:
         self._policy = policy
         self._gateway = gateway
         self._audit = audit
         self._target_resolver = target_resolver
+        self._control_use_case_factory = control_use_case_factory or ControlUseCase
 
     async def execute(self, client_id: str, command: SmartlyCommand) -> BridgeResponse:
         """Execute a canonical command through the resolved source entity."""
@@ -290,7 +296,11 @@ class SmartlyCommandUseCase:
             **(command.source or {}),
             **_smartly_command_audit_actor(command, entity_id),
         }
-        result = await ControlUseCase(self._policy, self._gateway, self._audit).execute(
+        result = await self._control_use_case_factory(
+            self._policy,
+            self._gateway,
+            self._audit,
+        ).execute(
             client_id,
             ControlCommand(
                 entity_id=entity_id,
