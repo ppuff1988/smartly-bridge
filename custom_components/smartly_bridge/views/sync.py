@@ -59,6 +59,11 @@ def _json_response(
     )
 
 
+def _build_sync_structure(gateway: Any) -> Any:
+    """Execute the sync structure use case with a resolved gateway port."""
+    return SyncStructureUseCase(gateway).execute()
+
+
 class SmartlySyncView(web.View):
     """Handle GET /api/smartly/sync/structure requests."""
 
@@ -164,7 +169,7 @@ class SmartlySyncView(web.View):
                 },
             )
 
-        result = SyncStructureUseCase(self._sync_structure_gateway()).execute()
+        result = _build_sync_structure(self._sync_structure_gateway())
         return _json_response(
             result.body,
             self.request,

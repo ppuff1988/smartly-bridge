@@ -250,6 +250,21 @@ class TestSmartlySyncView:
                 ],
             }
 
+    def test_build_sync_structure_reads_gateway_payload(self):
+        """Sync structure invocation adapter reads the gateway structure."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_structure
+
+        gateway = FakeSyncStructureGateway()
+
+        result = _build_sync_structure(gateway)
+
+        assert result.status == 200
+        assert gateway.calls == 1
+        assert result.body["entities"] == [
+            {"entity_id": "light.runtime", "name": "Runtime Light"}
+        ]
+        assert result.body["data"]["device_count"] == 0
+
     @pytest.mark.asyncio
     async def test_successful_sync(self, mock_request, mock_hass):
         """Test successful sync request."""
