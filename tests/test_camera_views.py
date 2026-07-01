@@ -744,6 +744,29 @@ class TestSmartlyCameraStreamView:
                 }
 
     @pytest.mark.asyncio
+    async def test_stream_entity_not_allowed_matches_api_vnext_fixture(
+        self,
+        mock_request,
+    ):
+        """Stream ACL denial response remains stable for legacy and vNext clients."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.camera.is_entity_allowed",
+                return_value=False,
+            ):
+                response = await SmartlyCameraStreamView(mock_request).get()
+
+                assert response.status == 403
+                assert json.loads(response.body) == _api_vnext_fixture(
+                    "camera-stream-entity-not-allowed.json"
+                )
+
+    @pytest.mark.asyncio
     async def test_stream_camera_manager_not_initialized(self, mock_request, mock_hass):
         """Test stream view returns API vNext envelope when manager is missing."""
         with patch(
