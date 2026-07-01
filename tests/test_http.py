@@ -186,6 +186,26 @@ def test_control_use_case_resolver_uses_runtime_use_case(mock_hass) -> None:
     mock_use_case.assert_not_called()
 
 
+def test_control_use_case_resolver_uses_injected_fallback_factory(mock_hass) -> None:
+    """Control use case resolver accepts an injected legacy fallback factory."""
+    from custom_components.smartly_bridge.views.control import _control_use_case
+
+    use_case = FakeControlUseCase()
+    factory_calls = []
+    mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+    def use_case_factory(received_hass, received_logger):
+        factory_calls.append((received_hass, received_logger))
+        return use_case
+
+    result = _control_use_case(mock_hass, use_case_factory=use_case_factory)
+
+    assert result is use_case
+    assert mock_hass.data[DOMAIN]["runtime_adapters"]["control_use_case"] is use_case
+    assert len(factory_calls) == 1
+    assert factory_calls[0][0] is mock_hass
+
+
 def test_control_request_normalizes_platform_button_command() -> None:
     """Platform device commands normalize to canonical Home Assistant control fields."""
     body = {

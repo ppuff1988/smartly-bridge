@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 import re
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -159,13 +159,16 @@ def _smartly_command_executor(hass: Any) -> Any:
     return executor
 
 
-def _control_use_case(hass: Any) -> Any:
+def _control_use_case(
+    hass: Any,
+    use_case_factory: Callable[[Any, Any], Any] = _home_assistant_control_use_case,
+) -> Any:
     """Return the setup-created legacy control use case or create a fallback."""
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
     use_case = runtime_adapters.get("control_use_case")
     if use_case is None:
-        use_case = _home_assistant_control_use_case(hass, _LOGGER)
+        use_case = use_case_factory(hass, _LOGGER)
         runtime_adapters["control_use_case"] = use_case
     return use_case
 
