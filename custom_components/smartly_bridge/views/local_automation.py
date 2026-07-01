@@ -76,9 +76,21 @@ def _list_local_automation_rules(
     return use_case_factory(rule_store).execute()
 
 
-def _create_local_automation_rule(rule_store: Any, payload: dict[str, Any]) -> Any:
+def _local_automation_rule_create_use_case(
+    rule_store: Any,
+) -> LocalAutomationRuleCreateUseCase:
+    """Build the local automation rule create application use case."""
+    return LocalAutomationRuleCreateUseCase(rule_store)
+
+
+def _create_local_automation_rule(
+    rule_store: Any,
+    payload: dict[str, Any],
+    *,
+    use_case_factory: Callable[[Any], Any] = _local_automation_rule_create_use_case,
+) -> Any:
     """Execute the local automation rule create use case with a rule store port."""
-    return LocalAutomationRuleCreateUseCase(rule_store).execute(payload)
+    return use_case_factory(rule_store).execute(payload)
 
 
 def _update_local_automation_rule(

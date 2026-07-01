@@ -145,6 +145,26 @@ class FakeListRulesUseCase:
         )
 
 
+class FakeCreateRuleUseCase:
+    """Create rule use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.payloads: list[dict] = []
+
+    def execute(self, payload: dict) -> BridgeResponse:
+        """Record payload and return a fixed response."""
+        self.payloads.append(payload)
+        return BridgeResponse(
+            {
+                "success": True,
+                "status": "created",
+                "rule_id": "factory-created",
+                "data": {"rule_id": "factory-created"},
+            },
+            status=201,
+        )
+
+
 def test_list_local_automation_rules_reads_store_payload() -> None:
     """Local automation list invocation adapter reads the rule store."""
     from custom_components.smartly_bridge.views.local_automation import (
@@ -222,6 +242,49 @@ def test_create_local_automation_rule_forwards_payload_to_store() -> None:
     assert len(store.created_rules) == 1
     assert store.created_rules[0].trigger.event == "double_press"
     assert store.created_rules[0].actions[0].command == "turn_off"
+
+
+def test_create_local_automation_rule_uses_injected_use_case_factory() -> None:
+    """Local automation create adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.local_automation import (
+        _create_local_automation_rule,
+    )
+
+    store = FakeLocalAutomationRuleStore()
+    use_case = FakeCreateRuleUseCase()
+    factory_calls = []
+    payload = {
+        "rule_id": "new-left-double",
+        "trigger": {
+            "device_id": "ldev_button",
+            "capability": "button_event",
+            "event": "double_press",
+            "payload": {"button": "left"},
+        },
+        "actions": [
+            {
+                "type": "device_command",
+                "device_id": "ldev_light",
+                "capability": "power",
+                "command": "turn_off",
+            }
+        ],
+    }
+
+    def use_case_factory(received_store):
+        factory_calls.append(received_store)
+        return use_case
+
+    result = _create_local_automation_rule(
+        store,
+        payload,
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 201
+    assert factory_calls == [store]
+    assert use_case.payloads == [payload]
+    assert result.body["rule_id"] == "factory-created"
 
 
 def test_update_local_automation_rule_forwards_payload_to_store() -> None:
