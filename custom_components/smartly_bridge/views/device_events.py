@@ -121,6 +121,21 @@ def _json_response(
     )
 
 
+async def _ingest_device_event(
+    publisher: Any,
+    deduplicator: Any,
+    automation: Any,
+    client_id: str,
+    command: DeviceEventCommand,
+) -> Any:
+    """Execute device event ingestion through the application use case."""
+    return await DeviceEventUseCase(
+        publisher,
+        deduplicator=deduplicator,
+        automation=automation,
+    ).execute(client_id, command)
+
+
 class SmartlyDeviceEventsView(web.View):
     """Handle POST /api/smartly/devices/{device_id}/events requests."""
 
@@ -400,11 +415,10 @@ class SmartlyDeviceEventsView(web.View):
                 rule_store,
                 command_executor,
             )
-        result = await DeviceEventUseCase(
+        result = await _ingest_device_event(
             publisher,
-            deduplicator=deduplicator,
-            automation=automation,
-        ).execute(
+            deduplicator,
+            automation,
             auth_result.client_id or "unknown",
             DeviceEventCommand(
                 device_id=device_id,

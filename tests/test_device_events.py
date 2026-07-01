@@ -8,6 +8,7 @@ from unittest.mock import AsyncMock, MagicMock, patch
 import pytest
 
 from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+from custom_components.smartly_bridge.application.device_events import DeviceEventCommand
 from custom_components.smartly_bridge.application.local_automation import (
     AutomationAction,
     AutomationTrigger,
@@ -100,6 +101,36 @@ class FakeSmartlyCommandExecutor:
             },
             status=200,
         )
+
+
+@pytest.mark.asyncio
+async def test_ingest_device_event_forwards_command_to_application_use_case() -> None:
+    """Device event invocation adapter forwards client and command."""
+    from custom_components.smartly_bridge.views.device_events import _ingest_device_event
+
+    publisher = FakeDeviceEventPublisher()
+    deduplicator = InMemoryDeviceEventDeduplicator()
+    command = DeviceEventCommand(
+        device_id="device_abc123",
+        type="button_action",
+        action="single_left",
+        timestamp="2026-06-27T10:20:00.000Z",
+        meta={"source": "zigbee2mqtt"},
+    )
+
+    result = await _ingest_device_event(
+        publisher,
+        deduplicator,
+        None,
+        "client-1",
+        command,
+    )
+
+    assert result.status == 202
+    assert result.body["device_id"] == "device_abc123"
+    assert result.body["action"] == "single_left"
+    assert publisher.events[0]["device_id"] == "device_abc123"
+    assert publisher.events[0]["event"] == "single_press"
 
 
 class TestDeviceEventsEndpoint:
