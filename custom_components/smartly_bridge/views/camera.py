@@ -459,6 +459,26 @@ async def _prepare_camera_stream_response(request: web.Request) -> web.StreamRes
     return response
 
 
+def _adapt_camera_snapshot_response(result: Any, request: web.Request) -> web.Response:
+    """Adapt a snapshot application response into a legacy-compatible HTTP response."""
+    if result.status == 304:
+        return web.Response(status=304, headers=result.headers)
+
+    if result.status == 404:
+        return _json_response(
+            result.body,
+            request,
+            status=result.status,
+        )
+
+    snapshot = result.body["snapshot"]
+    return web.Response(
+        body=snapshot.image_data,
+        content_type=snapshot.content_type,
+        headers=result.headers,
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -496,15 +516,8 @@ class SmartlyCameraSnapshotView(BaseView):
             if_none_match=options.if_none_match,
         )
 
-        if result.status == 304:
-            return web.Response(status=304, headers=result.headers)
-
-        if result.status == 404:
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-            )
+        if result.status in (304, 404):
+            return _adapt_camera_snapshot_response(result, self.request)
 
         log_control(
             _LOGGER,
@@ -514,12 +527,7 @@ class SmartlyCameraSnapshotView(BaseView):
             result="success",
         )
 
-        snapshot = result.body["snapshot"]
-        return web.Response(
-            body=snapshot.image_data,
-            content_type=snapshot.content_type,
-            headers=result.headers,
-        )
+        return _adapt_camera_snapshot_response(result, self.request)
 
 
 class SmartlyCameraStreamView(BaseView):

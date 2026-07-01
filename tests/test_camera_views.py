@@ -13,6 +13,7 @@ from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLi
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.domain.models import (
+    BridgeResponse,
     CameraSnapshot as DomainCameraSnapshot,
     CameraStreamInfo,
 )
@@ -22,6 +23,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraListView,
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
+    _adapt_camera_snapshot_response,
     _authorize_camera_request,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
@@ -298,6 +300,57 @@ class TestSmartlyCameraSnapshotView:
 
         assert result.force_refresh is True
         assert result.if_none_match == '"snapshot-etag"'
+
+    def test_adapt_camera_snapshot_response_preserves_not_modified(self, mock_request):
+        """Snapshot response adapter preserves 304 cache response headers."""
+        result = BridgeResponse(
+            {},
+            status=304,
+            headers={"X-Smartly-Response-Mode": "empty"},
+        )
+
+        response = _adapt_camera_snapshot_response(result, mock_request)
+
+        assert response.status == 304
+        assert response.headers["X-Smartly-Response-Mode"] == "empty"
+
+    def test_adapt_camera_snapshot_response_preserves_json_error(self, mock_request):
+        """Snapshot response adapter preserves legacy JSON error body."""
+        result = BridgeResponse(
+            {"error": "snapshot_unavailable"},
+            status=404,
+        )
+
+        response = _adapt_camera_snapshot_response(result, mock_request)
+
+        assert response.status == 404
+        assert json.loads(response.body) == {"error": "snapshot_unavailable"}
+
+    def test_adapt_camera_snapshot_response_preserves_image_payload(self, mock_request):
+        """Snapshot response adapter preserves image body, content type, and headers."""
+        snapshot = DomainCameraSnapshot(
+            entity_id="camera.test",
+            image_data=b"snapshot-bytes",
+            content_type="image/jpeg",
+            timestamp=123.45,
+            etag="snapshot-etag",
+        )
+        result = BridgeResponse(
+            {"snapshot": snapshot},
+            status=200,
+            headers={
+                "ETag": "snapshot-etag",
+                "Cache-Control": "private, max-age=10",
+            },
+        )
+
+        response = _adapt_camera_snapshot_response(result, mock_request)
+
+        assert response.status == 200
+        assert response.body == b"snapshot-bytes"
+        assert response.content_type == "image/jpeg"
+        assert response.headers["ETag"] == "snapshot-etag"
+        assert response.headers["Cache-Control"] == "private, max-age=10"
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):
