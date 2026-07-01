@@ -94,6 +94,14 @@ class CameraRequestGuardResult:
     response: web.Response | None = None
 
 
+@dataclass(frozen=True)
+class CameraManagerGuardResult:
+    """Result of resolving the camera runtime manager."""
+
+    camera_manager: Any | None = None
+    response: web.Response | None = None
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -215,6 +223,30 @@ async def _authorize_camera_request(
     return CameraRequestGuardResult(auth_result=auth_result)
 
 
+def _require_camera_manager(
+    request: web.Request,
+    hass: Any,
+) -> CameraManagerGuardResult:
+    """Return the camera manager or a legacy-compatible manager error response."""
+    camera_manager = hass.data.get(DOMAIN, {}).get("camera_manager")
+    if camera_manager is None:
+        result = _camera_error_response(
+            "camera_manager_not_initialized",
+            status=500,
+            target="camera.manager",
+        )
+        return CameraManagerGuardResult(
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=result.headers,
+            )
+        )
+
+    return CameraManagerGuardResult(camera_manager=camera_manager)
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -248,19 +280,10 @@ class SmartlyCameraSnapshotView(BaseView):
         auth_result = guard.auth_result
         assert auth_result is not None
 
-        camera_manager = self.hass.data[DOMAIN].get("camera_manager")
-        if camera_manager is None:
-            result = _camera_error_response(
-                "camera_manager_not_initialized",
-                status=500,
-                target="camera.manager",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        manager_guard = _require_camera_manager(self.request, self.hass)
+        if manager_guard.response is not None:
+            return manager_guard.response
+        camera_manager = manager_guard.camera_manager
 
         # Check for conditional request (ETag)
         if_none_match = self.request.headers.get("If-None-Match")
@@ -360,22 +383,10 @@ class SmartlyCameraStreamView(BaseView):
         auth_result = guard.auth_result
         assert auth_result is not None
 
-        # Get camera manager
-        from ..camera import CameraManager
-
-        camera_manager: CameraManager | None = self.hass.data[DOMAIN].get("camera_manager")
-        if camera_manager is None:
-            result = _camera_error_response(
-                "camera_manager_not_initialized",
-                status=500,
-                target="camera.manager",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        manager_guard = _require_camera_manager(self.request, self.hass)
+        if manager_guard.response is not None:
+            return manager_guard.response
+        camera_manager = manager_guard.camera_manager
 
         log_control(
             _LOGGER,
@@ -484,20 +495,10 @@ class SmartlyCameraConfigView(BaseView):
                 headers=result.headers,
             )
 
-        # Get camera manager
-        camera_manager = self.hass.data[DOMAIN].get("camera_manager")
-        if camera_manager is None:
-            result = _camera_error_response(
-                "camera_manager_not_initialized",
-                status=500,
-                target="camera.manager",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        manager_guard = _require_camera_manager(self.request, self.hass)
+        if manager_guard.response is not None:
+            return manager_guard.response
+        camera_manager = manager_guard.camera_manager
 
         result = await CameraConfigUseCase(
             _camera_gateway(self.hass, camera_manager)
@@ -552,22 +553,10 @@ class SmartlyCameraHLSInfoView(BaseView):
         auth_result = guard.auth_result
         assert auth_result is not None
 
-        # Get camera manager
-        from ..camera import CameraManager
-
-        camera_manager: CameraManager | None = self.hass.data[DOMAIN].get("camera_manager")
-        if camera_manager is None:
-            result = _camera_error_response(
-                "camera_manager_not_initialized",
-                status=500,
-                target="camera.manager",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        manager_guard = _require_camera_manager(self.request, self.hass)
+        if manager_guard.response is not None:
+            return manager_guard.response
+        camera_manager = manager_guard.camera_manager
 
         action = self.request.query.get("action", "start")
         result = await CameraHLSUseCase(

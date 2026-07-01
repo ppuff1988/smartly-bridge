@@ -23,6 +23,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
     _authorize_camera_request,
+    _require_camera_manager,
 )
 
 
@@ -193,6 +194,35 @@ class TestSmartlyCameraSnapshotView:
         assert result.auth_result.client_id == "guard-client"
         rate_limiter.check.assert_awaited_once_with("guard-client")
         mock_allowed.assert_called_once()
+
+    def test_require_camera_manager_returns_existing_runtime_manager(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Camera manager guard returns the runtime manager when available."""
+        camera_manager = object()
+        mock_hass.data[DOMAIN]["camera_manager"] = camera_manager
+
+        result = _require_camera_manager(mock_request, mock_hass)
+
+        assert result.response is None
+        assert result.camera_manager is camera_manager
+
+    def test_require_camera_manager_returns_legacy_vnext_error(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Camera manager guard preserves manager-missing legacy and vNext response."""
+        result = _require_camera_manager(mock_request, mock_hass)
+
+        assert result.camera_manager is None
+        assert result.response is not None
+        assert result.response.status == 500
+        assert json.loads(result.response.body) == _api_vnext_fixture(
+            "camera-snapshot-manager-not-initialized.json"
+        )
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):
