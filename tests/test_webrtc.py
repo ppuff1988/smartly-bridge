@@ -46,6 +46,7 @@ class FakeWebRTCGateway:
         self.calls: list[str] = []
         self.state_updates: list[dict[str, str | None]] = []
         self.closed_tokens: list[str] = []
+        self.ice_server_args: tuple[str | None, str | None, str | None] | None = None
 
     def camera_exists(self, entity_id: str) -> bool:
         self.calls.append("camera_exists")
@@ -68,6 +69,7 @@ class FakeWebRTCGateway:
         turn_credential: str | None = None,
     ) -> list[dict[str, str]]:
         self.calls.append("get_ice_servers")
+        self.ice_server_args = (turn_url, turn_username, turn_credential)
         return [{"urls": "stun:stun.l.google.com:19302"}]
 
     def get_session_by_partial_token(self, session_id: str) -> WebRTCSession | None:
@@ -729,6 +731,34 @@ class TestWebRTCViews:
             "X-Nonce": nonce,
             "X-Signature": signature,
         }
+
+    @pytest.mark.asyncio
+    async def test_create_webrtc_token_forwards_client_and_turn_config(self):
+        """WebRTC token invocation adapter forwards client and TURN config."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_token
+
+        gateway = FakeWebRTCGateway()
+
+        result = await _create_webrtc_token(
+            gateway,
+            entity_id="camera.front_door",
+            client_id="platform_client",
+            turn_config={
+                "turn_url": "turn:turn.example.com:3478",
+                "turn_username": "user",
+                "turn_credential": "secret",
+            },
+        )
+
+        assert result.status == 200
+        assert result.body["token"] == "token123"
+        assert result.body["entity_id"] == "camera.front_door"
+        assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
+        assert gateway.ice_server_args == (
+            "turn:turn.example.com:3478",
+            "user",
+            "secret",
+        )
 
     @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):

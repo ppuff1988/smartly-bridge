@@ -88,6 +88,21 @@ def _json_response(
     )
 
 
+async def _create_webrtc_token(
+    gateway: Any,
+    *,
+    entity_id: str,
+    client_id: str,
+    turn_config: dict[str, str],
+) -> Any:
+    """Execute the WebRTC token use case with parsed HTTP shell inputs."""
+    return await WebRTCTokenUseCase(gateway).execute(
+        entity_id=entity_id,
+        client_id=client_id,
+        turn_config=turn_config,
+    )
+
+
 class SmartlyWebRTCTokenView(BaseView):
     """Handle POST /api/smartly/camera/{entity_id}/webrtc requests.
 
@@ -231,9 +246,8 @@ class SmartlyWebRTCTokenView(BaseView):
                 headers=result.headers,
             )
 
-        result = await WebRTCTokenUseCase(
-            _webrtc_gateway(self.hass, webrtc_manager)
-        ).execute(
+        result = await _create_webrtc_token(
+            _webrtc_gateway(self.hass, webrtc_manager),
             entity_id=entity_id,
             client_id=auth_result.client_id or "unknown",
             turn_config={
