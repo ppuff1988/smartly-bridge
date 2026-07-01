@@ -325,6 +325,30 @@ class TestSmartlyCameraSnapshotView:
             }
 
     @pytest.mark.asyncio
+    async def test_snapshot_rate_limited_matches_api_vnext_fixture(
+        self,
+        mock_request,
+        mock_hass,
+    ):
+        """Snapshot rate-limit response remains stable for legacy and vNext clients."""
+        with patch(
+            "custom_components.smartly_bridge.views.camera.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=False)
+
+            response = await SmartlyCameraSnapshotView(mock_request).get()
+
+            assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            assert json.loads(response.body) == _api_vnext_fixture(
+                "camera-snapshot-rate-limited.json"
+            )
+
+    @pytest.mark.asyncio
     async def test_entity_not_allowed(self, mock_request, mock_hass):
         """Test entity not in allowed list."""
         with patch(
