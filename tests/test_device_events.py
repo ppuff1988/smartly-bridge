@@ -18,6 +18,8 @@ from custom_components.smartly_bridge.adapters.home_assistant import (
     HomeAssistantDeviceEventPublisher,
     InMemoryDeviceEventDeduplicator,
     _home_assistant_device_event_publisher,
+    _home_assistant_local_automation_rule_store,
+    _home_assistant_smartly_command_executor,
     _in_memory_device_event_deduplicator,
 )
 from custom_components.smartly_bridge.const import API_PATH_DEVICE_EVENTS, DOMAIN
@@ -66,6 +68,21 @@ def _configure_integration(mock_hass: MagicMock) -> None:
         "device_event_publisher": _home_assistant_device_event_publisher(mock_hass),
         "device_event_deduplicator": _in_memory_device_event_deduplicator(),
     }
+
+
+def _configure_local_automation_runtime(mock_hass: MagicMock) -> None:
+    """Add setup-created local automation adapters to the test integration."""
+    mock_hass.data[DOMAIN]["runtime_adapters"].update(
+        {
+            "local_automation_rule_store": _home_assistant_local_automation_rule_store(
+                mock_hass
+            ),
+            "smartly_command_executor": _home_assistant_smartly_command_executor(
+                mock_hass,
+                MagicMock(),
+            ),
+        }
+    )
 
 
 class FakeDeviceEventPublisher:
@@ -264,8 +281,8 @@ def test_build_local_automation_reuses_setup_runtime_adapters() -> None:
     assert rule_store.list_calls == 1
 
 
-def test_build_local_automation_does_not_create_fallback_when_runtime_adapters_exist() -> None:
-    """Setup-created local automation adapters avoid request-time fallback creation."""
+def test_build_local_automation_does_not_mutate_runtime_adapters() -> None:
+    """Local automation assembly uses only setup-created runtime adapters."""
     from custom_components.smartly_bridge.views.device_events import _build_local_automation
 
     rule_store = FakeLocalAutomationRuleStore(
@@ -297,16 +314,88 @@ def test_build_local_automation_does_not_create_fallback_when_runtime_adapters_e
         }
     }
 
-    with patch(
-        "custom_components.smartly_bridge.views.device_events._home_assistant_local_automation_rule_store"
-    ) as mock_rule_store, patch(
-        "custom_components.smartly_bridge.views.device_events._home_assistant_smartly_command_executor"
-    ) as mock_executor:
-        automation = _build_local_automation(integration_data, MagicMock())
+    automation = _build_local_automation(integration_data, MagicMock())
 
     assert automation is not None
-    mock_rule_store.assert_not_called()
-    mock_executor.assert_not_called()
+    assert integration_data["runtime_adapters"] == {
+        "local_automation_rule_store": rule_store,
+        "smartly_command_executor": command_executor,
+    }
+
+
+def test_build_local_automation_requires_runtime_rule_store() -> None:
+    """Local automation assembly does not create a request-time rule-store fallback."""
+    from custom_components.smartly_bridge.views.device_events import _build_local_automation
+
+    command_executor = FakeSmartlyCommandExecutor()
+    integration_data = {
+        "local_automation_rules": [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="device_abc123",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ],
+        "runtime_adapters": {
+            "smartly_command_executor": command_executor,
+        },
+    }
+
+    automation = _build_local_automation(integration_data, MagicMock())
+
+    assert automation is None
+    assert "local_automation_rule_store" not in integration_data["runtime_adapters"]
+    assert integration_data["runtime_adapters"]["smartly_command_executor"] is command_executor
+
+
+def test_build_local_automation_requires_runtime_command_executor() -> None:
+    """Local automation assembly does not create a request-time command executor fallback."""
+    from custom_components.smartly_bridge.views.device_events import _build_local_automation
+
+    rule_store = FakeLocalAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="device_abc123",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+    integration_data = {
+        "runtime_adapters": {
+            "local_automation_rule_store": rule_store,
+        },
+    }
+
+    automation = _build_local_automation(integration_data, MagicMock())
+
+    assert automation is None
+    assert integration_data["runtime_adapters"]["local_automation_rule_store"] is rule_store
+    assert "smartly_command_executor" not in integration_data["runtime_adapters"]
 
 
 def test_build_local_automation_uses_injected_use_case_factory() -> None:
@@ -595,6 +684,157 @@ class TestDeviceEventsEndpoint:
             "device_event_deduplicator"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
         )
+
+    @pytest.mark.asyncio
+    async def test_device_event_requires_setup_runtime_local_automation_rule_store(
+        self,
+        mock_hass,
+    ):
+        """Configured local automation fails without the setup-created rule store."""
+        _configure_integration(mock_hass)
+        mock_hass.data[DOMAIN]["local_automation_rules"] = [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="ldev_button",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light_kitchen",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+        mock_hass.data[DOMAIN]["runtime_adapters"]["smartly_command_executor"] = (
+            FakeSmartlyCommandExecutor()
+        )
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+            device_id="ldev_button",
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True,
+                client_id="test_client",
+                error=None,
+            )
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "local_automation_rule_store_unavailable",
+            "message": "Local automation rule store not initialized",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "ldev_button",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "LOCAL_AUTOMATION_RULE_STORE_UNAVAILABLE",
+                    "message": "Local automation rule store not initialized",
+                    "target": "local_automation.rule_store",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "local_automation_rule_store"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
+        mock_hass.bus.async_fire.assert_not_called()
+
+    @pytest.mark.asyncio
+    async def test_device_event_requires_setup_runtime_smartly_command_executor(
+        self,
+        mock_hass,
+    ):
+        """Configured local automation fails without the setup-created command executor."""
+        _configure_integration(mock_hass)
+        mock_hass.data[DOMAIN]["runtime_adapters"]["local_automation_rule_store"] = (
+            FakeLocalAutomationRuleStore(
+                [
+                    LocalAutomationRule(
+                        rule_id="rule-left-single",
+                        trigger=AutomationTrigger(
+                            device_id="ldev_button",
+                            capability="button_event",
+                            event="single_press",
+                            payload={"button": "left"},
+                        ),
+                        actions=[
+                            AutomationAction(
+                                type="device_command",
+                                device_id="ldev_light_kitchen",
+                                capability="power",
+                                command="turn_on",
+                            )
+                        ],
+                    )
+                ]
+            )
+        )
+        request = _request_for_device_event(
+            mock_hass,
+            {
+                "type": "button_action",
+                "action": "single_left",
+                "timestamp": "2026-06-27T10:20:00.000Z",
+            },
+            device_id="ldev_button",
+        )
+
+        with patch(
+            "custom_components.smartly_bridge.views.device_events.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=True,
+                client_id="test_client",
+                error=None,
+            )
+
+            response = await SmartlyDeviceEventsView(request).post()
+
+        assert response.status == 500
+        assert json.loads(response.body) == {
+            "error": "smartly_command_executor_unavailable",
+            "message": "Smartly command executor not initialized",
+            "schema_version": "2026.06",
+            "data": {
+                "device_id": "ldev_button",
+                "status": "rejected",
+            },
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
+                    "message": "Smartly command executor not initialized",
+                    "target": "local_automation.command_executor",
+                    "retryable": False,
+                }
+            ],
+        }
+        assert (
+            "smartly_command_executor"
+            not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        )
+        mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
     async def test_device_event_rejects_unsupported_action(self, mock_hass):
@@ -1081,6 +1321,7 @@ class TestDeviceEventsEndpoint:
                 ],
             )
         ]
+        _configure_local_automation_runtime(mock_hass)
 
         mock_light_state = MagicMock()
         mock_light_state.state = "on"
@@ -1160,6 +1401,7 @@ class TestDeviceEventsEndpoint:
                 ],
             }
         ]
+        _configure_local_automation_runtime(mock_hass)
 
         mock_light_state = MagicMock()
         mock_light_state.state = "on"

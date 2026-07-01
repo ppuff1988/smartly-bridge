@@ -10,11 +10,6 @@ from typing import TYPE_CHECKING, Any, Callable
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import (
-    DEVICE_EVENT_TYPE,
-    _home_assistant_local_automation_rule_store,
-    _home_assistant_smartly_command_executor,
-)
 from ..application.device_events import (
     DeviceEventCommand,
     DeviceEventUseCase,
@@ -88,7 +83,7 @@ def _has_local_automation_rules(integration_data: dict[str, Any]) -> bool:
 
 
 def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
-    """Return setup-created Home Assistant adapters used by legacy views."""
+    """Return setup-created Home Assistant adapters."""
     return integration_data.setdefault("runtime_adapters", {})
 
 
@@ -122,7 +117,7 @@ def _local_automation_use_case(
 
 def _build_local_automation(
     integration_data: dict[str, Any],
-    hass: HomeAssistant,
+    _hass: HomeAssistant,
     *,
     use_case_factory: Callable[[Any, Any], Any] = _local_automation_use_case,
 ) -> LocalAutomationUseCase | None:
@@ -131,17 +126,40 @@ def _build_local_automation(
         return None
     adapters = _runtime_adapters(integration_data)
     rule_store = adapters.get("local_automation_rule_store")
-    if rule_store is None:
-        rule_store = _home_assistant_local_automation_rule_store(hass)
-        adapters["local_automation_rule_store"] = rule_store
     command_executor = adapters.get("smartly_command_executor")
-    if command_executor is None:
-        command_executor = _home_assistant_smartly_command_executor(hass, _LOGGER)
-        adapters["smartly_command_executor"] = command_executor
+    if rule_store is None or command_executor is None:
+        return None
     return use_case_factory(
         rule_store,
         command_executor,
     )
+
+
+def _local_automation_runtime_error(
+    integration_data: dict[str, Any],
+    command: DeviceEventCommand,
+) -> Any | None:
+    """Return an error response when configured automation lacks setup runtime ports."""
+    if not _has_local_automation_rules(integration_data):
+        return None
+    adapters = _runtime_adapters(integration_data)
+    if adapters.get("local_automation_rule_store") is None:
+        return device_event_error_response(
+            command=command,
+            error="local_automation_rule_store_unavailable",
+            status=500,
+            message="Local automation rule store not initialized",
+            target="local_automation.rule_store",
+        )
+    if adapters.get("smartly_command_executor") is None:
+        return device_event_error_response(
+            command=command,
+            error="smartly_command_executor_unavailable",
+            status=500,
+            message="Smartly command executor not initialized",
+            target="local_automation.command_executor",
+        )
+    return None
 
 
 def _device_event_use_case(
@@ -484,6 +502,15 @@ class SmartlyDeviceEventsView(web.View):
                 message="Device event deduplicator not initialized",
                 target="device_event.deduplicator",
             )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        result = _local_automation_runtime_error(integration_data, command)
+        if result is not None:
             return _json_response(
                 result.body,
                 self.request,
