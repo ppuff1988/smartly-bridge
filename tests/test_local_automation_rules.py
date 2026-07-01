@@ -13,6 +13,9 @@ from custom_components.smartly_bridge.application.local_automation import (
     AutomationTrigger,
     LocalAutomationRule,
 )
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    _home_assistant_local_automation_rule_store,
+)
 from custom_components.smartly_bridge.const import API_PATH_LOCAL_AUTOMATION_RULES, DOMAIN
 from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.local_automation import (
@@ -74,6 +77,11 @@ def _configure_integration(mock_hass: MagicMock) -> None:
         ),
         "nonce_cache": NonceCache(),
         "rate_limiter": RateLimiter(60, 60),
+    }
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {
+        "local_automation_rule_store": _home_assistant_local_automation_rule_store(
+            mock_hass
+        ),
     }
 
 
@@ -463,43 +471,29 @@ def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> N
         "local_automation_rule_store": store,
     }
 
-    with patch(
-        "custom_components.smartly_bridge.views.local_automation._home_assistant_local_automation_rule_store"
-    ) as mock_store:
-        result = _local_automation_rule_store(mock_hass)
+    result = _local_automation_rule_store(mock_hass)
 
     assert result is store
-    mock_store.assert_not_called()
 
 
-def test_local_automation_rule_store_resolver_uses_injected_fallback_factory(
+def test_local_automation_rule_store_resolver_requires_runtime_store(
     mock_hass,
 ) -> None:
-    """Local automation rule store resolver accepts an injected fallback factory."""
+    """Local automation rule store resolver does not create a fallback."""
     from custom_components.smartly_bridge.views.local_automation import (
         _local_automation_rule_store,
     )
 
     _configure_integration(mock_hass)
-    store = FakeLocalAutomationRuleStore()
-    factory_calls = []
     mock_hass.data[DOMAIN]["runtime_adapters"] = {}
 
-    def store_factory(received_hass):
-        factory_calls.append(received_hass)
-        return store
+    result = _local_automation_rule_store(mock_hass)
 
-    result = _local_automation_rule_store(
-        mock_hass,
-        store_factory=store_factory,
-    )
-
-    assert result is store
     assert (
-        mock_hass.data[DOMAIN]["runtime_adapters"]["local_automation_rule_store"]
-        is store
+        "local_automation_rule_store"
+        not in mock_hass.data[DOMAIN]["runtime_adapters"]
     )
-    assert factory_calls == [mock_hass]
+    assert result is None
 
 
 @pytest.mark.asyncio
@@ -568,9 +562,7 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
 
     with patch(
         "custom_components.smartly_bridge.views.local_automation.verify_request"
-    ) as mock_verify, patch(
-        "custom_components.smartly_bridge.views.local_automation._home_assistant_local_automation_rule_store"
-    ) as mock_store:
+    ) as mock_verify:
         mock_verify.return_value = MagicMock(
             success=True,
             client_id="test_client",
@@ -580,11 +572,53 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
         response = await SmartlyLocalAutomationRulesView(request).get()
 
     assert response.status == 200
-    mock_store.assert_not_called()
     payload = json.loads(response.body)
     assert store.list_calls == 1
     assert payload["rules"][0]["rule_id"] == "runtime-left-single"
     assert payload["rules"][0]["trigger"]["device_id"] == "ldev_runtime_button"
+
+
+@pytest.mark.asyncio
+async def test_local_automation_rules_get_requires_setup_runtime_rule_store(
+    mock_hass,
+) -> None:
+    """GET local automation rules fails when setup did not create the rule store."""
+    _configure_integration(mock_hass)
+    mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+    request = _request_for_rules(mock_hass)
+
+    with patch(
+        "custom_components.smartly_bridge.views.local_automation.verify_request"
+    ) as mock_verify:
+        mock_verify.return_value = MagicMock(
+            success=True,
+            client_id="test_client",
+            error=None,
+        )
+
+        response = await SmartlyLocalAutomationRulesView(request).get()
+
+    assert response.status == 500
+    assert json.loads(response.body) == {
+        "error": "local_automation_rule_store_unavailable",
+        "message": "Local automation rule store not initialized",
+        "schema_version": "2026.06",
+        "data": {
+            "status": "rejected",
+        },
+        "warnings": [],
+        "errors": [
+            {
+                "code": "local_automation_rule_store_unavailable",
+                "message": "Local automation rule store not initialized",
+                "target": "local_automation.rule_store",
+            }
+        ],
+    }
+    assert (
+        "local_automation_rule_store"
+        not in mock_hass.data[DOMAIN]["runtime_adapters"]
+    )
 
 
 @pytest.mark.asyncio

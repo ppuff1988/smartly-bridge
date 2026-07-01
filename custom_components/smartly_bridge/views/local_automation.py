@@ -9,7 +9,6 @@ from typing import Any, Callable
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import _home_assistant_local_automation_rule_store
 from ..application.local_automation import (
     LocalAutomationRuleCreateUseCase,
     LocalAutomationRuleDeleteUseCase,
@@ -130,24 +129,34 @@ def _delete_local_automation_rule(
 
 def _local_automation_rule_store(
     hass: Any,
-    store_factory: Callable[[Any], Any] = _home_assistant_local_automation_rule_store,
-) -> Any:
-    """Return the setup-created local automation rule store or create a fallback."""
+) -> Any | None:
+    """Return the setup-created local automation rule store."""
     integration_data = hass.data.setdefault(DOMAIN, {})
     runtime_adapters = integration_data.setdefault("runtime_adapters", {})
-    rule_store = runtime_adapters.get("local_automation_rule_store")
-    if rule_store is None:
-        rule_store = store_factory(hass)
-        runtime_adapters["local_automation_rule_store"] = rule_store
-    return rule_store
+    return runtime_adapters.get("local_automation_rule_store")
 
 
 class SmartlyLocalAutomationRulesView(BaseView):
     """Handle GET /api/smartly/automations/local/rules requests."""
 
-    def _rule_store(self) -> Any:
+    def _rule_store(self) -> Any | None:
         """Return the setup-created local automation rule store."""
         return _local_automation_rule_store(self.hass)
+
+    def _rule_store_unavailable_response(self) -> web.Response:
+        """Return a runtime availability response for a missing rule store."""
+        result = local_automation_rule_error_response(
+            "local_automation_rule_store_unavailable",
+            message="Local automation rule store not initialized",
+            status=500,
+            target="local_automation.rule_store",
+        )
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
+        )
 
     async def _authorize(self, service: str) -> web.Response | str:
         """Authorize a local automation rule management request."""
@@ -232,7 +241,10 @@ class SmartlyLocalAutomationRulesView(BaseView):
         auth = await self._authorize("local_automation_rules")
         if isinstance(auth, web.Response):
             return auth
-        result = _list_local_automation_rules(self._rule_store())
+        rule_store = self._rule_store()
+        if rule_store is None:
+            return self._rule_store_unavailable_response()
+        result = _list_local_automation_rules(rule_store)
         return _json_response(
             result.body,
             self.request,
@@ -248,7 +260,10 @@ class SmartlyLocalAutomationRulesView(BaseView):
         payload = await self._json_payload()
         if isinstance(payload, web.Response):
             return payload
-        result = _create_local_automation_rule(self._rule_store(), payload)
+        rule_store = self._rule_store()
+        if rule_store is None:
+            return self._rule_store_unavailable_response()
+        result = _create_local_automation_rule(rule_store, payload)
         return _json_response(
             result.body,
             self.request,
@@ -265,8 +280,11 @@ class SmartlyLocalAutomationRulesView(BaseView):
         if isinstance(payload, web.Response):
             return payload
         rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
+        rule_store = self._rule_store()
+        if rule_store is None:
+            return self._rule_store_unavailable_response()
         result = _update_local_automation_rule(
-            self._rule_store(),
+            rule_store,
             rule_id if isinstance(rule_id, str) else "",
             payload,
         )
@@ -286,8 +304,11 @@ class SmartlyLocalAutomationRulesView(BaseView):
         if isinstance(payload, web.Response):
             return payload
         rule_id = payload.get("rule_id") if isinstance(payload, dict) else None
+        rule_store = self._rule_store()
+        if rule_store is None:
+            return self._rule_store_unavailable_response()
         result = _delete_local_automation_rule(
-            self._rule_store(),
+            rule_store,
             rule_id if isinstance(rule_id, str) else "",
         )
         return _json_response(
