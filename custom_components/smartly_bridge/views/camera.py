@@ -115,6 +115,14 @@ class CameraGatewayResolutionResult:
     response: web.Response | None = None
 
 
+@dataclass(frozen=True)
+class CameraConfigCommandParseResult:
+    """Result of adapting a config request body into an application command."""
+
+    command: CameraConfigCommand | None = None
+    response: web.Response | None = None
+
+
 async def _authorize_camera_request(
     request: web.Request,
     hass: Any,
@@ -299,6 +307,52 @@ def _resolve_camera_gateway(
 
     return CameraGatewayResolutionResult(
         gateway=_create_fallback_camera_gateway(hass, manager_guard.camera_manager)
+    )
+
+
+async def _parse_camera_config_command(
+    request: web.Request,
+) -> CameraConfigCommandParseResult:
+    """Parse a camera config request into an application command."""
+    try:
+        body = await request.json()
+    except json.JSONDecodeError:
+        result = _camera_error_response(
+            "invalid_json",
+            status=400,
+            target="camera.request",
+        )
+        return CameraConfigCommandParseResult(
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=result.headers,
+            )
+        )
+
+    action = body.get("action")
+    if not action:
+        result = _camera_error_response(
+            "missing_action",
+            status=400,
+            target="camera.action",
+        )
+        return CameraConfigCommandParseResult(
+            response=_json_response(
+                result.body,
+                request,
+                status=result.status,
+                headers=result.headers,
+            )
+        )
+
+    return CameraConfigCommandParseResult(
+        command=CameraConfigCommand(
+            action=action,
+            entity_id=body.get("entity_id"),
+            data=body,
+        )
     )
 
 
@@ -500,49 +554,17 @@ class SmartlyCameraConfigView(BaseView):
         if guard.response is not None:
             return guard.response
 
-        # Parse request body
-        try:
-            body = await self.request.json()
-        except json.JSONDecodeError:
-            result = _camera_error_response(
-                "invalid_json",
-                status=400,
-                target="camera.request",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
-
-        action = body.get("action")
-        entity_id = body.get("entity_id")
-
-        if not action:
-            result = _camera_error_response(
-                "missing_action",
-                status=400,
-                target="camera.action",
-            )
-            return _json_response(
-                result.body,
-                self.request,
-                status=result.status,
-                headers=result.headers,
-            )
+        command_result = await _parse_camera_config_command(self.request)
+        if command_result.response is not None:
+            return command_result.response
+        command = command_result.command
+        assert command is not None
 
         gateway_resolution = _resolve_camera_gateway(self.request, self.hass)
         if gateway_resolution.response is not None:
             return gateway_resolution.response
 
-        result = await CameraConfigUseCase(gateway_resolution.gateway).execute(
-            CameraConfigCommand(
-                action=action,
-                entity_id=entity_id,
-                data=body,
-            )
-        )
+        result = await CameraConfigUseCase(gateway_resolution.gateway).execute(command)
         return _json_response(
             result.body,
             self.request,

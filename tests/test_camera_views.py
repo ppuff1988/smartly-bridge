@@ -23,6 +23,7 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
     _authorize_camera_request,
+    _parse_camera_config_command,
     _require_camera_manager,
     _resolve_camera_gateway,
     _validate_camera_entity_id,
@@ -1360,6 +1361,56 @@ class TestSmartlyCameraConfigView:
         request.transport = MagicMock()
         request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         return request
+
+    @pytest.mark.asyncio
+    async def test_parse_camera_config_command_returns_application_command(
+        self,
+        mock_request,
+    ):
+        """Camera config parser adapts request JSON into an application command."""
+        mock_request.json = AsyncMock(
+            return_value={
+                "action": "register",
+                "entity_id": "camera.front_door",
+                "name": "Front Door",
+            }
+        )
+
+        result = await _parse_camera_config_command(mock_request)
+
+        assert result.response is None
+        assert result.command is not None
+        assert result.command.action == "register"
+        assert result.command.entity_id == "camera.front_door"
+        assert result.command.data["name"] == "Front Door"
+
+    @pytest.mark.asyncio
+    async def test_parse_camera_config_command_returns_invalid_json_response(
+        self,
+        mock_request,
+    ):
+        """Camera config parser preserves invalid JSON legacy and vNext response."""
+        mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
+
+        result = await _parse_camera_config_command(mock_request)
+
+        assert result.command is None
+        assert result.response is not None
+        assert result.response.status == 400
+        assert json.loads(result.response.body) == {
+            "error": "invalid_json",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_JSON",
+                    "message": "invalid json",
+                    "target": "camera.request",
+                    "retryable": False,
+                }
+            ],
+        }
 
     @pytest.mark.asyncio
     async def test_config_integration_not_configured(self, mock_request, mock_hass):
