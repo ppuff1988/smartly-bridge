@@ -1077,6 +1077,36 @@ class TestSmartlyCameraStreamView:
             "X-Smartly-Response-Mode": "stream",
         }
 
+    def test_prepare_camera_stream_uses_injected_use_case_factory(self):
+        """Stream invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.camera import _prepare_camera_stream
+
+        class FakeCameraStreamUseCase:
+            def __init__(self) -> None:
+                self.called = False
+
+            def execute(self) -> BridgeResponse:
+                self.called = True
+                return BridgeResponse(
+                    {"success": True, "mode": "factory_stream"},
+                    status=202,
+                    headers={"X-Smartly-Response-Mode": "factory_stream"},
+                )
+
+        use_case = FakeCameraStreamUseCase()
+        factory_calls = []
+
+        def use_case_factory():
+            factory_calls.append("called")
+            return use_case
+
+        result = _prepare_camera_stream(use_case_factory=use_case_factory)
+
+        assert result.status == 202
+        assert result.headers == {"X-Smartly-Response-Mode": "factory_stream"}
+        assert factory_calls == ["called"]
+        assert use_case.called is True
+
     @pytest.mark.asyncio
     async def test_prepare_camera_stream_response_uses_mjpeg_contract(
         self,

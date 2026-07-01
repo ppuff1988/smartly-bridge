@@ -499,9 +499,16 @@ async def _handle_camera_hls(
     return await use_case_factory(camera_gateway).execute(entity_id, action)
 
 
-def _prepare_camera_stream() -> Any:
+def _camera_stream_use_case() -> CameraStreamUseCase:
+    """Build the camera stream application use case."""
+    return CameraStreamUseCase()
+
+
+def _prepare_camera_stream(
+    use_case_factory: Callable[[], Any] = _camera_stream_use_case,
+) -> Any:
     """Execute the camera stream use case for MJPEG response metadata."""
-    return CameraStreamUseCase().execute()
+    return use_case_factory().execute()
 
 
 def _build_camera_stream_log_context(
