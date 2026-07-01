@@ -11,6 +11,7 @@ import pytest
 from custom_components.smartly_bridge.adapters.home_assistant import (
     HomeAssistantStateSyncGateway,
     HomeAssistantSyncGateway,
+    _home_assistant_sync_states_gateway,
     _home_assistant_sync_structure_gateway,
 )
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
@@ -357,6 +358,14 @@ class TestSmartlySyncView:
         gateway = _home_assistant_sync_structure_gateway(mock_hass)
 
         assert isinstance(gateway, HomeAssistantSyncGateway)
+
+    def test_home_assistant_sync_states_gateway_factory_builds_legacy_gateway(
+        self, mock_hass
+    ):
+        """Home Assistant sync states factory preserves the legacy gateway type."""
+        gateway = _home_assistant_sync_states_gateway(mock_hass)
+
+        assert isinstance(gateway, HomeAssistantStateSyncGateway)
 
     def test_sync_structure_gateway_resolver_uses_runtime_gateway(self, mock_hass):
         """Sync structure gateway resolver returns the setup-created runtime port."""
@@ -756,7 +765,7 @@ class TestSmartlySyncStatesView:
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
         ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.sync.HomeAssistantStateSyncGateway"
+            "custom_components.smartly_bridge.views.sync._home_assistant_sync_states_gateway"
         ) as mock_gateway:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
@@ -778,7 +787,7 @@ class TestSmartlySyncStatesView:
         }
 
         with patch(
-            "custom_components.smartly_bridge.views.sync.HomeAssistantStateSyncGateway"
+            "custom_components.smartly_bridge.views.sync._home_assistant_sync_states_gateway"
         ) as mock_gateway:
             result = _sync_states_gateway(mock_hass)
 

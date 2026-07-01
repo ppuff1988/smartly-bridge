@@ -997,6 +997,24 @@ class HomeAssistantStateSyncGateway:
         )
 
 
+def _home_assistant_sync_states_gateway(
+    hass: Any,
+    *,
+    allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+    history_semaphore_factory: Callable[[], Any] | None = None,
+    history_gateway_factory: Callable[
+        [Any, Callable[[], Any]], Any
+    ] = _state_sync_history_gateway,
+) -> HomeAssistantStateSyncGateway:
+    """Build the Home Assistant-backed legacy sync states gateway."""
+    return HomeAssistantStateSyncGateway(
+        hass,
+        allowed_entities_fn=allowed_entities_fn,
+        history_semaphore_factory=history_semaphore_factory,
+        history_gateway_factory=history_gateway_factory,
+    )
+
+
 class HomeAssistantCameraGateway:
     """Camera gateway backed by Home Assistant state and CameraManager."""
 
