@@ -133,6 +133,92 @@ async def test_ingest_device_event_forwards_command_to_application_use_case() ->
     assert publisher.events[0]["event"] == "single_press"
 
 
+def test_build_local_automation_reuses_setup_runtime_adapters() -> None:
+    """Local automation assembly uses setup-created rule and command ports."""
+    from custom_components.smartly_bridge.views.device_events import _build_local_automation
+
+    rule_store = FakeLocalAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="device_abc123",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+    command_executor = FakeSmartlyCommandExecutor()
+    integration_data = {
+        "runtime_adapters": {
+            "local_automation_rule_store": rule_store,
+            "smartly_command_executor": command_executor,
+        }
+    }
+
+    automation = _build_local_automation(integration_data, MagicMock())
+
+    assert automation is not None
+    assert integration_data["runtime_adapters"]["local_automation_rule_store"] is rule_store
+    assert integration_data["runtime_adapters"]["smartly_command_executor"] is command_executor
+    assert rule_store.list_calls == 1
+
+
+def test_build_local_automation_does_not_create_fallback_when_runtime_adapters_exist() -> None:
+    """Setup-created local automation adapters avoid request-time fallback creation."""
+    from custom_components.smartly_bridge.views.device_events import _build_local_automation
+
+    rule_store = FakeLocalAutomationRuleStore(
+        [
+            LocalAutomationRule(
+                rule_id="rule-left-single",
+                trigger=AutomationTrigger(
+                    device_id="device_abc123",
+                    capability="button_event",
+                    event="single_press",
+                    payload={"button": "left"},
+                ),
+                actions=[
+                    AutomationAction(
+                        type="device_command",
+                        device_id="ldev_light",
+                        capability="power",
+                        command="turn_on",
+                    )
+                ],
+            )
+        ]
+    )
+    command_executor = FakeSmartlyCommandExecutor()
+    integration_data = {
+        "runtime_adapters": {
+            "local_automation_rule_store": rule_store,
+            "smartly_command_executor": command_executor,
+        }
+    }
+
+    with patch(
+        "custom_components.smartly_bridge.views.device_events.HomeAssistantLocalAutomationRuleStore"
+    ) as mock_rule_store, patch(
+        "custom_components.smartly_bridge.views.device_events.HomeAssistantSmartlyCommandExecutor"
+    ) as mock_executor:
+        automation = _build_local_automation(integration_data, MagicMock())
+
+    assert automation is not None
+    mock_rule_store.assert_not_called()
+    mock_executor.assert_not_called()
+
+
 class TestDeviceEventsEndpoint:
     """Tests for /api/smartly/devices/{device_id}/events endpoint."""
 

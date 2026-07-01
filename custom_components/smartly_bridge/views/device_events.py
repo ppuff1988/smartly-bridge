@@ -94,6 +94,27 @@ def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
     return integration_data.setdefault("runtime_adapters", {})
 
 
+def _build_local_automation(
+    integration_data: dict[str, Any], hass: HomeAssistant
+) -> LocalAutomationUseCase | None:
+    """Build local automation from runtime adapters when rules are configured."""
+    if not _has_local_automation_rules(integration_data):
+        return None
+    adapters = _runtime_adapters(integration_data)
+    rule_store = adapters.get("local_automation_rule_store")
+    if rule_store is None:
+        rule_store = HomeAssistantLocalAutomationRuleStore(hass)
+        adapters["local_automation_rule_store"] = rule_store
+    command_executor = adapters.get("smartly_command_executor")
+    if command_executor is None:
+        command_executor = HomeAssistantSmartlyCommandExecutor(hass, _LOGGER)
+        adapters["smartly_command_executor"] = command_executor
+    return LocalAutomationUseCase(
+        rule_store,
+        command_executor,
+    )
+
+
 def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
     """Attach optional vNext request correlation fields from HTTP headers."""
     enriched = dict(body)
@@ -401,20 +422,7 @@ class SmartlyDeviceEventsView(web.View):
             )
             adapters["device_event_deduplicator"] = deduplicator
 
-        automation = None
-        if _has_local_automation_rules(integration_data):
-            rule_store = adapters.setdefault(
-                "local_automation_rule_store",
-                HomeAssistantLocalAutomationRuleStore(self.hass),
-            )
-            command_executor = adapters.setdefault(
-                "smartly_command_executor",
-                HomeAssistantSmartlyCommandExecutor(self.hass, _LOGGER),
-            )
-            automation = LocalAutomationUseCase(
-                rule_store,
-                command_executor,
-            )
+        automation = _build_local_automation(integration_data, self.hass)
         result = await _ingest_device_event(
             publisher,
             deduplicator,
