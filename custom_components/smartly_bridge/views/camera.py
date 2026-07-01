@@ -455,6 +455,14 @@ async def _list_cameras(camera_gateway: Any, options: CameraListRequestOptions) 
     )
 
 
+async def _configure_camera(
+    camera_gateway: Any,
+    command: CameraConfigCommand,
+) -> Any:
+    """Execute the camera config use case with a parsed application command."""
+    return await CameraConfigUseCase(camera_gateway).execute(command)
+
+
 def _build_camera_stream_log_context(
     request: web.Request,
     entity_id: str,
@@ -709,7 +717,7 @@ class SmartlyCameraConfigView(BaseView):
         if gateway_resolution.response is not None:
             return gateway_resolution.response
 
-        result = await CameraConfigUseCase(gateway_resolution.gateway).execute(command)
+        result = await _configure_camera(gateway_resolution.gateway, command)
         return _adapt_camera_json_response(result, self.request)
 
 

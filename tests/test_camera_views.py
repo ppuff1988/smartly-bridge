@@ -8,7 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.application.camera import SMARTLY_API_SCHEMA_VERSION
+from custom_components.smartly_bridge.application.camera import (
+    SMARTLY_API_SCHEMA_VERSION,
+    CameraConfigCommand,
+)
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import DOMAIN
@@ -27,6 +30,7 @@ from custom_components.smartly_bridge.views.camera import (
     _adapt_camera_json_response,
     _authorize_camera_request,
     _camera_entity_id_from_request,
+    _configure_camera,
     _capture_camera_snapshot,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
@@ -1730,6 +1734,24 @@ class TestSmartlyCameraConfigView:
                 }
             ],
         }
+
+    @pytest.mark.asyncio
+    async def test_configure_camera_forwards_application_command(self):
+        """Camera config invocation adapter forwards the parsed command."""
+        gateway = FakeRuntimeCameraGateway()
+        command = CameraConfigCommand(
+            action="register",
+            entity_id="camera.runtime",
+            data={"action": "register", "entity_id": "camera.runtime", "name": "Runtime"},
+        )
+
+        result = await _configure_camera(gateway, command)
+
+        assert result.status == 200
+        assert result.body["action"] == "registered"
+        assert result.body["entity_id"] == "camera.runtime"
+        assert gateway.calls == ["register_camera"]
+        assert gateway.registered[0]["entity_id"] == "camera.runtime"
 
     @pytest.mark.asyncio
     async def test_config_integration_not_configured(self, mock_request, mock_hass):
