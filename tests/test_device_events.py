@@ -106,6 +106,25 @@ class FakeSmartlyCommandExecutor:
         )
 
 
+class FakeDeviceEventUseCase:
+    """Device event use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, DeviceEventCommand]] = []
+
+    async def execute(self, client_id: str, command: DeviceEventCommand) -> BridgeResponse:
+        """Record invocation and return a fixed event response."""
+        self.calls.append((client_id, command))
+        return BridgeResponse(
+            {
+                "success": True,
+                "device_id": command.device_id,
+                "action": command.action,
+            },
+            status=202,
+        )
+
+
 def test_home_assistant_device_event_publisher_factory_builds_legacy_publisher() -> None:
     """Device event publisher factory centralizes legacy HA event bus wiring."""
     hass = MagicMock()
@@ -150,6 +169,46 @@ async def test_ingest_device_event_forwards_command_to_application_use_case() ->
     assert result.body["action"] == "single_left"
     assert publisher.events[0]["device_id"] == "device_abc123"
     assert publisher.events[0]["event"] == "single_press"
+
+
+@pytest.mark.asyncio
+async def test_ingest_device_event_uses_injected_use_case_factory() -> None:
+    """Device event invocation adapter accepts an injected use-case factory."""
+    from custom_components.smartly_bridge.views.device_events import _ingest_device_event
+
+    publisher = FakeDeviceEventPublisher()
+    deduplicator = InMemoryDeviceEventDeduplicator()
+    automation = object()
+    use_case = FakeDeviceEventUseCase()
+    factory_calls: list[tuple[object, object, object]] = []
+
+    def use_case_factory(received_publisher, received_deduplicator, received_automation):
+        factory_calls.append(
+            (received_publisher, received_deduplicator, received_automation)
+        )
+        return use_case
+
+    command = DeviceEventCommand(
+        device_id="device_abc123",
+        type="button_action",
+        action="single_left",
+        timestamp="2026-06-27T10:20:00.000Z",
+        meta={"source": "zigbee2mqtt"},
+    )
+
+    result = await _ingest_device_event(
+        publisher,
+        deduplicator,
+        automation,
+        "client-1",
+        command,
+        use_case_factory=use_case_factory,
+    )
+
+    assert result.status == 202
+    assert factory_calls == [(publisher, deduplicator, automation)]
+    assert use_case.calls == [("client-1", command)]
+    assert result.body["device_id"] == "device_abc123"
 
 
 def test_build_local_automation_reuses_setup_runtime_adapters() -> None:

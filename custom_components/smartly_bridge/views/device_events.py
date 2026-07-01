@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 import logging
 from datetime import datetime
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
@@ -138,6 +138,19 @@ def _build_local_automation(
     )
 
 
+def _device_event_use_case(
+    publisher: Any,
+    deduplicator: Any,
+    automation: Any,
+) -> DeviceEventUseCase:
+    """Build the device event ingestion application use case."""
+    return DeviceEventUseCase(
+        publisher,
+        deduplicator=deduplicator,
+        automation=automation,
+    )
+
+
 def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
     """Attach optional vNext request correlation fields from HTTP headers."""
     enriched = dict(body)
@@ -171,12 +184,14 @@ async def _ingest_device_event(
     automation: Any,
     client_id: str,
     command: DeviceEventCommand,
+    *,
+    use_case_factory: Callable[[Any, Any, Any], Any] = _device_event_use_case,
 ) -> Any:
     """Execute device event ingestion through the application use case."""
-    return await DeviceEventUseCase(
+    return await use_case_factory(
         publisher,
-        deduplicator=deduplicator,
-        automation=automation,
+        deduplicator,
+        automation,
     ).execute(client_id, command)
 
 
