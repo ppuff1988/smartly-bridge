@@ -19,8 +19,8 @@ from custom_components.smartly_bridge.const import (
     API_PATH_DEVICE_EVENTS,
     API_PATH_LOCAL_AUTOMATION_RULES,
     API_PATH_RAW_DIAGNOSTIC,
-    API_PATH_STATES,
     API_PATH_SYNC,
+    API_PATH_SYNC_STATES,
     DOMAIN,
     HEADER_CLIENT_ID,
     HEADER_NONCE,
@@ -673,9 +673,9 @@ class TestApiPaths:
         """Test sync API path."""
         assert API_PATH_SYNC == "/api/smartly/sync/structure"
 
-    def test_legacy_states_path(self):
-        """Test legacy states API path."""
-        assert API_PATH_STATES == "/api/smartly/states"
+    def test_sync_states_path(self):
+        """Test canonical sync states API path."""
+        assert API_PATH_SYNC_STATES == "/api/smartly/sync/states"
 
     def test_device_events_path(self):
         """Test device events API path."""
@@ -700,16 +700,17 @@ class TestViewRegistration:
         register_views(mock_hass)
 
         # Control, Device Events, Local Automation Rules, Raw Diagnostics,
-        # Sync Structure, Sync States, Legacy States alias
+        # Sync Structure, Sync States
         # + 5 Camera views
         # (Snapshot, Stream, List, Config, HLS) + 4 WebRTC views
         # (Token, Offer, ICE, Hangup) + 3 History views
         # (History, History Batch, Statistics)
-        assert mock_hass.http.register_view.call_count == 19
+        assert mock_hass.http.register_view.call_count == 18
 
         registered_views = [call.args[0] for call in mock_hass.http.register_view.call_args_list]
         registered_urls = {view.url for view in registered_views}
-        assert API_PATH_STATES in registered_urls
+        assert API_PATH_SYNC_STATES in registered_urls
+        assert "/api/smartly/states" not in registered_urls
 
 
 class TestRawDiagnosticEndpoint:

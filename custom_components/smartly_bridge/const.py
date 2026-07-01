@@ -108,7 +108,6 @@ API_PATH_LOCAL_AUTOMATION_RULES = "/api/smartly/automations/local/rules"
 API_PATH_RAW_DIAGNOSTIC = "/api/smartly/diagnostics/raw/{raw_ref}"
 API_PATH_SYNC = "/api/smartly/sync/structure"
 API_PATH_SYNC_STATES = "/api/smartly/sync/states"
-API_PATH_STATES = "/api/smartly/states"  # Alternative path for backward compatibility
 
 # Camera API paths
 API_PATH_CAMERA_SNAPSHOT = "/api/smartly/camera/{entity_id}/snapshot"
