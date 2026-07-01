@@ -1,0 +1,16 @@
+{
+  "error": "camera_manager_not_initialized",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "CAMERA_MANAGER_NOT_INITIALIZED",
+      "message": "camera manager not initialized",
+      "target": "camera.manager",
+      "retryable": false
+    }
+  ]
+}
