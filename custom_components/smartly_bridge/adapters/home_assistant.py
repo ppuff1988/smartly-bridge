@@ -208,6 +208,16 @@ class InMemoryDeviceEventDeduplicator:
         self._event_ids_by_key.setdefault(key, event_id)
 
 
+def _home_assistant_device_event_publisher(hass: Any) -> HomeAssistantDeviceEventPublisher:
+    """Build the Home Assistant-backed legacy device event publisher."""
+    return HomeAssistantDeviceEventPublisher(hass)
+
+
+def _in_memory_device_event_deduplicator() -> InMemoryDeviceEventDeduplicator:
+    """Build the legacy in-memory device event deduplicator."""
+    return InMemoryDeviceEventDeduplicator()
+
+
 class HomeAssistantLocalAutomationRuleStore:
     """Local automation rule store backed by Home Assistant runtime data."""
 

@@ -15,7 +15,10 @@ from custom_components.smartly_bridge.application.local_automation import (
     LocalAutomationRule,
 )
 from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantDeviceEventPublisher,
     InMemoryDeviceEventDeduplicator,
+    _home_assistant_device_event_publisher,
+    _in_memory_device_event_deduplicator,
 )
 from custom_components.smartly_bridge.const import API_PATH_DEVICE_EVENTS, DOMAIN
 from custom_components.smartly_bridge.domain.models import BridgeResponse
@@ -101,6 +104,22 @@ class FakeSmartlyCommandExecutor:
             },
             status=200,
         )
+
+
+def test_home_assistant_device_event_publisher_factory_builds_legacy_publisher() -> None:
+    """Device event publisher factory centralizes legacy HA event bus wiring."""
+    hass = MagicMock()
+
+    publisher = _home_assistant_device_event_publisher(hass)
+
+    assert isinstance(publisher, HomeAssistantDeviceEventPublisher)
+
+
+def test_in_memory_device_event_deduplicator_factory_builds_legacy_deduplicator() -> None:
+    """Device event deduplicator factory centralizes legacy in-memory dedupe wiring."""
+    deduplicator = _in_memory_device_event_deduplicator()
+
+    assert isinstance(deduplicator, InMemoryDeviceEventDeduplicator)
 
 
 @pytest.mark.asyncio
@@ -231,7 +250,7 @@ def test_device_event_publisher_resolver_uses_runtime_publisher() -> None:
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.device_events.HomeAssistantDeviceEventPublisher"
+        "custom_components.smartly_bridge.views.device_events._home_assistant_device_event_publisher"
     ) as mock_publisher:
         result = _device_event_publisher(integration_data, MagicMock())
 
@@ -251,7 +270,7 @@ def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
     }
 
     with patch(
-        "custom_components.smartly_bridge.views.device_events.InMemoryDeviceEventDeduplicator"
+        "custom_components.smartly_bridge.views.device_events._in_memory_device_event_deduplicator"
     ) as mock_deduplicator:
         result = _device_event_deduplicator(integration_data)
 

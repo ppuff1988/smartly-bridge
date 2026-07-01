@@ -12,10 +12,10 @@ from homeassistant.components.http import HomeAssistantView
 
 from ..adapters.home_assistant import (
     DEVICE_EVENT_TYPE,
-    HomeAssistantDeviceEventPublisher,
     HomeAssistantSmartlyCommandExecutor,
-    InMemoryDeviceEventDeduplicator,
+    _home_assistant_device_event_publisher,
     _home_assistant_local_automation_rule_store,
+    _in_memory_device_event_deduplicator,
 )
 from ..application.device_events import (
     DeviceEventCommand,
@@ -99,7 +99,7 @@ def _device_event_publisher(integration_data: dict[str, Any], hass: HomeAssistan
     adapters = _runtime_adapters(integration_data)
     publisher = adapters.get("device_event_publisher")
     if publisher is None:
-        publisher = HomeAssistantDeviceEventPublisher(hass)
+        publisher = _home_assistant_device_event_publisher(hass)
         adapters["device_event_publisher"] = publisher
     return publisher
 
@@ -111,7 +111,7 @@ def _device_event_deduplicator(integration_data: dict[str, Any]) -> Any:
     if deduplicator is None:
         deduplicator = integration_data.get("device_event_deduplicator")
         if deduplicator is None:
-            deduplicator = InMemoryDeviceEventDeduplicator()
+            deduplicator = _in_memory_device_event_deduplicator()
             integration_data["device_event_deduplicator"] = deduplicator
         adapters["device_event_deduplicator"] = deduplicator
     return deduplicator
