@@ -7,7 +7,7 @@ from typing import Any
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
-from ..adapters.home_assistant import HomeAssistantRawDiagnosticStore
+from ..adapters.home_assistant import _home_assistant_raw_diagnostic_store
 from ..application.diagnostics import RawDiagnosticFetchUseCase, raw_diagnostic_error_response
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -59,7 +59,7 @@ def _raw_diagnostic_store(hass: Any) -> Any:
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     store = runtime_adapters.get("raw_diagnostic_store")
     if store is None:
-        store = HomeAssistantRawDiagnosticStore(hass)
+        store = _home_assistant_raw_diagnostic_store(hass)
         runtime_adapters["raw_diagnostic_store"] = store
     return store
 

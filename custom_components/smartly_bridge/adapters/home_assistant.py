@@ -753,6 +753,11 @@ class HomeAssistantRawDiagnosticStore:
         return raw_diagnostics
 
 
+def _home_assistant_raw_diagnostic_store(hass: Any) -> HomeAssistantRawDiagnosticStore:
+    """Build the Home Assistant-backed legacy raw diagnostic store."""
+    return HomeAssistantRawDiagnosticStore(hass)
+
+
 class HomeAssistantStateSyncGateway:
     """State sync gateway backed by Home Assistant state and entity registries."""
 

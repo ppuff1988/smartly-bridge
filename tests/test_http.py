@@ -705,7 +705,7 @@ class TestRawDiagnosticEndpoint:
         mock_hass.data[DOMAIN] = {"runtime_adapters": {"raw_diagnostic_store": store}}
 
         with patch(
-            "custom_components.smartly_bridge.views.diagnostics.HomeAssistantRawDiagnosticStore"
+            "custom_components.smartly_bridge.views.diagnostics._home_assistant_raw_diagnostic_store"
         ) as mock_store:
             result = _raw_diagnostic_store(mock_hass)
 
@@ -741,7 +741,7 @@ class TestRawDiagnosticEndpoint:
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
         ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.diagnostics.HomeAssistantRawDiagnosticStore"
+            "custom_components.smartly_bridge.views.diagnostics._home_assistant_raw_diagnostic_store"
         ) as mock_store:
             mock_verify.return_value = MagicMock(
                 success=True, client_id="test_client", error=None

@@ -9,9 +9,9 @@ from homeassistant.core import HomeAssistant
 
 from ..acl import get_allowed_entities, get_structure
 from ..adapters.home_assistant import (
-    HomeAssistantRawDiagnosticStore,
     HomeAssistantStateSyncGateway,
     HomeAssistantSyncGateway,
+    _home_assistant_raw_diagnostic_store,
 )
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
@@ -110,7 +110,7 @@ def _raw_diagnostic_recorder(hass: HomeAssistant) -> Any:
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     store = runtime_adapters.get("raw_diagnostic_store")
     if store is None:
-        store = HomeAssistantRawDiagnosticStore(hass)
+        store = _home_assistant_raw_diagnostic_store(hass)
         runtime_adapters["raw_diagnostic_store"] = store
     return store
 

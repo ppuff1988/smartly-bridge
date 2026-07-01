@@ -6,6 +6,7 @@ from unittest.mock import MagicMock
 
 from custom_components.smartly_bridge.adapters.home_assistant import (
     HomeAssistantRawDiagnosticStore,
+    _home_assistant_raw_diagnostic_store,
 )
 from custom_components.smartly_bridge.const import DOMAIN
 
@@ -29,3 +30,13 @@ def test_raw_diagnostic_store_expires_payloads_after_ttl() -> None:
 
     assert store.get_raw_diagnostic("raw_camera_porch") is None
     assert "raw_camera_porch" not in hass.data[DOMAIN]["raw_diagnostics"]
+
+
+def test_home_assistant_raw_diagnostic_store_factory_builds_legacy_store() -> None:
+    """Home Assistant raw diagnostic store factory preserves the legacy store type."""
+    hass = MagicMock()
+    hass.data = {DOMAIN: {}}
+
+    store = _home_assistant_raw_diagnostic_store(hass)
+
+    assert isinstance(store, HomeAssistantRawDiagnosticStore)

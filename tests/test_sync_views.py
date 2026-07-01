@@ -783,7 +783,7 @@ class TestSmartlySyncStatesView:
         }
 
         with patch(
-            "custom_components.smartly_bridge.views.sync.HomeAssistantRawDiagnosticStore"
+            "custom_components.smartly_bridge.views.sync._home_assistant_raw_diagnostic_store"
         ) as mock_store:
             result = _raw_diagnostic_recorder(mock_hass)
 
@@ -836,7 +836,7 @@ class TestSmartlySyncStatesView:
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
         ) as mock_verify, patch(
-            "custom_components.smartly_bridge.views.sync.HomeAssistantRawDiagnosticStore"
+            "custom_components.smartly_bridge.views.sync._home_assistant_raw_diagnostic_store"
         ) as mock_store:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
