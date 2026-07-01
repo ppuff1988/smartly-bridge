@@ -489,6 +489,24 @@ def _adapt_camera_json_response(result: Any, request: web.Request) -> web.Respon
     )
 
 
+def _log_camera_control_event(
+    logger: logging.Logger,
+    auth_result: AuthResult,
+    *,
+    entity_id: str,
+    service: str,
+    result: str,
+) -> None:
+    """Emit a camera control audit event with the legacy client-id fallback."""
+    log_control(
+        logger,
+        client_id=auth_result.client_id or "unknown",
+        entity_id=entity_id,
+        service=service,
+        result=result,
+    )
+
+
 class SmartlyCameraSnapshotView(BaseView):
     """Handle GET /api/smartly/camera/{entity_id}/snapshot requests."""
 
@@ -529,9 +547,9 @@ class SmartlyCameraSnapshotView(BaseView):
         if result.status in (304, 404):
             return _adapt_camera_snapshot_response(result, self.request)
 
-        log_control(
+        _log_camera_control_event(
             _LOGGER,
-            client_id=auth_result.client_id or "unknown",
+            auth_result,
             entity_id=entity_id,
             service="camera_snapshot",
             result="success",
@@ -596,9 +614,9 @@ class SmartlyCameraStreamView(BaseView):
             return gateway_resolution.response
         camera_gateway = gateway_resolution.gateway
 
-        log_control(
+        _log_camera_control_event(
             _LOGGER,
-            client_id=auth_result.client_id or "unknown",
+            auth_result,
             entity_id=entity_id,
             service="camera_stream",
             result="started",
@@ -712,9 +730,9 @@ class SmartlyCameraHLSInfoView(BaseView):
 
         audit_event = _camera_hls_audit_event(action, result.status)
         if audit_event is not None:
-            log_control(
+            _log_camera_control_event(
                 _LOGGER,
-                client_id=auth_result.client_id or "unknown",
+                auth_result,
                 entity_id=entity_id,
                 service=audit_event.service,
                 result=audit_event.result,

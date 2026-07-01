@@ -28,6 +28,7 @@ from custom_components.smartly_bridge.views.camera import (
     _authorize_camera_request,
     _build_camera_stream_log_context,
     _camera_hls_audit_event,
+    _log_camera_control_event,
     _prepare_camera_stream_response,
     _parse_camera_config_command,
     _parse_camera_hls_action,
@@ -206,6 +207,50 @@ class TestSmartlyCameraSnapshotView:
         assert result.auth_result.client_id == "guard-client"
         rate_limiter.check.assert_awaited_once_with("guard-client")
         mock_allowed.assert_called_once()
+
+    def test_log_camera_control_event_uses_authenticated_client(self):
+        """Camera audit emitter preserves the authenticated client id."""
+        auth_result = AuthResult(success=True, client_id="client-123")
+        logger = MagicMock()
+
+        with patch("custom_components.smartly_bridge.views.camera.log_control") as audit:
+            _log_camera_control_event(
+                logger,
+                auth_result,
+                entity_id="camera.test",
+                service="camera_snapshot",
+                result="success",
+            )
+
+        audit.assert_called_once_with(
+            logger,
+            client_id="client-123",
+            entity_id="camera.test",
+            service="camera_snapshot",
+            result="success",
+        )
+
+    def test_log_camera_control_event_falls_back_to_unknown_client(self):
+        """Camera audit emitter preserves legacy unknown-client fallback."""
+        auth_result = AuthResult(success=True, client_id=None)
+        logger = MagicMock()
+
+        with patch("custom_components.smartly_bridge.views.camera.log_control") as audit:
+            _log_camera_control_event(
+                logger,
+                auth_result,
+                entity_id="camera.test",
+                service="camera_stream",
+                result="started",
+            )
+
+        audit.assert_called_once_with(
+            logger,
+            client_id="unknown",
+            entity_id="camera.test",
+            service="camera_stream",
+            result="started",
+        )
 
     def test_require_camera_manager_returns_existing_runtime_manager(
         self,
