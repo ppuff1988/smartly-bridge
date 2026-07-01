@@ -1874,6 +1874,50 @@ class TestSmartlyCameraConfigView:
         assert gateway.registered[0]["entity_id"] == "camera.runtime"
 
     @pytest.mark.asyncio
+    async def test_configure_camera_uses_injected_use_case_factory(self):
+        """Camera config invocation adapter accepts an injected use-case factory."""
+
+        class FakeCameraConfigUseCase:
+            def __init__(self) -> None:
+                self.commands = []
+
+            async def execute(self, command: CameraConfigCommand) -> BridgeResponse:
+                self.commands.append(command)
+                return BridgeResponse(
+                    {
+                        "success": True,
+                        "action": "factory_configured",
+                        "entity_id": command.entity_id,
+                        "data": {"action": "factory_configured"},
+                    },
+                    status=200,
+                )
+
+        gateway = FakeRuntimeCameraGateway()
+        use_case = FakeCameraConfigUseCase()
+        factory_calls = []
+        command = CameraConfigCommand(
+            action="register",
+            entity_id="camera.runtime",
+            data={"action": "register", "entity_id": "camera.runtime"},
+        )
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _configure_camera(
+            gateway,
+            command,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.commands == [command]
+        assert result.body["action"] == "factory_configured"
+
+    @pytest.mark.asyncio
     async def test_config_integration_not_configured(self, mock_request, mock_hass):
         """Test config view returns API vNext envelope when integration is missing."""
         mock_hass.data = {}

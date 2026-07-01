@@ -470,12 +470,18 @@ async def _list_cameras(
     )
 
 
+def _camera_config_use_case(camera_gateway: Any) -> CameraConfigUseCase:
+    """Build the camera config application use case."""
+    return CameraConfigUseCase(camera_gateway)
+
+
 async def _configure_camera(
     camera_gateway: Any,
     command: CameraConfigCommand,
+    use_case_factory: Callable[[Any], Any] = _camera_config_use_case,
 ) -> Any:
     """Execute the camera config use case with a parsed application command."""
-    return await CameraConfigUseCase(camera_gateway).execute(command)
+    return await use_case_factory(camera_gateway).execute(command)
 
 
 async def _handle_camera_hls(
