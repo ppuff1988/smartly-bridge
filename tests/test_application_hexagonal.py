@@ -2703,7 +2703,7 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
     result = await SyncStatesUseCase(FakeSyncGateway()).execute()
 
     assert result.status == 200
-    assert result.body["states"] == [
+    assert result.body["data"]["states"] == [
         {
             "entity_id": "light.kitchen",
             "state": "on",
@@ -2719,9 +2719,9 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
             "presentation": {"card_template": "light_card"},
         }
     ]
-    assert result.body["count"] == 1
-    assert result.body["normalization_warnings"] == []
-    assert result.body["logical_devices"] == [
+    assert result.body["data"]["count"] == 1
+    assert result.body["data"]["normalization_warnings"] == []
+    assert result.body["data"]["logical_devices"] == [
         {
             "id": "ldev_light_kitchen",
             "name": "Kitchen Light",
@@ -2800,9 +2800,9 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
     assert result.body["data"] == {
-        "states": result.body["states"],
+        "states": result.body["data"]["states"],
         "count": 1,
-        "logical_devices": result.body["logical_devices"],
+        "logical_devices": result.body["data"]["logical_devices"],
         "normalization_warnings": [],
         "device_count": 1,
         "updates": [
@@ -2829,17 +2829,21 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
 
 @pytest.mark.asyncio
 async def test_sync_states_use_case_includes_vnext_envelope() -> None:
-    """State sync exposes API vNext envelope fields alongside legacy fields."""
+    """State sync exposes state data through the API vNext envelope."""
     result = await SyncStatesUseCase(FakeSyncGateway()).execute()
 
     assert result.status == 200
     assert result.body["schema_version"] == "2026.06"
-    assert result.body["warnings"] == result.body["normalization_warnings"]
+    assert result.body["warnings"] == result.body["data"]["normalization_warnings"]
     assert result.body["errors"] == []
+    assert "states" not in result.body
+    assert "count" not in result.body
+    assert "normalization_warnings" not in result.body
+    assert "logical_devices" not in result.body
     assert result.body["data"] == {
-        "states": result.body["states"],
+        "states": result.body["data"]["states"],
         "count": 1,
-        "logical_devices": result.body["logical_devices"],
+        "logical_devices": result.body["data"]["logical_devices"],
         "normalization_warnings": [],
         "device_count": 1,
         "updates": [
@@ -2905,7 +2909,7 @@ async def test_sync_states_use_case_matches_current_sync_vnext_data_fixture() ->
 
 @pytest.mark.asyncio
 async def test_sync_states_use_case_matches_current_sync_envelope_fixture() -> None:
-    """State sync full response preserves legacy fields and vNext envelope."""
+    """State sync full response matches the vNext-only envelope fixture."""
     fixture_path = (
         Path(__file__).parent / "fixtures" / "current-sync" / "states-envelope.json"
     )
@@ -2922,9 +2926,9 @@ async def test_sync_states_use_case_reports_diagnostic_normalization_warnings() 
     result = await SyncStatesUseCase(FakeDiagnosticSyncGateway()).execute()
 
     assert result.status == 200
-    assert result.body["logical_devices"][0]["device_class"] == "diagnostic_device"
-    assert result.body["logical_devices"][0]["raw_refs"] == []
-    assert result.body["logical_devices"][0]["aliases"] == [
+    assert result.body["data"]["logical_devices"][0]["device_class"] == "diagnostic_device"
+    assert result.body["data"]["logical_devices"][0]["raw_refs"] == []
+    assert result.body["data"]["logical_devices"][0]["aliases"] == [
         {
             "kind": "home_assistant_entity_id",
             "value": "camera.porch",
@@ -2932,7 +2936,7 @@ async def test_sync_states_use_case_reports_diagnostic_normalization_warnings() 
             "valid_until": None,
         }
     ]
-    assert result.body["normalization_warnings"] == [
+    assert result.body["data"]["normalization_warnings"] == [
         {
             "code": "diagnostic_device",
             "message": "Entity group could not be normalized to supported capabilities",
@@ -2954,7 +2958,7 @@ async def test_sync_states_use_case_records_diagnostic_raw_refs() -> None:
 
     raw_ref = "raw_ldev_camera_porch"
     assert result.status == 200
-    assert result.body["logical_devices"][0]["raw_refs"] == [
+    assert result.body["data"]["logical_devices"][0]["raw_refs"] == [
         {
             "raw_ref": raw_ref,
             "kind": "normalization_diagnostic",
@@ -2962,7 +2966,7 @@ async def test_sync_states_use_case_records_diagnostic_raw_refs() -> None:
             "entity_ids": ["camera.porch"],
         }
     ]
-    assert "raw_payload" not in result.body["logical_devices"][0]
+    assert "raw_payload" not in result.body["data"]["logical_devices"][0]
     assert recorder.payloads == {
         raw_ref: {
             "logical_device_id": "ldev_camera_porch",
@@ -2989,20 +2993,22 @@ async def test_sync_states_use_case_records_diagnostic_raw_refs() -> None:
 
 @pytest.mark.asyncio
 async def test_sync_states_use_case_marks_logical_device_read_path() -> None:
-    """The logical-device read path can be enabled without dropping legacy states."""
+    """The logical-device read path is exposed through the vNext data payload."""
     result = await SyncStatesUseCase(
         FakeSyncGateway(),
         use_logical_devices=True,
     ).execute()
 
     assert result.status == 200
-    assert result.body["read_path"] == "logical_devices"
-    assert result.body["device_count"] == 1
-    assert result.body["devices"] == result.body["logical_devices"]
+    assert "read_path" not in result.body
+    assert "device_count" not in result.body
+    assert "devices" not in result.body
+    assert "states" not in result.body
+    assert "logical_devices" not in result.body
     assert result.body["data"]["read_path"] == "logical_devices"
     assert result.body["data"]["device_count"] == 1
-    assert result.body["data"]["devices"] == result.body["logical_devices"]
-    assert result.body["states"][0]["entity_id"] == "light.kitchen"
+    assert result.body["data"]["devices"] == result.body["data"]["logical_devices"]
+    assert result.body["data"]["states"][0]["entity_id"] == "light.kitchen"
 
 
 def test_inner_layers_do_not_import_framework_adapters() -> None:

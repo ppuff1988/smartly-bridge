@@ -98,8 +98,13 @@ class FakeSyncStatesUseCase:
                 "status": 200,
                 "headers": {},
                 "body": {
-                    "states": [{"entity_id": "light.factory"}],
-                    "data": {"read_path": "logical_devices"},
+                    "schema_version": "2026.06",
+                    "data": {
+                        "states": [{"entity_id": "light.factory"}],
+                        "read_path": "logical_devices",
+                    },
+                    "warnings": [],
+                    "errors": [],
                 },
             },
         )()
@@ -746,9 +751,8 @@ class TestSmartlySyncStatesView:
         raw_ref = "raw_ldev_camera_runtime"
         assert result.status == 200
         assert gateway.calls == 1
-        assert result.body["read_path"] == "logical_devices"
         assert result.body["data"]["read_path"] == "logical_devices"
-        assert result.body["logical_devices"][0]["raw_refs"][0]["raw_ref"] == raw_ref
+        assert result.body["data"]["logical_devices"][0]["raw_refs"][0]["raw_ref"] == raw_ref
         assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
             "camera.runtime"
         )
@@ -788,7 +792,7 @@ class TestSmartlySyncStatesView:
         assert result.status == 200
         assert factory_calls == [(gateway, True, recorder)]
         assert use_case.calls == 1
-        assert result.body["states"] == [{"entity_id": "light.factory"}]
+        assert result.body["data"]["states"] == [{"entity_id": "light.factory"}]
 
     @pytest.mark.asyncio
     async def test_successful_states_sync(self, mock_request, mock_hass):
@@ -856,19 +860,19 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    assert "states" in data
-                    assert data["count"] == 2
-                    assert len(data["states"]) == 2
+                    assert "states" not in data
+                    assert data["data"]["count"] == 2
+                    assert len(data["data"]["states"]) == 2
 
                     # Verify first state with custom icon
-                    state1 = next(s for s in data["states"] if s["entity_id"] == "light.kitchen")
+                    state1 = next(s for s in data["data"]["states"] if s["entity_id"] == "light.kitchen")
                     assert state1["state"] == "on"
                     assert state1["attributes"]["brightness"] == 255
                     assert state1["last_changed"] is not None
                     assert state1["icon"] == "mdi:lightbulb"  # Custom icon is returned
 
                     # Verify second state with fallback to original_icon
-                    state2 = next(s for s in data["states"] if s["entity_id"] == "switch.bedroom")
+                    state2 = next(s for s in data["data"]["states"] if s["entity_id"] == "switch.bedroom")
                     assert state2["state"] == "off"
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
 
@@ -894,7 +898,7 @@ class TestSmartlySyncStatesView:
         assert response.status == 200
         data = json.loads(response.body)
         assert gateway.calls == 1
-        assert data["states"][0]["entity_id"] == "light.runtime"
+        assert data["data"]["states"][0]["entity_id"] == "light.runtime"
 
     @pytest.mark.asyncio
     async def test_states_sync_requires_setup_runtime_gateway(
@@ -1064,7 +1068,7 @@ class TestSmartlySyncStatesView:
         data = json.loads(response.body)
         raw_ref = "raw_ldev_camera_runtime"
         assert gateway.calls == 1
-        assert data["logical_devices"][0]["raw_refs"] == [
+        assert data["data"]["logical_devices"][0]["raw_refs"] == [
             {
                 "raw_ref": raw_ref,
                 "kind": "normalization_diagnostic",
@@ -1072,7 +1076,7 @@ class TestSmartlySyncStatesView:
                 "entity_ids": ["camera.runtime"],
             }
         ]
-        assert "raw_payload" not in data["logical_devices"][0]
+        assert "raw_payload" not in data["data"]["logical_devices"][0]
         assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
             "camera.runtime"
         )
@@ -1116,13 +1120,15 @@ class TestSmartlySyncStatesView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["read_path"] == "logical_devices"
-        assert data["device_count"] == 1
-        assert data["devices"] == data["logical_devices"]
+        assert "read_path" not in data
+        assert "device_count" not in data
+        assert "devices" not in data
+        assert "states" not in data
+        assert "logical_devices" not in data
         assert data["data"]["read_path"] == "logical_devices"
         assert data["data"]["device_count"] == 1
-        assert data["data"]["devices"] == data["logical_devices"]
-        assert data["states"][0]["entity_id"] == "light.desk"
+        assert data["data"]["devices"] == data["data"]["logical_devices"]
+        assert data["data"]["states"][0]["entity_id"] == "light.desk"
 
     @pytest.mark.asyncio
     async def test_states_sync_groups_logical_devices_by_registry_device_id(
@@ -1189,8 +1195,8 @@ class TestSmartlySyncStatesView:
         assert response.status == 200
         data = json.loads(response.body)
 
-        assert [device["id"] for device in data["logical_devices"]] == ["ldev_ha_device_1"]
-        logical_device = data["logical_devices"][0]
+        assert [device["id"] for device in data["data"]["logical_devices"]] == ["ldev_ha_device_1"]
+        logical_device = data["data"]["logical_devices"][0]
         assert logical_device["source_entities"] == ["light.desk", "button.desk_scene"]
         assert [capability["type"] for capability in logical_device["capabilities"]] == [
             "power",
@@ -1259,7 +1265,7 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    state = data["states"][0]
+                    state = data["data"]["states"][0]
                     assert state["attributes"]["last_triggered"] == last_triggered.isoformat()
 
     @pytest.mark.asyncio
@@ -1372,7 +1378,7 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    sensor_state = data["states"][0]
+                    sensor_state = data["data"]["states"][0]
 
                     assert sensor_state["device_class"] == "environment_sensor"
                     assert "bridge_chart" not in sensor_state
@@ -1435,7 +1441,7 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    chart = data["states"][0]["attributes"]["bridge_chart"]
+                    chart = data["data"]["states"][0]["attributes"]["bridge_chart"]
 
                     assert chart["points"] == [
                         {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
@@ -1555,8 +1561,8 @@ class TestSmartlySyncStatesView:
 
                     data = json.loads(response.body)
                     # Should only include entities with states
-                    assert data["count"] == 2
-                    assert len(data["states"]) == 2
+                    assert data["data"]["count"] == 2
+                    assert len(data["data"]["states"]) == 2
 
     @pytest.mark.asyncio
     async def test_states_sync_empty_allowed_entities(self, mock_request, mock_hass):
@@ -1578,8 +1584,8 @@ class TestSmartlySyncStatesView:
                 import json
 
                 data = json.loads(response.body)
-                assert data["count"] == 0
-                assert len(data["states"]) == 0
+                assert data["data"]["count"] == 0
+                assert len(data["data"]["states"]) == 0
 
     @pytest.mark.asyncio
     async def test_states_sync_icon_priority(self, mock_request, mock_hass):
@@ -1665,24 +1671,24 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    assert data["count"] == 3
-                    assert len(data["states"]) == 3
+                    assert data["data"]["count"] == 3
+                    assert len(data["data"]["states"]) == 3
 
                     # Check priority 1: state icon
                     state_1 = next(
-                        s for s in data["states"] if s["entity_id"] == "light.state_icon"
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.state_icon"
                     )
                     assert state_1["icon"] == "mdi:lightbulb-on"
 
                     # Check priority 2: custom registry icon
                     state_2 = next(
-                        s for s in data["states"] if s["entity_id"] == "light.custom_icon"
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.custom_icon"
                     )
                     assert state_2["icon"] == "mdi:custom-icon"
 
                     # Check priority 3: original registry icon
                     state_3 = next(
-                        s for s in data["states"] if s["entity_id"] == "light.original_icon"
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.original_icon"
                     )
                     assert state_3["icon"] == "mdi:original-icon"
 
@@ -1761,19 +1767,19 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    assert data["count"] == 3
+                    assert data["data"]["count"] == 3
 
                     # Check default icons
                     switch_state = next(
-                        s for s in data["states"] if s["entity_id"] == "switch.test"
+                        s for s in data["data"]["states"] if s["entity_id"] == "switch.test"
                     )
                     assert switch_state["icon"] == "mdi:toggle-switch-outline"
 
-                    light_state = next(s for s in data["states"] if s["entity_id"] == "light.test")
+                    light_state = next(s for s in data["data"]["states"] if s["entity_id"] == "light.test")
                     assert light_state["icon"] == "mdi:lightbulb-outline"
 
                     camera_state = next(
-                        s for s in data["states"] if s["entity_id"] == "camera.test"
+                        s for s in data["data"]["states"] if s["entity_id"] == "camera.test"
                     )
                     assert camera_state["icon"] == "mdi:camera"
 
@@ -1901,33 +1907,33 @@ class TestSmartlySyncStatesView:
                 import json
 
                 data = json.loads(response.body)
-                assert data["count"] == 5
+                assert data["data"]["count"] == 5
 
                 # Check voltage: 2 decimal places (V)
                 voltage_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.voltage"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.voltage"
                 )
                 assert voltage_state["state"] == "115.7"
 
                 # Check current (mA): 1 decimal place
                 current_ma_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.current_ma"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.current_ma"
                 )
                 assert current_ma_state["state"] == "35.0"
 
                 # Check current (A): 3 decimal places
                 current_a_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.current_a"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.current_a"
                 )
                 assert current_a_state["state"] == "0.457"
 
                 # Check power: 2 decimal places (W)
-                power_state = next(s for s in data["states"] if s["entity_id"] == "sensor.power")
+                power_state = next(s for s in data["data"]["states"] if s["entity_id"] == "sensor.power")
                 assert power_state["state"] == "0.8"
 
                 # Check temperature: 1 decimal place
                 temp_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.temperature"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.temperature"
                 )
                 assert temp_state["state"] == "25.6"
 

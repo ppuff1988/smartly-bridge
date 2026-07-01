@@ -80,10 +80,6 @@ class SyncStatesUseCase:
         updates = _state_updates(logical_devices, snapshots)
         body: dict[str, Any] = {
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "states": states,
-            "count": len(states),
-            "normalization_warnings": warnings,
-            "logical_devices": logical_devices,
             "data": {
                 "states": states,
                 "count": len(states),
@@ -96,13 +92,13 @@ class SyncStatesUseCase:
             "errors": [],
         }
         if self._use_logical_devices:
-            logical_read_path = {
-                "read_path": "logical_devices",
-                "devices": logical_devices,
-                "device_count": len(logical_devices),
-            }
-            body.update(logical_read_path)
-            body["data"].update(logical_read_path)
+            body["data"].update(
+                {
+                    "read_path": "logical_devices",
+                    "devices": logical_devices,
+                    "device_count": len(logical_devices),
+                }
+            )
         return BridgeResponse(body, status=200)
 
     def _attach_raw_diagnostic_refs(
