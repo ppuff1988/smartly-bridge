@@ -193,13 +193,10 @@ class ControlUseCase:
             command.actor,
         )
         return _control_success_response(
-            {
-                "success": True,
-                "entity_id": command.entity_id,
-                "action": command.action,
-                "new_state": state.state if state else None,
-                "new_attributes": state.attributes if state else None,
-            }
+            source_entity_id=command.entity_id,
+            source_action=command.action,
+            new_state=state.state if state else None,
+            new_attributes=state.attributes if state else None,
         )
 
 
@@ -321,6 +318,7 @@ class SmartlyCommandUseCase:
             entity_id,
         )
         data.update(trace)
+        source_result = result.body.get("data", {})
         return BridgeResponse(
             {
                 "success": True,
@@ -333,8 +331,8 @@ class SmartlyCommandUseCase:
                 "command": command.command,
                 "entity_id": entity_id,
                 "expected_state": expected_state,
-                "new_state": result.body.get("new_state"),
-                "new_attributes": result.body.get("new_attributes"),
+                "new_state": source_result.get("new_state"),
+                "new_attributes": source_result.get("new_attributes"),
                 "data": data,
                 "warnings": [],
                 "errors": [],
@@ -824,13 +822,26 @@ def control_error_response(error: str, *, status: int) -> BridgeResponse:
     )
 
 
-def _control_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
-    """Return a legacy-compatible API vNext control success response."""
+def _control_success_response(
+    *,
+    source_entity_id: str,
+    source_action: str,
+    new_state: Any,
+    new_attributes: dict[str, Any] | None,
+    status: int = 200,
+) -> BridgeResponse:
+    """Return vNext source command execution data."""
+    data = {
+        "status": "completed",
+        "source_entity_id": source_entity_id,
+        "source_action": source_action,
+        "new_state": new_state,
+        "new_attributes": new_attributes,
+    }
     return BridgeResponse(
         {
-            **body,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": body,
+            "data": data,
             "warnings": [],
             "errors": [],
         },

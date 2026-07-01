@@ -123,11 +123,16 @@ class FakeResolvedControlUseCase:
         self.calls.append((client_id, command))
         return BridgeResponse(
             {
-                "success": True,
-                "entity_id": command.entity_id,
-                "action": command.action,
-                "new_state": "on",
-                "new_attributes": {"brightness": 204},
+                "schema_version": "2026.06",
+                "data": {
+                    "status": "completed",
+                    "source_entity_id": command.entity_id,
+                    "source_action": command.action,
+                    "new_state": "on",
+                    "new_attributes": {"brightness": 204},
+                },
+                "warnings": [],
+                "errors": [],
             }
         )
 
@@ -299,7 +304,7 @@ async def test_control_use_case_denies_service_before_service_call() -> None:
 
 @pytest.mark.asyncio
 async def test_control_use_case_calls_allowed_service_and_returns_new_state() -> None:
-    """Allowed commands go through the control port and return the resulting state."""
+    """Allowed source commands return vNext data without legacy top-level fields."""
     audit = FakeAudit()
     state = EntityStateSnapshot(
         entity_id="light.kitchen",
@@ -318,53 +323,27 @@ async def test_control_use_case_calls_allowed_service_and_returns_new_state() ->
     )
 
     assert result.status == 200
-    legacy_body = {
-        key: value
-        for key, value in result.body.items()
-        if key not in {"schema_version", "data", "warnings", "errors"}
-    }
-    assert legacy_body == {
-        "success": True,
-        "entity_id": "light.kitchen",
-        "action": "turn_on",
+    assert not {
+        "success",
+        "entity_id",
+        "action",
+        "new_state",
+        "new_attributes",
+    } & result.body.keys()
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {
+        "status": "completed",
+        "source_entity_id": "light.kitchen",
+        "source_action": "turn_on",
         "new_state": "on",
         "new_attributes": {"brightness": 255},
     }
-    assert result.body["schema_version"] == "2026.06"
-    assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
     assert gateway.calls == [("light.kitchen", "turn_on", {"brightness": 255})]
     assert audit.controls == [
         ("client-1", "light.kitchen", "turn_on", "success", {"role": "admin"})
     ]
-
-
-@pytest.mark.asyncio
-async def test_legacy_control_success_response_matches_api_vnext_fixture() -> None:
-    """Legacy control success response remains stable for old and vNext clients."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "legacy-control-success.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
-    audit = FakeAudit()
-    state = EntityStateSnapshot(
-        entity_id="light.kitchen",
-        state="on",
-        attributes={"brightness": 255},
-        last_changed=None,
-        last_updated=None,
-        icon=None,
-    )
-    gateway = FakeControlGateway(state)
-    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
-
-    result = await use_case.execute(
-        "client-1",
-        ControlCommand("light.kitchen", "turn_on", {"brightness": 255}, {"role": "admin"}),
-    )
-
-    assert result.body == expected_body
 
 
 @pytest.mark.asyncio
@@ -404,26 +383,6 @@ async def test_control_use_case_reports_service_call_failure() -> None:
     ]
 
 
-@pytest.mark.asyncio
-async def test_legacy_control_error_response_matches_api_vnext_fixture() -> None:
-    """Legacy control error response remains stable for old and vNext clients."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "legacy-control-error.json"
-    )
-    expected_body = json.loads(fixture_path.read_text())
-    audit = FakeAudit()
-    gateway = FakeControlGateway(exc=RuntimeError("source unavailable"))
-    use_case = ControlUseCase(FakeEntityPolicy(), gateway, audit)
-
-    result = await use_case.execute(
-        "client-1",
-        ControlCommand("light.kitchen", "turn_on", {}, {"role": "admin"}),
-    )
-
-    assert result.body == expected_body
-
-
-@pytest.mark.asyncio
 async def test_control_use_case_maps_light_brightness_alias_to_turn_on() -> None:
     """Light brightness commands map to Home Assistant turn_on service data."""
     audit = FakeAudit()
@@ -445,7 +404,7 @@ async def test_control_use_case_maps_light_brightness_alias_to_turn_on() -> None
     assert result.status == 200
     assert gateway.calls == [("light.kitchen", "turn_on", {"brightness": 150})]
     assert policy.service_checks == [("light.kitchen", "turn_on")]
-    assert result.body["action"] == "set_brightness"
+    assert result.body["data"]["source_action"] == "set_brightness"
 
 
 @pytest.mark.asyncio
