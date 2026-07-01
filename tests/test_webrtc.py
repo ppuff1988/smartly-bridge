@@ -1027,6 +1027,51 @@ class TestWebRTCViews:
         assert gateway.closed_tokens == [gateway.session.token]
 
     @pytest.mark.asyncio
+    async def test_close_webrtc_session_uses_injected_use_case_factory(self):
+        """WebRTC hangup invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _close_webrtc_session
+
+        class FakeHangupUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                session_id: str,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, session_id))
+                return BridgeResponse(
+                    {
+                        "success": True,
+                        "status": "closed",
+                        "data": {"status": "closed"},
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeHangupUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _close_webrtc_session(
+            gateway,
+            entity_id="camera.front_door",
+            session_id="factory-session",
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "factory-session")]
+        assert result.body["status"] == "closed"
+
+    @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
         """Test token request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView

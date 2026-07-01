@@ -156,14 +156,20 @@ async def _add_webrtc_ice_candidate(
     )
 
 
+def _webrtc_hangup_use_case(gateway: Any) -> WebRTCHangupUseCase:
+    """Build the WebRTC hangup application use case."""
+    return WebRTCHangupUseCase(gateway)
+
+
 async def _close_webrtc_session(
     gateway: Any,
     *,
     entity_id: str,
     session_id: str,
+    use_case_factory: Callable[[Any], Any] = _webrtc_hangup_use_case,
 ) -> Any:
     """Execute the WebRTC hangup use case with parsed HTTP shell inputs."""
-    return await WebRTCHangupUseCase(gateway).execute(
+    return await use_case_factory(gateway).execute(
         entity_id=entity_id,
         session_id=session_id,
     )
