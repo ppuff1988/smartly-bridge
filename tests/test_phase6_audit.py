@@ -448,6 +448,37 @@ def test_phase6_audit_detects_openapi_history_top_level_error_examples(
     )
 
 
+def test_phase6_audit_detects_openapi_webhook_top_level_success_schemas(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects webhook response schemas with top-level success."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "webhooks:\n"
+            "  stateChanged:\n"
+            "    post:\n"
+            "      responses:\n"
+            "        '200':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              schema:\n"
+            "                type: object\n"
+            "                properties:\n"
+            "                  success:\n"
+            "                    type: boolean\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-webhook-top-level-success-schema"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:

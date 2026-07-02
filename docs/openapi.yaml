@@ -2855,10 +2855,34 @@ webhooks:
             application/json:
               schema:
                 type: object
+                required:
+                  - schema_version
+                  - data
+                  - warnings
+                  - errors
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  schema_version:
+                    type: string
+                    example: "2026.06"
+                  data:
+                    type: object
+                    required:
+                      - status
+                    properties:
+                      status:
+                        type: string
+                        example: accepted
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiVNextError'
+                    example: []
 
   heartbeat:
     post:
@@ -2881,7 +2905,31 @@ webhooks:
             application/json:
               schema:
                 type: object
+                required:
+                  - schema_version
+                  - data
+                  - warnings
+                  - errors
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  schema_version:
+                    type: string
+                    example: "2026.06"
+                  data:
+                    type: object
+                    required:
+                      - status
+                    properties:
+                      status:
+                        type: string
+                        example: accepted
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiVNextError'
+                    example: []

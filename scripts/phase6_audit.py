@@ -211,6 +211,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_device_event_success_example_findings(root_path))
     findings.extend(_openapi_device_event_error_example_findings(root_path))
     findings.extend(_openapi_history_error_example_findings(root_path))
+    findings.extend(_openapi_webhook_success_schema_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
@@ -1172,6 +1173,50 @@ def _openapi_history_error_example_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _openapi_webhook_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    for webhook_name, webhook in spec.get("webhooks", {}).items():
+        for method, operation in webhook.items():
+            if not isinstance(operation, dict):
+                continue
+            for status_code, response in operation.get("responses", {}).items():
+                schema = (
+                    response.get("content", {})
+                    .get("application/json", {})
+                    .get("schema", {})
+                )
+                if not _schema_has_top_level_success(schema):
+                    continue
+                findings.append(
+                    Finding(
+                        code="openapi-webhook-top-level-success-schema",
+                        path=_relative_path(root, path),
+                        line=_line_number_for_pattern_after(
+                            text,
+                            f"  {webhook_name}:",
+                            f"        '{status_code}':",
+                        ),
+                        message=(
+                            "OpenAPI webhook response schema still exposes "
+                            "top-level success; use API vNext data fields."
+                        ),
+                    )
+                )
+    return findings
+
+
 def _openapi_media_examples(media: dict[str, object]) -> list[object]:
     examples: list[object] = []
     if "example" in media:
@@ -1199,6 +1244,15 @@ def _is_top_level_success_example(example: object) -> bool:
         isinstance(example, dict)
         and bool(legacy_keys.intersection(example))
         and "data" not in example
+    )
+
+
+def _schema_has_top_level_success(schema: object) -> bool:
+    return (
+        isinstance(schema, dict)
+        and isinstance(schema.get("properties"), dict)
+        and "success" in schema["properties"]
+        and "data" not in schema["properties"]
     )
 
 
