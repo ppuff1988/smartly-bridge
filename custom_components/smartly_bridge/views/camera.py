@@ -640,7 +640,11 @@ class SmartlyCameraStreamView(BaseView):
             log_context.x_stream_token,
         )
 
-        validation = _validate_camera_entity_id(self.request, raw_entity_id)
+        validation = _validate_camera_entity_id(
+            self.request,
+            raw_entity_id,
+            error_response_factory=_camera_vnext_error_response,
+        )
         if validation.response is not None:
             return validation.response
         entity_id = validation.entity_id
@@ -651,6 +655,7 @@ class SmartlyCameraStreamView(BaseView):
             entity_id=entity_id,
             service="camera_stream",
             require_entity_allowed=True,
+            error_response_factory=_camera_vnext_error_response,
         )
         if guard.response is not None:
             return guard.response

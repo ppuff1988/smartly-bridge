@@ -1176,8 +1176,8 @@ class TestSmartlyCameraStreamView:
         response = await view.get()
         assert response.status == 400
         data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
         assert data == {
-            "error": "invalid_entity_id",
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1193,7 +1193,7 @@ class TestSmartlyCameraStreamView:
 
     @pytest.mark.asyncio
     async def test_stream_invalid_entity_id_matches_api_vnext_fixture(self, mock_request):
-        """Stream invalid entity response remains stable for legacy and vNext clients."""
+        """Stream invalid entity response remains stable for vNext clients."""
         mock_request.match_info = {"entity_id": "light.test"}
         response = await SmartlyCameraStreamView(mock_request).get()
 
@@ -1216,8 +1216,8 @@ class TestSmartlyCameraStreamView:
 
             assert response.status == 401
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1233,7 +1233,7 @@ class TestSmartlyCameraStreamView:
 
     @pytest.mark.asyncio
     async def test_stream_auth_failure_matches_api_vnext_fixture(self, mock_request):
-        """Stream auth failure response remains stable for legacy and vNext clients."""
+        """Stream auth failure response remains stable for vNext clients."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -1256,8 +1256,8 @@ class TestSmartlyCameraStreamView:
 
         assert response.status == 500
         data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1277,7 +1277,7 @@ class TestSmartlyCameraStreamView:
         mock_request,
         mock_hass,
     ):
-        """Stream integration error response remains stable for legacy and vNext clients."""
+        """Stream integration error response remains stable for vNext clients."""
         mock_hass.data = {}
 
         response = await SmartlyCameraStreamView(mock_request).get()
@@ -1306,8 +1306,8 @@ class TestSmartlyCameraStreamView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1327,7 +1327,7 @@ class TestSmartlyCameraStreamView:
         mock_request,
         mock_hass,
     ):
-        """Stream rate-limit response remains stable for legacy and vNext clients."""
+        """Stream rate-limit response remains stable for vNext clients."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -1364,8 +1364,8 @@ class TestSmartlyCameraStreamView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
+                _assert_vnext_only_top_level(data)
                 assert data == {
-                    "error": "entity_not_allowed",
                     "schema_version": SMARTLY_API_SCHEMA_VERSION,
                     "data": {"status": "rejected"},
                     "warnings": [],
@@ -1384,7 +1384,7 @@ class TestSmartlyCameraStreamView:
         self,
         mock_request,
     ):
-        """Stream ACL denial response remains stable for legacy and vNext clients."""
+        """Stream ACL denial response remains stable for vNext clients."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
