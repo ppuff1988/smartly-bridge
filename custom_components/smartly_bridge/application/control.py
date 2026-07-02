@@ -374,7 +374,7 @@ def _smartly_command_vnext_data(
     expected_state: dict[str, Any],
     source_entity_id: str | None,
 ) -> dict[str, Any]:
-    """Return API vNext command data without requiring legacy top-level fields."""
+    """Return self-contained API vNext command data."""
     data = {
         "command_id": command.command_id,
         "status": status,

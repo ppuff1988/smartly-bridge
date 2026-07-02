@@ -73,6 +73,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_camera_legacy_wording_findings(root_path))
     findings.extend(_device_event_legacy_wording_findings(root_path))
     findings.extend(_logical_device_legacy_wording_findings(root_path))
+    findings.extend(_control_application_legacy_wording_findings(root_path))
     return findings
 
 
@@ -362,6 +363,32 @@ def _logical_device_legacy_wording_findings(root: Path) -> list[Finding]:
                     ),
                 )
             )
+    return findings
+
+
+def _control_application_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    path = root / "custom_components" / "smartly_bridge" / "application" / "control.py"
+    if not path.exists():
+        return findings
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return findings
+    for line_number, line in enumerate(lines, start=1):
+        if "legacy" not in line.lower():
+            continue
+        findings.append(
+            Finding(
+                code="control-application-legacy-wording",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "Control application wording still labels API vNext "
+                    "command data as legacy-related."
+                ),
+            )
+        )
     return findings
 
 
