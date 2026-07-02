@@ -195,6 +195,19 @@ def test_phase6_audit_detects_production_legacy_wording(tmp_path: Path) -> None:
     assert any(finding.code == "production-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_active_contract_legacy_wording(tmp_path: Path) -> None:
+    """The audit rejects legacy/deprecated wording in active contract docs."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        "description: Legacy Home Assistant style state payload\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "active-contract-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

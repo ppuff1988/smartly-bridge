@@ -195,7 +195,7 @@ Capability name 必須在所有 adapter 之間保持穩定。
 | Media | `microphone` |
 | Media | `speaker` |
 
-Deprecated alias 或 source-specific alias 必須在資料送到 Platform 前完成映射。
+Source-specific alias 必須在資料送到 Platform 前完成映射。
 
 Alias 範例：
 
@@ -606,7 +606,7 @@ Migration 規則：
 - Minor version 允許 additive fields。
 - 重新命名 canonical capability name 時，至少要在一個 major migration period 內支援 alias。
 - Platform 應能 tolerate unknown capabilities，做法可以是忽略，或以安全 read-only detail 顯示。
-- Bridge 只應在 migration window 內同時 emit canonical names 與 deprecated aliases。
+- Bridge 只應在 migration window 內同時 emit canonical names 與 source-specific aliases。
 - Existing entity-based sync 可以和 logical-device sync 共存，直到 Platform migration 完成。
 
 ## 19. 擴充性檢查清單

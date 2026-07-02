@@ -44,6 +44,16 @@ FALLBACK_CONSTRUCTORS = {
 }
 RESPONSE_BUILDERS = {"BridgeResponse", "_json_response"}
 API_VNEXT_TOP_LEVEL_KEYS = {"schema_version", "data", "warnings", "errors"}
+ACTIVE_CONTRACT_DOCS = [
+    Path("docs/openapi.yaml"),
+    Path("docs/specs/api-vnext-contract.md"),
+    Path("docs/specs/device-abstraction.md"),
+]
+ACTIVE_CONTRACT_LEGACY_TERMS = (
+    "legacy",
+    "deprecated",
+    "backward compatibility",
+)
 
 
 class Finding(NamedTuple):
@@ -75,6 +85,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_device_event_legacy_wording_findings(root_path))
     findings.extend(_logical_device_legacy_wording_findings(root_path))
     findings.extend(_control_application_legacy_wording_findings(root_path))
+    findings.extend(_active_contract_legacy_wording_findings(root_path))
     return findings
 
 
@@ -412,6 +423,34 @@ def _production_legacy_wording_findings(
                     path=_relative_path(root, path),
                     line=line_number,
                     message="Production Bridge code still contains legacy wording.",
+                )
+            )
+    return findings
+
+
+def _active_contract_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ACTIVE_CONTRACT_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if not any(term in lower_line for term in ACTIVE_CONTRACT_LEGACY_TERMS):
+                continue
+            findings.append(
+                Finding(
+                    code="active-contract-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Active contract docs still use legacy/deprecated wording; "
+                        "describe source aliases or non-cursor behavior directly."
+                    ),
                 )
             )
     return findings

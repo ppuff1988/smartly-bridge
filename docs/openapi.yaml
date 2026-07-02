@@ -594,7 +594,7 @@ paths:
         
         **Pagination (v1.4.0):**
         - Use `cursor` parameter for efficient pagination through large datasets
-        - Without cursor: Returns up to `limit` records (legacy mode)
+        - Without cursor: Returns up to `limit` records (non-cursor mode)
         - With cursor: Returns up to `page_size` records per page (default: 100, max: 1000)
         - Response includes `has_more` and `next_cursor` for fetching next page
         - Cursor contains encoded timestamp and state change time (Base64)
@@ -1786,7 +1786,7 @@ components:
         truncated:
           type: boolean
           description: |
-            Whether more records exist beyond the limit (legacy mode only, not present in cursor mode).
+            Whether more records exist beyond the limit (non-cursor mode only, not present in cursor mode).
             When using cursor pagination, use `has_more` instead.
           example: false
         start_time:
@@ -2608,7 +2608,7 @@ components:
           format: date-time
         data:
           type: object
-          description: Legacy Home Assistant style state payload
+          description: Home Assistant style state payload
           properties:
             entity_id:
               type: string

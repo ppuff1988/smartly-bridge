@@ -84,7 +84,7 @@ Response：
 - Full sync 用於首次同步或重大 schema migration。
 - Incremental sync 用於一般變更。
 - Logical device ID 必須穩定。
-- Deprecated entity ID 應放在 alias，不應成為主 ID。
+- Source entity ID 應放在 alias，不應成為主 ID。
 - Raw payload 不應放在 sync body；只傳 `raw_refs`。
 
 ## 4. State Sync
