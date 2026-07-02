@@ -142,7 +142,7 @@ def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
 
 
 def test_history_read_gateway_resolver_requires_runtime_gateway(mock_hass) -> None:
-    """History read gateway resolver does not create a request-time fallback."""
+    """History read gateway resolver requires a setup-created runtime gateway."""
     from custom_components.smartly_bridge.views.history import _history_read_gateway
 
     mock_hass.data[DOMAIN] = {"runtime_adapters": {}}

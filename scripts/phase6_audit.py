@@ -68,6 +68,16 @@ CONTROL_TEST_LEGACY_WORDING_PATHS = [
     Path("tests/test_application_hexagonal.py"),
     Path("tests/test_application_local_automation.py"),
 ]
+REQUEST_TIME_FALLBACK_WORDING_PATHS = [
+    Path("tests/test_http.py"),
+    Path("tests/test_sync_views.py"),
+    Path("tests/test_device_events.py"),
+    Path("tests/test_history_views.py"),
+    Path("tests/test_camera_views.py"),
+    Path("tests/test_webrtc.py"),
+    Path("tests/test_local_automation_rules.py"),
+    Path("tests/test_push.py"),
+]
 PUBLIC_CONTROL_DOCS = [
     Path("README.md"),
     Path("docs/README.md"),
@@ -117,6 +127,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_active_contract_legacy_wording_findings(root_path))
     findings.extend(_migration_plan_legacy_wording_findings(root_path))
     findings.extend(_control_test_legacy_wording_findings(root_path))
+    findings.extend(_request_time_fallback_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     return findings
@@ -538,6 +549,37 @@ def _control_test_legacy_wording_findings(root: Path) -> list[Finding]:
                     message=(
                         "Control/command tests still use legacy wording; "
                         "describe removed body shapes or source behavior directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _request_time_fallback_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in REQUEST_TIME_FALLBACK_WORDING_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if "fallback" not in lower_line:
+                continue
+            if "request-time" not in lower_line and "resolver" not in lower_line:
+                continue
+            findings.append(
+                Finding(
+                    code="request-time-fallback-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Runtime resolver tests still describe request-time "
+                        "adapter construction as fallback; use setup-created "
+                        "runtime adapter wording."
                     ),
                 )
             )

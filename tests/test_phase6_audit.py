@@ -310,6 +310,21 @@ def test_phase6_audit_detects_control_test_legacy_wording(
     assert any(finding.code == "control-test-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_request_time_fallback_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects request-time fallback wording in resolver tests."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/test_http.py",
+        'def test_resolver():\n    """Does not create a request-time fallback."""\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "request-time-fallback-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

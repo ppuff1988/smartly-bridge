@@ -395,7 +395,7 @@ class TestSmartlyCameraSnapshotView:
         mock_request,
         mock_hass,
     ):
-        """Camera gateway resolver does not create a request-time fallback."""
+        """Camera gateway resolver requires a setup-created runtime gateway."""
         mock_hass.data[DOMAIN]["camera_manager"] = MagicMock()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {}
 

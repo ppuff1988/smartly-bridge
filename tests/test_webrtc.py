@@ -149,7 +149,7 @@ def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
 
 
 def test_web_rtc_gateway_resolver_requires_runtime_gateway(mock_hass) -> None:
-    """WebRTC gateway resolver does not create a request-time fallback."""
+    """WebRTC gateway resolver requires a setup-created runtime gateway."""
     from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
 
     manager = MagicMock()

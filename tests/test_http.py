@@ -137,7 +137,7 @@ def test_smartly_command_executor_resolver_uses_runtime_executor(mock_hass) -> N
 
 
 def test_smartly_command_executor_resolver_requires_runtime_executor(mock_hass) -> None:
-    """SmartlyCommand executor resolver does not create a request-time fallback."""
+    """SmartlyCommand executor resolver requires a setup-created runtime port."""
     from custom_components.smartly_bridge.views.control import _smartly_command_executor
 
     mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
@@ -571,7 +571,7 @@ class TestRawDiagnosticEndpoint:
         assert result is store
 
     def test_raw_diagnostic_store_resolver_requires_runtime_store(self, mock_hass):
-        """Raw diagnostic store resolver does not create a request-time fallback."""
+        """Raw diagnostic store resolver requires a setup-created runtime store."""
         from custom_components.smartly_bridge.views.diagnostics import _raw_diagnostic_store
 
         mock_hass.data[DOMAIN] = {"runtime_adapters": {}}

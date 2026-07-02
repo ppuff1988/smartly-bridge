@@ -499,7 +499,7 @@ def test_local_automation_rule_store_resolver_uses_runtime_store(mock_hass) -> N
 def test_local_automation_rule_store_resolver_requires_runtime_store(
     mock_hass,
 ) -> None:
-    """Local automation rule store resolver does not create a fallback."""
+    """Local automation rule store resolver requires a setup-created runtime port."""
     from custom_components.smartly_bridge.views.local_automation import (
         _local_automation_rule_store,
     )

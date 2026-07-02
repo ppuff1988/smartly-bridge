@@ -49,7 +49,7 @@ class TestStatePushManager:
         assert result is history_gateway
 
     def test_push_history_gateway_resolver_requires_runtime_gateway(self, mock_hass):
-        """Push history gateway resolver does not create a request-time fallback."""
+        """Push history gateway resolver requires a setup-created runtime gateway."""
         from custom_components.smartly_bridge.push import _push_history_gateway
 
         mock_hass.data[DOMAIN] = {"runtime_adapters": {}}

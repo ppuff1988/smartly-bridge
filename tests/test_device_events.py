@@ -338,7 +338,7 @@ def test_build_local_automation_does_not_mutate_runtime_adapters() -> None:
 
 
 def test_build_local_automation_requires_runtime_rule_store() -> None:
-    """Local automation assembly does not create a request-time rule-store fallback."""
+    """Local automation assembly requires a setup-created rule-store port."""
     from custom_components.smartly_bridge.views.device_events import _build_local_automation
 
     command_executor = FakeSmartlyCommandExecutor()
@@ -375,7 +375,7 @@ def test_build_local_automation_requires_runtime_rule_store() -> None:
 
 
 def test_build_local_automation_requires_runtime_command_executor() -> None:
-    """Local automation assembly does not create a request-time command executor fallback."""
+    """Local automation assembly requires a setup-created command executor port."""
     from custom_components.smartly_bridge.views.device_events import _build_local_automation
 
     rule_store = FakeLocalAutomationRuleStore(
@@ -482,7 +482,7 @@ def test_device_event_publisher_resolver_uses_runtime_publisher() -> None:
 
 
 def test_device_event_publisher_resolver_requires_runtime_publisher() -> None:
-    """Device event publisher resolver does not create a fallback."""
+    """Device event publisher resolver requires a setup-created runtime port."""
     from custom_components.smartly_bridge.views.device_events import _device_event_publisher
 
     integration_data = {"runtime_adapters": {}}
@@ -511,7 +511,7 @@ def test_device_event_deduplicator_resolver_uses_runtime_deduplicator() -> None:
 
 
 def test_device_event_deduplicator_resolver_requires_runtime_deduplicator() -> None:
-    """Device event deduplicator resolver does not create a fallback."""
+    """Device event deduplicator resolver requires a setup-created runtime port."""
     from custom_components.smartly_bridge.views.device_events import _device_event_deduplicator
 
     integration_data = {"runtime_adapters": {}}

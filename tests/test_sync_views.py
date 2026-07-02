@@ -882,7 +882,7 @@ class TestSmartlySyncStatesView:
         assert result is recorder
 
     def test_raw_diagnostic_recorder_resolver_requires_runtime_store(self, mock_hass):
-        """Raw diagnostic recorder resolver does not create a request-time fallback."""
+        """Raw diagnostic recorder resolver requires a setup-created runtime store."""
         from custom_components.smartly_bridge.views.sync import _raw_diagnostic_recorder
 
         mock_hass.data[DOMAIN]["runtime_adapters"] = {}
