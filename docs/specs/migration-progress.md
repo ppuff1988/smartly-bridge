@@ -630,6 +630,7 @@
 | 436 | `9482bdb` | Phase 6 清理 control test wording，將 legacy entity/action body 測試描述改為「不會被解析成 SmartlyCommand」，避免 audit search 誤判 legacy control branch 仍需保留 | Focused control/register-view tests `2 passed`; legacy control wording search passed |
 | 437 | `76a35aa` | Phase 6 requirement audit 將 `migration-plan.md`、`api-vnext-contract.md` 與 `capability-contracts.md` 的 cleanup / envelope / capability / release-window 條件對照到 code evidence 或 external release gates，並把 Remaining Work 收斂為外部 release gate 清單 | Focused control/register-view tests `2 passed`; adapter contract tests `20 passed`; production legacy top-level dict literal AST scan passed; legacy control wording search passed |
 | 438 | `249ba96` | Phase 6 release gate checklist 明確列出 Platform API vNext adoption、legacy usage threshold、alias window、rollback playbook、Platform dashboard audit 與 Legacy API LTS/removal policy 的 required evidence、acceptance condition 與目前 pending 狀態 | Docs-only; checklist review |
+| 439 | `a25cded` | Phase 6 code audit automation 新增 `scripts/phase6_audit.py`，可重跑 expired states alias、legacy top-level response body、view/runtime fallback constructor 檢查，讓 Bridge code-verifiable cleanup gate 不只存在於文件紀錄 | RED failed because `scripts/phase6_audit.py` was missing; phase6 audit tests `5 passed`; `python scripts/phase6_audit.py` passed; phase6/http/adapter-contract scope `27 passed` |
 
 ## Completed Slices
 
@@ -707,6 +708,8 @@
 - Local automation persistence verification: RED failed because dict-shaped `local_automation_rules` was persisted as string keys; focused malformed create test `1 passed`; Home Assistant local automation adapter `18 passed`; local automation/device-event/http scope `151 passed`.
 - Phase 6 requirement audit: migration-plan Phase 6 gates, API vNext response rules, capability canonical/source-ref rules, raw diagnostic retention, alias retention, endpoint removal and unknown-device fallback were mapped to code evidence or external release gates.
 - Phase 6 requirement audit verification: focused control/register-view tests `2 passed`; adapter contract tests `20 passed`; production legacy top-level dict literal AST scan passed; legacy control wording search passed.
+- Phase 6 code audit automation: `scripts/phase6_audit.py` now checks expired states alias, legacy top-level response bodies, and view/runtime request-time fallback constructors.
+- Phase 6 code audit automation verification: `tests/test_phase6_audit.py` `5 passed`; `python scripts/phase6_audit.py` passed; phase6/http/adapter-contract focused scope `27 passed`.
 - Phase 6 audit evidence: `/api/smartly/states` is not registered, all `tests/fixtures/api-vnext/*.json` files expose only `data` / `errors` / `schema_version` / `warnings` top-level keys, and sync raw diagnostic tests assert `raw_payload` stays out of sync bodies.
 - Phase 6 response-read audit: production response top-level read scan has no remaining `error` / `success` / `status` / `message` / payload-field reads; remaining `body.get("action")` / `body.get("entity_id")` hits are request-body parsing in camera/device-event views.
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
@@ -722,9 +725,9 @@
 | Legacy endpoint usage is below the removal threshold | Not provable from Bridge code; requires production usage telemetry. | External release gate |
 | Alias window has been announced and expired | Alias payloads are still emitted, but announcement/expiry is a release-process artifact. | External release gate |
 | Rollback playbook has been verified | Not represented in code; requires release/ops verification. | External release gate |
-| Remove expired legacy alias/deprecated endpoint | `register_views` no longer registers `/api/smartly/states`; `tests/test_http.py::test_register_views` asserts it is absent. | Code-verified |
+| Remove expired legacy alias/deprecated endpoint | `register_views` no longer registers `/api/smartly/states`; `tests/test_http.py::test_register_views` asserts it is absent; `scripts/phase6_audit.py` checks for the expired path in production code. | Code-verified |
 | Remove legacy `entity_id` / `action` control body branch | `POST /api/smartly/control` rejects legacy body as `missing_required_fields`; `_smartly_command_from_body` does not parse legacy entity/action bodies. | Code-verified |
-| Remove source-specific request-time fallback adapters from views | Control, sync, diagnostics, WebRTC, camera, history, local automation and device-event views require setup-created runtime adapters; production constructor scan for fallback adapters in views is clean. | Code-verified |
+| Remove source-specific request-time fallback adapters from views | Control, sync, diagnostics, WebRTC, camera, history, local automation and device-event views require setup-created runtime adapters; `scripts/phase6_audit.py` checks view/runtime fallback constructors. | Code-verified |
 | Remove unnecessary raw payload from sync response | Sync diagnostic devices emit `raw_refs` and record raw payload out-of-band; tests assert `raw_payload` is not in sync bodies. | Code-verified |
 | Preserve raw diagnostic storage | `RawDiagnosticStorePort` / `RawDiagnosticRecorderPort` and `HomeAssistantRawDiagnosticStore` remain, with TTL and redacted fetch endpoint coverage. | Preserved |
 | Preserve alias mapping history shape | Logical devices emit `aliases` with `kind`, `value`, `valid_from`, and `valid_until`; alias deletion still requires release-window proof. | Preserved, release-gated |
