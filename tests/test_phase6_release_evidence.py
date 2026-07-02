@@ -58,7 +58,11 @@ def test_phase6_release_evidence_accepts_ready_gate_table(tmp_path: Path) -> Non
                 "| Gate | Owner | Evidence source | Decision | Notes |",
                 "|---|---|---|---|---|",
                 "| Active Platform clients support API vNext | Platform owner | release/client-matrix.md | Ready | All active clients checked. |",
+                "| Retired endpoint usage below removal threshold | Data owner | release/telemetry.md | Ready | Usage is below threshold. |",
+                "| Alias window announced and elapsed | Release owner | release/announcement.md | Ready | Window elapsed. |",
                 "| Rollback playbook verified | Ops owner | runbooks/phase6.md | Ready | Dry run passed. |",
+                "| Platform render source audit completed | Platform owner | platform/render-audit.md | Ready | Source audit passed. |",
+                "| API support policy decided | Product owner | release/api-policy.md | Ready | Policy accepted. |",
                 "",
             ]
         ),
@@ -68,6 +72,41 @@ def test_phase6_release_evidence_accepts_ready_gate_table(tmp_path: Path) -> Non
 
     assert [status.gate for status in statuses] == [
         "Active Platform clients support API vNext",
+        "Retired endpoint usage below removal threshold",
+        "Alias window announced and elapsed",
         "Rollback playbook verified",
+        "Platform render source audit completed",
+        "API support policy decided",
     ]
     assert all(status.ready for status in statuses)
+
+
+def test_phase6_release_evidence_reports_missing_required_gates(
+    tmp_path: Path,
+) -> None:
+    """The checker rejects evidence tables that omit required release gates."""
+    checker = _load_phase6_release_evidence()
+    evidence_path = tmp_path / "phase6-release-evidence.md"
+    _write(
+        evidence_path,
+        "\n".join(
+            [
+                "# Phase 6 API vNext Release Evidence",
+                "",
+                "| Gate | Owner | Evidence source | Decision | Notes |",
+                "|---|---|---|---|---|",
+                "| Active Platform clients support API vNext | Platform owner | release/client-matrix.md | Ready | All active clients checked. |",
+                "",
+            ]
+        ),
+    )
+
+    missing = checker.missing_required_gates(checker.load_statuses(evidence_path))
+
+    assert missing == [
+        "Retired endpoint usage below removal threshold",
+        "Alias window announced and elapsed",
+        "Rollback playbook verified",
+        "Platform render source audit completed",
+        "API support policy decided",
+    ]

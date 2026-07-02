@@ -11,6 +11,14 @@ from typing import NamedTuple
 
 DEFAULT_EVIDENCE_PATH = Path("docs/specs/phase6-release-evidence.md")
 REQUIRED_COLUMNS = ("Gate", "Owner", "Evidence source", "Decision", "Notes")
+REQUIRED_GATES = (
+    "Active Platform clients support API vNext",
+    "Retired endpoint usage below removal threshold",
+    "Alias window announced and elapsed",
+    "Rollback playbook verified",
+    "Platform render source audit completed",
+    "API support policy decided",
+)
 INCOMPLETE_MARKERS = {"", "tbd", "pending", "n/a"}
 READY_DECISIONS = {"ready", "accepted", "approved", "complete", "completed", "passed"}
 
@@ -32,6 +40,12 @@ def load_statuses(path: Path | str = DEFAULT_EVIDENCE_PATH) -> list[GateStatus]:
     lines = evidence_path.read_text(encoding="utf-8").splitlines()
     rows = _status_table_rows(lines)
     return [_status_from_row(row) for row in rows]
+
+
+def missing_required_gates(statuses: list[GateStatus]) -> list[str]:
+    """Return required Phase 6 release gates missing from the evidence table."""
+    present_gates = {status.gate for status in statuses}
+    return [gate for gate in REQUIRED_GATES if gate not in present_gates]
 
 
 def _status_table_rows(lines: list[str]) -> list[dict[str, str]]:
@@ -117,12 +131,15 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     statuses = load_statuses(args.path)
+    missing = missing_required_gates(statuses)
     pending = [status for status in statuses if not status.ready]
-    if not pending:
+    if not missing and not pending:
         print("Phase 6 release evidence ready.")
         return 0
 
     print("Phase 6 release evidence has pending gates:")
+    for gate in missing:
+        print(f"- {gate}: missing required evidence row")
     for status in pending:
         print(
             f"- {status.gate}: owner={status.owner}; "

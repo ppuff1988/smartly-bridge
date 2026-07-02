@@ -110,6 +110,7 @@ Expected result:
 - Phase 6 code audit passes.
 - OpenAPI validation passes.
 - Release evidence checker prints `Phase 6 release evidence ready.` and exits 0.
+- Release evidence checker verifies all required gate rows are present before evaluating readiness.
 
 While evidence is still being collected, use this non-release status command:
 
