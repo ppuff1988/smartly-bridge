@@ -736,44 +736,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
               example:
-                entity_id: sensor.temperature
-                history:
-                  - state: 22.5
-                    attributes:
-                      unit_of_measurement: "°C"
-                      device_class: "temperature"
-                    last_changed: "2026-01-10T10:00:00+00:00"
-                    last_updated: "2026-01-10T10:00:00+00:00"
-                  - state: 23.1
-                    last_changed: "2026-01-10T11:00:00+00:00"
-                    last_updated: "2026-01-10T11:00:00+00:00"
-                count: 2
-                truncated: false
-                start_time: "2026-01-09T00:00:00+00:00"
-                end_time: "2026-01-10T00:00:00+00:00"
-                metadata:
-                  domain: sensor
+                schema_version: "2026.06"
+                data:
+                  entity_id: sensor.temperature
+                  history:
+                    - state: 22.5
+                      attributes:
+                        unit_of_measurement: "°C"
+                        device_class: "temperature"
+                      last_changed: "2026-01-10T10:00:00+00:00"
+                      last_updated: "2026-01-10T10:00:00+00:00"
+                    - state: 23.1
+                      last_changed: "2026-01-10T11:00:00+00:00"
+                      last_updated: "2026-01-10T11:00:00+00:00"
+                  count: 2
+                  truncated: false
+                  start_time: "2026-01-09T00:00:00+00:00"
+                  end_time: "2026-01-10T00:00:00+00:00"
+                  metadata:
+                    domain: sensor
+                    device_class: temperature
+                    unit_of_measurement: "°C"
+                    friendly_name: "Temperature Sensor"
+                    is_numeric: true
+                    decimal_places: 1
+                    visualization:
+                      type: chart
+                      chart_type: spline
+                      color: "#EF5350"
+                      show_points: false
+                      interpolation: natural
                   device_class: temperature
                   unit_of_measurement: "°C"
-                  friendly_name: "Temperature Sensor"
-                  is_numeric: true
-                  decimal_places: 1
-                  visualization:
-                    type: chart
-                    chart_type: spline
-                    color: "#EF5350"
-                    show_points: false
-                    interpolation: natural
-                device_class: temperature
-                unit_of_measurement: "°C"
-                bridge_chart:
-                  metric: temperature
-                  unit: "°C"
-                  points:
-                    - at: "2026-01-10T10:00:00+00:00"
-                      value: 22.5
-                    - at: "2026-01-10T11:00:00+00:00"
-                      value: 23.1
+                  bridge_chart:
+                    metric: temperature
+                    unit: "°C"
+                    points:
+                      - at: "2026-01-10T10:00:00+00:00"
+                        value: 22.5
+                      - at: "2026-01-10T11:00:00+00:00"
+                        value: 23.1
+                warnings: []
+                errors: []
         '400':
           description: Bad request (invalid time range, missing entity_id, invalid cursor)
           content:
@@ -919,18 +923,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/StatisticsResponse'
               example:
-                entity_id: sensor.power_consumption
-                period: hour
-                statistics:
-                  - start: "2026-01-10T09:00:00+00:00"
-                    end: "2026-01-10T10:00:00+00:00"
-                    mean: 150.5
-                    min: 50.0
-                    max: 300.0
-                    sum: 3612.0
-                count: 1
-                start_time: "2026-01-09T00:00:00+00:00"
-                end_time: "2026-01-10T00:00:00+00:00"
+                schema_version: "2026.06"
+                data:
+                  entity_id: sensor.power_consumption
+                  period: hour
+                  statistics:
+                    - start: "2026-01-10T09:00:00+00:00"
+                      end: "2026-01-10T10:00:00+00:00"
+                      mean: 150.5
+                      min: 50.0
+                      max: 300.0
+                      sum: 3612.0
+                  count: 1
+                  start_time: "2026-01-09T00:00:00+00:00"
+                  end_time: "2026-01-10T00:00:00+00:00"
+                warnings: []
+                errors: []
         '400':
           description: Bad request (invalid period, time range)
           content:
@@ -1909,80 +1917,100 @@ components:
       type: object
       description: Response for single entity history query
       required:
-        - entity_id
-        - history
-        - count
-        - start_time
-        - end_time
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        entity_id:
+        schema_version:
           type: string
-          description: The entity ID queried
-          example: sensor.temperature
-        history:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - entity_id
+            - history
+            - count
+            - start_time
+            - end_time
+          properties:
+            entity_id:
+              type: string
+              description: The entity ID queried
+              example: sensor.temperature
+            history:
+              type: array
+              description: |
+                List of historical states (ordered oldest to newest).
+                Note: attributes are only included in the first record for efficiency.
+              items:
+                $ref: '#/components/schemas/HistoryState'
+            count:
+              type: integer
+              description: Number of records returned
+              example: 24
+            truncated:
+              type: boolean
+              description: |
+                Whether more records exist beyond the limit (non-cursor mode only, not present in cursor mode).
+                When using cursor pagination, use `has_more` instead.
+              example: false
+            start_time:
+              type: string
+              format: date-time
+              description: Query start time
+              example: "2026-01-09T00:00:00+00:00"
+            end_time:
+              type: string
+              format: date-time
+              description: Query end time
+              example: "2026-01-10T00:00:00+00:00"
+            metadata:
+              $ref: '#/components/schemas/HistoryMetadata'
+              description: |
+                Entity metadata with visualization recommendations (v1.3.0+).
+                Provides intelligent suggestions for rendering the data based on device_class and domain.
+            device_class:
+              type: string
+              nullable: true
+              description: |
+                Device class promoted for Bridge chart consumers when the sensor is eligible.
+                Eligibility is based on device_class, not entity_id, friendly_name, or unit text.
+                Supported values include temperature, humidity, carbon_dioxide, co2,
+                carbon_monoxide, aqi, pm25, pm10, illuminance, pressure, and atmospheric_pressure.
+              example: carbon_dioxide
+            unit_of_measurement:
+              type: string
+              description: Measurement unit promoted for Bridge chart consumers
+              example: ppm
+            bridge_chart:
+              $ref: '#/components/schemas/BridgeChart'
+            page_size:
+              type: integer
+              description: |
+                **[v1.4.0]** Number of records per page (only present when using cursor pagination).
+              example: 100
+            has_more:
+              type: boolean
+              description: |
+                **[v1.4.0]** Whether more records are available (only present when `has_more` is true).
+                If true, use `next_cursor` to fetch the next page.
+              example: true
+            next_cursor:
+              type: string
+              description: |
+                **[v1.4.0]** Cursor for fetching the next page (only present when `has_more` is true).
+                Pass this value as the `cursor` parameter in the next request.
+              example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9"
+        warnings:
           type: array
-          description: |
-            List of historical states (ordered oldest to newest).
-            Note: attributes are only included in the first record for efficiency.
           items:
-            $ref: '#/components/schemas/HistoryState'
-        count:
-          type: integer
-          description: Number of records returned
-          example: 24
-        truncated:
-          type: boolean
-          description: |
-            Whether more records exist beyond the limit (non-cursor mode only, not present in cursor mode).
-            When using cursor pagination, use `has_more` instead.
-          example: false
-        start_time:
-          type: string
-          format: date-time
-          description: Query start time
-          example: "2026-01-09T00:00:00+00:00"
-        end_time:
-          type: string
-          format: date-time
-          description: Query end time
-          example: "2026-01-10T00:00:00+00:00"
-        metadata:
-          $ref: '#/components/schemas/HistoryMetadata'
-          description: |
-            Entity metadata with visualization recommendations (v1.3.0+).
-            Provides intelligent suggestions for rendering the data based on device_class and domain.
-        device_class:
-          type: string
-          nullable: true
-          description: |
-            Device class promoted for Bridge chart consumers when the sensor is eligible.
-            Eligibility is based on device_class, not entity_id, friendly_name, or unit text.
-            Supported values include temperature, humidity, carbon_dioxide, co2,
-            carbon_monoxide, aqi, pm25, pm10, illuminance, pressure, and atmospheric_pressure.
-          example: carbon_dioxide
-        unit_of_measurement:
-          type: string
-          description: Measurement unit promoted for Bridge chart consumers
-          example: ppm
-        bridge_chart:
-          $ref: '#/components/schemas/BridgeChart'
-        page_size:
-          type: integer
-          description: |
-            **[v1.4.0]** Number of records per page (only present when using cursor pagination).
-          example: 100
-        has_more:
-          type: boolean
-          description: |
-            **[v1.4.0]** Whether more records are available (only present when using cursor pagination).
-            If true, use `next_cursor` to fetch the next page.
-          example: true
-        next_cursor:
-          type: string
-          description: |
-            **[v1.4.0]** Cursor for fetching the next page (only present when `has_more` is true).
-            Pass this value as the `cursor` parameter in the next request.
-          example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9"
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     BridgeChart:
       type: object
@@ -2184,80 +2212,120 @@ components:
       type: object
       description: Response for batch history query
       required:
-        - history
-        - count
-        - truncated
-        - start_time
-        - end_time
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        history:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
           type: object
-          description: History data keyed by entity_id
-          additionalProperties:
-            type: array
-            items:
-              $ref: '#/components/schemas/HistoryState'
-        count:
-          type: object
-          description: Record count per entity
-          additionalProperties:
-            type: integer
-        truncated:
-          type: object
-          description: Truncation status per entity
-          additionalProperties:
-            type: boolean
-        denied_entities:
+          required:
+            - history
+            - count
+            - truncated
+            - start_time
+            - end_time
+          properties:
+            history:
+              type: object
+              description: History data keyed by entity_id
+              additionalProperties:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryState'
+            count:
+              type: object
+              description: Record count per entity
+              additionalProperties:
+                type: integer
+            truncated:
+              type: object
+              description: Truncation status per entity
+              additionalProperties:
+                type: boolean
+            denied_entities:
+              type: array
+              description: Entity IDs that were denied access
+              items:
+                type: string
+            start_time:
+              type: string
+              format: date-time
+              description: Query start time
+            end_time:
+              type: string
+              format: date-time
+              description: Query end time
+        warnings:
           type: array
-          description: Entity IDs that were denied access
           items:
-            type: string
-        start_time:
-          type: string
-          format: date-time
-          description: Query start time
-        end_time:
-          type: string
-          format: date-time
-          description: Query end time
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     StatisticsResponse:
       type: object
       description: Response for statistics query
       required:
-        - entity_id
-        - period
-        - statistics
-        - count
-        - start_time
-        - end_time
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        entity_id:
+        schema_version:
           type: string
-          description: The entity ID queried
-          example: sensor.power_consumption
-        period:
-          type: string
-          description: Aggregation period
-          enum: [hour, day, week, month]
-          example: hour
-        statistics:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - entity_id
+            - period
+            - statistics
+            - count
+            - start_time
+            - end_time
+          properties:
+            entity_id:
+              type: string
+              description: The entity ID queried
+              example: sensor.power_consumption
+            period:
+              type: string
+              description: Aggregation period
+              enum: [hour, day, week, month]
+              example: hour
+            statistics:
+              type: array
+              description: List of statistical records
+              items:
+                $ref: '#/components/schemas/StatisticsRecord'
+            count:
+              type: integer
+              description: Number of records returned
+              example: 24
+            start_time:
+              type: string
+              format: date-time
+              description: Query start time
+            end_time:
+              type: string
+              format: date-time
+              description: Query end time
+        warnings:
           type: array
-          description: List of statistical records
           items:
-            $ref: '#/components/schemas/StatisticsRecord'
-        count:
-          type: integer
-          description: Number of records returned
-          example: 24
-        start_time:
-          type: string
-          format: date-time
-          description: Query start time
-        end_time:
-          type: string
-          format: date-time
-          description: Query end time
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     StatisticsRecord:
       type: object

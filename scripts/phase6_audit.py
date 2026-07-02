@@ -210,6 +210,8 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_device_event_success_schema_findings(root_path))
     findings.extend(_openapi_sync_success_schema_findings(root_path))
     findings.extend(_openapi_sync_success_example_findings(root_path))
+    findings.extend(_openapi_history_success_schema_findings(root_path))
+    findings.extend(_openapi_history_success_example_findings(root_path))
     findings.extend(_openapi_device_event_success_example_findings(root_path))
     findings.extend(_openapi_device_event_error_example_findings(root_path))
     findings.extend(_openapi_history_error_example_findings(root_path))
@@ -1128,6 +1130,118 @@ def _openapi_sync_success_example_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _openapi_history_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    expected_payload_keys = {
+        "HistoryResponse": {
+            "entity_id",
+            "history",
+            "count",
+            "truncated",
+            "start_time",
+            "end_time",
+            "metadata",
+            "device_class",
+            "unit_of_measurement",
+            "bridge_chart",
+            "page_size",
+            "has_more",
+            "next_cursor",
+        },
+        "HistoryBatchResponse": {
+            "history",
+            "count",
+            "truncated",
+            "denied_entities",
+            "start_time",
+            "end_time",
+        },
+        "StatisticsResponse": {
+            "entity_id",
+            "period",
+            "statistics",
+            "count",
+            "start_time",
+            "end_time",
+        },
+    }
+    for schema_name, payload_keys in expected_payload_keys.items():
+        schema = schemas.get(schema_name, {})
+        properties = schema.get("properties", {})
+        top_level_payload_keys = payload_keys.intersection(properties)
+        if not top_level_payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-history-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(top_level_payload_keys))}; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_history_success_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    for api_path, method in (
+        ("/api/smartly/history/{entity_id}", "get"),
+        ("/api/smartly/history/batch", "post"),
+        ("/api/smartly/statistics/{entity_id}", "get"),
+    ):
+        operation = spec.get("paths", {}).get(api_path, {}).get(method, {})
+        for status_code, response in operation.get("responses", {}).items():
+            media = response.get("content", {}).get("application/json", {})
+            examples = _openapi_media_examples(media)
+            if not any(_is_top_level_history_success_example(example) for example in examples):
+                continue
+            findings.append(
+                Finding(
+                    code="openapi-history-top-level-success-example",
+                    path=_relative_path(root, path),
+                    line=_line_number_for_pattern_after(
+                        text,
+                        f"  {api_path}:",
+                        f"        '{status_code}':",
+                    ),
+                    message=(
+                        "OpenAPI history response example still exposes top-level "
+                        "payload fields; use API vNext data fields."
+                    ),
+                )
+            )
+    return findings
+
+
 def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
     path = root / "docs" / "openapi.yaml"
     if not path.exists():
@@ -1338,6 +1452,26 @@ def _is_top_level_sync_success_example(example: object) -> bool:
         "count",
         "normalization_warnings",
         "logical_devices",
+    }
+    return (
+        isinstance(example, dict)
+        and bool(legacy_keys.intersection(example))
+        and "data" not in example
+    )
+
+
+def _is_top_level_history_success_example(example: object) -> bool:
+    legacy_keys = {
+        "entity_id",
+        "history",
+        "statistics",
+        "count",
+        "truncated",
+        "period",
+        "start_time",
+        "end_time",
+        "metadata",
+        "bridge_chart",
     }
     return (
         isinstance(example, dict)

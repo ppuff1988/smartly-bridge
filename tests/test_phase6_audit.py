@@ -419,6 +419,73 @@ def test_phase6_audit_detects_openapi_sync_top_level_success_examples(
     )
 
 
+def test_phase6_audit_detects_openapi_history_top_level_success_schemas(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects history response schemas with top-level payload fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  schemas:\n"
+            "    HistoryResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        history:\n"
+            "          type: array\n"
+            "        count:\n"
+            "          type: integer\n"
+            "    HistoryBatchResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        history:\n"
+            "          type: object\n"
+            "    StatisticsResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        statistics:\n"
+            "          type: array\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-history-top-level-success-schema"
+        for finding in findings
+    )
+
+
+def test_phase6_audit_detects_openapi_history_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects history response examples with top-level payload fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/history/{entity_id}:\n"
+            "    get:\n"
+            "      responses:\n"
+            "        '200':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              example:\n"
+            "                history: []\n"
+            "                count: 0\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-history-top-level-success-example"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
     tmp_path: Path,
 ) -> None:
