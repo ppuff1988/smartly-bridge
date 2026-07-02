@@ -339,6 +339,24 @@ def test_phase6_audit_detects_trust_proxy_docs_top_level_error_examples(
     )
 
 
+def test_phase6_audit_detects_architecture_plan_top_level_error_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects architecture-plan docs that still show top-level errors."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/smartly_bridge_architecture_plan.md",
+        '```json\n{"status": "failed", "error": {"code": "DEVICE_OFFLINE"}}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "architecture-plan-doc-top-level-error"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_allows_public_docs_source_entity_references(
     tmp_path: Path,
 ) -> None:

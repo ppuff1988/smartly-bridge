@@ -1922,12 +1922,27 @@ Debug 模式才允許上傳 raw snippet
 
 ```json
 {
-  "command_id": "cmd_001",
-  "status": "failed",
-  "error": {
-    "code": "DEVICE_OFFLINE",
-    "message": "Device is offline"
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "command_id": "cmd_001",
+    "status": "rejected",
+    "device_id": "ldev_light",
+    "capability": "power",
+    "command": "turn_on",
+    "adapter_id": "home_assistant",
+    "correlation_id": "cmd_001",
+    "expected_state": {},
+    "source_entity_id": "light.kitchen"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "DEVICE_OFFLINE",
+      "message": "Device is offline",
+      "target": "device",
+      "retryable": true
+    }
+  ]
 }
 ```
 
