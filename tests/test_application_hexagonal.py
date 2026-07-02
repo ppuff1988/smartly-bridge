@@ -1625,6 +1625,53 @@ async def test_smartly_command_use_case_rejects_numeric_setting_invalid_step() -
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_numeric_setting_wrong_source_domain() -> None:
+    """Numeric setting commands require a number source entity."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="select.presence_mode",
+            state="medium",
+            attributes={"options": ["low", "medium", "high"]},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_zigbee_presence_1", "numeric_setting"): "select.presence_mode"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-setting-wrong-domain",
+            device_id="ldev_zigbee_presence_1",
+            capability="numeric_setting",
+            command="set_value",
+            params={"value": 5},
+        ),
+    )
+
+    assert result.status == 400
+    assert_smartly_command_error(result, "invalid_params", "select.presence_mode")
+    assert result.body["data"]["expected_state"] == {}
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "select.presence_mode",
+            "set_value",
+            "invalid_params",
+            {
+                "command_id": "cmd-setting-wrong-domain",
+                "logical_device_id": "ldev_zigbee_presence_1",
+                "capability": "numeric_setting",
+                "source_entity_id": "select.presence_mode",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_use_case_passes_setting_key_to_target_resolver() -> None:
     """Setting command params are available to resolver-specific target selection."""
     audit = FakeAudit()
@@ -1744,6 +1791,53 @@ async def test_smartly_command_use_case_rejects_option_setting_unknown_option() 
                 "logical_device_id": "ldev_zigbee_presence_1",
                 "capability": "option_setting",
                 "source_entity_id": "select.presence_occupancy_sensitivity",
+            },
+        )
+    ]
+
+
+@pytest.mark.asyncio
+async def test_smartly_command_use_case_rejects_option_setting_wrong_source_domain() -> None:
+    """Option setting commands require a select source entity."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="number.presence_delay",
+            state="10",
+            attributes={"min": 1, "max": 120, "step": 1},
+        )
+    )
+    resolver = FakeCommandTargetResolver(
+        {("ldev_zigbee_presence_1", "option_setting"): "number.presence_delay"}
+    )
+    use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-option-setting-wrong-domain",
+            device_id="ldev_zigbee_presence_1",
+            capability="option_setting",
+            command="select_option",
+            params={"option": "medium"},
+        ),
+    )
+
+    assert result.status == 400
+    assert_smartly_command_error(result, "invalid_params", "number.presence_delay")
+    assert result.body["data"]["expected_state"] == {}
+    assert gateway.calls == []
+    assert audit.denials == [
+        (
+            "client-1",
+            "number.presence_delay",
+            "select_option",
+            "invalid_params",
+            {
+                "command_id": "cmd-option-setting-wrong-domain",
+                "logical_device_id": "ldev_zigbee_presence_1",
+                "capability": "option_setting",
+                "source_entity_id": "number.presence_delay",
             },
         )
     ]

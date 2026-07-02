@@ -273,6 +273,21 @@ class SmartlyCommandUseCase:
                 400,
             )
 
+        if not _has_valid_setting_source_domain(command, entity_id):
+            self._audit.deny(
+                client_id,
+                entity_id,
+                command.command,
+                "invalid_params",
+                _smartly_command_audit_actor(command, entity_id),
+            )
+            return _smartly_command_error_response(
+                command,
+                entity_id,
+                "invalid_params",
+                400,
+            )
+
         source_state = self._gateway.get_state(entity_id)
         if not _has_valid_source_setting_params(command, source_state):
             self._audit.deny(
@@ -456,6 +471,15 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         return isinstance(value, (int, float)) and not isinstance(value, bool)
     if command.capability == "option_setting" and command.command == "select_option":
         return isinstance(command.params.get("option"), str)
+    return True
+
+
+def _has_valid_setting_source_domain(command: SmartlyCommand, entity_id: str) -> bool:
+    """Return whether a canonical setting command targets the expected source domain."""
+    if command.capability == "numeric_setting" and command.command == "set_value":
+        return get_entity_domain(entity_id) == "number"
+    if command.capability == "option_setting" and command.command == "select_option":
+        return get_entity_domain(entity_id) == "select"
     return True
 
 
