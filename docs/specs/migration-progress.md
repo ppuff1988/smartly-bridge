@@ -71,6 +71,7 @@
 - Device event ingestion 已輸出 canonical `button_event` envelope，支援去重與多種來源 action alias。
 - Local automation application layer 已能以 canonical `button_event` trigger 匹配 rule，並透過 `device_command` action 執行 SmartlyCommand；duplicate event 不會重複觸發 local automation。
 - Local automation `device_command` action result 現在優先讀取 SmartlyCommand API vNext `data.status`，避免依賴已移除的 success top-level command `status`。
+- Phase 6 已移除 Local automation `device_command` action result 對 SmartlyCommand legacy top-level `status` 的 fallback；automation result status 現在只讀 API vNext `data.status`，缺少時回 `unknown`。
 - Device event view 已接上 setup-created Home Assistant local automation rule store 與 SmartlyCommand executor adapters，accepted event 可透過該 runtime rule store 讀取 runtime `local_automation_rules` 或 config entry stored rules 並執行 device command；缺少 rule store 或 executor 時不再 request-time 建立 fallback。
 - Home Assistant local automation rule store 已可從 `config_entry.data["local_automation_rules"]` 載入 serialized dict rules，並保留 runtime `hass.data` rules 覆蓋能力。
 - Home Assistant local automation rule store 的 create/update/delete 現在會以 runtime-visible rules 作為 persistence source，避免 Platform editor 在 runtime override 期間讀到的 rule set 與寫入 config entry 的 rule set 分裂。
@@ -616,6 +617,7 @@
 | 428 | `f3d2b80` | Phase 6 刪除 Camera application 已無呼叫點的 `_camera_success_response` legacy-compatible helper，避免後續 camera use case 重構重新產生 top-level duplicate success payload | Camera/http scope `262 passed`; full suite `913 passed` |
 | 429 | `4c4d5d3` | Phase 6 刪除 Camera application `_camera_error_response` legacy helper，並讓 camera HTTP guard / entity-id validation default factory 改用 `_camera_vnext_error_response`，避免 default seam 重新產生 legacy top-level `error` body；camera stream/snapshot adapter docstring 同步改為 media/vNext wording | RED failed because default entity-id validation response still returned top-level `error`; focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed` |
 | 430 | `a7bdc47` | Phase 6 移除 SmartlyCommand source-control error wrapping 對 resolved `BridgeResponse.body.error` 的 legacy fallback，error code 現在只從 API vNext `errors[]` 讀取，缺少 vNext error 才回 `command_failed` | RED failed because a conflicting source response used legacy `service_call_failed` instead of vNext `ENTITY_NOT_ALLOWED`; focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed` |
+| 431 | `0d2e9e6` | Phase 6 移除 Local automation `device_command` result 對 SmartlyCommand legacy top-level `status` 的 fallback，automation status 現在只透過 API vNext `data.status` 取得，測試替身同步改為 vNext SmartlyCommand response envelope | RED failed because `_command_response_status` still returned legacy top-level `status`; focused local automation status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed` |
 
 ## Completed Slices
 
@@ -665,6 +667,8 @@
 - Camera legacy error helper verification: focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed`
 - Control/SmartlyCommand error fallback cleanup: source-control error wrapping no longer reads resolved response top-level `error`; vNext `errors[]` is authoritative.
 - Control/SmartlyCommand fallback verification: focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed`
+- Local automation command status cleanup: `_command_response_status` no longer reads SmartlyCommand top-level `status`; test command executors now return API vNext `data.status`.
+- Local automation command status verification: focused status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed`
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
