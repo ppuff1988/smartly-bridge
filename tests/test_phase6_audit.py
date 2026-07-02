@@ -279,6 +279,21 @@ def test_phase6_audit_allows_public_docs_source_entity_references(
     )
 
 
+def test_phase6_audit_detects_migration_plan_legacy_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects migration-plan Phase 6 legacy wording."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/specs/migration-plan.md",
+        "| 6 | 清理 legacy | 移除 deprecated endpoint |\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "migration-plan-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

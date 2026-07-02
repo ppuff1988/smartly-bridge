@@ -54,6 +54,15 @@ ACTIVE_CONTRACT_LEGACY_TERMS = (
     "deprecated",
     "backward compatibility",
 )
+MIGRATION_PLAN_DOCS = [
+    Path("docs/specs/migration-plan.md"),
+]
+MIGRATION_PLAN_LEGACY_TERMS = (
+    "legacy",
+    "deprecated",
+    "backward compatibility",
+    "LTS",
+)
 PUBLIC_CONTROL_DOCS = [
     Path("README.md"),
     Path("docs/README.md"),
@@ -101,6 +110,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_logical_device_legacy_wording_findings(root_path))
     findings.extend(_control_application_legacy_wording_findings(root_path))
     findings.extend(_active_contract_legacy_wording_findings(root_path))
+    findings.extend(_migration_plan_legacy_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     return findings
@@ -467,6 +477,34 @@ def _active_contract_legacy_wording_findings(root: Path) -> list[Finding]:
                     message=(
                         "Active contract docs still use legacy/deprecated wording; "
                         "describe source aliases or non-cursor behavior directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _migration_plan_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in MIGRATION_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if not any(term.lower() in lower_line for term in MIGRATION_PLAN_LEGACY_TERMS):
+                continue
+            findings.append(
+                Finding(
+                    code="migration-plan-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Migration plan still uses legacy/deprecated/LTS wording; "
+                        "describe API vNext release gates and source behavior directly."
                     ),
                 )
             )

@@ -25,10 +25,10 @@
 | 0 | 盤點現況 | entity inventory、API consumer list、fixture | 無變更 |
 | 1 | 建立 contract | schema、capability registry、adapter interface | 不啟用 runtime |
 | 2 | 雙軌 normalize | entity response + logical device shadow payload | 停用 shadow |
-| 3 | Platform read path 切換 | Platform 讀 logical device | 回 entity response |
-| 4 | Command path 切換 | Platform 下 SmartlyCommand | 回既有 control API |
+| 3 | Platform read path 切換 | Platform 讀 logical device | 回 source entity response |
+| 4 | Command path 切換 | Platform 下 SmartlyCommand | 回 Phase 4 前 control release |
 | 5 | Event / automation 切換 | canonical event 驅動 automation | 回 raw/entity trigger |
-| 6 | 清理 legacy | 移除過期 alias 與 deprecated endpoint | 保留長期 LTS endpoint |
+| 6 | API vNext cleanup | 移除過期相容路徑與已公告移除的 endpoint | 依產品支援策略保留明確 owner/horizon |
 
 ## 3. Phase 0：Inventory
 
@@ -55,7 +55,7 @@
 - Capability contracts
 - Adapter manifest schema
 - API vNext envelope
-- Presentation fallback
+- Presentation contract default
 - Migration alias model
 
 Gate：
@@ -101,7 +101,7 @@ Platform 開始優先讀 logical device。
 
 - Feature flag：`use_logical_devices`
 - Room / device display 仍保留既有 alias。
-- 不支援的 card 使用 legacy render fallback。
+- 不支援的 card 使用 diagnostic rendering。
 - Unknown device 用 diagnostic UI，不中斷 dashboard。
 
 Rollback：
@@ -116,9 +116,9 @@ Platform 從 source-specific command 改成 SmartlyCommand。
 遷移策略：
 
 - 新 UI 發 SmartlyCommand。
-- 舊 UI 或舊 app 仍可使用 legacy command endpoint。
+- 切換窗口內的未升級 client 依 release policy 留在前一版支援線。
 - Bridge command dispatcher 將 SmartlyCommand 映射到 source call。
-- 所有 command log 同時記錄 logical device ID 與 legacy entity ID。
+- 所有 command log 同時記錄 logical device ID 與 source entity trace。
 
 Gate：
 
@@ -143,19 +143,19 @@ button_event / single_press / button=left
 - Event ingestion 以 event_id 去重。
 - Local automation 先支援 button_event + device_command。
 
-## 9. Phase 6：Legacy Cleanup
+## 9. Phase 6：API vNext Cleanup
 
 清理前必須符合：
 
 - 所有活躍 Platform client 都支援 API vNext。
-- Legacy endpoint 使用率低於門檻。
+- 已公告移除 endpoint 使用率低於門檻。
 - alias window 已公告並過期。
 - rollback playbook 已驗證。
 
 可移除：
 
 - Platform 對品牌欄位的直接判斷。
-- Bridge Core 的 source-specific fallback。
+- Bridge Core 的 request-time source-specific adapter construction。
 - sync response 中不必要的 raw payload。
 
 不可移除：
@@ -198,6 +198,5 @@ Alias 用於保留遷移期間的 ID 穩定性。
 - State path 使用 capability state。
 - Event path 使用 canonical event。
 - Adapter contract test 作為新增裝置的入口。
-- Unknown device 有安全 fallback。
-- Legacy API 有明確 LTS 或移除策略。
-
+- Unknown device 有安全 diagnostic device 表示。
+- 已公告移除 API 有明確產品支援或移除策略。
