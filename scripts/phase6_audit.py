@@ -93,6 +93,9 @@ APPLICATION_TEST_LEGACY_WORDING_PATHS = [
 APPLICATION_TEST_TOP_LEVEL_ERROR_PATHS = [
     Path("tests/test_application_hexagonal.py"),
 ]
+HISTORY_VIEW_TEST_TOP_LEVEL_SUCCESS_PATHS = [
+    Path("tests/test_history_views.py"),
+]
 REQUEST_TIME_FALLBACK_WORDING_PATHS = [
     Path("tests/test_http.py"),
     Path("tests/test_sync_views.py"),
@@ -171,6 +174,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_control_test_legacy_wording_findings(root_path))
     findings.extend(_application_test_legacy_wording_findings(root_path))
     findings.extend(_application_test_top_level_error_findings(root_path))
+    findings.extend(_history_view_test_top_level_success_findings(root_path))
     findings.extend(_request_time_fallback_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
@@ -701,6 +705,33 @@ def _application_test_top_level_error_findings(root: Path) -> list[Finding]:
                     message=(
                         "Application tests still inject top-level error fields; "
                         "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _history_view_test_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_VIEW_TEST_TOP_LEVEL_SUCCESS_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"success":' not in line and '{"success"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="history-view-test-top-level-success",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "History view tests still inject top-level success fields; "
+                        "use API vNext data.status."
                     ),
                 )
             )

@@ -189,9 +189,10 @@ async def test_query_single_history_uses_injected_use_case_factory() -> None:
             self.queries.append(query)
             return BridgeResponse(
                 {
-                    "success": True,
-                    "entity_id": query.entity_id,
+                    "schema_version": "2026.06",
                     "data": {"entity_id": query.entity_id},
+                    "warnings": [],
+                    "errors": [],
                 },
                 status=200,
             )
@@ -261,9 +262,10 @@ async def test_query_batch_history_uses_injected_use_case_factory() -> None:
             self.queries.append(query)
             return BridgeResponse(
                 {
-                    "success": True,
-                    "entity_ids": query.entity_ids,
+                    "schema_version": "2026.06",
                     "data": {"entity_ids": query.entity_ids},
+                    "warnings": [],
+                    "errors": [],
                 },
                 status=200,
             )
@@ -291,7 +293,10 @@ async def test_query_batch_history_uses_injected_use_case_factory() -> None:
     )
 
     assert result.status == 200
-    assert result.body["entity_ids"] == ["sensor.temperature", "sensor.humidity"]
+    assert result.body["data"]["entity_ids"] == [
+        "sensor.temperature",
+        "sensor.humidity",
+    ]
     assert factory_calls == [gateway]
     assert use_case.queries == [query]
 
@@ -331,10 +336,10 @@ async def test_query_statistics_uses_injected_use_case_factory() -> None:
             self.queries.append(query)
             return BridgeResponse(
                 {
-                    "success": True,
-                    "entity_id": query.entity_id,
-                    "period": query.period,
+                    "schema_version": "2026.06",
                     "data": {"entity_id": query.entity_id, "period": query.period},
+                    "warnings": [],
+                    "errors": [],
                 },
                 status=200,
             )
