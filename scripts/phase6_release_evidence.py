@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import json
 import re
 import sys
 from datetime import date
@@ -314,6 +315,12 @@ def main(argv: list[str] | None = None) -> int:
         action="store_true",
         help="Print pending gates but return success.",
     )
+    parser.add_argument(
+        "--json",
+        action="store_true",
+        dest="json_output",
+        help="Print a machine-readable release evidence summary.",
+    )
     args = parser.parse_args(argv)
 
     statuses = load_statuses(args.path)
@@ -326,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
     unmatched_signoffs = unmatched_signoff_evidence(statuses, signoffs)
     missing_signoffs = missing_ready_gate_signoffs(statuses, signoffs)
     pending = [status for status in statuses if not status.ready]
-    if (
+    ready = (
         not missing
         and not duplicates
         and not unknown
@@ -335,7 +342,39 @@ def main(argv: list[str] | None = None) -> int:
         and not unmatched_signoffs
         and not missing_signoffs
         and not pending
-    ):
+    )
+    if args.json_output:
+        print(
+            json.dumps(
+                {
+                    "ready": ready,
+                    "pending_count": len(pending),
+                    "pending_gates": [
+                        {
+                            "gate": status.gate,
+                            "owner": status.owner,
+                            "evidence_source": status.evidence_source,
+                            "decision": status.decision,
+                        }
+                        for status in pending
+                    ],
+                    "blockers": {
+                        "missing_required_gates": missing,
+                        "duplicate_status_gates": duplicates,
+                        "unknown_status_gates": unknown,
+                        "unknown_signoff_gates": unknown_signoffs,
+                        "duplicate_signoff_evidence": duplicate_signoffs,
+                        "unmatched_signoff_evidence": unmatched_signoffs,
+                        "missing_ready_gate_signoffs": missing_signoffs,
+                    },
+                },
+                indent=2,
+                sort_keys=True,
+            )
+        )
+        return 0 if ready or args.allow_pending else 1
+
+    if ready:
         print("Phase 6 release evidence ready.")
         return 0
 

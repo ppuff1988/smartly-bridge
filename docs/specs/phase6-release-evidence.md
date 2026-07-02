@@ -148,6 +148,19 @@ While evidence is still being collected, use this non-release status command:
 python scripts/phase6_release_evidence.py --allow-pending
 ```
 
+For CI or release automation that needs a machine-readable status summary, use:
+
+```bash
+python scripts/phase6_release_evidence.py --allow-pending --json
+```
+
+Expected non-release JSON fields:
+
+- `ready` is `false` while any gate is still pending.
+- `pending_count` matches the number of incomplete external release gates.
+- `pending_gates` lists each pending gate with owner, evidence source, and decision.
+- `blockers` lists structural evidence issues such as missing gates, duplicate rows, unknown gates, unmatched sign-offs, and missing sign-offs.
+
 ## Sign-off Record
 
 | Date | Gate | Reviewer | Decision | Evidence link |

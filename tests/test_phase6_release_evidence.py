@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import importlib.util
+import json
 from pathlib import Path
 
 
@@ -42,6 +43,30 @@ def test_phase6_release_evidence_reports_pending_gates() -> None:
         "Rollback playbook verified",
         "Platform render source audit completed",
         "API support policy decided",
+    }
+
+
+def test_phase6_release_evidence_json_reports_pending_gates(capsys) -> None:
+    """The CLI can emit machine-readable pending release gates."""
+    checker = _load_phase6_release_evidence()
+
+    result = checker.main(
+        [
+            str(PROJECT_ROOT / "docs/specs/phase6-release-evidence.md"),
+            "--allow-pending",
+            "--json",
+        ]
+    )
+
+    assert result == 0
+    output = json.loads(capsys.readouterr().out)
+    assert output["ready"] is False
+    assert output["pending_count"] == 6
+    assert output["pending_gates"][0] == {
+        "gate": "Active Platform clients support API vNext",
+        "owner": "TBD",
+        "evidence_source": "TBD",
+        "decision": "Pending",
     }
 
 
