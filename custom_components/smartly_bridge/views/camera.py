@@ -269,10 +269,11 @@ async def _authorize_camera_request(
 def _validate_camera_entity_id(
     request: web.Request,
     entity_id: str,
+    error_response_factory: Callable[..., Any] = _camera_error_response,
 ) -> CameraEntityIdValidationResult:
     """Return a camera entity ID or a legacy-compatible invalid entity response."""
     if not entity_id or not entity_id.startswith("camera."):
-        result = _camera_error_response(
+        result = error_response_factory(
             "invalid_entity_id",
             status=400,
             target="camera.entity_id",
@@ -745,6 +746,7 @@ class SmartlyCameraHLSInfoView(BaseView):
         validation = _validate_camera_entity_id(
             self.request,
             _camera_entity_id_from_request(self.request),
+            error_response_factory=_camera_vnext_error_response,
         )
         if validation.response is not None:
             return validation.response
@@ -756,6 +758,7 @@ class SmartlyCameraHLSInfoView(BaseView):
             entity_id=entity_id,
             service="camera_hls",
             require_entity_allowed=True,
+            error_response_factory=_camera_vnext_error_response,
         )
         if guard.response is not None:
             return guard.response
