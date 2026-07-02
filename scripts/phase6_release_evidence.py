@@ -11,6 +11,7 @@ from typing import NamedTuple
 
 DEFAULT_EVIDENCE_PATH = Path("docs/specs/phase6-release-evidence.md")
 REQUIRED_COLUMNS = ("Gate", "Owner", "Evidence source", "Decision", "Notes")
+SIGNOFF_COLUMNS = ("Date", "Gate", "Reviewer", "Decision", "Evidence link")
 REQUIRED_GATES = (
     "Active Platform clients support API vNext",
     "Retired endpoint usage below removal threshold",
@@ -34,6 +35,17 @@ class GateStatus(NamedTuple):
     ready: bool
 
 
+class Signoff(NamedTuple):
+    """Reviewer sign-off for one Phase 6 release gate."""
+
+    date: str
+    gate: str
+    reviewer: str
+    decision: str
+    evidence_link: str
+    ready: bool
+
+
 def load_statuses(path: Path | str = DEFAULT_EVIDENCE_PATH) -> list[GateStatus]:
     """Load Phase 6 release gate statuses from the evidence Markdown table."""
     evidence_path = Path(path)
@@ -42,10 +54,31 @@ def load_statuses(path: Path | str = DEFAULT_EVIDENCE_PATH) -> list[GateStatus]:
     return [_status_from_row(row) for row in rows]
 
 
+def load_signoffs(path: Path | str = DEFAULT_EVIDENCE_PATH) -> list[Signoff]:
+    """Load Phase 6 release gate sign-off rows from the evidence Markdown file."""
+    evidence_path = Path(path)
+    lines = evidence_path.read_text(encoding="utf-8").splitlines()
+    rows = _signoff_table_rows(lines)
+    return [_signoff_from_row(row) for row in rows]
+
+
 def missing_required_gates(statuses: list[GateStatus]) -> list[str]:
     """Return required Phase 6 release gates missing from the evidence table."""
     present_gates = {status.gate for status in statuses}
     return [gate for gate in REQUIRED_GATES if gate not in present_gates]
+
+
+def missing_ready_gate_signoffs(
+    statuses: list[GateStatus],
+    signoffs: list[Signoff],
+) -> list[str]:
+    """Return ready gates that do not have a completed sign-off row."""
+    signed_off_gates = {signoff.gate for signoff in signoffs if signoff.ready}
+    return [
+        status.gate
+        for status in statuses
+        if status.ready and status.gate in REQUIRED_GATES and status.gate not in signed_off_gates
+    ]
 
 
 def _status_table_rows(lines: list[str]) -> list[dict[str, str]]:
@@ -72,8 +105,40 @@ def _status_table_rows(lines: list[str]) -> list[dict[str, str]]:
     return rows
 
 
+def _signoff_table_rows(lines: list[str]) -> list[dict[str, str]]:
+    header_index = _signoff_table_header_index(lines)
+    if header_index is None:
+        return []
+
+    headers = _split_markdown_row(lines[header_index])
+    missing_columns = [column for column in SIGNOFF_COLUMNS if column not in headers]
+    if missing_columns:
+        raise ValueError(
+            "Phase 6 release sign-off table is missing columns: "
+            + ", ".join(missing_columns)
+        )
+
+    rows: list[dict[str, str]] = []
+    for line in lines[header_index + 2 :]:
+        if not line.startswith("|"):
+            break
+        values = _split_markdown_row(line)
+        if len(values) != len(headers):
+            continue
+        rows.append(dict(zip(headers, values, strict=True)))
+    return rows
+
+
 def _status_table_header_index(lines: list[str]) -> int | None:
     expected_header = "| Gate | Owner | Evidence source | Decision | Notes |"
+    for index, line in enumerate(lines):
+        if line.strip() == expected_header:
+            return index
+    return None
+
+
+def _signoff_table_header_index(lines: list[str]) -> int | None:
+    expected_header = "| Date | Gate | Reviewer | Decision | Evidence link |"
     for index, line in enumerate(lines):
         if line.strip() == expected_header:
             return index
@@ -105,6 +170,29 @@ def _status_from_row(row: dict[str, str]) -> GateStatus:
     )
 
 
+def _signoff_from_row(row: dict[str, str]) -> Signoff:
+    date = row["Date"]
+    gate = row["Gate"]
+    reviewer = row["Reviewer"]
+    decision = row["Decision"]
+    evidence_link = row["Evidence link"]
+    ready = (
+        _is_complete(date)
+        and _is_complete(gate)
+        and _is_complete(reviewer)
+        and _is_complete(evidence_link)
+        and _is_ready_decision(decision)
+    )
+    return Signoff(
+        date=date,
+        gate=gate,
+        reviewer=reviewer,
+        decision=decision,
+        evidence_link=evidence_link,
+        ready=ready,
+    )
+
+
 def _is_complete(value: str) -> bool:
     return value.strip().lower() not in INCOMPLETE_MARKERS
 
@@ -131,15 +219,19 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
 
     statuses = load_statuses(args.path)
+    signoffs = load_signoffs(args.path)
     missing = missing_required_gates(statuses)
+    missing_signoffs = missing_ready_gate_signoffs(statuses, signoffs)
     pending = [status for status in statuses if not status.ready]
-    if not missing and not pending:
+    if not missing and not missing_signoffs and not pending:
         print("Phase 6 release evidence ready.")
         return 0
 
     print("Phase 6 release evidence has pending gates:")
     for gate in missing:
         print(f"- {gate}: missing required evidence row")
+    for gate in missing_signoffs:
+        print(f"- {gate}: missing completed sign-off row")
     for status in pending:
         print(
             f"- {status.gate}: owner={status.owner}; "

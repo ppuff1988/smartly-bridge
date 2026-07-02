@@ -110,3 +110,37 @@ def test_phase6_release_evidence_reports_missing_required_gates(
         "Platform render source audit completed",
         "API support policy decided",
     ]
+
+
+def test_phase6_release_evidence_blocks_ready_gates_without_signoff(
+    tmp_path: Path,
+) -> None:
+    """Strict release checks require sign-off rows for ready gates."""
+    checker = _load_phase6_release_evidence()
+    evidence_path = tmp_path / "phase6-release-evidence.md"
+    _write(
+        evidence_path,
+        "\n".join(
+            [
+                "# Phase 6 API vNext Release Evidence",
+                "",
+                "| Gate | Owner | Evidence source | Decision | Notes |",
+                "|---|---|---|---|---|",
+                "| Active Platform clients support API vNext | Platform owner | release/client-matrix.md | Ready | All active clients checked. |",
+                "| Retired endpoint usage below removal threshold | Data owner | release/telemetry.md | Ready | Usage is below threshold. |",
+                "| Alias window announced and elapsed | Release owner | release/announcement.md | Ready | Window elapsed. |",
+                "| Rollback playbook verified | Ops owner | runbooks/phase6.md | Ready | Dry run passed. |",
+                "| Platform render source audit completed | Platform owner | platform/render-audit.md | Ready | Source audit passed. |",
+                "| API support policy decided | Product owner | release/api-policy.md | Ready | Policy accepted. |",
+                "",
+                "## Sign-off Record",
+                "",
+                "| Date | Gate | Reviewer | Decision | Evidence link |",
+                "|---|---|---|---|---|",
+                "| TBD | TBD | TBD | Pending | TBD |",
+                "",
+            ]
+        ),
+    )
+
+    assert checker.main([str(evidence_path)]) == 1
