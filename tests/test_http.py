@@ -525,7 +525,7 @@ class TestViewRegistration:
 
     def test_register_views(self, mock_hass):
         """Test views are registered correctly."""
-        from custom_components.smartly_bridge.http import register_views
+        from custom_components.smartly_bridge.views import register_views
 
         register_views(mock_hass)
 

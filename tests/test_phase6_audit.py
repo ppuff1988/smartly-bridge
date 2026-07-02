@@ -98,6 +98,19 @@ def test_phase6_audit_detects_request_time_fallback_constructor(tmp_path: Path) 
     assert any(finding.code == "request-time-fallback-constructor" for finding in findings)
 
 
+def test_phase6_audit_detects_legacy_http_reexport_module(tmp_path: Path) -> None:
+    """The audit rejects the Phase 6 legacy HTTP re-export module."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "custom_components/smartly_bridge/http.py",
+        "from .views import register_views\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "legacy-http-reexport-module" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

@@ -24,7 +24,7 @@ _FRONTEND_REGISTERED = f"{DOMAIN}_frontend_registered"
 
 def register_views(hass: HomeAssistant) -> None:
     """Register HTTP views without importing the HTTP layer at module load."""
-    from .http import register_views as register_http_views
+    from .views import register_views as register_http_views
 
     register_http_views(hass)
 

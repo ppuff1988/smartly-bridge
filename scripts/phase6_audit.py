@@ -63,12 +63,27 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings: list[Finding] = []
     if package_root.exists():
         python_files = sorted(package_root.rglob("*.py"))
+        findings.extend(_legacy_http_reexport_findings(root_path, package_root))
         findings.extend(_legacy_states_alias_findings(root_path, python_files))
         findings.extend(_legacy_top_level_response_findings(root_path, python_files))
         findings.extend(_request_time_fallback_constructor_findings(root_path, package_root))
     findings.extend(_api_vnext_fixture_findings(root_path))
     findings.extend(_sync_raw_payload_fixture_findings(root_path))
     return findings
+
+
+def _legacy_http_reexport_findings(root: Path, package_root: Path) -> list[Finding]:
+    path = package_root / "http.py"
+    if not path.exists():
+        return []
+    return [
+        Finding(
+            code="legacy-http-reexport-module",
+            path=_relative_path(root, path),
+            line=1,
+            message="Legacy HTTP re-export module is present; import views.register_views directly.",
+        )
+    ]
 
 
 def _legacy_states_alias_findings(root: Path, python_files: list[Path]) -> list[Finding]:
