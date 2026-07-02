@@ -605,6 +605,34 @@ def test_phase6_audit_detects_openapi_inline_top_level_response_schema(
     )
 
 
+def test_phase6_audit_detects_openapi_generic_top_level_response_example(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects response examples with non-envelope top-level fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/example:\n"
+            "    get:\n"
+            "      responses:\n"
+            "        '200':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              example:\n"
+            "                token: abc123\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-response-top-level-payload-example"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
     tmp_path: Path,
 ) -> None:

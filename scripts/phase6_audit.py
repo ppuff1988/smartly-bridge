@@ -206,6 +206,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_legacy_control_body_findings(root_path))
     findings.extend(_openapi_response_top_level_payload_schema_findings(root_path))
     findings.extend(_openapi_inline_response_top_level_payload_schema_findings(root_path))
+    findings.extend(_openapi_response_top_level_payload_example_findings(root_path))
     findings.extend(_openapi_top_level_error_response_schema_findings(root_path))
     findings.extend(_openapi_component_response_error_example_findings(root_path))
     findings.extend(_openapi_control_response_error_example_findings(root_path))
@@ -1101,6 +1102,137 @@ def _openapi_operation_inline_response_schema_findings(
     return findings
 
 
+def _openapi_response_top_level_payload_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    findings.extend(_openapi_path_response_example_findings(root, path, text, spec))
+    findings.extend(_openapi_webhook_response_example_findings(root, path, text, spec))
+    findings.extend(_openapi_component_response_example_findings(root, path, text, spec))
+    return findings
+
+
+def _openapi_path_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for api_path, path_item in spec.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            findings.extend(
+                _openapi_operation_response_example_findings(
+                    root,
+                    path,
+                    text,
+                    operation,
+                    marker=f"  {api_path}:",
+                )
+            )
+    return findings
+
+
+def _openapi_webhook_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for webhook_name, webhook in spec.get("webhooks", {}).items():
+        if not isinstance(webhook, dict):
+            continue
+        for operation in webhook.values():
+            if not isinstance(operation, dict):
+                continue
+            findings.extend(
+                _openapi_operation_response_example_findings(
+                    root,
+                    path,
+                    text,
+                    operation,
+                    marker=f"  {webhook_name}:",
+                )
+            )
+    return findings
+
+
+def _openapi_component_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for response_name, response in spec.get("components", {}).get("responses", {}).items():
+        if not isinstance(response, dict):
+            continue
+        media = response.get("content", {}).get("application/json", {})
+        for example in _openapi_media_examples(media):
+            if not _is_top_level_payload_example(example):
+                continue
+            findings.append(
+                Finding(
+                    code="openapi-response-top-level-payload-example",
+                    path=_relative_path(root, path),
+                    line=_line_number_for_pattern(text, f"    {response_name}:"),
+                    message=(
+                        "OpenAPI reusable response example still exposes top-level "
+                        "payload fields; use API vNext data fields."
+                    ),
+                )
+            )
+    return findings
+
+
+def _openapi_operation_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    operation: dict[str, object],
+    marker: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for status_code, response in operation.get("responses", {}).items():
+        if not isinstance(response, dict):
+            continue
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_payload_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-response-top-level-payload-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    marker,
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI response example still exposes top-level payload fields; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
 def _openapi_component_response_error_example_findings(root: Path) -> list[Finding]:
     path = root / "docs" / "openapi.yaml"
     if not path.exists():
@@ -1711,6 +1843,14 @@ def _is_top_level_history_success_example(example: object) -> bool:
     return (
         isinstance(example, dict)
         and bool(legacy_keys.intersection(example))
+        and "data" not in example
+    )
+
+
+def _is_top_level_payload_example(example: object) -> bool:
+    return (
+        isinstance(example, dict)
+        and bool(set(example) - API_VNEXT_TOP_LEVEL_KEYS)
         and "data" not in example
     )
 
