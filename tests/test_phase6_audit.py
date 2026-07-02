@@ -208,6 +208,30 @@ def test_phase6_audit_detects_active_contract_legacy_wording(tmp_path: Path) -> 
     assert any(finding.code == "active-contract-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_openapi_legacy_control_body(tmp_path: Path) -> None:
+    """The audit rejects OpenAPI docs that still publish entity/action control body."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        "paths:\n"
+        "  /api/smartly/control:\n"
+        "    post:\n"
+        "      requestBody:\n"
+        "        content:\n"
+        "          application/json:\n"
+        "            schema:\n"
+        "              $ref: '#/components/schemas/ControlRequest'\n"
+        "components:\n"
+        "  schemas:\n"
+        "    ControlRequest:\n"
+        "      required: [entity_id, action]\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "openapi-legacy-control-body" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

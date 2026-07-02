@@ -86,6 +86,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_logical_device_legacy_wording_findings(root_path))
     findings.extend(_control_application_legacy_wording_findings(root_path))
     findings.extend(_active_contract_legacy_wording_findings(root_path))
+    findings.extend(_openapi_legacy_control_body_findings(root_path))
     return findings
 
 
@@ -453,6 +454,42 @@ def _active_contract_legacy_wording_findings(root: Path) -> list[Finding]:
                     ),
                 )
             )
+    return findings
+
+
+def _openapi_legacy_control_body_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return []
+
+    findings: list[Finding] = []
+    legacy_patterns = (
+        "ControlRequest:",
+        "ControlResponse:",
+        "#/components/schemas/ControlRequest",
+        "#/components/schemas/ControlResponse",
+        "required: [entity_id, action]",
+        "Must include entity_id and action",
+        "containing `entity_id`, `action`",
+    )
+    for line_number, line in enumerate(lines, start=1):
+        if not any(pattern in line for pattern in legacy_patterns):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-legacy-control-body",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "OpenAPI control contract still describes entity_id/action "
+                    "body; publish API vNext SmartlyCommand instead."
+                ),
+            )
+        )
     return findings
 
 

@@ -176,142 +176,105 @@ paths:
         - Control
       summary: Control a device
       description: |
-        Execute a service call on an entity. The entity must have the `smartly` label 
-        and the service must be in the allowed services whitelist.
+        Execute a canonical SmartlyCommand against a logical device capability.
+        Bridge resolves the logical device and capability to the allowed Home Assistant
+        source entity at runtime.
         
         **Request Format:**
         - Content-Type: `application/json`
-        - Body: JSON object containing `entity_id`, `action`, optional `service_data`, and `actor` information
+        - Body: API vNext SmartlyCommand object
         
         **Required Fields:**
-        - `entity_id` (string): The entity ID to control (e.g., `switch.living_room_light`)
-        - `action` (string): The service action to execute (e.g., `turn_on`, `turn_off`)
+        - `command_id` (string): Client-generated command id for idempotency and tracing
+        - `device_id` (string): Logical device id
+        - `capability` (string): Canonical capability to control
+        - `command` (string): Canonical command for the capability
         
         **Optional Fields:**
-        - `service_data` (object): Additional parameters for the service (e.g., brightness, temperature)
-        - `actor` (object): Information about who initiated the action for audit logging
+        - `params` (object): Capability-specific command parameters
+        - `source` (object): Information about who initiated the command for audit logging
       operationId: controlDevice
       requestBody:
         description: |
-          JSON payload containing the control command. Must include entity_id and action.
-          The service_data field structure depends on the entity domain and action being performed.
+          JSON payload containing an API vNext SmartlyCommand. Bridge maps the
+          logical device capability command to a source service call after policy checks.
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ControlRequest'
+              $ref: '#/components/schemas/SmartlyCommandRequest'
             examples:
-              switchOn:
-                summary: Turn on a switch
+              powerOn:
+                summary: Turn on a logical switch
                 value:
-                  entity_id: switch.living_room_light
-                  action: turn_on
-                  service_data: {}
-                  actor:
+                  command_id: cmd_20260627_0001
+                  device_id: ldev_living_room_switch
+                  capability: power
+                  command: turn_on
+                  params: {}
+                  source:
                     user_id: u_123
                     role: tenant
-              
-              lightWithBrightness:
-                summary: Turn on light with brightness
+              setBrightness:
+                summary: Set logical light brightness
                 value:
-                  entity_id: light.bedroom
-                  action: turn_on
-                  service_data:
-                    brightness: 200
-                  actor:
+                  command_id: cmd_20260627_0002
+                  device_id: ldev_bedroom_light
+                  capability: brightness
+                  command: set_brightness
+                  params:
+                    value: 78
+                  source:
                     user_id: u_123
                     role: tenant
-              
-              lightWithColor:
-                summary: Turn on light with RGB color
+              setTemperature:
+                summary: Set logical climate target temperature
                 value:
-                  entity_id: light.bedroom
-                  action: turn_on
-                  service_data:
-                    brightness: 200
-                    rgb_color: [255, 0, 0]
-                  actor:
-                    user_id: u_123
-                    role: tenant
-              
-              coverSetPosition:
-                summary: Set cover position
-                value:
-                  entity_id: cover.living_room_curtain
-                  action: set_cover_position
-                  service_data:
-                    position: 50
-                  actor:
-                    user_id: u_456
-                    role: tenant
-              
-              climateSetTemperature:
-                summary: Set climate temperature
-                value:
-                  entity_id: climate.living_room_ac
-                  action: set_temperature
-                  service_data:
+                  command_id: cmd_20260627_0003
+                  device_id: ldev_living_room_climate
+                  capability: target_temperature
+                  command: set_temperature
+                  params:
                     temperature: 24
-                  actor:
+                  source:
                     user_id: u_456
                     role: tenant
-              
-              climateSetMode:
-                summary: Set HVAC mode
+              setMode:
+                summary: Select logical climate mode
                 value:
-                  entity_id: climate.living_room_ac
-                  action: set_hvac_mode
-                  service_data:
+                  command_id: cmd_20260627_0004
+                  device_id: ldev_living_room_climate
+                  capability: mode_select
+                  command: select_mode
+                  params:
                     hvac_mode: cool
-                  actor:
+                  source:
                     user_id: u_456
                     role: tenant
-              
-              fanSetPercentage:
-                summary: Set fan speed percentage
-                value:
-                  entity_id: fan.bedroom_fan
-                  action: set_percentage
-                  service_data:
-                    percentage: 75
-                  actor:
-                    user_id: u_789
-                    role: tenant
-              
-              lockDoor:
-                summary: Lock a door
-                value:
-                  entity_id: lock.front_door
-                  action: lock
-                  service_data: {}
-                  actor:
-                    user_id: u_789
-                    role: tenant
-              
-              triggerAutomation:
-                summary: Trigger an automation
-                value:
-                  entity_id: automation.motion_light
-                  action: trigger
-                  service_data:
-                    skip_condition: true
-                  actor:
-                    user_id: u_admin
-                    role: admin
       responses:
         '200':
-          description: Control action executed successfully
+          description: SmartlyCommand executed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ControlResponse'
+                $ref: '#/components/schemas/SmartlyCommandResponse'
               example:
-                success: true
-                entity_id: switch.room_101_light
-                action: turn_on
-                new_state: "on"
-                new_attributes:
-                  brightness: 255
+                schema_version: "2026.06"
+                data:
+                  command_id: cmd_20260627_0001
+                  status: completed
+                  device_id: ldev_living_room_switch
+                  capability: power
+                  command: turn_on
+                  source_entity_id: switch.living_room_light
+                  expected_state:
+                    value: true
+                  adapter_id: home_assistant.default
+                  correlation_id: cmd_20260627_0001
+                  new_state: "on"
+                  new_attributes: {}
+                warnings: []
+                errors: []
         '400':
           description: Bad request
           content:
@@ -1244,120 +1207,61 @@ components:
       description: HMAC-SHA256 signature of the request
 
   schemas:
-    ControlRequest:
+    SmartlyCommandRequest:
       type: object
       description: |
-        Request body for controlling a Home Assistant entity.
+        API vNext canonical command request.
         
         **Example JSON:**
         ```json
         {
-          "entity_id": "light.bedroom",
-          "action": "turn_on",
-          "service_data": {
-            "brightness": 200,
-            "rgb_color": [255, 0, 0]
+          "command_id": "cmd_20260627_0001",
+          "device_id": "ldev_bedroom_light",
+          "capability": "brightness",
+          "command": "set_brightness",
+          "params": {
+            "value": 78
           },
-          "actor": {
+          "source": {
             "user_id": "u_123",
             "role": "tenant"
           }
         }
         ```
       required:
-        - entity_id
-        - action
+        - command_id
+        - device_id
+        - capability
+        - command
       properties:
-        entity_id:
+        command_id:
           type: string
-          description: |
-            The entity ID to control. Must have the `smartly` label in Home Assistant.
-            Format: `domain.entity_name` (e.g., `switch.living_room_light`, `light.bedroom`)
-          example: switch.room_101_light
-          pattern: '^[a-z_]+\.[a-z0-9_]+$'
-        action:
+          description: Client-generated command id for idempotency and tracing.
+          example: cmd_20260627_0001
+        device_id:
           type: string
-          description: |
-            The service action to execute. Available actions depend on the entity domain.
-            
-            **Common actions by domain:**
-            - switch/light: turn_on, turn_off, toggle
-            - cover: open_cover, close_cover, stop_cover, set_cover_position
-            - climate: set_temperature, set_hvac_mode, set_fan_mode
-            - fan: turn_on, turn_off, set_percentage, set_preset_mode
-            - lock: lock, unlock
-            - automation: trigger, turn_on, turn_off
-          example: turn_on
-          enum:
-            - turn_on
-            - turn_off
-            - toggle
-            - open_cover
-            - close_cover
-            - stop_cover
-            - set_cover_position
-            - set_temperature
-            - set_hvac_mode
-            - set_fan_mode
-            - set_percentage
-            - set_preset_mode
-            - lock
-            - unlock
-            - trigger
-        service_data:
+          description: Logical device id from sync payloads.
+          example: ldev_bedroom_light
+        capability:
+          type: string
+          description: Canonical capability to control.
+          example: brightness
+        command:
+          type: string
+          description: Canonical command supported by the selected capability.
+          example: set_brightness
+        params:
           type: object
           description: |
-            Optional parameters for the service call. The structure varies by domain and action.
-            Can be an empty object `{}` if no additional parameters are needed.
-            
-            **Examples by domain:**
-            
-            **Light:**
-            ```json
-            {
-              "brightness": 255,
-              "rgb_color": [255, 0, 0],
-              "transition": 2
-            }
-            ```
-            
-            **Cover:**
-            ```json
-            {
-              "position": 50
-            }
-            ```
-            
-            **Climate:**
-            ```json
-            {
-              "temperature": 24,
-              "hvac_mode": "cool"
-            }
-            ```
-            
-            **Fan:**
-            ```json
-            {
-              "percentage": 75
-            }
-            ```
-            
-            **Common parameters by domain:**
-            
-            - **light**: brightness (0-255), rgb_color ([R, G, B]), color_temp (mireds), transition (seconds)
-            - **cover**: position (0-100)
-            - **climate**: temperature (float), hvac_mode (string), fan_mode (string)
-            - **fan**: percentage (0-100), preset_mode (string)
-            - **lock**: code (string)
-            - **automation**: skip_condition (boolean)
+            Optional capability-specific command parameters. Examples include
+            `{"value": 78}` for brightness, `{"position": 50}` for cover
+            position, or `{"temperature": 24}` for target temperature.
           additionalProperties: true
           examples:
-            - brightness: 255
-            - rgb_color: [255, 0, 0]
+            - value: 78
             - position: 50
             - temperature: 24
-        actor:
+        source:
           $ref: '#/components/schemas/Actor'
 
     Actor:
@@ -1373,33 +1277,93 @@ components:
           description: User's role
           example: room_admin
 
-    ControlResponse:
+    SmartlyCommandResponse:
+      type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
+      properties:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - command_id
+            - status
+            - device_id
+            - capability
+            - command
+          properties:
+            command_id:
+              type: string
+              example: cmd_20260627_0001
+            status:
+              type: string
+              example: completed
+            device_id:
+              type: string
+              example: ldev_living_room_switch
+            capability:
+              type: string
+              example: power
+            command:
+              type: string
+              example: turn_on
+            source_entity_id:
+              type: string
+              nullable: true
+              description: Resolved source entity used for diagnostic trace.
+              example: switch.living_room_light
+            expected_state:
+              type: object
+              additionalProperties: true
+              example:
+                value: true
+            adapter_id:
+              type: string
+              nullable: true
+              example: home_assistant.default
+            correlation_id:
+              type: string
+              nullable: true
+              example: cmd_20260627_0001
+            new_state:
+              type: string
+              nullable: true
+              example: "on"
+            new_attributes:
+              type: object
+              nullable: true
+              additionalProperties: true
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
+
+    ApiVNextError:
       type: object
       properties:
-        success:
+        code:
+          type: string
+          example: MISSING_REQUIRED_FIELDS
+        message:
+          type: string
+          example: Missing required fields
+        target:
+          type: string
+          nullable: true
+          example: request.body
+        retryable:
           type: boolean
-          description: Whether the action was successful
-          example: true
-        entity_id:
-          type: string
-          description: The entity ID that was controlled
-          example: switch.room_101_light
-        action:
-          type: string
-          description: The action that was executed
-          example: turn_on
-        new_state:
-          type: string
-          nullable: true
-          description: The new state of the entity after the action
-          example: "on"
-        new_attributes:
-          type: object
-          nullable: true
-          description: The new attributes of the entity after the action
-          additionalProperties: true
-          example:
-            brightness: 255
+          example: false
 
     DeviceButtonAction:
       type: string
