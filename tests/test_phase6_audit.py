@@ -310,6 +310,21 @@ def test_phase6_audit_detects_control_test_legacy_wording(
     assert any(finding.code == "control-test-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_application_test_legacy_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects application test wording that still says legacy."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/test_application_device_events.py",
+        'def test_source_button_action():\n    """Legacy button action events work."""\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "application-test-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_request_time_fallback_wording(
     tmp_path: Path,
 ) -> None:

@@ -70,7 +70,7 @@ def _fixture(name: str) -> dict[str, Any]:
 
 @pytest.mark.asyncio
 async def test_button_action_is_published_with_canonical_event_payload() -> None:
-    """Legacy button action events are normalized to canonical button_event payloads."""
+    """Source button action events are normalized to canonical button_event payloads."""
     publisher = FakeDeviceEventPublisher()
     use_case = DeviceEventUseCase(
         publisher,

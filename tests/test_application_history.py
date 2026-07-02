@@ -120,7 +120,7 @@ def test_parse_pagination_params_clamps_page_size_and_uses_page_extra_limit() ->
 
 
 def test_parse_pagination_params_keeps_unpaginated_short_ranges_unlimited() -> None:
-    """Legacy short-range queries keep the old effectively unlimited limit."""
+    """Short-range queries keep the current effectively unlimited limit."""
     planner = HistoryQueryPlanner(default_limit=500)
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=2)

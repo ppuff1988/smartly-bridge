@@ -68,6 +68,10 @@ CONTROL_TEST_LEGACY_WORDING_PATHS = [
     Path("tests/test_application_hexagonal.py"),
     Path("tests/test_application_local_automation.py"),
 ]
+APPLICATION_TEST_LEGACY_WORDING_PATHS = [
+    Path("tests/test_application_device_events.py"),
+    Path("tests/test_application_history.py"),
+]
 REQUEST_TIME_FALLBACK_WORDING_PATHS = [
     Path("tests/test_http.py"),
     Path("tests/test_sync_views.py"),
@@ -127,6 +131,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_active_contract_legacy_wording_findings(root_path))
     findings.extend(_migration_plan_legacy_wording_findings(root_path))
     findings.extend(_control_test_legacy_wording_findings(root_path))
+    findings.extend(_application_test_legacy_wording_findings(root_path))
     findings.extend(_request_time_fallback_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
@@ -549,6 +554,33 @@ def _control_test_legacy_wording_findings(root: Path) -> list[Finding]:
                     message=(
                         "Control/command tests still use legacy wording; "
                         "describe removed body shapes or source behavior directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _application_test_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in APPLICATION_TEST_LEGACY_WORDING_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="application-test-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Application tests still use legacy wording; "
+                        "describe source behavior or current API semantics directly."
                     ),
                 )
             )
