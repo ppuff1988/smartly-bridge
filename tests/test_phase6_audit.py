@@ -299,6 +299,24 @@ def test_phase6_audit_detects_device_card_stale_color_temperature_capability_doc
     )
 
 
+def test_phase6_audit_detects_device_presentation_stale_color_temp_capability(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects production presentation emitting stale color_temp."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "custom_components/smartly_bridge/device_presentation.py",
+        'def light():\n    capabilities.append("color_temp")\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "device-presentation-stale-capability"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_public_control_stale_light_color_command_docs(
     tmp_path: Path,
 ) -> None:

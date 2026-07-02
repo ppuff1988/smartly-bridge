@@ -119,7 +119,7 @@ def _light_capabilities(attributes: dict[str, Any]) -> list[str]:
     if "brightness" in attributes or "brightness" in color_modes:
         capabilities.append("brightness")
     if _supports_color_temperature(attributes, color_modes):
-        capabilities.append("color_temp")
+        capabilities.append("color_temperature")
     if _supports_rgb_color(attributes, color_modes):
         capabilities.append("rgb_color")
     if "effect" in attributes or "effect_list" in attributes:
@@ -270,7 +270,7 @@ def _classify_device(
 
     capability_set = set(capabilities)
     if domain == "light":
-        if capability_set.intersection({"brightness", "color_temp", "rgb_color"}):
+        if capability_set.intersection({"brightness", "color_temperature", "rgb_color"}):
             return "smart_light"
         return "simple_light_switch"
 
@@ -399,7 +399,7 @@ def _override_allowed(device_class: str, domain: str, capabilities: list[str]) -
         return domain == "switch" and "on_off" in capability_set
     if device_class == "smart_light":
         return domain == "light" and bool(
-            capability_set.intersection({"brightness", "color_temp", "rgb_color"})
+            capability_set.intersection({"brightness", "color_temperature", "rgb_color"})
         )
     if device_class == "environment_sensor":
         return domain == "sensor" and bool(

@@ -191,6 +191,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_device_event_legacy_wording_findings(root_path))
     findings.extend(_logical_device_legacy_wording_findings(root_path))
     findings.extend(_control_application_legacy_wording_findings(root_path))
+    findings.extend(_device_presentation_stale_capability_findings(root_path))
     findings.extend(_active_contract_legacy_wording_findings(root_path))
     findings.extend(_migration_plan_legacy_wording_findings(root_path))
     findings.extend(_control_test_legacy_wording_findings(root_path))
@@ -522,6 +523,37 @@ def _control_application_legacy_wording_findings(root: Path) -> list[Finding]:
                 message=(
                     "Control application wording still labels API vNext "
                     "command data as legacy-related."
+                ),
+            )
+        )
+    return findings
+
+
+def _device_presentation_stale_capability_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    path = root / "custom_components" / "smartly_bridge" / "device_presentation.py"
+    if not path.exists():
+        return findings
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return findings
+    stale_patterns = (
+        'capabilities.append("color_temp")',
+        '{"brightness", "color_temp", "rgb_color"}',
+        '"brightness", "color_temp"',
+    )
+    for line_number, line in enumerate(lines, start=1):
+        if not any(pattern in line for pattern in stale_patterns):
+            continue
+        findings.append(
+            Finding(
+                code="device-presentation-stale-capability",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "Device presentation emits stale source color_temp capability; "
+                    "use canonical color_temperature."
                 ),
             )
         )

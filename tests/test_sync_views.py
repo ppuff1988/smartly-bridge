@@ -1939,7 +1939,7 @@ async def test_state_sync_includes_light_card_capability_metadata(mock_hass):
 
     assert payload["domain"] == "light"
     assert payload["device_class"] == "smart_light"
-    assert payload["capabilities"] == ["on_off", "brightness", "color_temp"]
+    assert payload["capabilities"] == ["on_off", "brightness", "color_temperature"]
     assert payload["presentation"]["card_template"] == "light_card"
     assert payload["presentation"]["primary_metric"] == "brightness"
 
