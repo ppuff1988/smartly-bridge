@@ -1632,8 +1632,8 @@ class TestSmartlyCameraListView:
         response = await view.get()
         assert response.status == 500
         data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1661,8 +1661,8 @@ class TestSmartlyCameraListView:
 
             assert response.status == 401
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1695,8 +1695,8 @@ class TestSmartlyCameraListView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],

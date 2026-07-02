@@ -700,6 +700,7 @@ class SmartlyCameraListView(BaseView):
             self.hass,
             entity_id="",
             service="camera_list",
+            error_response_factory=_camera_vnext_error_response,
         )
         if guard.response is not None:
             return guard.response
