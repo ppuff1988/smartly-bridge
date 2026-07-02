@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+from datetime import date
 from pathlib import Path
 from typing import NamedTuple
 
@@ -207,7 +208,14 @@ def _is_complete(value: str) -> bool:
 
 
 def _is_iso_date(value: str) -> bool:
-    return re.fullmatch(r"\d{4}-\d{2}-\d{2}", value.strip()) is not None
+    candidate = value.strip()
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}", candidate) is None:
+        return False
+    try:
+        date.fromisoformat(candidate)
+    except ValueError:
+        return False
+    return True
 
 
 def _is_ready_decision(value: str) -> bool:
