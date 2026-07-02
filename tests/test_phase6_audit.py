@@ -420,6 +420,23 @@ def test_phase6_audit_detects_application_test_legacy_wording(
     assert any(finding.code == "application-test-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_application_test_top_level_error_fields(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects application tests that still inject top-level errors."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/test_application_hexagonal.py",
+        'response = {"error": "service_call_failed", "errors": []}\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "application-test-top-level-error" for finding in findings
+    )
+
+
 def test_phase6_audit_detects_general_legacy_wording(tmp_path: Path) -> None:
     """The audit rejects general Phase 6 legacy wording outside audit records."""
     audit = _load_phase6_audit()

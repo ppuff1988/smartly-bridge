@@ -697,8 +697,8 @@ async def test_smartly_command_use_case_uses_injected_control_use_case_factory()
 
 
 @pytest.mark.asyncio
-async def test_smartly_command_error_wrapper_prefers_vnext_error_code() -> None:
-    """Resolved source errors are wrapped from API vNext errors, not top-level error."""
+async def test_smartly_command_error_wrapper_uses_vnext_error_code() -> None:
+    """Resolved source errors are wrapped from API vNext errors."""
     audit = FakeAudit()
     gateway = FakeControlGateway(
         EntityStateSnapshot(
@@ -713,7 +713,6 @@ async def test_smartly_command_error_wrapper_prefers_vnext_error_code() -> None:
         async def execute(self, client_id: str, command: ControlCommand) -> BridgeResponse:
             return BridgeResponse(
                 {
-                    "error": "service_call_failed",
                     "schema_version": "2026.06",
                     "data": {"status": "rejected"},
                     "warnings": [],
