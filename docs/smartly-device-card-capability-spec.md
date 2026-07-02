@@ -188,13 +188,18 @@ Implemented endpoint envelope:
 
 ```json
 {
-  "states": [],
-  "count": 0
+  "schema_version": "2026-06-25",
+  "data": {
+    "states": [],
+    "count": 0
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
-- `states` is the list of allowed entity state objects.
-- `count` is the number of objects in `states`.
+- `data.states` is the list of allowed entity state objects.
+- `data.count` is the number of objects in `data.states`.
 
 Implemented response shape per state:
 

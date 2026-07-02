@@ -206,6 +206,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
     findings.extend(_device_card_stale_capability_doc_findings(root_path))
+    findings.extend(_device_card_top_level_sync_success_doc_findings(root_path))
     findings.extend(_history_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_success_findings(root_path))
@@ -1066,6 +1067,31 @@ def _device_card_stale_capability_doc_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _device_card_top_level_sync_success_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in DEVICE_CARD_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(
+            _top_level_sync_success_block_findings(
+                root,
+                path,
+                lines,
+                code="device-card-top-level-sync-success-doc",
+                message=(
+                    "Device-card docs still show top-level sync states/count bodies; "
+                    "use API vNext data.states/data.count."
+                ),
+            )
+        )
+    return findings
+
+
 def _history_doc_top_level_error_findings(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     for relative_path in HISTORY_DOCS:
@@ -1184,14 +1210,28 @@ def _sync_doc_top_level_success_findings(root: Path) -> list[Finding]:
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
-        findings.extend(_sync_doc_top_level_success_block_findings(root, path, lines))
+        findings.extend(
+            _top_level_sync_success_block_findings(
+                root,
+                path,
+                lines,
+                code="sync-doc-top-level-success",
+                message=(
+                    "Sync docs still show top-level states/count bodies; "
+                    "use API vNext data.states/data.count."
+                ),
+            )
+        )
     return findings
 
 
-def _sync_doc_top_level_success_block_findings(
+def _top_level_sync_success_block_findings(
     root: Path,
     path: Path,
     lines: list[str],
+    *,
+    code: str,
+    message: str,
 ) -> list[Finding]:
     findings: list[Finding] = []
     in_fence = False
@@ -1208,13 +1248,10 @@ def _sync_doc_top_level_success_block_findings(
             if _is_sync_doc_top_level_success_block(block):
                 findings.append(
                     Finding(
-                        code="sync-doc-top-level-success",
+                        code=code,
                         path=_relative_path(root, path),
                         line=fence_start,
-                        message=(
-                            "Sync docs still show top-level states/count bodies; "
-                            "use API vNext data.states/data.count."
-                        ),
+                        message=message,
                     )
                 )
             in_fence = False

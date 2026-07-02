@@ -299,6 +299,24 @@ def test_phase6_audit_detects_device_card_stale_color_temperature_capability_doc
     )
 
 
+def test_phase6_audit_detects_device_card_top_level_sync_success_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects device-card docs with top-level sync states/count."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/smartly-device-card-capability-spec.md",
+        '```json\n{"states": [], "count": 0}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "device-card-top-level-sync-success-doc"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_device_presentation_stale_color_temp_capability(
     tmp_path: Path,
 ) -> None:
