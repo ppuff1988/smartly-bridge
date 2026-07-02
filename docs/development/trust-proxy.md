@@ -260,7 +260,21 @@ location /api/smartly/ {
 
 **症狀：**
 ```json
-{"error": "ip_not_allowed"}
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "IP_NOT_ALLOWED",
+      "message": "ip not allowed",
+      "target": "request.auth",
+      "retryable": false
+    }
+  ]
+}
 ```
 
 **檢查步驟：**
