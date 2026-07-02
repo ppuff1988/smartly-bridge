@@ -455,34 +455,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/StructureResponse'
               example:
-                floors:
-                  - id: floor_1
-                    name: 1F
-                    areas:
-                      - id: area_101
-                        name: Room 101
-                        devices:
-                          - id: device_abc123
-                            name: Smart Switch
-                            entities:
-                              - entity_id: switch.room_101_light
-                                domain: switch
-                                name: Light
-                                icon: mdi:lightbulb
-                areas:
-                  - id: area_101
-                    name: Room 101
-                    floor_id: floor_1
-                devices:
-                  - id: device_abc123
-                    name: Smart Switch
-                    area_id: area_101
-                entities:
-                  - entity_id: switch.room_101_light
-                    domain: switch
-                    name: Light
-                    device_id: device_abc123
-                    icon: mdi:lightbulb
+                schema_version: "2026.06"
+                data:
+                  floors:
+                    - id: floor_1
+                      name: 1F
+                      areas:
+                        - id: area_101
+                          name: Room 101
+                          devices:
+                            - id: device_abc123
+                              name: Smart Switch
+                              entities:
+                                - entity_id: switch.room_101_light
+                                  domain: switch
+                                  name: Light
+                                  icon: mdi:lightbulb
+                  areas:
+                    - id: area_101
+                      name: Room 101
+                      floor_id: floor_1
+                  devices:
+                    - id: device_abc123
+                      name: Smart Switch
+                      area_id: area_101
+                  entities:
+                    - entity_id: switch.room_101_light
+                      domain: switch
+                      name: Light
+                      device_id: device_abc123
+                      icon: mdi:lightbulb
+                warnings: []
+                errors: []
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '429':
@@ -511,28 +515,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/StatesResponse'
               example:
-                states:
-                  - entity_id: sensor.temperature
-                    state: "24.6"
-                    attributes:
-                      friendly_name: Living Room Temperature
-                      device_class: temperature
-                      unit_of_measurement: "°C"
-                      bridge_chart:
-                        metric: temperature
-                        unit: "°C"
-                        points:
-                          - at: "2026-06-26T04:00:00Z"
-                            value: 24.1
-                          - at: "2026-06-26T05:00:00Z"
-                            value: 24.4
-                          - at: "2026-06-26T06:00:00Z"
-                            value: 24.6
-                    last_changed: "2026-06-26T06:00:00Z"
-                    last_updated: "2026-06-26T06:00:00Z"
-                    icon: mdi:thermometer
-                    device_class: environment_sensor
-                count: 1
+                schema_version: "2026.06"
+                data:
+                  states:
+                    - entity_id: sensor.temperature
+                      state: "24.6"
+                      attributes:
+                        friendly_name: Living Room Temperature
+                        device_class: temperature
+                        unit_of_measurement: "°C"
+                        bridge_chart:
+                          metric: temperature
+                          unit: "°C"
+                          points:
+                            - at: "2026-06-26T04:00:00Z"
+                              value: 24.1
+                            - at: "2026-06-26T05:00:00Z"
+                              value: 24.4
+                            - at: "2026-06-26T06:00:00Z"
+                              value: 24.6
+                      last_changed: "2026-06-26T06:00:00Z"
+                      last_updated: "2026-06-26T06:00:00Z"
+                      icon: mdi:thermometer
+                      device_class: environment_sensor
+                  count: 1
+                warnings: []
+                errors: []
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '429':
@@ -1603,27 +1611,52 @@ components:
 
     StructureResponse:
       type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        floors:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - floors
+            - areas
+            - devices
+            - entities
+          properties:
+            floors:
+              type: array
+              description: Hierarchical list of floors with nested areas and devices
+              items:
+                $ref: '#/components/schemas/Floor'
+            areas:
+              type: array
+              description: Flat list of all areas with floor_id reference
+              items:
+                $ref: '#/components/schemas/AreaFlat'
+            devices:
+              type: array
+              description: Flat list of all devices with area_id reference
+              items:
+                $ref: '#/components/schemas/DeviceFlat'
+            entities:
+              type: array
+              description: Flat list of all entities with device_id reference and icon information
+              items:
+                $ref: '#/components/schemas/EntityFlat'
+        warnings:
           type: array
-          description: Hierarchical list of floors with nested areas and devices
           items:
-            $ref: '#/components/schemas/Floor'
-        areas:
+            type: object
+            additionalProperties: true
+        errors:
           type: array
-          description: Flat list of all areas with floor_id reference
           items:
-            $ref: '#/components/schemas/AreaFlat'
-        devices:
-          type: array
-          description: Flat list of all devices with area_id reference
-          items:
-            $ref: '#/components/schemas/DeviceFlat'
-        entities:
-          type: array
-          description: Flat list of all entities with device_id reference and icon information
-          items:
-            $ref: '#/components/schemas/EntityFlat'
+            $ref: '#/components/schemas/ApiVNextError'
 
     Floor:
       type: object
@@ -1706,7 +1739,7 @@ components:
             otherwise falls back to original default icon. Null if no icon available.
           example: mdi:lightbulb
 
-    # Flat schema variants for top-level lists in StructureResponse
+    # Flat schema variants for structure data lists in StructureResponse
     AreaFlat:
       type: object
       description: Area information in flat list format with floor reference
@@ -1773,15 +1806,38 @@ components:
 
     StatesResponse:
       type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        states:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - states
+            - count
+          properties:
+            states:
+              type: array
+              items:
+                $ref: '#/components/schemas/EntityState'
+            count:
+              type: integer
+              description: Number of entities returned
+              example: 1
+        warnings:
           type: array
           items:
-            $ref: '#/components/schemas/EntityState'
-        count:
-          type: integer
-          description: Number of entities returned
-          example: 1
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     EntityState:
       type: object

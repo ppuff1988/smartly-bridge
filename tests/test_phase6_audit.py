@@ -357,6 +357,68 @@ def test_phase6_audit_detects_openapi_device_event_top_level_success_schema(
     )
 
 
+def test_phase6_audit_detects_openapi_sync_top_level_success_schemas(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects sync response schemas with top-level payload fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  schemas:\n"
+            "    StructureResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        floors:\n"
+            "          type: array\n"
+            "    StatesResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        states:\n"
+            "          type: array\n"
+            "        count:\n"
+            "          type: integer\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-sync-top-level-success-schema"
+        for finding in findings
+    )
+
+
+def test_phase6_audit_detects_openapi_sync_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects sync response examples with top-level payload fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/sync/states:\n"
+            "    get:\n"
+            "      responses:\n"
+            "        '200':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              example:\n"
+            "                states: []\n"
+            "                count: 0\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-sync-top-level-success-example"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
     tmp_path: Path,
 ) -> None:

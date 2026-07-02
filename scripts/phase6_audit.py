@@ -208,6 +208,8 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_component_response_error_example_findings(root_path))
     findings.extend(_openapi_control_response_error_example_findings(root_path))
     findings.extend(_openapi_device_event_success_schema_findings(root_path))
+    findings.extend(_openapi_sync_success_schema_findings(root_path))
+    findings.extend(_openapi_sync_success_example_findings(root_path))
     findings.extend(_openapi_device_event_success_example_findings(root_path))
     findings.extend(_openapi_device_event_error_example_findings(root_path))
     findings.extend(_openapi_history_error_example_findings(root_path))
@@ -1047,6 +1049,85 @@ def _openapi_device_event_success_schema_findings(root: Path) -> list[Finding]:
     ]
 
 
+def _openapi_sync_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    expected_payload_keys = {
+        "StructureResponse": {"floors", "areas", "devices", "entities"},
+        "StatesResponse": {"states", "count", "normalization_warnings", "logical_devices"},
+    }
+    for schema_name, payload_keys in expected_payload_keys.items():
+        schema = schemas.get(schema_name, {})
+        properties = schema.get("properties", {})
+        top_level_payload_keys = payload_keys.intersection(properties)
+        if not top_level_payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-sync-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(top_level_payload_keys))}; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_sync_success_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    for api_path in ("/api/smartly/sync/structure", "/api/smartly/sync/states"):
+        sync_get = spec.get("paths", {}).get(api_path, {}).get("get", {})
+        for status_code, response in sync_get.get("responses", {}).items():
+            media = response.get("content", {}).get("application/json", {})
+            examples = _openapi_media_examples(media)
+            if not any(_is_top_level_sync_success_example(example) for example in examples):
+                continue
+            findings.append(
+                Finding(
+                    code="openapi-sync-top-level-success-example",
+                    path=_relative_path(root, path),
+                    line=_line_number_for_pattern_after(
+                        text,
+                        f"  {api_path}:",
+                        f"        '{status_code}':",
+                    ),
+                    message=(
+                        "OpenAPI sync response example still exposes top-level "
+                        "payload fields; use API vNext data fields."
+                    ),
+                )
+            )
+    return findings
+
+
 def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
     path = root / "docs" / "openapi.yaml"
     if not path.exists():
@@ -1240,6 +1321,24 @@ def _is_top_level_error_example(example: object) -> bool:
 
 def _is_top_level_success_example(example: object) -> bool:
     legacy_keys = {"success", "event_id", "device_id", "action", "received_at"}
+    return (
+        isinstance(example, dict)
+        and bool(legacy_keys.intersection(example))
+        and "data" not in example
+    )
+
+
+def _is_top_level_sync_success_example(example: object) -> bool:
+    legacy_keys = {
+        "floors",
+        "areas",
+        "devices",
+        "entities",
+        "states",
+        "count",
+        "normalization_warnings",
+        "logical_devices",
+    }
     return (
         isinstance(example, dict)
         and bool(legacy_keys.intersection(example))
