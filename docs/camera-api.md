@@ -128,7 +128,19 @@ ETag: "a3f8b2c1d4e5f6..."
 
 ```json
 {
-  "error": "invalid_entity_id"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_ENTITY_ID",
+      "message": "invalid entity id",
+      "target": "camera.entity_id",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -202,7 +214,19 @@ Content-Length: 12678
 
 ```json
 {
-  "error": "invalid_entity_id"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_ENTITY_ID",
+      "message": "invalid entity id",
+      "target": "camera.entity_id",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -333,7 +357,19 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "error": "invalid_signature"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_SIGNATURE",
+      "message": "invalid signature",
+      "target": "camera.auth",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -468,7 +504,19 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "error": "missing_action"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_ACTION",
+      "message": "missing action",
+      "target": "camera.action",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -664,7 +712,19 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stats HTTP/1.1
 
 ```json
 {
-  "error": "hls_not_supported"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "HLS_NOT_SUPPORTED",
+      "message": "hls not supported",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -732,8 +792,19 @@ Body: { session_id, candidate }
 
 ```json
 {
-  "error": "error_code",
-  "message": "人類可讀的錯誤訊息（可選）"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ERROR_CODE",
+      "message": "人類可讀的錯誤訊息",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -766,7 +837,19 @@ X-RateLimit-Remaining: 0
 Content-Type: application/json
 
 {
-  "error": "rate_limited"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RATE_LIMITED",
+      "message": "rate limited",
+      "target": "camera.rate_limit",
+      "retryable": false
+    }
+  ]
 }
 ```
 

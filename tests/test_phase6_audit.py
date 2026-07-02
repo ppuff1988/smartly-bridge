@@ -292,6 +292,21 @@ def test_phase6_audit_detects_history_docs_top_level_error_examples(
     assert any(finding.code == "history-doc-top-level-error" for finding in findings)
 
 
+def test_phase6_audit_detects_camera_docs_top_level_error_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects camera docs that still show top-level error bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/camera-api.md",
+        '```json\n{"error": "invalid_entity_id"}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "camera-doc-top-level-error" for finding in findings)
+
+
 def test_phase6_audit_allows_public_docs_source_entity_references(
     tmp_path: Path,
 ) -> None:
