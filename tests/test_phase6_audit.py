@@ -574,6 +574,37 @@ def test_phase6_audit_detects_openapi_webrtc_hangup_top_level_success_schema(
     )
 
 
+def test_phase6_audit_detects_openapi_inline_top_level_response_schema(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects inline response schemas with non-envelope top-level fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/example:\n"
+            "    get:\n"
+            "      responses:\n"
+            "        '200':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              schema:\n"
+            "                type: object\n"
+            "                properties:\n"
+            "                  token:\n"
+            "                    type: string\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-inline-response-top-level-payload-schema"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
     tmp_path: Path,
 ) -> None:
