@@ -91,6 +91,18 @@ def _json_response(
     )
 
 
+def _webrtc_error_message(result: BridgeResponse) -> str:
+    """Return the first API vNext WebRTC error message for diagnostics."""
+    errors = result.body.get("errors")
+    if isinstance(errors, list) and errors:
+        first_error = errors[0]
+        if isinstance(first_error, dict):
+            message = first_error.get("message")
+            if isinstance(message, str):
+                return message
+    return "unknown WebRTC error"
+
+
 def _webrtc_token_use_case(gateway: Any) -> WebRTCTokenUseCase:
     """Build the WebRTC token application use case."""
     return WebRTCTokenUseCase(gateway)
@@ -488,7 +500,7 @@ class SmartlyWebRTCOfferView(BaseView):
             return _json_response(result.body, self.request, status=result.status)
 
         if result.status == 500:
-            _LOGGER.error("WebRTC offer failed for %s: %s", entity_id, result.body.get("message"))
+            _LOGGER.error("WebRTC offer failed for %s: %s", entity_id, _webrtc_error_message(result))
             log_control(
                 _LOGGER,
                 client_id="unknown",

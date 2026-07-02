@@ -1520,6 +1520,58 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-offer-not-available.json")
 
     @pytest.mark.asyncio
+    async def test_offer_view_logs_vnext_error_message_on_signaling_failure(
+        self,
+        mock_hass_with_webrtc,
+    ):
+        """Offer failure logging reads the API vNext error message."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": FakeWebRTCGateway(),
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={"token": "valid-token", "sdp": "v=0\r\n", "type": "offer"}
+        )
+        offer_error = BridgeResponse(
+            {
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "SIGNALING_FAILED",
+                        "message": "go2rtc signaling failed",
+                        "target": "webrtc",
+                        "retryable": False,
+                    }
+                ],
+            },
+            status=500,
+        )
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.webrtc._create_webrtc_offer",
+                new_callable=AsyncMock,
+            ) as create_offer,
+            patch("custom_components.smartly_bridge.views.webrtc._LOGGER") as logger,
+        ):
+            create_offer.return_value = offer_error
+
+            response = await SmartlyWebRTCOfferView(request).post()
+
+        assert response.status == 500
+        logger.error.assert_called_once_with(
+            "WebRTC offer failed for %s: %s",
+            "camera.front_door",
+            "go2rtc signaling failed",
+        )
+
+    @pytest.mark.asyncio
     async def test_ice_view_invalid_entity_id_returns_envelope(self, mock_hass_with_webrtc):
         """Test ICE request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
