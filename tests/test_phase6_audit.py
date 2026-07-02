@@ -294,6 +294,22 @@ def test_phase6_audit_detects_migration_plan_legacy_wording(
     assert any(finding.code == "migration-plan-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_control_test_legacy_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects control/command test wording that still says legacy."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/test_http.py",
+        "def test_control_legacy_entity_action_body_is_rejected():\n"
+        "    pass\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "control-test-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

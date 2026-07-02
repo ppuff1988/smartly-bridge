@@ -318,7 +318,7 @@ async def test_control_use_case_denies_service_before_service_call() -> None:
 
 @pytest.mark.asyncio
 async def test_control_use_case_calls_allowed_service_and_returns_new_state() -> None:
-    """Allowed source commands return vNext data without legacy top-level fields."""
+    """Allowed source commands return vNext data without removed top-level fields."""
     audit = FakeAudit()
     state = EntityStateSnapshot(
         entity_id="light.kitchen",
@@ -698,7 +698,7 @@ async def test_smartly_command_use_case_uses_injected_control_use_case_factory()
 
 @pytest.mark.asyncio
 async def test_smartly_command_error_wrapper_prefers_vnext_error_code() -> None:
-    """Resolved source errors are wrapped from API vNext errors, not legacy error."""
+    """Resolved source errors are wrapped from API vNext errors, not top-level error."""
     audit = FakeAudit()
     gateway = FakeControlGateway(
         EntityStateSnapshot(
@@ -2110,7 +2110,7 @@ async def test_smartly_command_use_case_rejects_invalid_brightness_params() -> N
 
 @pytest.mark.asyncio
 async def test_smartly_command_error_response_includes_vnext_errors_array() -> None:
-    """Command errors expose API vNext structured errors without dropping legacy error."""
+    """Command errors expose API vNext structured errors without top-level error."""
     audit = FakeAudit()
     gateway = FakeControlGateway()
     resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
@@ -2158,7 +2158,7 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
     )
 
     assert result.status == 400
-    legacy_fields = {
+    removed_top_level_fields = {
         "success",
         "command_id",
         "status",
@@ -2171,7 +2171,7 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
         "entity_id",
         "expected_state",
     }
-    assert legacy_fields.isdisjoint(result.body)
+    assert removed_top_level_fields.isdisjoint(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == [
@@ -3183,8 +3183,8 @@ def test_inner_layers_do_not_import_framework_adapters() -> None:
                 ), f"{path} imports framework code: {imported}"
 
 
-def test_domain_models_do_not_own_legacy_normalization() -> None:
-    """Domain models stay as data contracts; application services normalize legacy states."""
+def test_domain_models_do_not_own_source_normalization() -> None:
+    """Domain models stay as data contracts; application services normalize source states."""
     package_root = Path(__file__).resolve().parents[1] / "custom_components/smartly_bridge"
     models = (package_root / "domain/models.py").read_text()
 

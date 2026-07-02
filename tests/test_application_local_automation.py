@@ -99,7 +99,7 @@ def _fixture(name: str) -> dict[str, Any]:
     )
 
 
-def test_command_response_status_ignores_legacy_top_level_status() -> None:
+def test_command_response_status_ignores_removed_top_level_status() -> None:
     """Local automation command results only read SmartlyCommand vNext data.status."""
     response = BridgeResponse(
         {

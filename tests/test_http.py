@@ -173,8 +173,8 @@ def test_control_request_builds_vnext_smartly_command() -> None:
     assert command.source == {"user_id": "user-1"}
 
 
-def test_control_request_ignores_legacy_body_as_vnext_command() -> None:
-    """Legacy control requests are not parsed as SmartlyCommand bodies."""
+def test_control_request_ignores_entity_action_body_as_vnext_command() -> None:
+    """Entity/action control requests are not parsed as SmartlyCommand bodies."""
     assert (
         _smartly_command_from_body(
             {"entity_id": "light.kitchen", "action": "turn_on", "service_data": {}}
@@ -1002,10 +1002,10 @@ class TestControlEndpointFullFlow:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
-    async def test_control_legacy_entity_action_body_is_rejected(
+    async def test_control_entity_action_body_is_rejected(
         self, mock_hass, mock_config_entry
     ):
-        """Legacy entity/action control bodies are no longer accepted by Phase 6."""
+        """Entity/action control bodies are no longer accepted by Phase 6."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views.control import SmartlyControlView
@@ -1020,7 +1020,7 @@ class TestControlEndpointFullFlow:
             "entity_id": "light.kitchen",
             "action": "turn_on",
             "service_data": {"brightness_pct": 50},
-            "actor": {"source": "legacy-test"},
+            "actor": {"source": "removed-body-test"},
         }
         mock_request = MagicMock()
         mock_request.app = {"hass": mock_hass}
@@ -1049,10 +1049,10 @@ class TestControlEndpointFullFlow:
         assert "control_use_case" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
-    async def test_control_legacy_entity_action_body_does_not_require_use_case(
+    async def test_control_entity_action_body_does_not_require_use_case(
         self, mock_hass, mock_config_entry
     ):
-        """Legacy entity/action bodies are rejected before runtime use-case lookup."""
+        """Entity/action bodies are rejected before runtime use-case lookup."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views.control import SmartlyControlView
