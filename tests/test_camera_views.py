@@ -1875,7 +1875,7 @@ class TestSmartlyCameraConfigView:
         self,
         mock_request,
     ):
-        """Camera config parser preserves invalid JSON legacy and vNext response."""
+        """Camera config parser returns a vNext-only invalid JSON response."""
         mock_request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
 
         result = await _parse_camera_config_command(mock_request)
@@ -1883,8 +1883,9 @@ class TestSmartlyCameraConfigView:
         assert result.command is None
         assert result.response is not None
         assert result.response.status == 400
-        assert json.loads(result.response.body) == {
-            "error": "invalid_json",
+        data = json.loads(result.response.body)
+        _assert_vnext_only_top_level(data)
+        assert data == {
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1970,8 +1971,8 @@ class TestSmartlyCameraConfigView:
 
         assert response.status == 500
         data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1999,8 +2000,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 401
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -2033,8 +2034,8 @@ class TestSmartlyCameraConfigView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -2065,8 +2066,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 400
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "invalid_json",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -2096,8 +2097,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 400
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "missing_action",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],

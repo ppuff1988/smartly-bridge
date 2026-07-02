@@ -23,6 +23,7 @@ from ..application.camera import (
     CameraSnapshotUseCase,
     CameraStreamUseCase,
     _camera_error_response,
+    _camera_vnext_error_response,
 )
 from ..audit import log_control, log_deny
 from ..auth import AuthResult, RateLimiter, verify_request
@@ -150,12 +151,13 @@ async def _authorize_camera_request(
     entity_id: str,
     service: str,
     require_entity_allowed: bool = False,
+    error_response_factory: Callable[..., Any] = _camera_error_response,
 ) -> CameraRequestGuardResult:
     """Authorize a camera HTTP request and return auth context or a response."""
     integration_data = hass.data.get(DOMAIN)
     config_entry = integration_data.get("config_entry") if integration_data else None
     if config_entry is None:
-        result = _camera_error_response(
+        result = error_response_factory(
             "integration_not_configured",
             status=500,
             target="camera.config",
@@ -191,7 +193,7 @@ async def _authorize_camera_request(
             service=service,
             reason=auth_result.error or "auth_failed",
         )
-        result = _camera_error_response(
+        result = error_response_factory(
             auth_result.error or "auth_failed",
             status=401,
             target="camera.auth",
@@ -214,7 +216,7 @@ async def _authorize_camera_request(
             service=service,
             reason="rate_limited",
         )
-        result = _camera_error_response(
+        result = error_response_factory(
             "rate_limited",
             status=429,
             target="camera.rate_limit",
@@ -246,7 +248,7 @@ async def _authorize_camera_request(
                 service=service,
                 reason="entity_not_allowed",
             )
-            result = _camera_error_response(
+            result = error_response_factory(
                 "entity_not_allowed",
                 status=403,
                 target="camera.entity_id",
@@ -324,7 +326,7 @@ async def _parse_camera_config_command(
     try:
         body = await request.json()
     except json.JSONDecodeError:
-        result = _camera_error_response(
+        result = _camera_vnext_error_response(
             "invalid_json",
             status=400,
             target="camera.request",
@@ -340,7 +342,7 @@ async def _parse_camera_config_command(
 
     action = body.get("action")
     if not action:
-        result = _camera_error_response(
+        result = _camera_vnext_error_response(
             "missing_action",
             status=400,
             target="camera.action",
@@ -713,6 +715,7 @@ class SmartlyCameraConfigView(BaseView):
             self.hass,
             entity_id="",
             service="camera_config",
+            error_response_factory=_camera_vnext_error_response,
         )
         if guard.response is not None:
             return guard.response
