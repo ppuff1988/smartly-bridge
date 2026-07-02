@@ -87,6 +87,16 @@ def unknown_status_gates(statuses: list[GateStatus]) -> list[str]:
     return [status.gate for status in statuses if status.gate not in required_gates]
 
 
+def unknown_signoff_gates(signoffs: list[Signoff]) -> list[str]:
+    """Return sign-off gate names that are outside the Phase 6 release scope."""
+    required_gates = set(REQUIRED_GATES)
+    return [
+        signoff.gate
+        for signoff in signoffs
+        if _is_complete(signoff.gate) and signoff.gate not in required_gates
+    ]
+
+
 def duplicate_signoff_evidence(signoffs: list[Signoff]) -> list[str]:
     """Return sign-off gate/evidence pairs that appear more than once."""
     seen: set[tuple[str, str]] = set()
@@ -274,6 +284,7 @@ def main(argv: list[str] | None = None) -> int:
     missing = missing_required_gates(statuses)
     duplicates = duplicate_status_gates(statuses)
     unknown = unknown_status_gates(statuses)
+    unknown_signoffs = unknown_signoff_gates(signoffs)
     duplicate_signoffs = duplicate_signoff_evidence(signoffs)
     missing_signoffs = missing_ready_gate_signoffs(statuses, signoffs)
     pending = [status for status in statuses if not status.ready]
@@ -281,6 +292,7 @@ def main(argv: list[str] | None = None) -> int:
         not missing
         and not duplicates
         and not unknown
+        and not unknown_signoffs
         and not duplicate_signoffs
         and not missing_signoffs
         and not pending
@@ -295,6 +307,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- {gate}: duplicate evidence rows")
     for gate in unknown:
         print(f"- {gate}: unknown evidence row")
+    for gate in unknown_signoffs:
+        print(f"- {gate}: unknown sign-off row")
     for signoff in duplicate_signoffs:
         print(f"- {signoff}: duplicate sign-off rows")
     for gate in missing_signoffs:
