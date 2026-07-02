@@ -71,6 +71,7 @@ ACTIVE_CONTRACT_LEGACY_TERMS = (
     "legacy",
     "deprecated",
     "backward compatibility",
+    "backward compatible",
 )
 MIGRATION_PLAN_DOCS = [
     Path("docs/specs/migration-plan.md"),

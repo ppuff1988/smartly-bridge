@@ -15,7 +15,7 @@ API 必須支援：
 - Versioned contract
 - Idempotency
 - Partial sync
-- Backward compatible optional fields
+- Additive optional fields
 - Command correlation
 - Event dedupe
 - Raw diagnostic fetch

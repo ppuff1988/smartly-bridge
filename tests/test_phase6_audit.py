@@ -208,6 +208,21 @@ def test_phase6_audit_detects_active_contract_legacy_wording(tmp_path: Path) -> 
     assert any(finding.code == "active-contract-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_active_contract_backward_compatible_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects backward-compatible wording in active contract docs."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/specs/api-vnext-contract.md",
+        "- Backward compatible optional fields\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "active-contract-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_openapi_legacy_control_body(tmp_path: Path) -> None:
     """The audit rejects OpenAPI docs that still publish entity/action control body."""
     audit = _load_phase6_audit()
