@@ -54,19 +54,17 @@ ACTIVE_CONTRACT_LEGACY_TERMS = (
     "deprecated",
     "backward compatibility",
 )
-PUBLIC_CONTROL_ENTRY_DOCS = [
+PUBLIC_CONTROL_DOCS = [
+    Path("README.md"),
+    Path("docs/README.md"),
     Path("docs/control/README.md"),
     Path("docs/control/api-basics.md"),
+    Path("docs/control/code-examples.md"),
+    Path("docs/control/device-types.md"),
+    Path("docs/control/responses.md"),
+    Path("docs/control/troubleshooting.md"),
 ]
 PUBLIC_CONTROL_LEGACY_BODY_TERMS = (
-    '"entity_id"',
-    " entity_id:",
-    " entity_id =",
-    "`entity_id`",
-    '"action"',
-    " action:",
-    " action =",
-    "`action`",
     "service_data",
     "ControlRequest",
     "ControlResponse",
@@ -513,7 +511,7 @@ def _openapi_legacy_control_body_findings(root: Path) -> list[Finding]:
 
 def _public_control_legacy_body_doc_findings(root: Path) -> list[Finding]:
     findings: list[Finding] = []
-    for relative_path in PUBLIC_CONTROL_ENTRY_DOCS:
+    for relative_path in PUBLIC_CONTROL_DOCS:
         path = root / relative_path
         if not path.exists():
             continue
@@ -521,21 +519,76 @@ def _public_control_legacy_body_doc_findings(root: Path) -> list[Finding]:
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
-        for line_number, line in enumerate(lines, start=1):
-            if not any(term in line for term in PUBLIC_CONTROL_LEGACY_BODY_TERMS):
-                continue
-            findings.append(
-                Finding(
-                    code="public-control-legacy-body-doc",
-                    path=_relative_path(root, path),
-                    line=line_number,
-                    message=(
-                        "Public control entry docs still show entity_id/action "
-                        "body; use API vNext SmartlyCommand."
-                    ),
-                )
-            )
+        findings.extend(_legacy_control_doc_line_findings(root, path, lines))
+        findings.extend(_legacy_control_doc_block_findings(root, path, lines))
     return findings
+
+
+def _legacy_control_doc_line_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for line_number, line in enumerate(lines, start=1):
+        if not any(term in line for term in PUBLIC_CONTROL_LEGACY_BODY_TERMS):
+            continue
+        findings.append(
+            Finding(
+                code="public-control-legacy-body-doc",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "Public control docs still show legacy control body terms; "
+                    "use API vNext SmartlyCommand."
+                ),
+            )
+        )
+    return findings
+
+
+def _legacy_control_doc_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_legacy_control_body_block(block):
+                findings.append(
+                    Finding(
+                        code="public-control-legacy-body-doc",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Public control docs still show entity_id/action "
+                            "body; use API vNext SmartlyCommand."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_legacy_control_body_block(block: str) -> bool:
+    return (
+        '"entity_id"' in block
+        and ('"action"' in block or "service_data" in block)
+    )
 
 
 def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:

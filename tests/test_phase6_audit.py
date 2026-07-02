@@ -247,6 +247,38 @@ def test_phase6_audit_detects_public_control_legacy_body_docs(
     assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
 
 
+def test_phase6_audit_detects_nested_public_control_legacy_body_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects nested public control guides with legacy body examples."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/control/device-types.md",
+        '```json\n{"entity_id": "switch.office", "service_data": {}}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
+
+
+def test_phase6_audit_allows_public_docs_source_entity_references(
+    tmp_path: Path,
+) -> None:
+    """The public control-doc audit does not reject non-control source fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "README.md",
+        '```json\n{"states": [{"entity_id": "light.bedroom"}]}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert not any(
+        finding.code == "public-control-legacy-body-doc" for finding in findings
+    )
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:
