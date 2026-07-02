@@ -8,36 +8,42 @@
 
 ```json
 {
-    "entity_id": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
-    "history": [
-        {
-            "state": 113.9,
-            "last_changed": "2026-01-12T04:57:50.621554+00:00",
-            "last_updated": "2026-01-12T04:57:50.621554+00:00",
-            "attributes": {}
+    "schema_version": "2026.06",
+    "data": {
+        "entity_id": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
+        "history": [
+            {
+                "state": 113.9,
+                "last_changed": "2026-01-12T04:57:50.621554+00:00",
+                "last_updated": "2026-01-12T04:57:50.621554+00:00",
+                "attributes": {}
+            },
+            {
+                "state": 114.0,
+                "last_changed": "2026-01-12T04:57:32.545598+00:00",
+                "last_updated": "2026-01-12T04:57:32.545598+00:00"
+            }
+            // ... 其他記錄也沒有 attributes
+        ],
+        "metadata": {
+            "domain": "sensor",
+            "device_class": null,  // ❌ 應該是 "voltage"
+            "unit_of_measurement": "",  // ❌ 應該是 "V"
+            "friendly_name": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
+            "is_numeric": true,
+            "visualization": {
+                "type": "chart",
+                "chart_type": "line",
+                "color": "#607D8B",
+                "show_points": true,
+                "interpolation": "linear"
+            },
+            "decimal_places": 2
         },
-        {
-            "state": 114.0,
-            "last_changed": "2026-01-12T04:57:32.545598+00:00",
-            "last_updated": "2026-01-12T04:57:32.545598+00:00"
-        }
-        // ... 其他記錄也沒有 attributes
-    ],
-    "metadata": {
-        "domain": "sensor",
-        "device_class": null,  // ❌ 應該是 "voltage"
-        "unit_of_measurement": "",  // ❌ 應該是 "V"
-        "friendly_name": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
-        "is_numeric": true,
-        "visualization": {
-            "type": "chart",
-            "chart_type": "line",
-            "color": "#607D8B",
-            "show_points": true,
-            "interpolation": "linear"
-        },
-        "decimal_places": 2
-    }
+        "count": 2
+    },
+    "warnings": [],
+    "errors": []
 }
 ```
 

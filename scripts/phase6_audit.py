@@ -143,6 +143,7 @@ PUBLIC_CONTROL_STALE_LIGHT_COMMAND_TERMS = (
 )
 HISTORY_DOCS = [
     Path("docs/history-api.md"),
+    Path("docs/fix-device-class-metadata.md"),
 ]
 HISTORY_CLIENT_DOCS = [
     Path("docs/history-api.md"),

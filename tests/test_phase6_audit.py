@@ -975,6 +975,26 @@ def test_phase6_audit_detects_history_docs_top_level_success_examples(
     assert any(finding.code == "history-doc-top-level-success" for finding in findings)
 
 
+def test_phase6_audit_detects_history_metadata_doc_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit covers nested history metadata docs with response examples."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/fix-device-class-metadata.md",
+        (
+            "```json\n"
+            '{"entity_id": "sensor.voltage", "history": [], '
+            '"metadata": {"device_class": null}}\n'
+            "```\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "history-doc-top-level-success" for finding in findings)
+
+
 def test_phase6_audit_detects_history_docs_top_level_response_parsing(
     tmp_path: Path,
 ) -> None:
