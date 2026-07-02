@@ -71,8 +71,7 @@ def _assert_vnext_only_top_level(body: dict) -> None:
 
 def _camera_gateway_unavailable_body() -> dict:
     """Expected response when setup did not create the camera gateway."""
-    return {
-        "error": "camera_gateway_unavailable",
+    body = {
         "schema_version": SMARTLY_API_SCHEMA_VERSION,
         "data": {"status": "rejected"},
         "warnings": [],
@@ -85,6 +84,8 @@ def _camera_gateway_unavailable_body() -> dict:
             }
         ],
     }
+    _assert_vnext_only_top_level(body)
+    return body
 
 
 def _configure_camera_runtime_gateway(

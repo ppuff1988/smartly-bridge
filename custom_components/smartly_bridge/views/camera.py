@@ -305,7 +305,7 @@ def _resolve_camera_gateway(
     if gateway is not None:
         return CameraGatewayResolutionResult(gateway=gateway)
 
-    result = _camera_error_response(
+    result = _camera_vnext_error_response(
         "camera_gateway_unavailable",
         status=500,
         target="camera.gateway",
