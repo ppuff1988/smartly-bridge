@@ -204,6 +204,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_webrtc_test_top_level_success_findings(root_path))
     findings.extend(_request_time_fallback_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
+    findings.extend(_openapi_response_top_level_payload_schema_findings(root_path))
     findings.extend(_openapi_top_level_error_response_schema_findings(root_path))
     findings.extend(_openapi_component_response_error_example_findings(root_path))
     findings.extend(_openapi_control_response_error_example_findings(root_path))
@@ -944,6 +945,44 @@ def _openapi_top_level_error_response_schema_findings(root: Path) -> list[Findin
             ),
         )
     ]
+
+
+def _openapi_response_top_level_payload_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    for schema_name, schema in schemas.items():
+        if not schema_name.endswith("Response"):
+            continue
+        properties = schema.get("properties", {})
+        if not isinstance(properties, dict):
+            continue
+        payload_keys = set(properties) - API_VNEXT_TOP_LEVEL_KEYS
+        if not payload_keys:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-response-top-level-payload-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(payload_keys))}; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
 
 
 def _openapi_component_response_error_example_findings(root: Path) -> list[Finding]:

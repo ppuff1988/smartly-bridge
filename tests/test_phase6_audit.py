@@ -517,6 +517,32 @@ def test_phase6_audit_detects_openapi_camera_top_level_success_schemas(
     )
 
 
+def test_phase6_audit_detects_openapi_generic_top_level_response_schema(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects new Response schemas with non-envelope top-level fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  schemas:\n"
+            "    UnexpectedResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        token:\n"
+            "          type: string\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-response-top-level-payload-schema"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_openapi_webrtc_hangup_top_level_success_schema(
     tmp_path: Path,
 ) -> None:
