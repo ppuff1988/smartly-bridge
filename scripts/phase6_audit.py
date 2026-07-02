@@ -62,6 +62,8 @@ GENERAL_LEGACY_WORDING_TERMS = (
     "legacy",
     "deprecated",
     "backward compatibility",
+    "向後相容性",
+    "完全相容",
     "LTS",
 )
 ACTIVE_CONTRACT_DOCS = [

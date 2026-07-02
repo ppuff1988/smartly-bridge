@@ -1395,6 +1395,21 @@ def test_phase6_audit_detects_general_legacy_wording(tmp_path: Path) -> None:
     assert any(finding.code == "general-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_chinese_compatibility_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects Chinese compatibility wording in cleanup docs."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs" / "guide.md",
+        "## 向後相容性\n\n✅ 完全相容\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "general-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_request_time_fallback_wording(
     tmp_path: Path,
 ) -> None:
