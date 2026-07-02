@@ -620,6 +620,7 @@
 | 430 | `a7bdc47` | Phase 6 移除 SmartlyCommand source-control error wrapping 對 resolved `BridgeResponse.body.error` 的 legacy fallback，error code 現在只從 API vNext `errors[]` 讀取，缺少 vNext error 才回 `command_failed` | RED failed because a conflicting source response used legacy `service_call_failed` instead of vNext `ENTITY_NOT_ALLOWED`; focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed` |
 | 431 | `0d2e9e6` | Phase 6 移除 Local automation `device_command` result 對 SmartlyCommand legacy top-level `status` 的 fallback，automation status 現在只透過 API vNext `data.status` 取得，測試替身同步改為 vNext SmartlyCommand response envelope | RED failed because `_command_response_status` still returned legacy top-level `status`; focused local automation status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed` |
 | 432 | `55127dd` | Phase 6 移除 WebRTC offer signaling failure log 對 response top-level `message` 的讀取，WebRTC diagnostic log 現在從 API vNext `errors[0].message` 取得 failure reason | RED failed because offer 500 logging printed `None` for vNext-only errors; focused WebRTC offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed` |
+| 433 | `7725443` | Phase 6 清理 API vNext fixture tests 的 legacy wording，將已鎖定 vNext-only envelope 的 camera、device-event、command、history 與 WebRTC fixture 測試描述改為 API vNext contract wording，避免後續重構誤解為仍需保留 legacy top-level 欄位 | Affected fixture test files `278 passed`; residual legacy wording search only leaves intentional legacy top-level-negative assertions and alias/runtime-factory compatibility wording |
 
 ## Completed Slices
 
@@ -673,6 +674,8 @@
 - Local automation command status verification: focused status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed`
 - WebRTC offer diagnostics cleanup: offer signaling failure logging no longer reads response top-level `message`; it uses API vNext `errors[0].message`.
 - WebRTC offer diagnostics verification: focused offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed`
+- API vNext fixture wording cleanup: camera/device-event/command/history/WebRTC fixture tests now describe vNext-only envelope contracts instead of legacy/vNext compatibility.
+- API vNext fixture wording verification: affected fixture test files `278 passed`
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
