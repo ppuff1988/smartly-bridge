@@ -129,24 +129,29 @@ Content-Type: application/json
 
 ```json
 {
-  "token": "xxxxx...",
-  "expires_at": 1735229100,
-  "expires_in": 300,
-  "entity_id": "camera.front_door",
-  "offer_endpoint": "/api/smartly/camera/camera.front_door/webrtc/offer",
-  "ice_endpoint": "/api/smartly/camera/camera.front_door/webrtc/ice",
-  "hangup_endpoint": "/api/smartly/camera/camera.front_door/webrtc/hangup",
-  "ice_servers": [
-    {
-      "urls": "stun:stun.l.google.com:19302"
-    },
-    {
-      "urls": "stun:stun1.l.google.com:19302"
-    },
-    {
-      "urls": "stun:stun2.l.google.com:19302"
-    }
-  ]
+  "schema_version": "2026.06",
+  "data": {
+    "token": "xxxxx...",
+    "expires_at": 1735229100,
+    "expires_in": 300,
+    "entity_id": "camera.front_door",
+    "offer_endpoint": "/api/smartly/camera/camera.front_door/webrtc/offer",
+    "ice_endpoint": "/api/smartly/camera/camera.front_door/webrtc/ice",
+    "hangup_endpoint": "/api/smartly/camera/camera.front_door/webrtc/hangup",
+    "ice_servers": [
+      {
+        "urls": "stun:stun.l.google.com:19302"
+      },
+      {
+        "urls": "stun:stun1.l.google.com:19302"
+      },
+      {
+        "urls": "stun:stun2.l.google.com:19302"
+      }
+    ]
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -154,14 +159,17 @@ Content-Type: application/json
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| `token` | string | WebRTC 認證 Token（256-bit，單次使用） |
-| `expires_at` | number | Token 到期時間（Unix 時間戳） |
-| `expires_in` | number | Token 剩餘有效秒數 |
-| `entity_id` | string | 攝影機實體 ID |
-| `offer_endpoint` | string | SDP Offer 交換端點 |
-| `ice_endpoint` | string | ICE Candidate 交換端點 |
-| `hangup_endpoint` | string | 關閉 Session 端點 |
-| `ice_servers` | array | ICE 伺服器列表（STUN/TURN） |
+| `schema_version` | string | API vNext schema version |
+| `data.token` | string | WebRTC 認證 Token（256-bit，單次使用） |
+| `data.expires_at` | number | Token 到期時間（Unix 時間戳） |
+| `data.expires_in` | number | Token 剩餘有效秒數 |
+| `data.entity_id` | string | 攝影機實體 ID |
+| `data.offer_endpoint` | string | SDP Offer 交換端點 |
+| `data.ice_endpoint` | string | ICE Candidate 交換端點 |
+| `data.hangup_endpoint` | string | 關閉 Session 端點 |
+| `data.ice_servers` | array | ICE 伺服器列表（STUN/TURN） |
+| `warnings` | array | 非阻斷警告 |
+| `errors` | array | 結構化錯誤 |
 
 #### 重要特性
 
@@ -224,9 +232,14 @@ Content-Type: application/json
 
 ```json
 {
-  "type": "answer",
-  "sdp": "v=0\r\no=- 789012 2 IN IP4 192.168.1.100\r\n...",
-  "session_id": "abcdefghijklmnop"
+  "schema_version": "2026.06",
+  "data": {
+    "type": "answer",
+    "sdp": "v=0\r\no=- 789012 2 IN IP4 192.168.1.100\r\n...",
+    "session_id": "abcdefghijklmnop"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -234,9 +247,12 @@ Content-Type: application/json
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| `type` | string | 固定為 `"answer"` |
-| `sdp` | string | SDP Answer 內容 |
-| `session_id` | string | WebRTC Session ID（用於後續操作） |
+| `schema_version` | string | API vNext schema version |
+| `data.type` | string | 固定為 `"answer"` |
+| `data.sdp` | string | SDP Answer 內容 |
+| `data.session_id` | string | WebRTC Session ID（用於後續操作） |
+| `warnings` | array | 非阻斷警告 |
+| `errors` | array | 結構化錯誤 |
 
 #### 技術說明
 
@@ -291,8 +307,13 @@ Content-Type: application/json
 
 ```json
 {
-  "status": "accepted",
-  "candidates": []
+  "schema_version": "2026.06",
+  "data": {
+    "status": "accepted",
+    "candidates": []
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -300,8 +321,11 @@ Content-Type: application/json
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| `status` | string | 固定為 `"accepted"` |
-| `candidates` | array | 伺服器端的 ICE Candidates（如有） |
+| `schema_version` | string | API vNext schema version |
+| `data.status` | string | 固定為 `"accepted"` |
+| `data.candidates` | array | 伺服器端的 ICE Candidates（如有） |
+| `warnings` | array | 非阻斷警告 |
+| `errors` | array | 結構化錯誤 |
 
 #### ICE Candidate 類型
 
@@ -344,7 +368,12 @@ Content-Type: application/json
 
 ```json
 {
-  "status": "closed"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "closed"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -373,7 +402,8 @@ const tokenResponse = await fetch('/api/smartly/camera/camera.front_door/webrtc'
   },
   body: JSON.stringify({})
 });
-const { token, ice_servers, offer_endpoint } = await tokenResponse.json();
+const tokenEnvelope = await tokenResponse.json();
+const { token, ice_servers, offer_endpoint } = tokenEnvelope.data;
 
 // 2. 建立 RTCPeerConnection
 const pc = new RTCPeerConnection({ iceServers: ice_servers });
@@ -392,7 +422,8 @@ const offerResponse = await fetch(offer_endpoint, {
     type: 'offer'
   })
 });
-const { sdp: answerSdp, session_id } = await offerResponse.json();
+const offerEnvelope = await offerResponse.json();
+const { sdp: answerSdp, session_id } = offerEnvelope.data;
 
 // 5. 設定 Remote Description
 await pc.setRemoteDescription({ type: 'answer', sdp: answerSdp });
@@ -1070,17 +1101,22 @@ turnutils_uclient -v \
 
 ```json
 {
-  "token": "...",
-  "ice_servers": [
-    {"urls": "stun:stun.l.google.com:19302"},
-    {"urls": "stun:stun1.l.google.com:19302"},
-    {"urls": "stun:stun2.l.google.com:19302"},
-    {
-      "urls": "turn:turn.example.com:3478",
-      "username": "myuser",
-      "credential": "mypassword"
-    }
-  ]
+  "schema_version": "2026.06",
+  "data": {
+    "token": "...",
+    "ice_servers": [
+      {"urls": "stun:stun.l.google.com:19302"},
+      {"urls": "stun:stun1.l.google.com:19302"},
+      {"urls": "stun:stun2.l.google.com:19302"},
+      {
+        "urls": "turn:turn.example.com:3478",
+        "username": "myuser",
+        "credential": "mypassword"
+      }
+    ]
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 

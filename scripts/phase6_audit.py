@@ -147,6 +147,9 @@ HISTORY_DOCS = [
 CAMERA_DOCS = [
     Path("docs/camera-api.md"),
 ]
+WEBRTC_DOCS = [
+    Path("docs/webrtc.md"),
+]
 SYNC_DOCS = [
     Path("README.md"),
     Path("docs/sync-api.md"),
@@ -231,6 +234,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_history_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_success_findings(root_path))
+    findings.extend(_webrtc_doc_top_level_success_findings(root_path))
     findings.extend(_sync_doc_top_level_error_findings(root_path))
     findings.extend(_sync_doc_top_level_success_findings(root_path))
     findings.extend(_trust_proxy_doc_top_level_error_findings(root_path))
@@ -2206,6 +2210,20 @@ def _camera_doc_top_level_success_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _webrtc_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in WEBRTC_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_webrtc_doc_success_response_block_findings(root, path, lines))
+    return findings
+
+
 def _sync_doc_top_level_error_findings(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     for relative_path in SYNC_DOCS:
@@ -2300,6 +2318,74 @@ def _is_sync_doc_top_level_success_block(block: str) -> bool:
         '"states"' in block
         and '"count"' in block
         and '"data"' not in block
+    )
+
+
+def _webrtc_doc_success_response_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_response_section = False
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if "Response" in stripped:
+            in_response_section = True
+            continue
+        if stripped.startswith("#") and "Response" not in stripped:
+            in_response_section = False
+        if not in_response_section:
+            continue
+        if stripped.startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_webrtc_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="webrtc-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "WebRTC docs still show top-level signaling response "
+                            "bodies; use API vNext data fields."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_webrtc_doc_top_level_success_block(block: str) -> bool:
+    signaling_keys = {
+        "token",
+        "expires_at",
+        "expires_in",
+        "offer_endpoint",
+        "ice_endpoint",
+        "hangup_endpoint",
+        "ice_servers",
+        "type",
+        "sdp",
+        "session_id",
+        "status",
+        "candidates",
+    }
+    return (
+        '"schema_version"' not in block
+        and '"data"' not in block
+        and any(f'"{key}"' in block for key in signaling_keys)
     )
 
 

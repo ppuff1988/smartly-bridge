@@ -990,6 +990,42 @@ def test_phase6_audit_detects_camera_docs_top_level_success_examples(
     assert any(finding.code == "camera-doc-top-level-success" for finding in findings)
 
 
+def test_phase6_audit_detects_webrtc_docs_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects WebRTC docs that still show top-level response bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/webrtc.md",
+        (
+            "#### Response (成功 - 200 OK)\n\n"
+            '```json\n{"token": "abc", "session_id": "session-1", "status": "accepted"}\n```\n'
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "webrtc-doc-top-level-success" for finding in findings)
+
+
+def test_phase6_audit_detects_webrtc_docs_response_prose_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects WebRTC response examples introduced by prose."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/webrtc.md",
+        (
+            "在 WebRTC Token Response 中檢查 `ice_servers` 欄位：\n\n"
+            '```json\n{"token": "abc", "ice_servers": []}\n```\n'
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "webrtc-doc-top-level-success" for finding in findings)
+
+
 def test_phase6_audit_detects_sync_docs_top_level_error_examples(
     tmp_path: Path,
 ) -> None:
