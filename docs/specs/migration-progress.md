@@ -629,6 +629,7 @@
 | 435 | `493cb7a` | Home Assistant local automation rule store 會在 create persistence source 內忽略 malformed config entry rule collection 與非 dict entries，避免 Platform rules write path 在舊資料或手動錯誤設定存在時把不可讀資料帶入新的 persisted rules | RED failed because dict-shaped `local_automation_rules` was persisted as string keys; focused malformed create test `1 passed`; Home Assistant local automation adapter `18 passed`; local automation/device-event/http scope `151 passed` |
 | 436 | `9482bdb` | Phase 6 清理 control test wording，將 legacy entity/action body 測試描述改為「不會被解析成 SmartlyCommand」，避免 audit search 誤判 legacy control branch 仍需保留 | Focused control/register-view tests `2 passed`; legacy control wording search passed |
 | 437 | `76a35aa` | Phase 6 requirement audit 將 `migration-plan.md`、`api-vnext-contract.md` 與 `capability-contracts.md` 的 cleanup / envelope / capability / release-window 條件對照到 code evidence 或 external release gates，並把 Remaining Work 收斂為外部 release gate 清單 | Focused control/register-view tests `2 passed`; adapter contract tests `20 passed`; production legacy top-level dict literal AST scan passed; legacy control wording search passed |
+| 438 | `249ba96` | Phase 6 release gate checklist 明確列出 Platform API vNext adoption、legacy usage threshold、alias window、rollback playbook、Platform dashboard audit 與 Legacy API LTS/removal policy 的 required evidence、acceptance condition 與目前 pending 狀態 | Docs-only; checklist review |
 
 ## Completed Slices
 
