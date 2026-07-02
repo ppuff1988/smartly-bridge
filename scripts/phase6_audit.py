@@ -144,6 +144,7 @@ CAMERA_DOCS = [
     Path("docs/camera-api.md"),
 ]
 SYNC_DOCS = [
+    Path("README.md"),
     Path("docs/sync-api.md"),
 ]
 DEVICE_CARD_DOCS = [

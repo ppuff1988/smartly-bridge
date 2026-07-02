@@ -348,19 +348,24 @@ X-Signature: <HMAC-SHA256 signature>
 **Response (200 OK):**
 ```json
 {
-  "states": [
-    {
-      "entity_id": "switch.room_101_light",
-      "state": "on",
-      "attributes": {
-        "friendly_name": "Room 101 Light",
-        "brightness": 255
-      },
-      "last_changed": "2025-12-17T10:30:00+00:00",
-      "last_updated": "2025-12-17T10:30:00+00:00"
-    }
-  ],
-  "count": 1
+  "schema_version": "2026.06",
+  "data": {
+    "states": [
+      {
+        "entity_id": "switch.room_101_light",
+        "state": "on",
+        "attributes": {
+          "friendly_name": "Room 101 Light",
+          "brightness": 255
+        },
+        "last_changed": "2025-12-17T10:30:00+00:00",
+        "last_updated": "2025-12-17T10:30:00+00:00"
+      }
+    ],
+    "count": 1
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 

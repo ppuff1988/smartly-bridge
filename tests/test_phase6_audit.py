@@ -495,6 +495,21 @@ def test_phase6_audit_allows_public_docs_source_entity_references(
     )
 
 
+def test_phase6_audit_detects_readme_sync_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects README sync examples with top-level states/count."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "README.md",
+        '```json\n{"states": [{"entity_id": "light.bedroom"}], "count": 1}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "sync-doc-top-level-success" for finding in findings)
+
+
 def test_phase6_audit_detects_migration_plan_legacy_wording(
     tmp_path: Path,
 ) -> None:
