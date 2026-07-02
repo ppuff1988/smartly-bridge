@@ -429,9 +429,14 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "success": true,
-  "action": "registered",
-  "entity_id": "camera.front_door"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "registered",
+    "action": "registered",
+    "entity_id": "camera.front_door"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -448,9 +453,14 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "success": true,
-  "action": "unregistered",
-  "entity_id": "camera.front_door"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "unregistered",
+    "action": "unregistered",
+    "entity_id": "camera.front_door"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -469,9 +479,14 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "success": true,
-  "action": "cache_cleared",
-  "cleared_count": 5
+  "schema_version": "2026.06",
+  "data": {
+    "status": "cache_cleared",
+    "action": "cache_cleared",
+    "cleared_count": 5
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -651,8 +666,13 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stop HTTP/1.1
 
 ```json
 {
-  "success": true,
-  "action": "stopped"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "stopped",
+    "action": "stopped"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -660,8 +680,13 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stop HTTP/1.1
 
 ```json
 {
-  "success": false,
-  "action": "stopped"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "not_found",
+    "action": "stopped"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 

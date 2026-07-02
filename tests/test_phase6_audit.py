@@ -307,6 +307,21 @@ def test_phase6_audit_detects_camera_docs_top_level_error_examples(
     assert any(finding.code == "camera-doc-top-level-error" for finding in findings)
 
 
+def test_phase6_audit_detects_camera_docs_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects camera docs that still show top-level success bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/camera-api.md",
+        '```json\n{"success": true, "action": "registered"}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "camera-doc-top-level-success" for finding in findings)
+
+
 def test_phase6_audit_detects_sync_docs_top_level_error_examples(
     tmp_path: Path,
 ) -> None:

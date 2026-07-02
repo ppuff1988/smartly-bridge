@@ -176,6 +176,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_history_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_error_findings(root_path))
+    findings.extend(_camera_doc_top_level_success_findings(root_path))
     findings.extend(_sync_doc_top_level_error_findings(root_path))
     findings.extend(_trust_proxy_doc_top_level_error_findings(root_path))
     findings.extend(_architecture_plan_doc_top_level_error_findings(root_path))
@@ -904,6 +905,33 @@ def _camera_doc_top_level_error_findings(root: Path) -> list[Finding]:
                     message=(
                         "Camera docs still show top-level error bodies; "
                         "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _camera_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in CAMERA_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"success":' not in line and '{"success"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="camera-doc-top-level-success",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Camera docs still show top-level success bodies; "
+                        "use API vNext data.status."
                     ),
                 )
             )
