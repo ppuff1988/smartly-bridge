@@ -83,7 +83,11 @@ class CameraConfigUseCase:
             }
             self._gateway.register_camera(config)
             return _camera_vnext_success_response(
-                {"success": True, "action": "registered", "entity_id": command.entity_id}
+                {
+                    "status": "registered",
+                    "action": "registered",
+                    "entity_id": command.entity_id,
+                }
             )
 
         if command.action == "unregister":
@@ -92,13 +96,21 @@ class CameraConfigUseCase:
 
             self._gateway.unregister_camera(command.entity_id)
             return _camera_vnext_success_response(
-                {"success": True, "action": "unregistered", "entity_id": command.entity_id}
+                {
+                    "status": "unregistered",
+                    "action": "unregistered",
+                    "entity_id": command.entity_id,
+                }
             )
 
         if command.action == "clear_cache":
             count = await self._gateway.clear_cache(command.entity_id)
             return _camera_vnext_success_response(
-                {"success": True, "action": "cache_cleared", "cleared_count": count}
+                {
+                    "status": "cache_cleared",
+                    "action": "cache_cleared",
+                    "cleared_count": count,
+                }
             )
 
         if command.action == "list":
@@ -206,10 +218,10 @@ class CameraHLSUseCase:
             stopped = await self._gateway.stop_hls_stream(entity_id)
             if stopped:
                 return _camera_vnext_success_response(
-                    {"success": True, "action": "stopped"}
+                    {"status": "stopped", "action": "stopped"}
                 )
             return _camera_vnext_success_response(
-                {"success": stopped, "action": "stopped"},
+                {"status": "not_found", "action": "stopped"},
                 status=404,
             )
 

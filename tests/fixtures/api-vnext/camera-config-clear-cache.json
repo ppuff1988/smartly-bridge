@@ -1,7 +1,7 @@
 {
   "schema_version": "2026.06",
   "data": {
-    "success": true,
+    "status": "cache_cleared",
     "action": "cache_cleared",
     "cleared_count": 2
   },

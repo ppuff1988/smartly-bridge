@@ -1,7 +1,7 @@
 {
   "schema_version": "2026.06",
   "data": {
-    "success": false,
+    "status": "not_found",
     "action": "stopped"
   },
   "warnings": [],

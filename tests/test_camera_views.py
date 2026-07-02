@@ -1088,7 +1088,7 @@ class TestSmartlyCameraStreamView:
             def execute(self) -> BridgeResponse:
                 self.called = True
                 return BridgeResponse(
-                    {"success": True, "mode": "factory_stream"},
+                    {"mode": "factory_stream"},
                     status=202,
                     headers={"X-Smartly-Response-Mode": "factory_stream"},
                 )
@@ -1803,7 +1803,7 @@ class TestSmartlyCameraConfigView:
                 return BridgeResponse(
                     {
                         "data": {
-                            "success": True,
+                            "status": "factory_configured",
                             "action": "factory_configured",
                             "entity_id": command.entity_id,
                         },
@@ -1969,7 +1969,7 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["data"]["success"] is True
+            assert data["data"]["status"] == "registered"
             assert data["data"]["action"] == "registered"
             assert data["data"]["entity_id"] == "camera.new"
 
@@ -2045,7 +2045,7 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["data"]["success"] is True
+            assert data["data"]["status"] == "unregistered"
             assert data["data"]["action"] == "unregistered"
 
     @pytest.mark.asyncio
@@ -2069,7 +2069,7 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["data"]["success"] is True
+            assert data["data"]["status"] == "cache_cleared"
             assert data["data"]["action"] == "cache_cleared"
 
     @pytest.mark.asyncio
@@ -2198,7 +2198,7 @@ class TestSmartlyCameraHLSInfoView:
                 return BridgeResponse(
                     {
                         "data": {
-                            "success": True,
+                            "status": "factory_hls",
                             "action": action,
                             "entity_id": entity_id,
                         },

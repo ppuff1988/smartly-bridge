@@ -134,3 +134,23 @@ def test_phase6_audit_detects_raw_payload_in_sync_fixture(tmp_path: Path) -> Non
     findings = audit.audit(tmp_path)
 
     assert any(finding.code == "sync-fixture-raw-payload" for finding in findings)
+
+
+def test_phase6_audit_detects_api_vnext_fixture_data_success_flag(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects legacy success flags inside API vNext fixture data."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/fixtures/api-vnext/camera-config-register.json",
+        "{\n"
+        '  "schema_version": "2026.06",\n'
+        '  "data": {"success": true, "action": "registered"},\n'
+        '  "warnings": [],\n'
+        '  "errors": []\n'
+        "}\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "api-vnext-fixture-data-success" for finding in findings)

@@ -189,6 +189,16 @@ def _api_vnext_fixture_findings(root: Path) -> list[Finding]:
                     ),
                 )
             )
+        data = parsed.get("data")
+        if isinstance(data, dict) and isinstance(data.get("success"), bool):
+            findings.append(
+                Finding(
+                    code="api-vnext-fixture-data-success",
+                    path=_relative_path(root, path),
+                    line=1,
+                    message="API vNext fixture data uses legacy success flag; use status.",
+                )
+            )
     return findings
 
 
