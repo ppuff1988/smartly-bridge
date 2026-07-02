@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import ast
+import json
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -42,6 +43,7 @@ FALLBACK_CONSTRUCTORS = {
     "InMemoryDeviceEventDeduplicator",
 }
 RESPONSE_BUILDERS = {"BridgeResponse", "_json_response"}
+API_VNEXT_TOP_LEVEL_KEYS = {"schema_version", "data", "warnings", "errors"}
 
 
 class Finding(NamedTuple):
@@ -57,14 +59,15 @@ def audit(root: Path | str = ".") -> list[Finding]:
     """Return Phase 6 code-verifiable legacy cleanup findings."""
     root_path = Path(root)
     package_root = root_path / "custom_components" / "smartly_bridge"
-    if not package_root.exists():
-        return []
 
     findings: list[Finding] = []
-    python_files = sorted(package_root.rglob("*.py"))
-    findings.extend(_legacy_states_alias_findings(root_path, python_files))
-    findings.extend(_legacy_top_level_response_findings(root_path, python_files))
-    findings.extend(_request_time_fallback_constructor_findings(root_path, package_root))
+    if package_root.exists():
+        python_files = sorted(package_root.rglob("*.py"))
+        findings.extend(_legacy_states_alias_findings(root_path, python_files))
+        findings.extend(_legacy_top_level_response_findings(root_path, python_files))
+        findings.extend(_request_time_fallback_constructor_findings(root_path, package_root))
+    findings.extend(_api_vnext_fixture_findings(root_path))
+    findings.extend(_sync_raw_payload_fixture_findings(root_path))
     return findings
 
 
@@ -164,6 +167,53 @@ def _request_time_fallback_constructor_findings(root: Path, package_root: Path) 
     return findings
 
 
+def _api_vnext_fixture_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    fixture_root = root / "tests" / "fixtures" / "api-vnext"
+    if not fixture_root.exists():
+        return findings
+    for path in sorted(fixture_root.rglob("*.json")):
+        parsed = _load_json_finding(path, root, findings)
+        if not isinstance(parsed, dict):
+            continue
+        extra_keys = set(parsed) - API_VNEXT_TOP_LEVEL_KEYS
+        if extra_keys:
+            findings.append(
+                Finding(
+                    code="api-vnext-fixture-top-level",
+                    path=_relative_path(root, path),
+                    line=1,
+                    message=(
+                        "API vNext fixture has legacy/unknown top-level keys: "
+                        + ", ".join(sorted(extra_keys))
+                    ),
+                )
+            )
+    return findings
+
+
+def _sync_raw_payload_fixture_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    fixture_roots = [
+        root / "tests" / "fixtures" / "current-sync",
+        root / "tests" / "fixtures" / "api-vnext",
+    ]
+    for path in _json_files_from_paths(fixture_roots):
+        parsed = _load_json_finding(path, root, findings)
+        if parsed is None:
+            continue
+        if _contains_key(parsed, "raw_payload"):
+            findings.append(
+                Finding(
+                    code="sync-fixture-raw-payload",
+                    path=_relative_path(root, path),
+                    line=1,
+                    message="Sync/API fixture contains raw_payload; use raw_refs instead.",
+                )
+            )
+    return findings
+
+
 def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:
     assignments: dict[str, ast.Dict] = {}
     for node in ast.walk(tree):
@@ -184,6 +234,31 @@ def _legacy_keys_on_dict(node: ast.Dict) -> set[str]:
     return keys
 
 
+def _load_json_finding(path: Path, root: Path, findings: list[Finding]) -> object | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as err:
+        findings.append(
+            Finding(
+                code="json-parse-error",
+                path=_relative_path(root, path),
+                line=err.lineno,
+                message=err.msg,
+            )
+        )
+    return None
+
+
+def _contains_key(value: object, key_name: str) -> bool:
+    if isinstance(value, dict):
+        if key_name in value:
+            return True
+        return any(_contains_key(item, key_name) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_key(item, key_name) for item in value)
+    return False
+
+
 def _python_files_from_paths(paths: list[Path]) -> list[Path]:
     files: list[Path] = []
     for path in paths:
@@ -191,6 +266,16 @@ def _python_files_from_paths(paths: list[Path]) -> list[Path]:
             files.append(path)
         elif path.is_dir():
             files.extend(path.rglob("*.py"))
+    return sorted(files)
+
+
+def _json_files_from_paths(paths: list[Path]) -> list[Path]:
+    files: list[Path] = []
+    for path in paths:
+        if path.is_file() and path.suffix == ".json":
+            files.append(path)
+        elif path.is_dir():
+            files.extend(path.rglob("*.json"))
     return sorted(files)
 
 

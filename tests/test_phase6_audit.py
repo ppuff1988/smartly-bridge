@@ -96,3 +96,41 @@ def test_phase6_audit_detects_request_time_fallback_constructor(tmp_path: Path) 
     findings = audit.audit(tmp_path)
 
     assert any(finding.code == "request-time-fallback-constructor" for finding in findings)
+
+
+def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects API vNext fixtures with legacy top-level fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/fixtures/api-vnext/control.json",
+        "{\n"
+        '  "schema_version": "2026.06",\n'
+        '  "data": {},\n'
+        '  "warnings": [],\n'
+        '  "errors": [],\n'
+        '  "success": true\n'
+        "}\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "api-vnext-fixture-top-level" for finding in findings)
+
+
+def test_phase6_audit_detects_raw_payload_in_sync_fixture(tmp_path: Path) -> None:
+    """The audit rejects raw payloads in sync/current-sync fixtures."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/fixtures/current-sync/states-vnext-data.json",
+        "{\n"
+        '  "logical_devices": [\n'
+        '    {"id": "ldev_1", "raw_payload": {"secret": "value"}}\n'
+        "  ]\n"
+        "}\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "sync-fixture-raw-payload" for finding in findings)
