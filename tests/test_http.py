@@ -1324,24 +1324,9 @@ class TestControlEndpointFullFlow:
                 response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "command_id": "cmd-1",
-                "status": "completed",
-                "device_id": "ldev_ha_device_1",
-                "capability": "brightness",
-                "command": "set_brightness",
-                "adapter_id": "home_assistant",
-                "correlation_id": "cmd-1",
-                "source_entity_id": "light.kitchen",
-                "expected_state": {"brightness": {"value": 80, "unit": "percent"}},
-                "new_state": "on",
-                "new_attributes": {"brightness": 204},
-            },
-            "warnings": [],
-            "errors": [],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "control-command-brightness-success.json"
+        )
         mock_hass.services.async_call.assert_awaited_once_with(
             "light",
             "turn_on",
@@ -1418,24 +1403,9 @@ class TestControlEndpointFullFlow:
                 response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "command_id": "cmd-button",
-                "status": "completed",
-                "device_id": "ldev_ha_button_1",
-                "capability": "button_press",
-                "command": "press",
-                "adapter_id": "home_assistant",
-                "correlation_id": "cmd-button",
-                "source_entity_id": "button.desk_scene",
-                "expected_state": {},
-                "new_state": "idle",
-                "new_attributes": {"friendly_name": "Desk Scene"},
-            },
-            "warnings": [],
-            "errors": [],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "control-command-button-press-success.json"
+        )
         mock_hass.services.async_call.assert_awaited_once_with(
             "button",
             "press",
