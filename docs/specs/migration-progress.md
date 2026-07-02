@@ -125,7 +125,7 @@
 - Camera snapshot 缺 setup-created runtime gateway 時會回傳 `camera_gateway_unavailable` API vNext error，不再維護 manager-missing fixture。
 - Camera MJPEG stream invalid-entity-id / integration-not-configured / authentication failure / rate-limit / entity-not-allowed full response fixtures 已鎖定 vNext-only envelope，避免 stream shell error path 後續重構重新引入 legacy top-level 欄位。
 - Camera MJPEG stream 缺 setup-created runtime gateway 時會回傳 `camera_gateway_unavailable` API vNext error，不再維護 manager-missing fixture。
-- Camera list/config/HLS JSON response 與 snapshot/stream JSON error response 在 request 帶 `X-Request-Id` / `X-Correlation-Id` 時，會於 API vNext top-level envelope 回傳 `request_id` / `correlation_id`；snapshot image、304 與 MJPEG stream 非 JSON response 維持既有 legacy media mode。
+- Camera list/config/HLS JSON response 與 snapshot/stream JSON error response 在 request 帶 `X-Request-Id` / `X-Correlation-Id` 時，會於 API vNext top-level envelope 回傳 `request_id` / `correlation_id`；snapshot image、304 與 MJPEG stream 非 JSON response 維持 media mode。
 - Phase 6 已移除 Camera snapshot unavailable application response 的 legacy top-level `error` 欄位；snapshot unavailable error code/message 現在只透過 API vNext top-level `errors[]` 暴露，404 status 維持不變。
 - Phase 6 已移除 Camera snapshot invalid-entity-id / integration-not-configured / authentication failure / rate-limit / entity-not-allowed view response 的 legacy top-level `error` 欄位；snapshot shell error code/message 現在只透過 API vNext top-level `errors[]` 暴露，rate-limit headers 維持不變。
 - Camera snapshot 缺 setup-created `camera_gateway` view response 會輸出 `camera_gateway_unavailable` 與 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
@@ -613,6 +613,7 @@
 | 426 | `dc371c7` | Phase 6 移除 Camera snapshot unavailable application response 的 legacy top-level `error` 欄位，snapshot unavailable JSON error 現在只保留 API vNext `schema_version` / `data` / `warnings` / `errors` envelope，404 status 維持不變 | RED failed because snapshot unavailable still returned top-level `error`; focused snapshot unavailable tests `10 passed`; camera/http scope `262 passed`; full suite `913 passed` |
 | 427 | `902c7cf` | Phase 6 移除 Camera snapshot success application response 的 legacy top-level `snapshot` 欄位，snapshot payload 現在只透過 API vNext `data.snapshot` 暴露，HTTP image/cache headers 維持 media response 行為 | RED failed because snapshot success still returned top-level `snapshot` and adapter read image payload from the legacy location; focused snapshot success tests `4 passed`; camera/http scope `262 passed`; full suite `913 passed` |
 | 428 | `f3d2b80` | Phase 6 刪除 Camera application 已無呼叫點的 `_camera_success_response` legacy-compatible helper，避免後續 camera use case 重構重新產生 top-level duplicate success payload | Camera/http scope `262 passed`; full suite `913 passed` |
+| 429 | `4c4d5d3` | Phase 6 刪除 Camera application `_camera_error_response` legacy helper，並讓 camera HTTP guard / entity-id validation default factory 改用 `_camera_vnext_error_response`，避免 default seam 重新產生 legacy top-level `error` body；camera stream/snapshot adapter docstring 同步改為 media/vNext wording | RED failed because default entity-id validation response still returned top-level `error`; focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed` |
 
 ## Completed Slices
 
@@ -658,6 +659,8 @@
 
 ## Latest Verification
 
+- Camera legacy error helper cleanup: `_camera_error_response` removed; camera guard and entity-id validation default factories now use `_camera_vnext_error_response`.
+- Camera legacy error helper verification: focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed`
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
