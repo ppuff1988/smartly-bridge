@@ -300,7 +300,7 @@ class TestSmartlyCameraSnapshotView:
         )
 
     def test_log_camera_control_event_falls_back_to_unknown_client(self):
-        """Camera audit emitter preserves legacy unknown-client fallback."""
+        """Camera audit emitter preserves the unknown-client fallback."""
         auth_result = AuthResult(success=True, client_id=None)
         logger = MagicMock()
 
@@ -370,7 +370,7 @@ class TestSmartlyCameraSnapshotView:
         self,
         mock_request,
     ):
-        """Camera entity-id adapter preserves the legacy empty path fallback."""
+        """Camera entity-id adapter returns an empty default for missing path values."""
         mock_request.match_info = {}
 
         assert _camera_entity_id_from_request(mock_request) == ""
@@ -380,7 +380,7 @@ class TestSmartlyCameraSnapshotView:
         mock_request,
         mock_hass,
     ):
-        """Camera gateway resolver uses setup runtime gateway before legacy manager."""
+        """Camera gateway resolver uses the setup runtime gateway without a manager."""
         gateway = FakeRuntimeCameraGateway()
         mock_hass.data[DOMAIN]["camera_manager"] = None
         mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}
@@ -421,7 +421,7 @@ class TestSmartlyCameraSnapshotView:
         self,
         mock_request,
     ):
-        """Snapshot options parser adapts legacy refresh and ETag controls."""
+        """Snapshot options parser adapts refresh and ETag request controls."""
         mock_request.query = {"refresh": "true"}
         mock_request.headers = {"If-None-Match": '"snapshot-etag"'}
 
@@ -501,7 +501,7 @@ class TestSmartlyCameraSnapshotView:
         assert response.headers["Cache-Control"] == "private, max-age=10"
 
     @pytest.mark.asyncio
-    async def test_capture_camera_snapshot_forwards_legacy_cache_controls(
+    async def test_capture_camera_snapshot_forwards_cache_controls(
         self,
         mock_request,
     ):
@@ -1038,7 +1038,7 @@ class TestSmartlyCameraStreamView:
         return request
 
     def test_build_camera_stream_log_context_adapts_request_fields(self, mock_request):
-        """Stream log context adapter preserves legacy request diagnostics."""
+        """Stream log context adapter preserves request diagnostics."""
         mock_request.headers = {
             "X-Client-Id": "test_client",
             "X-Client-IP": "203.0.113.10",
@@ -1438,7 +1438,7 @@ class TestSmartlyCameraListView:
         assert result.include_capabilities is False
 
     def test_parse_camera_list_options_enables_capabilities(self, mock_request):
-        """Camera list options parser adapts legacy capabilities query flag."""
+        """Camera list options parser adapts the capabilities query flag."""
         mock_request.query = {"capabilities": "true"}
 
         result = _parse_camera_list_options(mock_request)
@@ -1469,11 +1469,11 @@ class TestSmartlyCameraListView:
         assert json.loads(response.body) == expected_body
 
     @pytest.mark.asyncio
-    async def test_list_cameras_forwards_legacy_capabilities_flag(
+    async def test_list_cameras_forwards_capabilities_flag(
         self,
         mock_request,
     ):
-        """Camera list invocation adapter forwards the legacy capabilities flag."""
+        """Camera list invocation adapter forwards the capabilities flag."""
         gateway = FakeRuntimeCameraGateway()
         mock_request.query = {"capabilities": "true"}
 

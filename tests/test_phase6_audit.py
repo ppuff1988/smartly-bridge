@@ -128,6 +128,19 @@ def test_phase6_audit_detects_manual_legacy_control_body(tmp_path: Path) -> None
     assert any(finding.code == "manual-legacy-control-body" for finding in findings)
 
 
+def test_phase6_audit_detects_camera_legacy_wording(tmp_path: Path) -> None:
+    """The audit rejects camera path wording that still labels runtime behavior legacy."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "custom_components/smartly_bridge/views/camera.py",
+        '"""Camera gateway resolver uses setup runtime gateway before legacy manager."""\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "camera-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

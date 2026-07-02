@@ -542,7 +542,7 @@ def _log_camera_control_event(
     service: str,
     result: str,
 ) -> None:
-    """Emit a camera control audit event with the legacy client-id fallback."""
+    """Emit a camera control audit event with the unknown-client fallback."""
     log_control(
         logger,
         client_id=auth_result.client_id or "unknown",

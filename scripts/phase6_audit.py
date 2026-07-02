@@ -70,6 +70,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_api_vnext_fixture_findings(root_path))
     findings.extend(_sync_raw_payload_fixture_findings(root_path))
     findings.extend(_manual_legacy_control_body_findings(root_path))
+    findings.extend(_camera_legacy_wording_findings(root_path))
     return findings
 
 
@@ -272,6 +273,33 @@ def _manual_legacy_control_body_findings(root: Path) -> list[Finding]:
                         ),
                     )
                 )
+    return findings
+
+
+def _camera_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    paths = [
+        root / "custom_components" / "smartly_bridge" / "views" / "camera.py",
+        root / "tests" / "test_camera_views.py",
+    ]
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="camera-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message="Camera path wording still labels retained behavior as legacy.",
+                )
+            )
     return findings
 
 
