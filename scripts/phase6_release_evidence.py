@@ -70,6 +70,17 @@ def missing_required_gates(statuses: list[GateStatus]) -> list[str]:
     return [gate for gate in REQUIRED_GATES if gate not in present_gates]
 
 
+def duplicate_status_gates(statuses: list[GateStatus]) -> list[str]:
+    """Return gate names that appear more than once in the status table."""
+    seen: set[str] = set()
+    duplicates: list[str] = []
+    for status in statuses:
+        if status.gate in seen and status.gate not in duplicates:
+            duplicates.append(status.gate)
+        seen.add(status.gate)
+    return duplicates
+
+
 def missing_ready_gate_signoffs(
     statuses: list[GateStatus],
     signoffs: list[Signoff],
@@ -242,15 +253,18 @@ def main(argv: list[str] | None = None) -> int:
     statuses = load_statuses(args.path)
     signoffs = load_signoffs(args.path)
     missing = missing_required_gates(statuses)
+    duplicates = duplicate_status_gates(statuses)
     missing_signoffs = missing_ready_gate_signoffs(statuses, signoffs)
     pending = [status for status in statuses if not status.ready]
-    if not missing and not missing_signoffs and not pending:
+    if not missing and not duplicates and not missing_signoffs and not pending:
         print("Phase 6 release evidence ready.")
         return 0
 
     print("Phase 6 release evidence has pending gates:")
     for gate in missing:
         print(f"- {gate}: missing required evidence row")
+    for gate in duplicates:
+        print(f"- {gate}: duplicate evidence rows")
     for gate in missing_signoffs:
         print(f"- {gate}: missing completed sign-off row for gate evidence")
     for status in pending:

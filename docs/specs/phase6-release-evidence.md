@@ -4,6 +4,7 @@ This document is the evidence workspace for Phase 6 API vNext cleanup release ga
 
 Do not mark a gate as ready from intent, verbal confirmation, or a local-only check. Each gate needs an owner, source link or command output, review date, and explicit decision.
 Do not leave placeholder wording such as `TBD`, `Pending`, or `n/a` inside owner, evidence, reviewer, or sign-off fields.
+Each required gate must appear exactly once in `Status`.
 Each ready gate also needs a matching completed row in `Sign-off Record`. The sign-off `Date` must be a valid `YYYY-MM-DD` calendar date, and the sign-off `Evidence link` must match the gate's `Evidence source`.
 
 ## Status
@@ -113,6 +114,7 @@ Expected result:
 - OpenAPI validation passes.
 - Release evidence checker prints `Phase 6 release evidence ready.` and exits 0.
 - Release evidence checker verifies all required gate rows are present before evaluating readiness.
+- Release evidence checker rejects duplicate gate rows.
 - Release evidence checker verifies every ready gate has a completed sign-off row.
 - Release evidence checker verifies completed sign-off dates are valid `YYYY-MM-DD` calendar dates.
 - Release evidence checker verifies the sign-off `Evidence link` matches the gate `Evidence source`.
