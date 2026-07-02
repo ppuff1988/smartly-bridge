@@ -960,6 +960,42 @@ def test_phase6_audit_detects_history_docs_top_level_error_examples(
     assert any(finding.code == "history-doc-top-level-error" for finding in findings)
 
 
+def test_phase6_audit_detects_history_docs_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects history docs that still show top-level success bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/history-api.md",
+        '```json\n{"history": [], "count": 0, "metadata": {}}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "history-doc-top-level-success" for finding in findings)
+
+
+def test_phase6_audit_detects_history_docs_top_level_response_parsing(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects history docs that parse response JSON as payload."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/history-visualization-guide.md",
+        (
+            "```javascript\n"
+            "const data = await response.json();\n"
+            "const { history, metadata } = data;\n"
+            "renderChart(data.history, metadata.visualization);\n"
+            "```\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "history-doc-top-level-parser" for finding in findings)
+
+
 def test_phase6_audit_detects_camera_docs_top_level_error_examples(
     tmp_path: Path,
 ) -> None:

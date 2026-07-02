@@ -244,64 +244,69 @@ X-Signature: computed-hmac-signature
 
 ```json
 {
-  "entity_id": "sensor.micro_wake_word_pzem_004t_v3_current",
-  "history": [
-    {
-      "state": 0.0,
-      "attributes": {
-        "device_class": "current",
-        "friendly_name": "小燈電流",
-        "state_class": "measurement",
-        "unit_of_measurement": "mA"
+  "schema_version": "2026.06",
+  "data": {
+    "entity_id": "sensor.micro_wake_word_pzem_004t_v3_current",
+    "history": [
+      {
+        "state": 0.0,
+        "attributes": {
+          "device_class": "current",
+          "friendly_name": "小燈電流",
+          "state_class": "measurement",
+          "unit_of_measurement": "mA"
+        },
+        "last_changed": "2026-01-09T05:25:48Z",
+        "last_updated": "2026-01-09T05:25:48Z"
       },
-      "last_changed": "2026-01-09T05:25:48Z",
-      "last_updated": "2026-01-09T05:25:48Z"
-    },
-    {
-      "state": "unavailable",
-      "last_changed": "2026-01-09T09:46:03.070703Z",
-      "last_updated": "2026-01-09T09:46:03.070703Z"
-    },
-    {
-      "state": 0.0,
-      "last_changed": "2026-01-09T09:46:03.269271Z",
-      "last_updated": "2026-01-09T09:46:03.269271Z"
-    },
-    {
-      "state": 34.0,
-      "last_changed": "2026-01-09T22:33:52.909742Z",
-      "last_updated": "2026-01-09T22:33:52.909742Z"
-    },
-    {
-      "state": 21.0,
-      "last_changed": "2026-01-09T22:34:59.00267Z",
-      "last_updated": "2026-01-09T22:34:59.00267Z"
-    },
-    {
-      "state": 35.0,
-      "last_changed": "2026-01-09T22:35:17.002829Z",
-      "last_updated": "2026-01-09T22:35:17.002829Z"
+      {
+        "state": "unavailable",
+        "last_changed": "2026-01-09T09:46:03.070703Z",
+        "last_updated": "2026-01-09T09:46:03.070703Z"
+      },
+      {
+        "state": 0.0,
+        "last_changed": "2026-01-09T09:46:03.269271Z",
+        "last_updated": "2026-01-09T09:46:03.269271Z"
+      },
+      {
+        "state": 34.0,
+        "last_changed": "2026-01-09T22:33:52.909742Z",
+        "last_updated": "2026-01-09T22:33:52.909742Z"
+      },
+      {
+        "state": 21.0,
+        "last_changed": "2026-01-09T22:34:59.00267Z",
+        "last_updated": "2026-01-09T22:34:59.00267Z"
+      },
+      {
+        "state": 35.0,
+        "last_changed": "2026-01-09T22:35:17.002829Z",
+        "last_updated": "2026-01-09T22:35:17.002829Z"
+      }
+    ],
+    "count": 6,
+    "truncated": false,
+    "start_time": "2026-01-09T05:25:48Z",
+    "end_time": "2026-01-10T05:25:48Z",
+    "metadata": {
+      "domain": "sensor",
+      "device_class": "current",
+      "unit_of_measurement": "mA",
+      "friendly_name": "小燈電流",
+      "is_numeric": true,
+      "decimal_places": 1,
+      "visualization": {
+        "type": "chart",
+        "chart_type": "line",
+        "color": "#FFA726",
+        "show_points": true,
+        "interpolation": "linear"
+      }
     }
-  ],
-  "count": 6,
-  "truncated": false,
-  "start_time": "2026-01-09T05:25:48Z",
-  "end_time": "2026-01-10T05:25:48Z",
-  "metadata": {
-    "domain": "sensor",
-    "device_class": "current",
-    "unit_of_measurement": "mA",
-    "friendly_name": "小燈電流",
-    "is_numeric": true,
-    "decimal_places": 1,
-    "visualization": {
-      "type": "chart",
-      "chart_type": "line",
-      "color": "#FFA726",
-      "show_points": true,
-      "interpolation": "linear"
-    }
-  }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -309,24 +314,27 @@ X-Signature: computed-hmac-signature
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| `entity_id` | string | 實體 ID |
-| `history` | array | 歷史狀態陣列 |
-| `history[].state` | string/number | 狀態值（數值型會自動格式化精度） |
-| `history[].attributes` | object | 屬性（僅首筆包含，後續省略以減少資料量） |
-| `history[].last_changed` | string | 狀態變更時間（ISO 8601） |
-| `history[].last_updated` | string | 最後更新時間（ISO 8601） |
-| `count` | integer | 返回的記錄數 |
-| `truncated` | boolean | 是否因超過 limit 而截斷（僅在非 cursor 模式） |
-| `start_time` | string | 查詢開始時間 |
-| `end_time` | string | 查詢結束時間 |
-| `metadata` | object | **[v1.3.0]** 實體元數據與視覺化建議 |
-| `device_class` | string | 符合 Bridge chart 規則的感測器設備類別，有值時回傳 |
-| `unit_of_measurement` | string | 符合 Bridge chart 規則的感測器測量單位，有值時回傳 |
-| `bridge_chart` | object | 符合 Bridge chart 規則的感測器簡化圖表資料 |
-| `page_size` | integer | **[v1.4.0]** 每頁記錄數（僅在 cursor 模式） |
-| `has_more` | boolean | **[v1.4.0]** 是否還有更多數據（僅在 cursor 模式） |
-| `next_cursor` | string | **[v1.4.0]** 下一頁游標（僅在 `has_more=true` 時返回） |
-| `total_count` | integer | **[v1.5.0]** 查詢範圍內的總記錄數（僅在第一頁返回） |
+| `schema_version` | string | API vNext schema version |
+| `data.entity_id` | string | 實體 ID |
+| `data.history` | array | 歷史狀態陣列 |
+| `data.history[].state` | string/number | 狀態值（數值型會自動格式化精度） |
+| `data.history[].attributes` | object | 屬性（僅首筆包含，後續省略以減少資料量） |
+| `data.history[].last_changed` | string | 狀態變更時間（ISO 8601） |
+| `data.history[].last_updated` | string | 最後更新時間（ISO 8601） |
+| `data.count` | integer | 返回的記錄數 |
+| `data.truncated` | boolean | 是否因超過 limit 而截斷（僅在非 cursor 模式） |
+| `data.start_time` | string | 查詢開始時間 |
+| `data.end_time` | string | 查詢結束時間 |
+| `data.metadata` | object | **[v1.3.0]** 實體元數據與視覺化建議 |
+| `data.device_class` | string | 符合 Bridge chart 規則的感測器設備類別，有值時回傳 |
+| `data.unit_of_measurement` | string | 符合 Bridge chart 規則的感測器測量單位，有值時回傳 |
+| `data.bridge_chart` | object | 符合 Bridge chart 規則的感測器簡化圖表資料 |
+| `data.page_size` | integer | **[v1.4.0]** 每頁記錄數（僅在 cursor 模式） |
+| `data.has_more` | boolean | **[v1.4.0]** 是否還有更多數據（僅在 cursor 模式） |
+| `data.next_cursor` | string | **[v1.4.0]** 下一頁游標（僅在 `has_more=true` 時返回） |
+| `data.total_count` | integer | **[v1.5.0]** 查詢範圍內的總記錄數（僅在第一頁返回） |
+| `warnings` | array | 非阻斷警告 |
+| `errors` | array | 結構化錯誤 |
 
 #### Bridge chart 判斷規則
 
@@ -457,36 +465,41 @@ X-Signature: computed-hmac-signature-1
 **第一次響應：**
 ```json
 {
-  "entity_id": "sensor.temperature",
-  "history": [
-    {
-      "state": 22.5,
-      "attributes": {
-        "device_class": "temperature",
-        "unit_of_measurement": "°C"
+  "schema_version": "2026.06",
+  "data": {
+    "entity_id": "sensor.temperature",
+    "history": [
+      {
+        "state": 22.5,
+        "attributes": {
+          "device_class": "temperature",
+          "unit_of_measurement": "°C"
+        },
+        "last_changed": "2026-01-03T00:00:00Z",
+        "last_updated": "2026-01-03T00:00:00Z"
       },
-      "last_changed": "2026-01-03T00:00:00Z",
-      "last_updated": "2026-01-03T00:00:00Z"
-    },
-    // ... 49 more records
-  ],
-  "count": 50,
-  "page_size": 50,
-  "has_more": true,
-  "total_count": 387,
-  "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9",
-  "start_time": "2026-01-03T00:00:00Z",
-  "end_time": "2026-01-10T00:00:00Z",
-  "metadata": { ... },
-  "device_class": "temperature",
-  "unit_of_measurement": "°C",
-  "bridge_chart": {
-    "metric": "temperature",
-    "unit": "°C",
-    "points": [
-      { "at": "2026-01-03T00:00:00Z", "value": 22.5 }
-    ]
-  }
+      // ... 49 more records
+    ],
+    "count": 50,
+    "page_size": 50,
+    "has_more": true,
+    "total_count": 387,
+    "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDI6MzA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDAyOjMwOjAwWiJ9",
+    "start_time": "2026-01-03T00:00:00Z",
+    "end_time": "2026-01-10T00:00:00Z",
+    "metadata": { ... },
+    "device_class": "temperature",
+    "unit_of_measurement": "°C",
+    "bridge_chart": {
+      "metric": "temperature",
+      "unit": "°C",
+      "points": [
+        { "at": "2026-01-03T00:00:00Z", "value": 22.5 }
+      ]
+    }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -503,45 +516,55 @@ X-Signature: computed-hmac-signature-2
 **第二次響應：**
 ```json
 {
-  "entity_id": "sensor.temperature",
-  "history": [
-    {
-      "state": 23.1,
-      "attributes": { ... },
-      "last_changed": "2026-01-03T02:30:01Z",
-      "last_updated": "2026-01-03T02:30:01Z"
-    },
-    // ... 49 more records
-  ],
-  "count": 50,
-  "page_size": 50,
-  "has_more": true,
-  "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9",
-  "start_time": "2026-01-03T02:30:00Z",
-  "end_time": "2026-01-10T00:00:00Z",
-  "metadata": { ... }
+  "schema_version": "2026.06",
+  "data": {
+    "entity_id": "sensor.temperature",
+    "history": [
+      {
+        "state": 23.1,
+        "attributes": { ... },
+        "last_changed": "2026-01-03T02:30:01Z",
+        "last_updated": "2026-01-03T02:30:01Z"
+      },
+      // ... 49 more records
+    ],
+    "count": 50,
+    "page_size": 50,
+    "has_more": true,
+    "next_cursor": "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9",
+    "start_time": "2026-01-03T02:30:00Z",
+    "end_time": "2026-01-10T00:00:00Z",
+    "metadata": { ... }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
 **最後一次響應（has_more = false）：**
 ```json
 {
-  "entity_id": "sensor.temperature",
-  "history": [
-    {
-      "state": 21.8,
-      "attributes": { ... },
-      "last_changed": "2026-01-09T22:30:00Z",
-      "last_updated": "2026-01-09T22:30:00Z"
-    },
-    // ... 25 records (less than page_size)
-  ],
-  "count": 25,
-  "page_size": 50,
-  "has_more": false,
-  "start_time": "2026-01-09T20:00:00Z",
-  "end_time": "2026-01-10T00:00:00Z",
-  "metadata": { ... }
+  "schema_version": "2026.06",
+  "data": {
+    "entity_id": "sensor.temperature",
+    "history": [
+      {
+        "state": 21.8,
+        "attributes": { ... },
+        "last_changed": "2026-01-09T22:30:00Z",
+        "last_updated": "2026-01-09T22:30:00Z"
+      },
+      // ... 25 records (less than page_size)
+    ],
+    "count": 25,
+    "page_size": 50,
+    "has_more": false,
+    "start_time": "2026-01-09T20:00:00Z",
+    "end_time": "2026-01-10T00:00:00Z",
+    "metadata": { ... }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -582,7 +605,8 @@ def fetch_all_history(
         )
         response.raise_for_status()
         
-        data = response.json()
+        envelope = response.json()
+        data = envelope["data"]
         all_history.extend(data["history"])
         
         # 第一頁會返回 total_count
@@ -775,34 +799,39 @@ X-Signature: computed-hmac-signature
 
 ```json
 {
-  "results": {
-    "camera.test": {
-      "history": [
-        {
-          "state": "idle",
-          "attributes": {...},
-          "last_changed": "2026-01-09T10:30:00+00:00",
-          "last_updated": "2026-01-09T10:30:00+00:00"
-        }
-      ],
-      "count": 1,
-      "truncated": false
+  "schema_version": "2026.06",
+  "data": {
+    "results": {
+      "camera.test": {
+        "history": [
+          {
+            "state": "idle",
+            "attributes": {...},
+            "last_changed": "2026-01-09T10:30:00+00:00",
+            "last_updated": "2026-01-09T10:30:00+00:00"
+          }
+        ],
+        "count": 1,
+        "truncated": false
+      },
+      "sensor.temperature": {
+        "history": [
+          {
+            "state": "22.5",
+            "attributes": {...},
+            "last_changed": "2026-01-09T08:00:00+00:00",
+            "last_updated": "2026-01-09T08:00:00+00:00"
+          }
+        ],
+        "count": 1,
+        "truncated": false
+      }
     },
-    "sensor.temperature": {
-      "history": [
-        {
-          "state": "22.5",
-          "attributes": {...},
-          "last_changed": "2026-01-09T08:00:00+00:00",
-          "last_updated": "2026-01-09T08:00:00+00:00"
-        }
-      ],
-      "count": 1,
-      "truncated": false
-    }
+    "start_time": "2026-01-09T00:00:00+00:00",
+    "end_time": "2026-01-10T00:00:00+00:00"
   },
-  "start_time": "2026-01-09T00:00:00+00:00",
-  "end_time": "2026-01-10T00:00:00+00:00"
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -904,33 +933,38 @@ X-Signature: computed-hmac-signature
 
 ```json
 {
-  "results": {
-    "sensor.temperature": [
-      {
-        "start": "2026-01-09T00:00:00+00:00",
-        "end": "2026-01-09T01:00:00+00:00",
-        "mean": 22.5,
-        "min": 21.8,
-        "max": 23.2,
-        "last_reset": null,
-        "state": 22.5,
-        "sum": 0
-      },
-      {
-        "start": "2026-01-09T01:00:00+00:00",
-        "end": "2026-01-09T02:00:00+00:00",
-        "mean": 22.1,
-        "min": 21.5,
-        "max": 22.7,
-        "last_reset": null,
-        "state": 22.1,
-        "sum": 0
-      }
-    ]
+  "schema_version": "2026.06",
+  "data": {
+    "results": {
+      "sensor.temperature": [
+        {
+          "start": "2026-01-09T00:00:00+00:00",
+          "end": "2026-01-09T01:00:00+00:00",
+          "mean": 22.5,
+          "min": 21.8,
+          "max": 23.2,
+          "last_reset": null,
+          "state": 22.5,
+          "sum": 0
+        },
+        {
+          "start": "2026-01-09T01:00:00+00:00",
+          "end": "2026-01-09T02:00:00+00:00",
+          "mean": 22.1,
+          "min": 21.5,
+          "max": 22.7,
+          "last_reset": null,
+          "state": 22.1,
+          "sum": 0
+        }
+      ]
+    },
+    "start_time": "2026-01-09T00:00:00+00:00",
+    "end_time": "2026-01-10T00:00:00+00:00",
+    "period": "hour"
   },
-  "start_time": "2026-01-09T00:00:00+00:00",
-  "end_time": "2026-01-10T00:00:00+00:00",
-  "period": "hour"
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -1187,7 +1221,8 @@ const response = await fetch('/api/smartly/history/sensor.temperature', {
     }
 });
 
-const data = await response.json();
+const envelope = await response.json();
+const data = envelope.data;
 const { history, metadata } = data;
 
 // 根據 metadata 配置圖表
@@ -1236,7 +1271,8 @@ const response = await fetch('/api/smartly/history/switch.living_room', {
     headers: { /* ... */ }
 });
 
-const data = await response.json();
+const envelope = await response.json();
+const data = envelope.data;
 const { history, metadata } = data;
 const vizConfig = metadata.visualization;
 
@@ -1314,8 +1350,8 @@ function HistoryChart({ entityId, startTime, endTime }) {
                 `/api/smartly/history/${entityId}?start_time=${startTime}&end_time=${endTime}`,
                 { headers: { /* authentication headers */ } }
             );
-            const result = await response.json();
-            setData(result);
+            const envelope = await response.json();
+            setData(envelope.data);
             setLoading(false);
         }
         fetchHistory();

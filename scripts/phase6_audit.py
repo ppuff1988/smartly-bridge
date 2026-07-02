@@ -144,6 +144,10 @@ PUBLIC_CONTROL_STALE_LIGHT_COMMAND_TERMS = (
 HISTORY_DOCS = [
     Path("docs/history-api.md"),
 ]
+HISTORY_CLIENT_DOCS = [
+    Path("docs/history-api.md"),
+    Path("docs/history-visualization-guide.md"),
+]
 CAMERA_DOCS = [
     Path("docs/camera-api.md"),
 ]
@@ -232,6 +236,8 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_device_card_stale_capability_doc_findings(root_path))
     findings.extend(_device_card_top_level_sync_success_doc_findings(root_path))
     findings.extend(_history_doc_top_level_error_findings(root_path))
+    findings.extend(_history_doc_top_level_success_findings(root_path))
+    findings.extend(_history_doc_top_level_parser_findings(root_path))
     findings.extend(_camera_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_success_findings(root_path))
     findings.extend(_webrtc_doc_top_level_success_findings(root_path))
@@ -2154,6 +2160,113 @@ def _history_doc_top_level_error_findings(root: Path) -> list[Finding]:
                 )
             )
     return findings
+
+
+def _history_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_history_doc_success_block_findings(root, path, lines))
+    return findings
+
+
+def _history_doc_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_history_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="history-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "History docs still show top-level success bodies; "
+                            "use API vNext data fields."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_history_doc_top_level_success_block(block: str) -> bool:
+    payload_keys = {
+        "history",
+        "count",
+        "results",
+        "statistics",
+        "metadata",
+        "has_more",
+        "next_cursor",
+        "total_count",
+    }
+    return (
+        '"schema_version"' not in block
+        and '"data"' not in block
+        and any(f'"{key}"' in block for key in payload_keys)
+    )
+
+
+def _history_doc_top_level_parser_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_CLIENT_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not _is_history_doc_top_level_parser_line(line):
+                continue
+            findings.append(
+                Finding(
+                    code="history-doc-top-level-parser",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "History docs parse API vNext envelopes as top-level "
+                        "payloads; read response data from envelope.data."
+                    ),
+                )
+            )
+    return findings
+
+
+def _is_history_doc_top_level_parser_line(line: str) -> bool:
+    stale_patterns = (
+        "const data = await response.json();",
+        "renderChart(data.history",
+        "renderTimeline(data.history",
+        "renderGauge(data.history",
+        "renderBarChart(data.history",
+    )
+    return any(pattern in line for pattern in stale_patterns)
 
 
 def _camera_doc_top_level_error_findings(root: Path) -> list[Finding]:
