@@ -159,6 +159,7 @@
 - Camera config 缺 setup-created `camera_gateway` view response 會輸出 `camera_gateway_unavailable` 與 API vNext `schema_version`、`data.status`、`warnings`、`errors[]` envelope 欄位。
 - Phase 6 已移除 WebRTC token/offer/ICE/hangup success 與 error response 的 legacy top-level 欄位；signaling JSON responses 現在只保留 API vNext `schema_version` / `data` / `warnings` / `errors` envelope，token、endpoints、ICE servers、SDP answer、session id、ICE status/candidates 與 hangup status 只透過 `data` 暴露。
 - Phase 6 已移除 WebRTC application/view error response 的 legacy top-level `error` / `message` / `session_id` 欄位；error code/message 現在只透過 API vNext top-level `errors[]` 暴露，rejected status 只透過 `data.status` 暴露。
+- Phase 6 已移除 WebRTC offer signaling failure logging 對 response top-level `message` 的讀取；diagnostic log 現在從 API vNext `errors[0].message` 取得訊息。
 - WebRTC token/offer/ICE/hangup HTTP shell 在 request 帶 `X-Request-Id` / `X-Correlation-Id` 時，會於 API vNext top-level envelope 回傳 `request_id` / `correlation_id`，補齊 signaling lifecycle request correlation contract。
 - WebRTC token 現在共用 `_webrtc_token_use_case` factory 與 `_create_webrtc_token` application invocation adapter，集中 `WebRTCTokenUseCase` 建立/呼叫與 entity/client/TURN config 傳遞；`_create_webrtc_token` 可注入替代 use-case factory，讓 token view 只負責 HMAC shell、ACL、audit timing 與 JSON adaptation。
 - WebRTC offer 現在共用 `_webrtc_offer_use_case` factory 與 `_create_webrtc_offer` application invocation adapter，集中 `WebRTCOfferUseCase` 建立/呼叫與 entity/token/SDP 傳遞；`_create_webrtc_offer` 可注入替代 use-case factory，讓 offer view 只負責 JSON parsing、runtime availability、audit timing 與 JSON adaptation。
@@ -618,6 +619,7 @@
 | 429 | `4c4d5d3` | Phase 6 刪除 Camera application `_camera_error_response` legacy helper，並讓 camera HTTP guard / entity-id validation default factory 改用 `_camera_vnext_error_response`，避免 default seam 重新產生 legacy top-level `error` body；camera stream/snapshot adapter docstring 同步改為 media/vNext wording | RED failed because default entity-id validation response still returned top-level `error`; focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed` |
 | 430 | `a7bdc47` | Phase 6 移除 SmartlyCommand source-control error wrapping 對 resolved `BridgeResponse.body.error` 的 legacy fallback，error code 現在只從 API vNext `errors[]` 讀取，缺少 vNext error 才回 `command_failed` | RED failed because a conflicting source response used legacy `service_call_failed` instead of vNext `ENTITY_NOT_ALLOWED`; focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed` |
 | 431 | `0d2e9e6` | Phase 6 移除 Local automation `device_command` result 對 SmartlyCommand legacy top-level `status` 的 fallback，automation status 現在只透過 API vNext `data.status` 取得，測試替身同步改為 vNext SmartlyCommand response envelope | RED failed because `_command_response_status` still returned legacy top-level `status`; focused local automation status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed` |
+| 432 | `55127dd` | Phase 6 移除 WebRTC offer signaling failure log 對 response top-level `message` 的讀取，WebRTC diagnostic log 現在從 API vNext `errors[0].message` 取得 failure reason | RED failed because offer 500 logging printed `None` for vNext-only errors; focused WebRTC offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed` |
 
 ## Completed Slices
 
@@ -669,6 +671,8 @@
 - Control/SmartlyCommand fallback verification: focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed`
 - Local automation command status cleanup: `_command_response_status` no longer reads SmartlyCommand top-level `status`; test command executors now return API vNext `data.status`.
 - Local automation command status verification: focused status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed`
+- WebRTC offer diagnostics cleanup: offer signaling failure logging no longer reads response top-level `message`; it uses API vNext `errors[0].message`.
+- WebRTC offer diagnostics verification: focused offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed`
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
