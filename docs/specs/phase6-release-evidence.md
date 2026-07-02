@@ -120,6 +120,7 @@ Expected result:
 - Release evidence checker verifies all required gate rows are present before evaluating readiness.
 - Release evidence checker rejects duplicate gate rows.
 - Release evidence checker rejects unknown gate rows.
+- Release evidence checker rejects intent, verbal confirmation, and local-only evidence sources.
 - Release evidence checker rejects duplicate sign-off rows.
 - Release evidence checker rejects unknown sign-off rows.
 - Release evidence checker rejects sign-off evidence links that do not match the gate evidence source.

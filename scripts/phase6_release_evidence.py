@@ -231,6 +231,7 @@ def _status_from_row(row: dict[str, str]) -> GateStatus:
     ready = (
         _is_complete(owner)
         and _is_complete(evidence_source)
+        and _is_auditable_evidence_source(evidence_source)
         and _is_complete(notes)
         and _is_ready_decision(decision)
     )
@@ -273,6 +274,14 @@ def _is_complete(value: str) -> bool:
     if normalized in INCOMPLETE_MARKERS:
         return False
     return not re.search(r"\b(tbd|pending|n/a)\b", normalized)
+
+
+def _is_auditable_evidence_source(value: str) -> bool:
+    normalized = value.strip().lower()
+    return not re.search(
+        r"\b(intent|verbal confirmation|local[- ]only|local check)\b",
+        normalized,
+    )
 
 
 def _is_iso_date(value: str) -> bool:
