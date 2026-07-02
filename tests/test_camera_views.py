@@ -443,16 +443,30 @@ class TestSmartlyCameraSnapshotView:
         assert response.headers["X-Smartly-Response-Mode"] == "empty"
 
     def test_adapt_camera_snapshot_response_preserves_json_error(self, mock_request):
-        """Snapshot response adapter preserves legacy JSON error body."""
+        """Snapshot response adapter preserves API vNext JSON error body."""
         result = BridgeResponse(
-            {"error": "snapshot_unavailable"},
+            {
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "SNAPSHOT_UNAVAILABLE",
+                        "message": "snapshot unavailable",
+                        "target": "camera",
+                        "retryable": False,
+                    }
+                ],
+            },
             status=404,
         )
 
         response = _adapt_camera_snapshot_response(result, mock_request)
 
         assert response.status == 404
-        assert json.loads(response.body) == {"error": "snapshot_unavailable"}
+        data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
+        assert data == result.body
 
     def test_adapt_camera_snapshot_response_preserves_image_payload(self, mock_request):
         """Snapshot response adapter preserves image body, content type, and headers."""
@@ -982,7 +996,8 @@ class TestSmartlyCameraSnapshotView:
 
                 assert response.status == 404
                 data = json.loads(response.body)
-                assert data["error"] == "snapshot_unavailable"
+                _assert_vnext_only_top_level(data)
+                assert data["errors"][0]["code"] == "SNAPSHOT_UNAVAILABLE"
 
     @pytest.mark.asyncio
     async def test_force_refresh_query(self, mock_request, mock_hass):

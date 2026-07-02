@@ -205,7 +205,7 @@ class CameraSnapshotUseCase:
             )
 
         if snapshot is None:
-            return _camera_error_response("snapshot_unavailable", status=404)
+            return _camera_vnext_error_response("snapshot_unavailable", status=404)
 
         return _camera_success_response(
             {"snapshot": snapshot},
