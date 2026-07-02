@@ -213,6 +213,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_sync_doc_top_level_success_findings(root_path))
     findings.extend(_trust_proxy_doc_top_level_error_findings(root_path))
     findings.extend(_architecture_plan_doc_top_level_error_findings(root_path))
+    findings.extend(_architecture_plan_doc_top_level_success_findings(root_path))
     return findings
 
 
@@ -1284,6 +1285,67 @@ def _architecture_plan_doc_top_level_error_findings(root: Path) -> list[Finding]
                 )
             )
     return findings
+
+
+def _architecture_plan_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ARCHITECTURE_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_architecture_plan_success_block_findings(root, path, lines))
+    return findings
+
+
+def _architecture_plan_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_architecture_plan_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="architecture-plan-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Architecture plan still shows command success "
+                            "without API vNext envelope."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_architecture_plan_top_level_success_block(block: str) -> bool:
+    return (
+        '"command_id"' in block
+        and '"status"' in block
+        and '"device_id"' in block
+        and '"schema_version"' not in block
+        and '"data"' not in block
+    )
 
 
 def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:

@@ -1236,7 +1236,7 @@ Smartly command：
   "capability": "brightness",
   "command": "set_brightness",
   "params": {
-    "brightness": 80
+    "value": 80
   }
 }
 ```
@@ -1721,9 +1721,16 @@ Response：
 
 ```json
 {
-  "command_id": "cmd_001",
-  "status": "success",
-  "device_id": "dev_001"
+  "schema_version": "2026.06",
+  "data": {
+    "command_id": "cmd_001",
+    "status": "completed",
+    "device_id": "dev_001",
+    "capability": "brightness",
+    "command": "set_brightness"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 

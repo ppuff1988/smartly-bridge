@@ -478,6 +478,27 @@ def test_phase6_audit_detects_architecture_plan_top_level_error_examples(
     )
 
 
+def test_phase6_audit_detects_architecture_plan_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects architecture command responses without vNext envelope."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/smartly_bridge_architecture_plan.md",
+        (
+            '```json\n{"command_id": "cmd_1", "status": "success", '
+            '"device_id": "dev_1"}\n```\n'
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "architecture-plan-doc-top-level-success"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_allows_public_docs_source_entity_references(
     tmp_path: Path,
 ) -> None:
