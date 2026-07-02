@@ -738,4 +738,15 @@
 
 ## Remaining Work
 
-- Resolve external Phase 6 release gates: active Platform API vNext adoption, legacy endpoint usage threshold, alias-window announcement/expiry, rollback playbook verification, Platform dashboard source/brand render audit, and final Legacy API LTS/removal policy.
+- Resolve the pending external items in `Phase 6 Release Gate Checklist`; Bridge code-verifiable cleanup is currently tracked as code-verified in the requirement audit above.
+
+## Phase 6 Release Gate Checklist
+
+| Gate | Required evidence | Acceptance condition | Current status |
+|---|---|---|---|
+| Active Platform clients support API vNext | Platform release inventory with app/web/client versions and API vNext capability flag or equivalent compatibility matrix. | Every active client version that can connect to this Bridge release can consume API vNext envelope, canonical command, state, event, diagnostics and media exception contracts. | Pending external Platform evidence |
+| Legacy endpoint usage below removal threshold | Production telemetry query or release dashboard covering `/api/smartly/states` and any deprecated entity/action control usage over the agreed release window. | Usage is below the product-defined threshold for the full release window, with outliers triaged or explicitly accepted. | Pending external telemetry |
+| Alias window announced and expired | Release note / migration announcement with announcement date, target removal date and affected alias/deprecated endpoint list. | The configured alias window has elapsed; no unannounced alias deletion is performed. | Pending release evidence |
+| Rollback playbook verified | Rollback runbook link plus dry-run or release rehearsal result for reverting to prior API behavior or redeploying a compatible build. | Runbook has an owner, tested steps, expected verification commands and a successful rehearsal result. | Pending ops evidence |
+| Platform dashboard source/brand render audit | Platform UI audit showing dashboard, cards and automation editor render from capability/presentation contracts rather than brand/source entity checks. | No required dashboard path depends on Home Assistant entity IDs, brand-specific fields or source payload shape for core rendering. | Pending Platform repo/client audit |
+| Legacy API LTS or removal policy | Product/release decision record listing removed endpoints, retained LTS endpoints, support horizon and customer communication plan. | Every legacy API path is either removed, explicitly retained as LTS with owner/horizon, or blocked from removal by a documented dependency. | Pending product/release decision |
