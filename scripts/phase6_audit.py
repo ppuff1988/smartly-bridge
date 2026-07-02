@@ -116,11 +116,13 @@ REQUEST_TIME_FALLBACK_WORDING_PATHS = [
 PUBLIC_CONTROL_DOCS = [
     Path("README.md"),
     Path("docs/README.md"),
+    Path("docs/control-examples.md"),
     Path("docs/control/README.md"),
     Path("docs/control/api-basics.md"),
     Path("docs/control/code-examples.md"),
     Path("docs/control/device-types.md"),
     Path("docs/control/responses.md"),
+    Path("docs/control/security.md"),
     Path("docs/control/troubleshooting.md"),
     Path("docs/security-audit.md"),
 ]

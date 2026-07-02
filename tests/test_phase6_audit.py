@@ -900,6 +900,36 @@ def test_phase6_audit_detects_nested_public_control_legacy_body_docs(
     assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
 
 
+def test_phase6_audit_detects_redirect_public_control_legacy_body_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects redirected public control docs with stale body examples."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/control-examples.md",
+        '```json\n{"entity_id": "switch.office", "action": "turn_on"}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
+
+
+def test_phase6_audit_detects_control_security_legacy_body_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects control security docs with stale body examples."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/control/security.md",
+        '```json\n{"entity_id": "lock.front", "service_data": {}}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
+
+
 def test_phase6_audit_detects_security_audit_legacy_control_body_docs(
     tmp_path: Path,
 ) -> None:
