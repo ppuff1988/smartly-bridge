@@ -18,6 +18,7 @@ from custom_components.smartly_bridge.application.local_automation import (
     LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
     LocalAutomationUseCase,
+    _command_response_status,
 )
 from custom_components.smartly_bridge.domain.models import BridgeResponse
 
@@ -76,9 +77,16 @@ class FakeSmartlyCommandExecutor:
         self.commands.append((client_id, command))
         return BridgeResponse(
             {
-                "success": True,
-                "command_id": command.command_id,
-                "status": "completed",
+                "schema_version": "2026.06",
+                "data": {
+                    "command_id": command.command_id,
+                    "status": "completed",
+                    "device_id": command.device_id,
+                    "capability": command.capability,
+                    "command": command.command,
+                },
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )
@@ -89,6 +97,22 @@ def _fixture(name: str) -> dict[str, Any]:
     return json.loads(
         (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
     )
+
+
+def test_command_response_status_ignores_legacy_top_level_status() -> None:
+    """Local automation command results only read SmartlyCommand vNext data.status."""
+    response = BridgeResponse(
+        {
+            "status": "completed",
+            "schema_version": "2026.06",
+            "data": {},
+            "warnings": [],
+            "errors": [],
+        },
+        status=200,
+    )
+
+    assert _command_response_status(response) == "unknown"
 
 
 def test_list_rules_returns_api_vnext_canonical_rule_payload() -> None:

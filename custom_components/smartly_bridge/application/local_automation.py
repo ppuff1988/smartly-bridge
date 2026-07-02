@@ -272,8 +272,7 @@ def _command_response_status(response: BridgeResponse) -> str:
     data = response.body.get("data")
     if isinstance(data, dict) and isinstance(data.get("status"), str):
         return data["status"]
-    status = response.body.get("status")
-    return status if isinstance(status, str) else "unknown"
+    return "unknown"
 
 
 def _event_matches_trigger(event: dict[str, Any], trigger: AutomationTrigger) -> bool:

@@ -120,8 +120,10 @@ class FakeSmartlyCommandExecutor:
         self.calls.append((client_id, command))
         return BridgeResponse(
             {
-                "success": True,
-                "status": "completed",
+                "schema_version": "2026.06",
+                "data": {"status": "completed"},
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )
