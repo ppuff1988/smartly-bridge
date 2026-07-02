@@ -828,10 +828,13 @@ class TestWebRTCViews:
                 self.calls.append((entity_id, client_id, turn_config))
                 return BridgeResponse(
                     {
-                        "success": True,
-                        "token": "factory-token",
-                        "entity_id": entity_id,
-                        "data": {"token": "factory-token"},
+                        "schema_version": "2026.06",
+                        "data": {
+                            "token": "factory-token",
+                            "entity_id": entity_id,
+                        },
+                        "warnings": [],
+                        "errors": [],
                     },
                     status=200,
                 )
@@ -919,12 +922,14 @@ class TestWebRTCViews:
                 self.calls.append((entity_id, token, sdp_offer))
                 return BridgeResponse(
                     {
-                        "success": True,
+                        "schema_version": "2026.06",
                         "data": {
                             "type": "answer",
                             "sdp": "factory-answer",
                             "session_id": "factory-session",
                         },
+                        "warnings": [],
+                        "errors": [],
                     },
                     status=200,
                 )
@@ -992,11 +997,13 @@ class TestWebRTCViews:
                 self.calls.append((entity_id, session_id, candidate))
                 return BridgeResponse(
                     {
-                        "success": True,
+                        "schema_version": "2026.06",
                         "data": {
                             "status": "accepted",
                             "candidates": [{"candidate": "factory-candidate"}],
                         },
+                        "warnings": [],
+                        "errors": [],
                     },
                     status=200,
                 )
@@ -1059,9 +1066,10 @@ class TestWebRTCViews:
                 self.calls.append((entity_id, session_id))
                 return BridgeResponse(
                     {
-                        "success": True,
-                        "status": "closed",
+                        "schema_version": "2026.06",
                         "data": {"status": "closed"},
+                        "warnings": [],
+                        "errors": [],
                     },
                     status=200,
                 )
