@@ -2221,6 +2221,7 @@ def _webrtc_doc_top_level_success_findings(root: Path) -> list[Finding]:
         except UnicodeDecodeError:
             continue
         findings.extend(_webrtc_doc_success_response_block_findings(root, path, lines))
+        findings.extend(_webrtc_doc_shorthand_response_findings(root, path, lines))
     return findings
 
 
@@ -2386,6 +2387,45 @@ def _is_webrtc_doc_top_level_success_block(block: str) -> bool:
         '"schema_version"' not in block
         and '"data"' not in block
         and any(f'"{key}"' in block for key in signaling_keys)
+    )
+
+
+def _webrtc_doc_shorthand_response_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for line_number, line in enumerate(lines, start=1):
+        if not _is_webrtc_doc_top_level_shorthand_response(line):
+            continue
+        findings.append(
+            Finding(
+                code="webrtc-doc-top-level-success",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "WebRTC docs still show shorthand top-level signaling "
+                    "response fields; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _is_webrtc_doc_top_level_shorthand_response(line: str) -> bool:
+    if "Response:" not in line or "data" in line:
+        return False
+    return any(
+        key in line
+        for key in (
+            "token",
+            "expires_at",
+            "ice_servers",
+            "session_id",
+            "status",
+            "candidates",
+        )
     )
 
 

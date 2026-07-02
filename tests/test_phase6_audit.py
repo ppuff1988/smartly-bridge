@@ -1026,6 +1026,21 @@ def test_phase6_audit_detects_webrtc_docs_response_prose_examples(
     assert any(finding.code == "webrtc-doc-top-level-success" for finding in findings)
 
 
+def test_phase6_audit_detects_webrtc_docs_shorthand_response_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects WebRTC shorthand response payload examples."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/webrtc.md",
+        "Home Assistant -> Platform\n  Response: { token, expires_at, ice_servers }\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "webrtc-doc-top-level-success" for finding in findings)
+
+
 def test_phase6_audit_detects_sync_docs_top_level_error_examples(
     tmp_path: Path,
 ) -> None:

@@ -56,7 +56,7 @@ Platform → Home Assistant
   Headers: X-Client-Id, X-Timestamp, X-Nonce, X-Signature
   
 Home Assistant → Platform
-  Response: { token, expires_at, ice_servers, ... }
+  Response envelope: { data: { token, expires_at, ice_servers, ... } }
 ```
 
 ### 階段 2：信令交換（Token 認證）
@@ -69,7 +69,7 @@ Platform → Home Assistant
   Body: { token, sdp, type }
   
 Home Assistant → Platform
-  Response: { type: "answer", sdp, session_id }
+  Response envelope: { data: { type: "answer", sdp, session_id } }
 ```
 
 **重要特性：**
