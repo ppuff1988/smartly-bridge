@@ -183,6 +183,7 @@ def _signoff_from_row(row: dict[str, str]) -> Signoff:
     evidence_link = row["Evidence link"]
     ready = (
         _is_complete(date)
+        and _is_iso_date(date)
         and _is_complete(gate)
         and _is_complete(reviewer)
         and _is_complete(evidence_link)
@@ -203,6 +204,10 @@ def _is_complete(value: str) -> bool:
     if normalized in INCOMPLETE_MARKERS:
         return False
     return not re.search(r"\b(tbd|pending|n/a)\b", normalized)
+
+
+def _is_iso_date(value: str) -> bool:
+    return re.fullmatch(r"\d{4}-\d{2}-\d{2}", value.strip()) is not None
 
 
 def _is_ready_decision(value: str) -> bool:
