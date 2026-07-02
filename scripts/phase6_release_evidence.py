@@ -73,11 +73,15 @@ def missing_ready_gate_signoffs(
     signoffs: list[Signoff],
 ) -> list[str]:
     """Return ready gates that do not have a completed sign-off row."""
-    signed_off_gates = {signoff.gate for signoff in signoffs if signoff.ready}
+    signed_off_evidence = {
+        (signoff.gate, signoff.evidence_link) for signoff in signoffs if signoff.ready
+    }
     return [
         status.gate
         for status in statuses
-        if status.ready and status.gate in REQUIRED_GATES and status.gate not in signed_off_gates
+        if status.ready
+        and status.gate in REQUIRED_GATES
+        and (status.gate, status.evidence_source) not in signed_off_evidence
     ]
 
 
@@ -231,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     for gate in missing:
         print(f"- {gate}: missing required evidence row")
     for gate in missing_signoffs:
-        print(f"- {gate}: missing completed sign-off row")
+        print(f"- {gate}: missing completed sign-off row for gate evidence")
     for status in pending:
         print(
             f"- {status.gate}: owner={status.owner}; "
