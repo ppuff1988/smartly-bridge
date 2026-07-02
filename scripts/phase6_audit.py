@@ -80,6 +80,7 @@ MIGRATION_PLAN_LEGACY_TERMS = (
     "legacy",
     "deprecated",
     "backward compatibility",
+    "compatibility",
     "LTS",
 )
 CONTROL_TEST_LEGACY_WORDING_PATHS = [

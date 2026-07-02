@@ -45,7 +45,7 @@
 
 - `fixtures/current-sync/*.json`
 - entity to logical device mapping table
-- API consumer compatibility matrix
+- API consumer release-readiness matrix
 
 ## 4. Phase 1：Contract First
 

@@ -419,6 +419,21 @@ def test_phase6_audit_detects_migration_plan_legacy_wording(
     assert any(finding.code == "migration-plan-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_migration_plan_compatibility_wording(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects migration-plan compatibility wording."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/specs/migration-plan.md",
+        "- API consumer compatibility matrix\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "migration-plan-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_control_test_legacy_wording(
     tmp_path: Path,
 ) -> None:
