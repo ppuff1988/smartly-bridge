@@ -180,7 +180,7 @@ async def test_webrtc_token_use_case_returns_connection_info() -> None:
 
 @pytest.mark.asyncio
 async def test_webrtc_token_response_matches_api_vnext_fixture() -> None:
-    """WebRTC token full response remains stable for legacy and vNext clients."""
+    """WebRTC token full response matches the API vNext envelope contract."""
     result = await WebRTCTokenUseCase(FakeWebRTCGateway()).execute(
         entity_id="camera.front",
         client_id="client-1",
@@ -221,7 +221,7 @@ async def test_webrtc_token_use_case_rejects_missing_camera() -> None:
 
 @pytest.mark.asyncio
 async def test_webrtc_token_camera_missing_response_matches_api_vnext_fixture() -> None:
-    """WebRTC token missing-camera response remains stable for legacy clients."""
+    """WebRTC token missing-camera response matches the API vNext envelope contract."""
     result = await WebRTCTokenUseCase(FakeWebRTCGateway()).execute(
         entity_id="camera.missing",
         client_id="client-1",
@@ -284,7 +284,7 @@ async def test_webrtc_ice_use_case_returns_vnext_error_for_missing_session() -> 
 
 @pytest.mark.asyncio
 async def test_webrtc_ice_missing_session_response_matches_api_vnext_fixture() -> None:
-    """WebRTC ICE missing-session response remains stable for legacy clients."""
+    """WebRTC ICE missing-session response matches the API vNext envelope contract."""
     gateway = FakeWebRTCGateway()
 
     result = await WebRTCICEUseCase(gateway).execute(
@@ -327,7 +327,7 @@ async def test_webrtc_ice_use_case_returns_vnext_error_for_entity_mismatch() -> 
 
 @pytest.mark.asyncio
 async def test_webrtc_ice_entity_mismatch_response_matches_api_vnext_fixture() -> None:
-    """WebRTC ICE entity-mismatch response remains stable for legacy clients."""
+    """WebRTC ICE entity-mismatch response matches the API vNext envelope contract."""
     gateway = FakeWebRTCGateway()
 
     result = await WebRTCICEUseCase(gateway).execute(
@@ -389,7 +389,7 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_missing_session() 
 
 @pytest.mark.asyncio
 async def test_webrtc_hangup_missing_session_response_matches_api_vnext_fixture() -> None:
-    """WebRTC hangup missing-session response remains stable for legacy clients."""
+    """WebRTC hangup missing-session response matches the API vNext envelope contract."""
     gateway = FakeWebRTCGateway()
 
     result = await WebRTCHangupUseCase(gateway).execute(
@@ -430,7 +430,7 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_entity_mismatch() 
 
 @pytest.mark.asyncio
 async def test_webrtc_hangup_entity_mismatch_response_matches_api_vnext_fixture() -> None:
-    """WebRTC hangup entity-mismatch response remains stable for legacy clients."""
+    """WebRTC hangup entity-mismatch response matches the API vNext envelope contract."""
     gateway = FakeWebRTCGateway()
 
     result = await WebRTCHangupUseCase(gateway).execute(
@@ -511,7 +511,7 @@ async def test_webrtc_offer_use_case_rejects_invalid_token() -> None:
 
 @pytest.mark.asyncio
 async def test_webrtc_offer_invalid_token_response_matches_api_vnext_fixture() -> None:
-    """WebRTC offer invalid-token response remains stable for legacy clients."""
+    """WebRTC offer invalid-token response matches the API vNext envelope contract."""
     result = await WebRTCOfferUseCase(FakeWebRTCGateway()).execute(
         entity_id="camera.front",
         token="invalid-token",
@@ -551,7 +551,7 @@ async def test_webrtc_offer_use_case_reports_signaling_failure() -> None:
 
 @pytest.mark.asyncio
 async def test_webrtc_offer_signaling_failure_response_matches_api_vnext_fixture() -> None:
-    """WebRTC offer signaling failure keeps legacy session id and vNext errors."""
+    """WebRTC offer signaling failure matches the API vNext envelope contract."""
     gateway = FakeWebRTCGateway()
     gateway.answer_error = RuntimeError("go2rtc failed")
 

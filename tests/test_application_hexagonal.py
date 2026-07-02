@@ -2103,7 +2103,7 @@ async def test_smartly_command_error_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_smartly_command_error_matches_api_vnext_fixture() -> None:
-    """Command error full response remains stable for legacy and vNext clients."""
+    """Command error full response matches the API vNext envelope contract."""
     fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "command-error.json"
     expected_body = json.loads(fixture_path.read_text())
     audit = FakeAudit()

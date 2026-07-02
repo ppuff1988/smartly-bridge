@@ -191,7 +191,7 @@ async def test_button_action_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_button_action_response_matches_api_vnext_fixture() -> None:
-    """Accepted device event full response remains stable for legacy and vNext clients."""
+    """Accepted device event full response matches the API vNext envelope contract."""
     publisher = FakeDeviceEventPublisher()
     use_case = DeviceEventUseCase(
         publisher,
@@ -395,7 +395,7 @@ async def test_duplicate_button_action_response_includes_vnext_envelope() -> Non
 
 @pytest.mark.asyncio
 async def test_duplicate_button_action_response_matches_api_vnext_fixture() -> None:
-    """Duplicate device event full response remains stable for legacy and vNext clients."""
+    """Duplicate device event full response matches the API vNext envelope contract."""
     publisher = FakeDeviceEventPublisher()
     deduplicator = FakeEventDeduplicator()
     event_ids = iter(["evt_first", "evt_second"])
@@ -575,7 +575,7 @@ async def test_unsupported_button_action_response_includes_vnext_error_envelope(
 
 @pytest.mark.asyncio
 async def test_unsupported_button_action_response_matches_api_vnext_fixture() -> None:
-    """Device event error full response remains stable for legacy and vNext clients."""
+    """Device event error full response matches the API vNext envelope contract."""
     fixture_path = (
         Path(__file__).parent / "fixtures" / "api-vnext" / "device-event-error.json"
     )

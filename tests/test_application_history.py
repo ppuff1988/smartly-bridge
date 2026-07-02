@@ -92,7 +92,7 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
 
 
 def test_time_range_too_large_response_matches_api_vnext_fixture() -> None:
-    """History time-range errors remain stable for legacy and vNext clients."""
+    """History time-range errors match the API vNext envelope contract."""
     planner = HistoryQueryPlanner(max_duration_days=30)
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
 
@@ -537,7 +537,7 @@ async def test_single_history_use_case_formats_gateway_states() -> None:
 
 @pytest.mark.asyncio
 async def test_single_history_response_matches_api_vnext_fixture() -> None:
-    """Single history full response remains stable for legacy and vNext clients."""
+    """Single history full response matches the API vNext envelope contract."""
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=2)
     use_case = SingleHistoryUseCase(FakeHistoryGateway())
@@ -593,7 +593,7 @@ async def test_batch_history_use_case_formats_multiple_entities() -> None:
 
 @pytest.mark.asyncio
 async def test_batch_history_response_matches_api_vnext_fixture() -> None:
-    """Batch history full response remains stable for legacy and vNext clients."""
+    """Batch history full response matches the API vNext envelope contract."""
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=2)
     use_case = BatchHistoryUseCase(FakeBatchHistoryGateway())
@@ -680,7 +680,7 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
 
 @pytest.mark.asyncio
 async def test_statistics_response_matches_api_vnext_fixture() -> None:
-    """Statistics full response remains stable for legacy and vNext clients."""
+    """Statistics full response matches the API vNext envelope contract."""
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=2)
     use_case = StatisticsUseCase(FakeStatisticsGateway())

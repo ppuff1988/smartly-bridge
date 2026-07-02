@@ -207,7 +207,7 @@ async def test_camera_list_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_list_response_matches_api_vnext_fixture() -> None:
-    """Camera list full response remains stable for legacy and vNext clients."""
+    """Camera list full response matches the API vNext envelope contract."""
     result = await CameraListUseCase(FakeCameraGateway()).execute(include_capabilities=False)
 
     assert result.status == 200
@@ -259,7 +259,7 @@ async def test_camera_config_register_response_includes_vnext_envelope() -> None
 
 @pytest.mark.asyncio
 async def test_camera_config_register_response_matches_api_vnext_fixture() -> None:
-    """Camera register full response remains stable for legacy and vNext clients."""
+    """Camera register full response matches the API vNext envelope contract."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(
             action="register",
@@ -328,7 +328,7 @@ async def test_camera_config_unregister_response_includes_vnext_envelope() -> No
 
 @pytest.mark.asyncio
 async def test_camera_config_unregister_response_matches_api_vnext_fixture() -> None:
-    """Camera unregister full response remains stable for legacy and vNext clients."""
+    """Camera unregister full response matches the API vNext envelope contract."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(action="unregister", entity_id="camera.old", data={})
     )
@@ -397,7 +397,7 @@ async def test_camera_config_clear_cache_response_includes_vnext_envelope() -> N
 
 @pytest.mark.asyncio
 async def test_camera_config_clear_cache_response_matches_api_vnext_fixture() -> None:
-    """Camera clear-cache full response remains stable for legacy and vNext clients."""
+    """Camera clear-cache full response matches the API vNext envelope contract."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(action="clear_cache", entity_id="camera.front", data={})
     )
@@ -426,7 +426,7 @@ async def test_camera_config_list_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_config_list_response_matches_api_vnext_fixture() -> None:
-    """Camera config-list full response remains stable for legacy and vNext clients."""
+    """Camera config-list full response matches the API vNext envelope contract."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(action="list", entity_id=None, data={})
     )
@@ -490,7 +490,7 @@ async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_st
 
 @pytest.mark.asyncio
 async def test_camera_hls_start_unsupported_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS start unsupported response remains stable for legacy clients."""
+    """Camera HLS start unsupported response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")
 
     assert result.status == 400
@@ -512,7 +512,7 @@ async def test_camera_hls_start_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_hls_start_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS start full response remains stable for legacy and vNext clients."""
+    """Camera HLS start full response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "start")
 
     assert result.status == 200
@@ -550,7 +550,7 @@ async def test_camera_hls_info_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_hls_info_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS info full response remains stable for legacy and vNext clients."""
+    """Camera HLS info full response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "info")
 
     assert result.status == 200
@@ -579,7 +579,7 @@ async def test_camera_hls_info_not_found_response_includes_vnext_envelope() -> N
 
 @pytest.mark.asyncio
 async def test_camera_hls_info_not_found_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS info not-found response remains stable for legacy clients."""
+    """Camera HLS info not-found response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "info")
 
     assert result.status == 404
@@ -601,7 +601,7 @@ async def test_camera_hls_stats_response_includes_vnext_envelope() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_hls_stats_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS stats full response remains stable for legacy and vNext clients."""
+    """Camera HLS stats full response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stats")
 
     assert result.status == 200
@@ -623,7 +623,7 @@ async def test_camera_hls_stop_success_response_includes_vnext_envelope() -> Non
 
 @pytest.mark.asyncio
 async def test_camera_hls_stop_success_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS stop success full response remains stable for legacy and vNext clients."""
+    """Camera HLS stop success full response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stop")
 
     assert result.status == 200
@@ -645,7 +645,7 @@ async def test_camera_hls_stop_not_found_response_includes_vnext_envelope() -> N
 
 @pytest.mark.asyncio
 async def test_camera_hls_stop_not_found_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS stop 404 full response remains stable for legacy and vNext clients."""
+    """Camera HLS stop 404 full response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "stop")
 
     assert result.status == 404
@@ -674,7 +674,7 @@ async def test_camera_hls_unknown_action_response_includes_vnext_envelope() -> N
 
 @pytest.mark.asyncio
 async def test_camera_hls_unknown_action_response_matches_api_vnext_fixture() -> None:
-    """Camera HLS unknown-action response remains stable for legacy clients."""
+    """Camera HLS unknown-action response matches the API vNext envelope contract."""
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "bad_action")
 
     assert result.status == 400

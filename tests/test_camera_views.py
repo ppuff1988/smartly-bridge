@@ -633,7 +633,7 @@ class TestSmartlyCameraSnapshotView:
         self,
         mock_request,
     ):
-        """Snapshot invalid entity response remains stable for legacy and vNext clients."""
+        """Snapshot invalid entity response matches the API vNext envelope contract."""
         mock_request.match_info = {"entity_id": "invalid_entity"}
 
         response = await SmartlyCameraSnapshotView(mock_request).get()
@@ -672,7 +672,7 @@ class TestSmartlyCameraSnapshotView:
         mock_request,
         mock_hass,
     ):
-        """Snapshot integration error response remains stable for legacy and vNext clients."""
+        """Snapshot integration error response matches the API vNext envelope contract."""
         mock_hass.data = {}
 
         response = await SmartlyCameraSnapshotView(mock_request).get()
@@ -717,7 +717,7 @@ class TestSmartlyCameraSnapshotView:
         mock_request,
         mock_hass,
     ):
-        """Snapshot auth failure response remains stable for legacy and vNext clients."""
+        """Snapshot auth failure response matches the API vNext envelope contract."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -775,7 +775,7 @@ class TestSmartlyCameraSnapshotView:
         mock_request,
         mock_hass,
     ):
-        """Snapshot rate-limit response remains stable for legacy and vNext clients."""
+        """Snapshot rate-limit response matches the API vNext envelope contract."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
@@ -832,7 +832,7 @@ class TestSmartlyCameraSnapshotView:
         mock_request,
         mock_hass,
     ):
-        """Snapshot entity-denied response remains stable for legacy and vNext clients."""
+        """Snapshot entity-denied response matches the API vNext envelope contract."""
         with patch(
             "custom_components.smartly_bridge.views.camera.verify_request",
             new_callable=AsyncMock,
