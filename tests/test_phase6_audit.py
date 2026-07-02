@@ -366,7 +366,7 @@ def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
         tmp_path / "docs/openapi.yaml",
         (
             "paths:\n"
-            "  /api/smartly/device-events/{device_id}:\n"
+            "  /api/smartly/devices/{device_id}/events:\n"
             "    post:\n"
             "      responses:\n"
             "        '202':\n"
@@ -382,6 +382,37 @@ def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
 
     assert any(
         finding.code == "openapi-device-event-top-level-success-example"
+        for finding in findings
+    )
+
+
+def test_phase6_audit_detects_openapi_device_event_top_level_error_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects device-event response examples with top-level errors."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/devices/{device_id}/events:\n"
+            "    post:\n"
+            "      responses:\n"
+            "        '400':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              examples:\n"
+            "                invalidAction:\n"
+            "                  value:\n"
+            "                    error: invalid_action\n"
+            "                    message: Unsupported button action\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-device-event-top-level-error-example"
         for finding in findings
     )
 

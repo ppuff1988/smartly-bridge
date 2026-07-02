@@ -209,6 +209,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_control_response_error_example_findings(root_path))
     findings.extend(_openapi_device_event_success_schema_findings(root_path))
     findings.extend(_openapi_device_event_success_example_findings(root_path))
+    findings.extend(_openapi_device_event_error_example_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
@@ -1059,7 +1060,7 @@ def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
 
     device_event_post = (
         spec.get("paths", {})
-        .get("/api/smartly/device-events/{device_id}", {})
+        .get("/api/smartly/devices/{device_id}/events", {})
         .get("post", {})
     )
     findings: list[Finding] = []
@@ -1072,10 +1073,56 @@ def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
             Finding(
                 code="openapi-device-event-top-level-success-example",
                 path=_relative_path(root, path),
-                line=_line_number_for_pattern(text, f"        '{status_code}':"),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/devices/{device_id}/events:",
+                    f"        '{status_code}':",
+                ),
                 message=(
                     "OpenAPI device-event response example still exposes top-level "
                     "success payload fields; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_device_event_error_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    device_event_post = (
+        spec.get("paths", {})
+        .get("/api/smartly/devices/{device_id}/events", {})
+        .get("post", {})
+    )
+    findings: list[Finding] = []
+    for status_code, response in device_event_post.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_error_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-device-event-top-level-error-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/devices/{device_id}/events:",
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI device-event response example still exposes top-level "
+                    "error/message; use API vNext errors[]."
                 ),
             )
         )
@@ -1684,6 +1731,19 @@ def _line_number_for_pattern(text: str, pattern: str) -> int:
         if pattern in line:
             return line_number
     return 1
+
+
+def _line_number_for_pattern_after(text: str, anchor: str, pattern: str) -> int:
+    lines = text.splitlines()
+    start_index = 0
+    for index, line in enumerate(lines):
+        if anchor in line:
+            start_index = index
+            break
+    for offset, line in enumerate(lines[start_index:], start=start_index + 1):
+        if pattern in line:
+            return offset
+    return _line_number_for_pattern(text, pattern)
 
 
 def _relative_path(root: Path, path: Path) -> str:

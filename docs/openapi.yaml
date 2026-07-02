@@ -617,8 +617,14 @@ paths:
               examples:
                 invalidAction:
                   value:
-                    error: invalid_action
-                    message: Unsupported button action
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_action
+                        message: Unsupported button action
+                        target: action
+                        retryable: false
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
