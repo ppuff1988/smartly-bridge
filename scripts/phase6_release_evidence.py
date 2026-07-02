@@ -1,0 +1,135 @@
+#!/usr/bin/env python3
+"""Check Phase 6 API vNext release evidence readiness."""
+
+from __future__ import annotations
+
+import argparse
+import sys
+from pathlib import Path
+from typing import NamedTuple
+
+
+DEFAULT_EVIDENCE_PATH = Path("docs/specs/phase6-release-evidence.md")
+REQUIRED_COLUMNS = ("Gate", "Owner", "Evidence source", "Decision", "Notes")
+INCOMPLETE_MARKERS = {"", "tbd", "pending", "n/a"}
+READY_DECISIONS = {"ready", "accepted", "approved", "complete", "completed", "passed"}
+
+
+class GateStatus(NamedTuple):
+    """Release evidence status for one Phase 6 gate."""
+
+    gate: str
+    owner: str
+    evidence_source: str
+    decision: str
+    notes: str
+    ready: bool
+
+
+def load_statuses(path: Path | str = DEFAULT_EVIDENCE_PATH) -> list[GateStatus]:
+    """Load Phase 6 release gate statuses from the evidence Markdown table."""
+    evidence_path = Path(path)
+    lines = evidence_path.read_text(encoding="utf-8").splitlines()
+    rows = _status_table_rows(lines)
+    return [_status_from_row(row) for row in rows]
+
+
+def _status_table_rows(lines: list[str]) -> list[dict[str, str]]:
+    header_index = _status_table_header_index(lines)
+    if header_index is None:
+        raise ValueError("Phase 6 release evidence status table was not found.")
+
+    headers = _split_markdown_row(lines[header_index])
+    missing_columns = [column for column in REQUIRED_COLUMNS if column not in headers]
+    if missing_columns:
+        raise ValueError(
+            "Phase 6 release evidence table is missing columns: "
+            + ", ".join(missing_columns)
+        )
+
+    rows: list[dict[str, str]] = []
+    for line in lines[header_index + 2 :]:
+        if not line.startswith("|"):
+            break
+        values = _split_markdown_row(line)
+        if len(values) != len(headers):
+            continue
+        rows.append(dict(zip(headers, values, strict=True)))
+    return rows
+
+
+def _status_table_header_index(lines: list[str]) -> int | None:
+    expected_header = "| Gate | Owner | Evidence source | Decision | Notes |"
+    for index, line in enumerate(lines):
+        if line.strip() == expected_header:
+            return index
+    return None
+
+
+def _split_markdown_row(line: str) -> list[str]:
+    return [cell.strip() for cell in line.strip().strip("|").split("|")]
+
+
+def _status_from_row(row: dict[str, str]) -> GateStatus:
+    gate = row["Gate"]
+    owner = row["Owner"]
+    evidence_source = row["Evidence source"]
+    decision = row["Decision"]
+    notes = row["Notes"]
+    ready = (
+        _is_complete(owner)
+        and _is_complete(evidence_source)
+        and _is_ready_decision(decision)
+    )
+    return GateStatus(
+        gate=gate,
+        owner=owner,
+        evidence_source=evidence_source,
+        decision=decision,
+        notes=notes,
+        ready=ready,
+    )
+
+
+def _is_complete(value: str) -> bool:
+    return value.strip().lower() not in INCOMPLETE_MARKERS
+
+
+def _is_ready_decision(value: str) -> bool:
+    return value.strip().lower() in READY_DECISIONS
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(
+        description="Check Phase 6 API vNext release evidence readiness."
+    )
+    parser.add_argument(
+        "path",
+        nargs="?",
+        default=str(DEFAULT_EVIDENCE_PATH),
+        help="Path to phase6-release-evidence.md.",
+    )
+    parser.add_argument(
+        "--allow-pending",
+        action="store_true",
+        help="Print pending gates but return success.",
+    )
+    args = parser.parse_args(argv)
+
+    statuses = load_statuses(args.path)
+    pending = [status for status in statuses if not status.ready]
+    if not pending:
+        print("Phase 6 release evidence ready.")
+        return 0
+
+    print("Phase 6 release evidence has pending gates:")
+    for status in pending:
+        print(
+            f"- {status.gate}: owner={status.owner}; "
+            f"evidence={status.evidence_source}; decision={status.decision}"
+        )
+    return 0 if args.allow_pending else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main(sys.argv[1:]))

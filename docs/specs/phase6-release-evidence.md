@@ -101,6 +101,7 @@ Run these from the existing devcontainer:
 pytest tests/test_phase6_audit.py -q
 python scripts/phase6_audit.py
 python docs/validate-openapi.py
+python scripts/phase6_release_evidence.py
 ```
 
 Expected result:
@@ -108,6 +109,13 @@ Expected result:
 - Phase 6 audit tests pass.
 - Phase 6 code audit passes.
 - OpenAPI validation passes.
+- Release evidence checker prints `Phase 6 release evidence ready.` and exits 0.
+
+While evidence is still being collected, use this non-release status command:
+
+```bash
+python scripts/phase6_release_evidence.py --allow-pending
+```
 
 ## Sign-off Record
 
