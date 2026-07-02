@@ -231,6 +231,7 @@ def _status_from_row(row: dict[str, str]) -> GateStatus:
     ready = (
         _is_complete(owner)
         and _is_complete(evidence_source)
+        and _is_complete(notes)
         and _is_ready_decision(decision)
     )
     return GateStatus(
