@@ -776,12 +776,25 @@ paths:
                 invalid_time_range:
                   summary: Invalid time range
                   value:
-                    error: invalid_time_range
-                    message: "Time range cannot exceed 30 days"
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_time_range
+                        message: "Time range cannot exceed 30 days"
+                        target: time_range
+                        retryable: false
                 invalid_cursor:
                   summary: Invalid cursor
                   value:
-                    error: invalid_cursor
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_cursor
+                        message: invalid cursor
+                        target: cursor
+                        retryable: false
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':

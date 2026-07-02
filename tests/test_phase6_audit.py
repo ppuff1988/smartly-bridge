@@ -417,6 +417,37 @@ def test_phase6_audit_detects_openapi_device_event_top_level_error_examples(
     )
 
 
+def test_phase6_audit_detects_openapi_history_top_level_error_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects history response examples with top-level errors."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/history/{entity_id}:\n"
+            "    get:\n"
+            "      responses:\n"
+            "        '400':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              examples:\n"
+            "                invalid_time_range:\n"
+            "                  value:\n"
+            "                    error: invalid_time_range\n"
+            "                    message: Time range cannot exceed 30 days\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-history-top-level-error-example"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:
