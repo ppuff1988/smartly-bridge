@@ -2362,24 +2362,36 @@ components:
 
     ErrorResponse:
       type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        error:
+        schema_version:
           type: string
-          description: Error code
-          example: invalid_signature
-          enum:
-            - invalid_json
-            - missing_required_fields
-            - missing_headers
-            - invalid_timestamp
-            - nonce_reused
-            - invalid_signature
-            - ip_not_allowed
-            - entity_not_allowed
-            - service_not_allowed
-            - rate_limited
-            - integration_not_configured
-            - service_call_failed
+          example: "2026.06"
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example: null
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          example: []
+        errors:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
+          example:
+            - code: invalid_signature
+              message: invalid signature
+              target: auth.signature
+              retryable: false
 
     # Service Data Schemas for different domains
     LightServiceData:

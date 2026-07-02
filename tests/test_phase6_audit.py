@@ -247,6 +247,32 @@ def test_phase6_audit_detects_openapi_legacy_control_body(tmp_path: Path) -> Non
     assert any(finding.code == "openapi-legacy-control-body" for finding in findings)
 
 
+def test_phase6_audit_detects_openapi_top_level_error_response_schema(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects OpenAPI ErrorResponse schemas with top-level error."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  schemas:\n"
+            "    ErrorResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        error:\n"
+            "          type: string\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-top-level-error-response-schema"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:

@@ -10,6 +10,8 @@ import sys
 from pathlib import Path
 from typing import NamedTuple
 
+import yaml
+
 
 LEGACY_STATES_ALIAS = "/api/smartly/states"
 LEGACY_TOP_LEVEL_KEYS = {
@@ -202,6 +204,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_webrtc_test_top_level_success_findings(root_path))
     findings.extend(_request_time_fallback_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
+    findings.extend(_openapi_top_level_error_response_schema_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
@@ -894,6 +897,43 @@ def _openapi_legacy_control_body_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _openapi_top_level_error_response_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    error_response = (
+        spec.get("components", {})
+        .get("schemas", {})
+        .get("ErrorResponse", {})
+    )
+    properties = error_response.get("properties", {})
+    legacy_keys = {"error", "message"}.intersection(properties)
+    if not legacy_keys:
+        return []
+
+    line = _line_number_for_pattern(text, "    ErrorResponse:")
+    return [
+        Finding(
+            code="openapi-top-level-error-response-schema",
+            path=_relative_path(root, path),
+            line=line,
+            message=(
+                "OpenAPI ErrorResponse schema still exposes top-level "
+                f"{', '.join(sorted(legacy_keys))}; use API vNext errors[]."
+            ),
+        )
+    ]
+
+
 def _public_control_legacy_body_doc_findings(root: Path) -> list[Finding]:
     findings: list[Finding] = []
     for relative_path in PUBLIC_CONTROL_DOCS:
@@ -1459,6 +1499,13 @@ def _call_name(func: ast.expr) -> str:
     if isinstance(func, ast.Attribute):
         return func.attr
     return ""
+
+
+def _line_number_for_pattern(text: str, pattern: str) -> int:
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if pattern in line:
+            return line_number
+    return 1
 
 
 def _relative_path(root: Path, path: Path) -> str:
