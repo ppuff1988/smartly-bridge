@@ -209,6 +209,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_camera_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_success_findings(root_path))
     findings.extend(_sync_doc_top_level_error_findings(root_path))
+    findings.extend(_sync_doc_top_level_success_findings(root_path))
     findings.extend(_trust_proxy_doc_top_level_error_findings(root_path))
     findings.extend(_architecture_plan_doc_top_level_error_findings(root_path))
     return findings
@@ -1169,6 +1170,65 @@ def _sync_doc_top_level_error_findings(root: Path) -> list[Finding]:
                 )
             )
     return findings
+
+
+def _sync_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in SYNC_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_sync_doc_top_level_success_block_findings(root, path, lines))
+    return findings
+
+
+def _sync_doc_top_level_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_sync_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="sync-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Sync docs still show top-level states/count bodies; "
+                            "use API vNext data.states/data.count."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_sync_doc_top_level_success_block(block: str) -> bool:
+    return (
+        '"states"' in block
+        and '"count"' in block
+        and '"data"' not in block
+    )
 
 
 def _trust_proxy_doc_top_level_error_findings(root: Path) -> list[Finding]:

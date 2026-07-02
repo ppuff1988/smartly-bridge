@@ -428,6 +428,21 @@ def test_phase6_audit_detects_sync_docs_top_level_error_examples(
     assert any(finding.code == "sync-doc-top-level-error" for finding in findings)
 
 
+def test_phase6_audit_detects_sync_docs_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects sync docs that still show top-level states/count."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/sync-api.md",
+        '```json\n{"states": [], "count": 0}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "sync-doc-top-level-success" for finding in findings)
+
+
 def test_phase6_audit_detects_trust_proxy_docs_top_level_error_examples(
     tmp_path: Path,
 ) -> None:
