@@ -207,6 +207,8 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_top_level_error_response_schema_findings(root_path))
     findings.extend(_openapi_component_response_error_example_findings(root_path))
     findings.extend(_openapi_control_response_error_example_findings(root_path))
+    findings.extend(_openapi_device_event_success_schema_findings(root_path))
+    findings.extend(_openapi_device_event_success_example_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
@@ -1004,6 +1006,82 @@ def _openapi_control_response_error_example_findings(root: Path) -> list[Finding
     return findings
 
 
+def _openapi_device_event_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    response = (
+        spec.get("components", {})
+        .get("schemas", {})
+        .get("DeviceEventResponse", {})
+    )
+    properties = response.get("properties", {})
+    legacy_keys = {"success", "event_id", "device_id", "action", "received_at"}.intersection(
+        properties
+    )
+    if not legacy_keys:
+        return []
+
+    return [
+        Finding(
+            code="openapi-device-event-top-level-success-schema",
+            path=_relative_path(root, path),
+            line=_line_number_for_pattern(text, "    DeviceEventResponse:"),
+            message=(
+                "OpenAPI DeviceEventResponse schema still exposes top-level "
+                f"{', '.join(sorted(legacy_keys))}; use API vNext data fields."
+            ),
+        )
+    ]
+
+
+def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    device_event_post = (
+        spec.get("paths", {})
+        .get("/api/smartly/device-events/{device_id}", {})
+        .get("post", {})
+    )
+    findings: list[Finding] = []
+    for status_code, response in device_event_post.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_success_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-device-event-top-level-success-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"        '{status_code}':"),
+                message=(
+                    "OpenAPI device-event response example still exposes top-level "
+                    "success payload fields; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
 def _openapi_media_examples(media: dict[str, object]) -> list[object]:
     examples: list[object] = []
     if "example" in media:
@@ -1022,6 +1100,15 @@ def _is_top_level_error_example(example: object) -> bool:
         isinstance(example, dict)
         and ("error" in example or "message" in example)
         and "errors" not in example
+    )
+
+
+def _is_top_level_success_example(example: object) -> bool:
+    legacy_keys = {"success", "event_id", "device_id", "action", "received_at"}
+    return (
+        isinstance(example, dict)
+        and bool(legacy_keys.intersection(example))
+        and "data" not in example
     )
 
 

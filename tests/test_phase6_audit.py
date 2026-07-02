@@ -329,6 +329,63 @@ def test_phase6_audit_detects_openapi_control_top_level_error_examples(
     )
 
 
+def test_phase6_audit_detects_openapi_device_event_top_level_success_schema(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects DeviceEventResponse schemas with top-level success."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  schemas:\n"
+            "    DeviceEventResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        success:\n"
+            "          type: boolean\n"
+            "        event_id:\n"
+            "          type: string\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-device-event-top-level-success-schema"
+        for finding in findings
+    )
+
+
+def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects device-event response examples with top-level success."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/device-events/{device_id}:\n"
+            "    post:\n"
+            "      responses:\n"
+            "        '202':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              example:\n"
+            "                success: true\n"
+            "                event_id: evt_01JZABC123\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-device-event-top-level-success-example"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:

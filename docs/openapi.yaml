@@ -599,11 +599,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeviceEventResponse'
               example:
-                success: true
-                event_id: evt_01JZABC123
-                device_id: device_abc123
-                action: single_left
-                received_at: "2026-06-27T10:20:01.000Z"
+                schema_version: "2026.06"
+                data:
+                  status: accepted
+                  event_id: evt_01JZABC123
+                  device_id: device_abc123
+                  action: single_left
+                  received_at: "2026-06-27T10:20:01.000Z"
+                warnings: []
+                errors: []
         '400':
           description: Invalid event payload or unsupported action
           content:
@@ -1532,31 +1536,51 @@ components:
     DeviceEventResponse:
       type: object
       required:
-        - success
-        - event_id
-        - device_id
-        - action
-        - received_at
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        success:
-          type: boolean
-          description: Whether the event was accepted
-          example: true
-        event_id:
+        schema_version:
           type: string
-          description: Platform event ID for tracing automation execution
-          example: evt_01JZABC123
-        device_id:
-          type: string
-          description: Device ID from the request path
-          example: device_abc123
-        action:
-          $ref: '#/components/schemas/DeviceButtonAction'
-        received_at:
-          type: string
-          format: date-time
-          description: Server receive time
-          example: "2026-06-27T10:20:01.000Z"
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - status
+            - event_id
+            - device_id
+            - action
+            - received_at
+          properties:
+            status:
+              type: string
+              description: Event ingestion status
+              example: accepted
+            event_id:
+              type: string
+              description: Platform event ID for tracing automation execution
+              example: evt_01JZABC123
+            device_id:
+              type: string
+              description: Device ID from the request path
+              example: device_abc123
+            action:
+              $ref: '#/components/schemas/DeviceButtonAction'
+            received_at:
+              type: string
+              format: date-time
+              description: Server receive time
+              example: "2026-06-27T10:20:01.000Z"
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     StructureResponse:
       type: object
