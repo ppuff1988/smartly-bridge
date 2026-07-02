@@ -282,6 +282,27 @@ def test_phase6_audit_detects_device_card_home_assistant_action_payload_docs(
     )
 
 
+def test_phase6_audit_detects_public_control_stale_light_color_command_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects public control docs with non-canonical light commands."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/control/device-types.md",
+        (
+            "| `color_rgb` | `set_rgb` | `{}` |\n"
+            "| `color_temperature` | `set_kelvin` | `{\"kelvin\": 3000}` |\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "public-control-stale-light-command-doc"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_nested_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:

@@ -95,16 +95,16 @@
 
 | Capability | Command | Params |
 |------------|---------|--------|
-| `color_rgb` | `set_rgb` | `{"r": 255, "g": 180, "b": 100}` |
-| `color_temperature` | `set_kelvin` | `{"kelvin": 3000}` |
-| `light_effect` | `set_effect` | `{"effect": "rainbow"}` |
+| `rgb_color` | `set_rgb_color` | `{"r": 255, "g": 180, "b": 100}` |
+| `color_temperature` | `set_color_temperature` | `{"value": 3000}` |
+| `effect` | `set_effect` | `{"effect": "rainbow"}` |
 
 ```json
 {
   "command_id": "cmd_color_0001",
   "device_id": "ldev_bedroom_light",
-  "capability": "color_rgb",
-  "command": "set_rgb",
+  "capability": "rgb_color",
+  "command": "set_rgb_color",
   "params": {
     "r": 255,
     "g": 180,
