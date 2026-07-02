@@ -262,6 +262,26 @@ def test_phase6_audit_detects_public_control_legacy_body_docs(
     assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
 
 
+def test_phase6_audit_detects_device_card_home_assistant_action_payload_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects Platform docs that tell UI to send HA action payloads."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/smartly-device-card-capability-spec.md",
+        (
+            "Smartly light controls should send Home Assistant-compatible action "
+            "payloads through Platform/Bridge.\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "device-card-ha-action-payload-doc" for finding in findings
+    )
+
+
 def test_phase6_audit_detects_nested_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:

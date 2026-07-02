@@ -1779,13 +1779,13 @@ Activity
 
 ### 21.5 Light Control Mapping
 
-| UI Control        | Required Capability    | Action Payload Direction           |
+| UI Control        | Required Capability    | SmartlyCommand                     |
 | ----------------- | ---------------------- | ---------------------------------- |
 | Power toggle      | `on_off`               | `turn_on` / `turn_off`             |
-| Brightness slider | `brightness`           | `turn_on` with `brightness`        |
-| Color temperature | `color_temp`           | `turn_on` with `color_temp_kelvin` |
-| Color control     | `hs_color`             | `turn_on` with `hs_color`          |
-| Preset scene      | `run` or scene binding | Run scene/script                   |
+| Brightness slider | `brightness`           | `set_brightness` with `value`      |
+| Color temperature | `color_temperature`    | `set_color_temperature` with `value` |
+| Color control     | `rgb_color`            | `set_rgb_color` with RGB params    |
+| Preset scene      | `run` or scene binding | `run`                              |
 
 Rules:
 
@@ -1794,37 +1794,41 @@ Rules:
 - Optimistic UI is allowed only with rollback and visible error handling.
 - Unsupported controls must be hidden, not disabled, unless hiding would confuse the user.
 
-### 21.6 Light Action Payloads
+### 21.6 Light Command Payloads
 
-Smartly light controls should send Home Assistant-compatible action payloads through Platform/Bridge. Brightness, color temperature, and color all use `turn_on` with additional data.
+Smartly light controls must send API vNext `SmartlyCommand` payloads through Platform/Bridge. Bridge maps canonical commands to the source service call internally.
 
 Brightness:
 
 ```json
 {
-  "action": "turn_on",
-  "data": {
-    "brightness": 191
+  "command_id": "cmd_light_brightness_001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 75
   }
 }
 ```
 
 Brightness rules:
 
-- Home Assistant brightness range is `0-255`.
 - UI brightness is displayed as `0-100%`.
-- Convert UI percent to HA brightness with `round(percent / 100 * 255)`.
-- Example: `75%` -> `191`.
+- Send `params.value` as a percent value.
 - Clamp values before sending: below `0` becomes `0`, above `100` becomes `100`.
-- If UI uses `0%` as an off gesture, prefer sending `turn_off` instead of `turn_on` with `brightness: 0`.
+- If UI uses `0%` as an off gesture, prefer sending `turn_off` through the `on_off` capability instead of `set_brightness` with `value: 0`.
 
 Color temperature:
 
 ```json
 {
-  "action": "turn_on",
-  "data": {
-    "color_temp_kelvin": 3500
+  "command_id": "cmd_light_color_temp_001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "color_temperature",
+  "command": "set_color_temperature",
+  "params": {
+    "value": 3500
   }
 }
 ```
@@ -1832,7 +1836,7 @@ Color temperature:
 Color temperature rules:
 
 - UI should display Kelvin values or user-friendly presets such as warm, neutral, cool.
-- Send Kelvin using `color_temp_kelvin`.
+- Send Kelvin using `params.value`.
 - Clamp to the device-supported min/max Kelvin range when Bridge reports it.
 - If min/max is unknown, keep presets conservative.
 
@@ -1840,20 +1844,24 @@ Color:
 
 ```json
 {
-  "action": "turn_on",
-  "data": {
-    "hs_color": [260, 100]
+  "command_id": "cmd_light_rgb_001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "rgb_color",
+  "command": "set_rgb_color",
+  "params": {
+    "r": 125,
+    "g": 64,
+    "b": 255
   }
 }
 ```
 
 Color rules:
 
-- Use `hs_color` for color-capable lights.
-- Hue range is `0-360`.
-- Saturation range is `0-100`.
-- Clamp hue and saturation before sending.
-- UI color picker should store/send `[hue, saturation]`, not RGB, unless Bridge explicitly maps RGB to HS.
+- Use `rgb_color` for color-capable lights.
+- RGB channel range is `0-255`.
+- Clamp each channel before sending.
+- UI color picker may keep HS/HSV internally, but the Platform command payload should send canonical RGB params.
 
 ## 22. Summary
 
