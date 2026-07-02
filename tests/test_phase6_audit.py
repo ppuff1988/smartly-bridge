@@ -486,6 +486,68 @@ def test_phase6_audit_detects_openapi_history_top_level_success_examples(
     )
 
 
+def test_phase6_audit_detects_openapi_camera_top_level_success_schemas(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects camera/WebRTC response schemas with top-level payload fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  schemas:\n"
+            "    CameraListResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        cameras:\n"
+            "          type: array\n"
+            "    WebRTCTokenResponse:\n"
+            "      type: object\n"
+            "      properties:\n"
+            "        token:\n"
+            "          type: string\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-camera-top-level-success-schema"
+        for finding in findings
+    )
+
+
+def test_phase6_audit_detects_openapi_webrtc_hangup_top_level_success_schema(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects inline WebRTC hangup schemas with top-level status."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "paths:\n"
+            "  /api/smartly/camera/{entity_id}/webrtc/hangup:\n"
+            "    post:\n"
+            "      responses:\n"
+            "        '200':\n"
+            "          content:\n"
+            "            application/json:\n"
+            "              schema:\n"
+            "                type: object\n"
+            "                properties:\n"
+            "                  status:\n"
+            "                    type: string\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-camera-top-level-success-schema"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
     tmp_path: Path,
 ) -> None:

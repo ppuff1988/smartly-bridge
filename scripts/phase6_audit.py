@@ -212,6 +212,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_sync_success_example_findings(root_path))
     findings.extend(_openapi_history_success_schema_findings(root_path))
     findings.extend(_openapi_history_success_example_findings(root_path))
+    findings.extend(_openapi_camera_success_schema_findings(root_path))
     findings.extend(_openapi_device_event_success_example_findings(root_path))
     findings.extend(_openapi_device_event_error_example_findings(root_path))
     findings.extend(_openapi_history_error_example_findings(root_path))
@@ -1242,6 +1243,85 @@ def _openapi_history_success_example_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _openapi_camera_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    expected_payload_keys = {
+        "CameraListResponse": {"cameras", "count"},
+        "HLSStreamResponse": {"entity_id", "stream_url", "token", "expires_at"},
+        "WebRTCTokenResponse": {
+            "token",
+            "expires_at",
+            "expires_in",
+            "entity_id",
+            "offer_endpoint",
+            "ice_endpoint",
+            "hangup_endpoint",
+            "ice_servers",
+        },
+        "WebRTCAnswerResponse": {"type", "sdp", "session_id"},
+        "WebRTCICEResponse": {"status", "candidates"},
+    }
+    for schema_name, payload_keys in expected_payload_keys.items():
+        schema = schemas.get(schema_name, {})
+        properties = schema.get("properties", {})
+        top_level_payload_keys = payload_keys.intersection(properties)
+        if not top_level_payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-camera-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(top_level_payload_keys))}; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+
+    hangup_schema = (
+        spec.get("paths", {})
+        .get("/api/smartly/camera/{entity_id}/webrtc/hangup", {})
+        .get("post", {})
+        .get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if _schema_has_top_level_payload_fields(hangup_schema, {"status"}):
+        findings.append(
+            Finding(
+                code="openapi-camera-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/camera/{entity_id}/webrtc/hangup:",
+                    "        '200':",
+                ),
+                message=(
+                    "OpenAPI WebRTC hangup response schema still exposes "
+                    "top-level status; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
 def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
     path = root / "docs" / "openapi.yaml"
     if not path.exists():
@@ -1485,6 +1565,15 @@ def _schema_has_top_level_success(schema: object) -> bool:
         isinstance(schema, dict)
         and isinstance(schema.get("properties"), dict)
         and "success" in schema["properties"]
+        and "data" not in schema["properties"]
+    )
+
+
+def _schema_has_top_level_payload_fields(schema: object, keys: set[str]) -> bool:
+    return (
+        isinstance(schema, dict)
+        and isinstance(schema.get("properties"), dict)
+        and bool(keys.intersection(schema["properties"]))
         and "data" not in schema["properties"]
     )
 

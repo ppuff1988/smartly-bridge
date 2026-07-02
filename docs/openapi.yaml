@@ -1259,10 +1259,32 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - schema_version
+                  - data
+                  - warnings
+                  - errors
                 properties:
-                  status:
+                  schema_version:
                     type: string
-                    example: closed
+                    example: "2026.06"
+                  data:
+                    type: object
+                    required:
+                      - status
+                    properties:
+                      status:
+                        type: string
+                        example: closed
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiVNextError'
         '404':
           description: Session not found
 
@@ -2366,16 +2388,39 @@ components:
     CameraListResponse:
       type: object
       description: Response for camera list query
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        cameras:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - cameras
+            - count
+          properties:
+            cameras:
+              type: array
+              description: List of available cameras with capabilities
+              items:
+                $ref: '#/components/schemas/CameraInfo'
+            count:
+              type: integer
+              description: Number of cameras
+              example: 3
+        warnings:
           type: array
-          description: List of available cameras with capabilities
           items:
-            $ref: '#/components/schemas/CameraInfo'
-        count:
-          type: integer
-          description: Number of cameras
-          example: 3
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     CameraInfo:
       type: object
@@ -2437,61 +2482,115 @@ components:
     HLSStreamResponse:
       type: object
       description: HLS stream information
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        entity_id:
+        schema_version:
           type: string
-          description: Camera entity ID
-          example: camera.front_door
-        stream_url:
-          type: string
-          description: HLS master playlist URL
-          example: /api/smartly/camera/camera.front_door/stream/hls/master.m3u8
-        token:
-          type: string
-          description: Stream authentication token
-          example: abc123def456
-        expires_at:
-          type: integer
-          description: Token expiration timestamp
-          example: 1736696400
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - entity_id
+            - stream_url
+            - token
+            - expires_at
+          properties:
+            entity_id:
+              type: string
+              description: Camera entity ID
+              example: camera.front_door
+            stream_url:
+              type: string
+              description: HLS master playlist URL
+              example: /api/smartly/camera/camera.front_door/stream/hls/master.m3u8
+            token:
+              type: string
+              description: Stream authentication token
+              example: abc123def456
+            expires_at:
+              type: integer
+              description: Token expiration timestamp
+              example: 1736696400
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     WebRTCTokenResponse:
       type: object
       description: WebRTC token response
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        token:
+        schema_version:
           type: string
-          description: Short-lived token for WebRTC signaling (5 minutes validity)
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        expires_at:
-          type: integer
-          description: Token expiration Unix timestamp
-          example: 1736696700
-        expires_in:
-          type: integer
-          description: Seconds until token expires
-          example: 300
-        entity_id:
-          type: string
-          description: Camera entity ID
-          example: camera.front_door
-        offer_endpoint:
-          type: string
-          description: Endpoint for sending SDP offer
-          example: /api/smartly/camera/camera.front_door/webrtc/offer
-        ice_endpoint:
-          type: string
-          description: Endpoint for ICE candidate exchange
-          example: /api/smartly/camera/camera.front_door/webrtc/ice
-        hangup_endpoint:
-          type: string
-          description: Endpoint for closing session
-          example: /api/smartly/camera/camera.front_door/webrtc/hangup
-        ice_servers:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - token
+            - expires_at
+            - expires_in
+            - entity_id
+            - offer_endpoint
+            - ice_endpoint
+            - hangup_endpoint
+            - ice_servers
+          properties:
+            token:
+              type: string
+              description: Short-lived token for WebRTC signaling (5 minutes validity)
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            expires_at:
+              type: integer
+              description: Token expiration Unix timestamp
+              example: 1736696700
+            expires_in:
+              type: integer
+              description: Seconds until token expires
+              example: 300
+            entity_id:
+              type: string
+              description: Camera entity ID
+              example: camera.front_door
+            offer_endpoint:
+              type: string
+              description: Endpoint for sending SDP offer
+              example: /api/smartly/camera/camera.front_door/webrtc/offer
+            ice_endpoint:
+              type: string
+              description: Endpoint for ICE candidate exchange
+              example: /api/smartly/camera/camera.front_door/webrtc/ice
+            hangup_endpoint:
+              type: string
+              description: Endpoint for closing session
+              example: /api/smartly/camera/camera.front_door/webrtc/hangup
+            ice_servers:
+              type: array
+              description: ICE server configuration for NAT traversal
+              items:
+                $ref: '#/components/schemas/ICEServer'
+        warnings:
           type: array
-          description: ICE server configuration for NAT traversal
           items:
-            $ref: '#/components/schemas/ICEServer'
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     ICEServer:
       type: object
@@ -2537,20 +2636,44 @@ components:
     WebRTCAnswerResponse:
       type: object
       description: WebRTC SDP answer response
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        type:
+        schema_version:
           type: string
-          enum: [answer]
-          description: SDP type
-          example: answer
-        sdp:
-          type: string
-          description: SDP answer string from go2rtc
-          example: "v=0\r\no=- 654321 2 IN IP4 192.168.1.100\r\n..."
-        session_id:
-          type: string
-          description: Session identifier for subsequent requests
-          example: abc123def456
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - type
+            - sdp
+            - session_id
+          properties:
+            type:
+              type: string
+              enum: [answer]
+              description: SDP type
+              example: answer
+            sdp:
+              type: string
+              description: SDP answer string from go2rtc
+              example: "v=0\r\no=- 654321 2 IN IP4 192.168.1.100\r\n..."
+            session_id:
+              type: string
+              description: Session identifier for subsequent requests
+              example: abc123def456
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     WebRTCICERequest:
       type: object
@@ -2582,23 +2705,45 @@ components:
     WebRTCICEResponse:
       type: object
       description: ICE candidate exchange response
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        status:
+        schema_version:
           type: string
-          description: Acceptance status
-          example: accepted
-        candidates:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              description: Acceptance status
+              example: accepted
+            candidates:
+              type: array
+              description: Server-side ICE candidates (if available)
+              items:
+                type: object
+                properties:
+                  candidate:
+                    type: string
+                  sdpMid:
+                    type: string
+                  sdpMLineIndex:
+                    type: integer
+        warnings:
           type: array
-          description: Server-side ICE candidates (if available)
           items:
             type: object
-            properties:
-              candidate:
-                type: string
-              sdpMid:
-                type: string
-              sdpMLineIndex:
-                type: integer
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     WebRTCHangupRequest:
       type: object
