@@ -1899,8 +1899,8 @@ class TestSmartlyCameraConfigView:
         result = await _configure_camera(gateway, command)
 
         assert result.status == 200
-        assert result.body["action"] == "registered"
-        assert result.body["entity_id"] == "camera.runtime"
+        assert result.body["data"]["action"] == "registered"
+        assert result.body["data"]["entity_id"] == "camera.runtime"
         assert gateway.calls == ["register_camera"]
         assert gateway.registered[0]["entity_id"] == "camera.runtime"
 
@@ -1916,10 +1916,11 @@ class TestSmartlyCameraConfigView:
                 self.commands.append(command)
                 return BridgeResponse(
                     {
-                        "success": True,
-                        "action": "factory_configured",
-                        "entity_id": command.entity_id,
-                        "data": {"action": "factory_configured"},
+                        "data": {
+                            "success": True,
+                            "action": "factory_configured",
+                            "entity_id": command.entity_id,
+                        },
                     },
                     status=200,
                 )
@@ -1946,7 +1947,7 @@ class TestSmartlyCameraConfigView:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.commands == [command]
-        assert result.body["action"] == "factory_configured"
+        assert result.body["data"]["action"] == "factory_configured"
 
     @pytest.mark.asyncio
     async def test_config_integration_not_configured(self, mock_request, mock_hass):
@@ -2142,9 +2143,9 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["success"] is True
-            assert data["action"] == "registered"
-            assert data["entity_id"] == "camera.new"
+            assert data["data"]["success"] is True
+            assert data["data"]["action"] == "registered"
+            assert data["data"]["entity_id"] == "camera.new"
 
     @pytest.mark.asyncio
     async def test_config_register_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -2169,7 +2170,7 @@ class TestSmartlyCameraConfigView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["action"] == "registered"
+        assert data["data"]["action"] == "registered"
         assert gateway.calls == ["register_camera"]
         assert gateway.registered[0]["entity_id"] == "camera.runtime"
 
@@ -2217,8 +2218,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["success"] is True
-            assert data["action"] == "unregistered"
+            assert data["data"]["success"] is True
+            assert data["data"]["action"] == "unregistered"
 
     @pytest.mark.asyncio
     async def test_config_clear_cache(self, mock_request, mock_hass):
@@ -2241,8 +2242,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["success"] is True
-            assert data["action"] == "cache_cleared"
+            assert data["data"]["success"] is True
+            assert data["data"]["action"] == "cache_cleared"
 
     @pytest.mark.asyncio
     async def test_config_list_cameras(self, mock_request, mock_hass):
@@ -2265,8 +2266,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["count"] == 1
-            assert len(data["cameras"]) == 1
+            assert data["data"]["count"] == 1
+            assert len(data["data"]["cameras"]) == 1
 
     @pytest.mark.asyncio
     async def test_config_unknown_action(self, mock_request):

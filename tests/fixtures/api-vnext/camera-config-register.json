@@ -1,7 +1,4 @@
 {
-  "success": true,
-  "action": "registered",
-  "entity_id": "camera.new",
   "schema_version": "2026.06",
   "data": {
     "success": true,

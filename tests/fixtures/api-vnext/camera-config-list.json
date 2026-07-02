@@ -1,11 +1,4 @@
 {
-  "cameras": [
-    {
-      "entity_id": "camera.front",
-      "name": "Front"
-    }
-  ],
-  "count": 1,
   "schema_version": "2026.06",
   "data": {
     "cameras": [

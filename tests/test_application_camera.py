@@ -230,9 +230,10 @@ async def test_camera_config_registers_camera() -> None:
     )
 
     assert result.status == 200
-    assert result.body["success"] is True
-    assert result.body["action"] == "registered"
-    assert result.body["entity_id"] == "camera.new"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["success"] is True
+    assert result.body["data"]["action"] == "registered"
+    assert result.body["data"]["entity_id"] == "camera.new"
     assert gateway.registered["camera.new"]["snapshot_url"] == "http://cam/snapshot"
 
 
@@ -248,9 +249,7 @@ async def test_camera_config_register_response_includes_vnext_envelope() -> None
     )
 
     assert result.status == 200
-    assert result.body["success"] is True
-    assert result.body["action"] == "registered"
-    assert result.body["entity_id"] == "camera.new"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -318,9 +317,7 @@ async def test_camera_config_unregister_response_includes_vnext_envelope() -> No
     )
 
     assert result.status == 200
-    assert result.body["success"] is True
-    assert result.body["action"] == "unregistered"
-    assert result.body["entity_id"] == "camera.old"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -389,9 +386,7 @@ async def test_camera_config_clear_cache_response_includes_vnext_envelope() -> N
     )
 
     assert result.status == 200
-    assert result.body["success"] is True
-    assert result.body["action"] == "cache_cleared"
-    assert result.body["cleared_count"] == 2
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -422,8 +417,7 @@ async def test_camera_config_list_response_includes_vnext_envelope() -> None:
     )
 
     assert result.status == 200
-    assert result.body["cameras"] == [{"entity_id": "camera.front", "name": "Front"}]
-    assert result.body["count"] == 1
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []

@@ -82,7 +82,7 @@ class CameraConfigUseCase:
                 "extra_headers": command.data.get("extra_headers", {}),
             }
             self._gateway.register_camera(config)
-            return _camera_success_response(
+            return _camera_vnext_success_response(
                 {"success": True, "action": "registered", "entity_id": command.entity_id}
             )
 
@@ -91,19 +91,21 @@ class CameraConfigUseCase:
                 return _camera_error_response("missing_entity_id", status=400)
 
             self._gateway.unregister_camera(command.entity_id)
-            return _camera_success_response(
+            return _camera_vnext_success_response(
                 {"success": True, "action": "unregistered", "entity_id": command.entity_id}
             )
 
         if command.action == "clear_cache":
             count = await self._gateway.clear_cache(command.entity_id)
-            return _camera_success_response(
+            return _camera_vnext_success_response(
                 {"success": True, "action": "cache_cleared", "cleared_count": count}
             )
 
         if command.action == "list":
             cameras = self._gateway.list_registered_cameras()
-            return _camera_success_response({"cameras": cameras, "count": len(cameras)})
+            return _camera_vnext_success_response(
+                {"cameras": cameras, "count": len(cameras)}
+            )
 
         return _camera_error_response("unknown_action", status=400)
 
@@ -118,6 +120,25 @@ def _camera_success_response(
     return BridgeResponse(
         {
             **body,
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
+        },
+        status=status,
+        headers=headers,
+    )
+
+
+def _camera_vnext_success_response(
+    body: dict[str, Any],
+    *,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+) -> BridgeResponse:
+    """Return an API vNext camera success response."""
+    return BridgeResponse(
+        {
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": body,
             "warnings": [],
