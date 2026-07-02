@@ -28,7 +28,6 @@ class WebRTCTokenUseCase:
             return _webrtc_error_response(
                 "entity_not_found",
                 status=404,
-                legacy_fields={"message": f"Camera {entity_id} not found"},
             )
 
         token = await self._gateway.generate_token(entity_id, client_id)
@@ -97,7 +96,6 @@ class WebRTCOfferUseCase:
             return _webrtc_error_response(
                 "invalid_or_expired_token",
                 status=401,
-                legacy_fields={"message": "Token is invalid or expired"},
             )
 
         await self._gateway.update_session_state(
@@ -112,14 +110,10 @@ class WebRTCOfferUseCase:
                 sdp_offer,
                 session,
             )
-        except Exception as err:
+        except Exception:
             return _webrtc_error_response(
                 "webrtc_failed",
                 status=500,
-                legacy_fields={
-                    "message": str(err),
-                    "session_id": session.token[:16],
-                },
             )
 
         await self._gateway.update_session_state(
@@ -160,13 +154,10 @@ def _webrtc_error_response(
     error: str,
     *,
     status: int,
-    legacy_fields: dict[str, Any] | None = None,
 ) -> BridgeResponse:
-    """Return a legacy-compatible API vNext WebRTC error response."""
+    """Return an API vNext WebRTC error response."""
     return BridgeResponse(
         {
-            "error": error,
-            **(legacy_fields or {}),
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -184,10 +175,9 @@ def _webrtc_error_response(
 
 
 def _webrtc_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
-    """Return a legacy-compatible API vNext WebRTC success response."""
+    """Return an API vNext WebRTC success response."""
     return BridgeResponse(
         {
-            **body,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": body,
             "warnings": [],

@@ -800,8 +800,8 @@ class TestWebRTCViews:
         )
 
         assert result.status == 200
-        assert result.body["token"] == "token123"
-        assert result.body["entity_id"] == "camera.front_door"
+        assert result.body["data"]["token"] == "token123"
+        assert result.body["data"]["entity_id"] == "camera.front_door"
         assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
         assert gateway.ice_server_args == (
             "turn:turn.example.com:3478",
@@ -860,7 +860,7 @@ class TestWebRTCViews:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.calls == [("camera.front_door", "platform_client", turn_config)]
-        assert result.body["token"] == "factory-token"
+        assert result.body["data"]["token"] == "factory-token"
 
     @pytest.mark.asyncio
     async def test_create_webrtc_offer_forwards_token_and_sdp(self):
@@ -877,8 +877,8 @@ class TestWebRTCViews:
         )
 
         assert result.status == 200
-        assert result.body["type"] == "answer"
-        assert result.body["session_id"] == gateway.session.token[:16]
+        assert result.body["data"]["type"] == "answer"
+        assert result.body["data"]["session_id"] == gateway.session.token[:16]
         assert gateway.calls == [
             "consume_token",
             "update_session_state",
@@ -920,10 +920,11 @@ class TestWebRTCViews:
                 return BridgeResponse(
                     {
                         "success": True,
-                        "type": "answer",
-                        "sdp": "factory-answer",
-                        "session_id": "factory-session",
-                        "data": {"session_id": "factory-session"},
+                        "data": {
+                            "type": "answer",
+                            "sdp": "factory-answer",
+                            "session_id": "factory-session",
+                        },
                     },
                     status=200,
                 )
@@ -949,7 +950,7 @@ class TestWebRTCViews:
         assert use_case.calls == [
             ("camera.front_door", "valid-token", "v=0\r\ns=Platform\r\n")
         ]
-        assert result.body["session_id"] == "factory-session"
+        assert result.body["data"]["session_id"] == "factory-session"
 
     @pytest.mark.asyncio
     async def test_add_webrtc_ice_candidate_forwards_session_and_candidate(self):
@@ -967,8 +968,8 @@ class TestWebRTCViews:
         )
 
         assert result.status == 200
-        assert result.body["status"] == "accepted"
-        assert result.body["candidates"] == []
+        assert result.body["data"]["status"] == "accepted"
+        assert result.body["data"]["candidates"] == []
         assert gateway.calls == ["get_session_by_partial_token"]
         assert gateway.session.ice_candidates == [candidate]
 
@@ -992,9 +993,10 @@ class TestWebRTCViews:
                 return BridgeResponse(
                     {
                         "success": True,
-                        "status": "accepted",
-                        "candidates": [{"candidate": "factory-candidate"}],
-                        "data": {"status": "accepted"},
+                        "data": {
+                            "status": "accepted",
+                            "candidates": [{"candidate": "factory-candidate"}],
+                        },
                     },
                     status=200,
                 )
@@ -1019,7 +1021,7 @@ class TestWebRTCViews:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.calls == [("camera.front_door", "factory-session", candidate)]
-        assert result.body["candidates"] == [{"candidate": "factory-candidate"}]
+        assert result.body["data"]["candidates"] == [{"candidate": "factory-candidate"}]
 
     @pytest.mark.asyncio
     async def test_close_webrtc_session_forwards_entity_and_session(self):
@@ -1035,7 +1037,7 @@ class TestWebRTCViews:
         )
 
         assert result.status == 200
-        assert result.body["status"] == "closed"
+        assert result.body["data"]["status"] == "closed"
         assert gateway.calls == ["get_session_by_partial_token", "close_session"]
         assert gateway.closed_tokens == [gateway.session.token]
 
@@ -1082,7 +1084,7 @@ class TestWebRTCViews:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.calls == [("camera.front_door", "factory-session")]
-        assert result.body["status"] == "closed"
+        assert result.body["data"]["status"] == "closed"
 
     @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
@@ -1290,7 +1292,7 @@ class TestWebRTCViews:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["token"] == "token123"
+        assert data["data"]["token"] == "token123"
         assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
 
     @pytest.mark.asyncio
@@ -1330,8 +1332,8 @@ class TestWebRTCViews:
         data = json.loads(response.body)
         assert data["request_id"] == "req-webrtc-001"
         assert data["correlation_id"] == "corr-webrtc-001"
-        assert data["token"] == "token123"
-        assert data["entity_id"] == "camera.front_door"
+        assert data["data"]["token"] == "token123"
+        assert data["data"]["entity_id"] == "camera.front_door"
 
     @pytest.mark.asyncio
     async def test_offer_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
@@ -1353,8 +1355,8 @@ class TestWebRTCViews:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["type"] == "answer"
-        assert data["session_id"] == gateway.session.token[:16]
+        assert data["data"]["type"] == "answer"
+        assert data["data"]["session_id"] == gateway.session.token[:16]
         assert gateway.calls == [
             "consume_token",
             "update_session_state",
@@ -1382,7 +1384,7 @@ class TestWebRTCViews:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["status"] == "accepted"
+        assert data["data"]["status"] == "accepted"
         assert gateway.calls == ["get_session_by_partial_token"]
         assert gateway.session.ice_candidates == [candidate]
 
@@ -1405,7 +1407,7 @@ class TestWebRTCViews:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["status"] == "closed"
+        assert data["data"]["status"] == "closed"
         assert gateway.calls == ["get_session_by_partial_token", "close_session"]
         assert gateway.closed_tokens == [gateway.session.token]
 

@@ -1,5 +1,4 @@
 {
-  "error": "webrtc_not_available",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"

@@ -24,6 +24,18 @@ def _fixture(name: str) -> dict[str, Any]:
     )
 
 
+def _assert_vnext_only_top_level(body: dict[str, Any]) -> None:
+    """Assert a response only exposes API vNext envelope fields at top-level."""
+    assert set(body) <= {
+        "schema_version",
+        "data",
+        "warnings",
+        "errors",
+        "request_id",
+        "correlation_id",
+    }
+
+
 @dataclass
 class FakeToken:
     """Fake WebRTC token."""
@@ -135,11 +147,15 @@ async def test_webrtc_token_use_case_returns_connection_info() -> None:
     )
 
     assert result.status == 200
-    assert result.body["token"] == "token-123"
-    assert result.body["expires_at"] == 2000
-    assert result.body["expires_in"] == 250
-    assert result.body["offer_endpoint"] == "/api/smartly/camera/camera.front/webrtc/offer"
-    assert result.body["ice_servers"][1]["urls"] == "turn:turn.example.com:3478"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["token"] == "token-123"
+    assert result.body["data"]["expires_at"] == 2000
+    assert result.body["data"]["expires_in"] == 250
+    assert (
+        result.body["data"]["offer_endpoint"]
+        == "/api/smartly/camera/camera.front/webrtc/offer"
+    )
+    assert result.body["data"]["ice_servers"][1]["urls"] == "turn:turn.example.com:3478"
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -189,8 +205,7 @@ async def test_webrtc_token_use_case_rejects_missing_camera() -> None:
     )
 
     assert result.status == 404
-    assert result.body["error"] == "entity_not_found"
-    assert result.body["message"] == "Camera camera.missing not found"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -230,8 +245,9 @@ async def test_webrtc_ice_use_case_adds_candidate() -> None:
     )
 
     assert result.status == 200
-    assert result.body["status"] == "accepted"
-    assert result.body["candidates"] == []
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["status"] == "accepted"
+    assert result.body["data"]["candidates"] == []
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -251,7 +267,7 @@ async def test_webrtc_ice_use_case_returns_vnext_error_for_missing_session() -> 
     )
 
     assert result.status == 404
-    assert result.body["error"] == "session_not_found"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -294,7 +310,7 @@ async def test_webrtc_ice_use_case_returns_vnext_error_for_entity_mismatch() -> 
     )
 
     assert result.status == 403
-    assert result.body["error"] == "session_entity_mismatch"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -336,7 +352,8 @@ async def test_webrtc_hangup_use_case_closes_matching_session() -> None:
     )
 
     assert result.status == 200
-    assert result.body["status"] == "closed"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["status"] == "closed"
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -355,7 +372,7 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_missing_session() 
     )
 
     assert result.status == 404
-    assert result.body["error"] == "session_not_found"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -396,7 +413,7 @@ async def test_webrtc_hangup_use_case_returns_vnext_error_for_entity_mismatch() 
     )
 
     assert result.status == 403
-    assert result.body["error"] == "session_entity_mismatch"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -443,9 +460,10 @@ async def test_webrtc_offer_use_case_creates_answer_and_updates_session() -> Non
         "sdp": "answer-sdp",
         "session_id": "abcdef1234567890",
     }
-    assert result.body["type"] == "answer"
-    assert result.body["sdp"] == "answer-sdp"
-    assert result.body["session_id"] == "abcdef1234567890"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["type"] == "answer"
+    assert result.body["data"]["sdp"] == "answer-sdp"
+    assert result.body["data"]["session_id"] == "abcdef1234567890"
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -477,8 +495,7 @@ async def test_webrtc_offer_use_case_rejects_invalid_token() -> None:
     )
 
     assert result.status == 401
-    assert result.body["error"] == "invalid_or_expired_token"
-    assert result.body["message"] == "Token is invalid or expired"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -518,9 +535,7 @@ async def test_webrtc_offer_use_case_reports_signaling_failure() -> None:
     )
 
     assert result.status == 500
-    assert result.body["error"] == "webrtc_failed"
-    assert result.body["message"] == "go2rtc failed"
-    assert result.body["session_id"] == "abcdef1234567890"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []

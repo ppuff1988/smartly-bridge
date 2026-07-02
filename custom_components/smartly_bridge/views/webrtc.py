@@ -209,7 +209,6 @@ class SmartlyWebRTCTokenView(BaseView):
             result = _webrtc_error_response(
                 "invalid_entity_id",
                 status=400,
-                legacy_fields={"message": "Entity ID must start with 'camera.'"},
             )
             return _json_response(
                 result.body,
@@ -307,7 +306,6 @@ class SmartlyWebRTCTokenView(BaseView):
             result = _webrtc_error_response(
                 "webrtc_not_available",
                 status=500,
-                legacy_fields={"message": "WebRTC manager not initialized"},
             )
             return _json_response(
                 result.body,
@@ -321,7 +319,6 @@ class SmartlyWebRTCTokenView(BaseView):
             result = _webrtc_error_response(
                 "webrtc_not_available",
                 status=500,
-                legacy_fields={"message": "WebRTC manager not initialized"},
             )
             return _json_response(
                 result.body,
@@ -404,7 +401,6 @@ class SmartlyWebRTCOfferView(BaseView):
             result = _webrtc_error_response(
                 "invalid_json",
                 status=400,
-                legacy_fields={"message": "Request body must be valid JSON"},
             )
             return _json_response(
                 result.body,
@@ -421,7 +417,6 @@ class SmartlyWebRTCOfferView(BaseView):
             result = _webrtc_error_response(
                 "missing_token",
                 status=400,
-                legacy_fields={"message": "Token is required"},
             )
             return _json_response(
                 result.body,
@@ -434,7 +429,6 @@ class SmartlyWebRTCOfferView(BaseView):
             result = _webrtc_error_response(
                 "missing_sdp",
                 status=400,
-                legacy_fields={"message": "SDP offer is required"},
             )
             return _json_response(
                 result.body,
@@ -447,7 +441,6 @@ class SmartlyWebRTCOfferView(BaseView):
             result = _webrtc_error_response(
                 "invalid_sdp_type",
                 status=400,
-                legacy_fields={"message": "SDP type must be 'offer'"},
             )
             return _json_response(
                 result.body,
@@ -505,19 +498,20 @@ class SmartlyWebRTCOfferView(BaseView):
             )
             return _json_response(result.body, self.request, status=result.status)
 
+        answer = result.body["data"]
         _LOGGER.info(
             "WebRTC answer generated - entity_id: %s, session_id: %s, sdp_length: %d",
             entity_id,
-            result.body["session_id"],
-            len(result.body["sdp"]),
+            answer["session_id"],
+            len(answer["sdp"]),
         )
         _LOGGER.debug(
             "WebRTC SDP answer content for %s:\n%s",
             entity_id,
             (
-                result.body["sdp"][:500] + "..."
-                if len(result.body["sdp"]) > 500
-                else result.body["sdp"]
+                answer["sdp"][:500] + "..."
+                if len(answer["sdp"]) > 500
+                else answer["sdp"]
             ),
         )
 

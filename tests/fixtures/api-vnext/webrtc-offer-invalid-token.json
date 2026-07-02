@@ -1,6 +1,4 @@
 {
-  "error": "invalid_or_expired_token",
-  "message": "Token is invalid or expired",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"

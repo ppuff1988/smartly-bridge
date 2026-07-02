@@ -1,6 +1,4 @@
 {
-  "error": "entity_not_found",
-  "message": "Camera camera.missing not found",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"

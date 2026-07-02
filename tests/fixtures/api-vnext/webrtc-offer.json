@@ -1,7 +1,4 @@
 {
-  "type": "answer",
-  "sdp": "v=0\r\ns=Smartly Bridge\r\n",
-  "session_id": "session123456789",
   "schema_version": "2026.06",
   "data": {
     "type": "answer",
