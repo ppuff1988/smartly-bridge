@@ -1,5 +1,4 @@
 {
-  "playlist_url": "/api/hls/front.m3u8",
   "schema_version": "2026.06",
   "data": {
     "playlist_url": "/api/hls/front.m3u8"

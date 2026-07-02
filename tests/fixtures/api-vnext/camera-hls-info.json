@@ -1,18 +1,4 @@
 {
-  "entity_id": "camera.front",
-  "name": "Front",
-  "capabilities": {
-    "snapshot": true,
-    "mjpeg": true,
-    "hls": true,
-    "webrtc": false
-  },
-  "endpoints": {
-    "snapshot": "/api/smartly/camera/camera.front/snapshot",
-    "mjpeg": "/api/smartly/camera/camera.front/stream",
-    "hls": "/api/smartly/camera/camera.front/stream/hls"
-  },
-  "is_streaming": false,
   "schema_version": "2026.06",
   "data": {
     "entity_id": "camera.front",

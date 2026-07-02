@@ -247,14 +247,16 @@ class CameraHLSUseCase:
         if action == "info":
             stream_info = await self._gateway.get_stream_info(entity_id)
             if stream_info is None:
-                return _camera_error_response("camera_not_found", status=404)
-            return _camera_success_response(stream_info.to_dict())
+                return _camera_vnext_error_response("camera_not_found", status=404)
+            return _camera_vnext_success_response(stream_info.to_dict())
 
         if action == "stop":
             stopped = await self._gateway.stop_hls_stream(entity_id)
             if stopped:
-                return _camera_success_response({"success": True, "action": "stopped"})
-            return _camera_success_response(
+                return _camera_vnext_success_response(
+                    {"success": True, "action": "stopped"}
+                )
+            return _camera_vnext_success_response(
                 {"success": stopped, "action": "stopped"},
                 status=404,
             )
@@ -262,10 +264,37 @@ class CameraHLSUseCase:
         if action in ("start", ""):
             hls_info = await self._gateway.start_hls_stream(entity_id)
             if hls_info is None:
-                return _camera_error_response("hls_not_supported", status=400)
-            return _camera_success_response(hls_info)
+                return _camera_vnext_error_response("hls_not_supported", status=400)
+            return _camera_vnext_success_response(hls_info)
 
         if action == "stats":
-            return _camera_success_response(self._gateway.get_hls_stats())
+            return _camera_vnext_success_response(self._gateway.get_hls_stats())
 
-        return _camera_error_response("unknown_action", status=400)
+        return _camera_vnext_error_response("unknown_action", status=400)
+
+
+def _camera_vnext_error_response(
+    error: str,
+    *,
+    status: int,
+    message: str | None = None,
+    target: str = "camera",
+) -> BridgeResponse:
+    """Return an API vNext camera error response."""
+    error_message = message or error.replace("_", " ")
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error_message,
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )

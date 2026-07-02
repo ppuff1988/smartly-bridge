@@ -2353,8 +2353,8 @@ class TestSmartlyCameraHLSInfoView:
         result = await _handle_camera_hls(gateway, "camera.runtime", "start")
 
         assert result.status == 200
-        assert result.body["playlist_url"] == "/api/hls/runtime.m3u8"
-        assert result.body["entity_id"] == "camera.runtime"
+        assert result.body["data"]["playlist_url"] == "/api/hls/runtime.m3u8"
+        assert result.body["data"]["entity_id"] == "camera.runtime"
         assert gateway.calls == ["start_hls_stream"]
 
     @pytest.mark.asyncio
@@ -2369,10 +2369,8 @@ class TestSmartlyCameraHLSInfoView:
                 self.calls.append((entity_id, action))
                 return BridgeResponse(
                     {
-                        "success": True,
-                        "action": action,
-                        "entity_id": entity_id,
                         "data": {
+                            "success": True,
                             "action": action,
                             "entity_id": entity_id,
                         },
@@ -2398,7 +2396,7 @@ class TestSmartlyCameraHLSInfoView:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.calls == [("camera.runtime", "start")]
-        assert result.body["action"] == "start"
+        assert result.body["data"]["action"] == "start"
 
     @pytest.mark.asyncio
     async def test_hls_invalid_entity_id(self, mock_request):
@@ -2660,6 +2658,6 @@ class TestSmartlyCameraHLSInfoView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["playlist_url"] == "/api/hls/runtime.m3u8"
-        assert data["entity_id"] == "camera.runtime"
+        assert data["data"]["playlist_url"] == "/api/hls/runtime.m3u8"
+        assert data["data"]["entity_id"] == "camera.runtime"
         assert gateway.calls == ["start_hls_stream"]

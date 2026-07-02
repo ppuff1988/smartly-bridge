@@ -477,7 +477,7 @@ async def test_camera_hls_start_returns_hls_not_supported_when_gateway_has_no_st
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "start")
 
     assert result.status == 400
-    assert result.body["error"] == "hls_not_supported"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -506,7 +506,7 @@ async def test_camera_hls_start_response_includes_vnext_envelope() -> None:
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "start")
 
     assert result.status == 200
-    assert result.body["playlist_url"] == "/api/hls/front.m3u8"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -544,9 +544,7 @@ async def test_camera_hls_info_response_includes_vnext_envelope() -> None:
         "is_streaming": False,
     }
     assert result.status == 200
-    assert result.body["entity_id"] == "camera.front"
-    assert result.body["capabilities"] == expected_data["capabilities"]
-    assert result.body["endpoints"] == expected_data["endpoints"]
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -568,7 +566,7 @@ async def test_camera_hls_info_not_found_response_includes_vnext_envelope() -> N
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "info")
 
     assert result.status == 404
-    assert result.body["error"] == "camera_not_found"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -597,7 +595,7 @@ async def test_camera_hls_stats_response_includes_vnext_envelope() -> None:
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stats")
 
     assert result.status == 200
-    assert result.body["active_streams"] == 0
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -619,8 +617,7 @@ async def test_camera_hls_stop_success_response_includes_vnext_envelope() -> Non
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "stop")
 
     assert result.status == 200
-    assert result.body["success"] is True
-    assert result.body["action"] == "stopped"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -642,8 +639,7 @@ async def test_camera_hls_stop_not_found_response_includes_vnext_envelope() -> N
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.back", "stop")
 
     assert result.status == 404
-    assert result.body["success"] is False
-    assert result.body["action"] == "stopped"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -665,7 +661,7 @@ async def test_camera_hls_unknown_action_response_includes_vnext_envelope() -> N
     result = await CameraHLSUseCase(FakeCameraGateway()).execute("camera.front", "bad_action")
 
     assert result.status == 400
-    assert result.body["error"] == "unknown_action"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []

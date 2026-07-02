@@ -1,5 +1,4 @@
 {
-  "error": "hls_not_supported",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"
