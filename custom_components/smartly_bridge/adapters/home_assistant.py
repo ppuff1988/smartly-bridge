@@ -314,7 +314,10 @@ class HomeAssistantLocalAutomationRuleStore:
         """Return the current rule set as serialized config data."""
         if "local_automation_rules" in integration_data:
             return [_local_automation_rule_to_config(rule) for rule in self.list_rules()]
-        return list(config_data.get("local_automation_rules", []))
+        stored_rules = config_data.get("local_automation_rules", [])
+        if not isinstance(stored_rules, list):
+            return []
+        return [rule for rule in stored_rules if isinstance(rule, dict)]
 
     def _refresh_runtime_rules(
         self,

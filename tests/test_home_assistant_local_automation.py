@@ -83,6 +83,24 @@ def test_local_automation_rule_store_loads_serialized_config_entry_rules() -> No
     ]
 
 
+def test_local_automation_rule_store_ignores_malformed_config_entry_rule_collection() -> None:
+    """Malformed config entry rule collections do not break runtime reads."""
+    hass = MagicMock()
+    hass.data = {
+        DOMAIN: {
+            "config_entry": MagicMock(
+                data={
+                    "local_automation_rules": {"rule_id": "not-a-rule-list"},
+                }
+            )
+        }
+    }
+
+    rules = HomeAssistantLocalAutomationRuleStore(hass).list_rules()
+
+    assert rules == []
+
+
 def test_local_automation_rule_store_runtime_rules_override_config_entry() -> None:
     """Runtime rules override config entry rules during live updates."""
     runtime_rule = LocalAutomationRule(
@@ -354,6 +372,43 @@ def test_local_automation_rule_store_create_persists_runtime_visible_rules() -> 
         "local_automation_rules"
     ]
     assert [rule["rule_id"] for rule in persisted_rules] == ["runtime-rule", "new-rule"]
+
+
+def test_local_automation_rule_store_create_ignores_malformed_config_entry_rule_collection() -> None:
+    """Creating a rule does not carry malformed config entry rule collections forward."""
+    config_entry = MagicMock(
+        data={
+            "client_secret": "secret",
+            "local_automation_rules": {"rule_id": "not-a-rule-list"},
+        }
+    )
+    hass = MagicMock()
+    hass.data = {DOMAIN: {"config_entry": config_entry}}
+
+    created = HomeAssistantLocalAutomationRuleStore(hass).create_rule(
+        LocalAutomationRule(
+            rule_id="new-rule",
+            trigger=AutomationTrigger(
+                device_id="ldev_new_button",
+                capability="button_event",
+                event="double_press",
+            ),
+            actions=[
+                AutomationAction(
+                    type="device_command",
+                    device_id="ldev_new_light",
+                    capability="power",
+                    command="turn_off",
+                )
+            ],
+        )
+    )
+
+    assert created is True
+    persisted_rules = hass.config_entries.async_update_entry.call_args.kwargs["data"][
+        "local_automation_rules"
+    ]
+    assert [rule["rule_id"] for rule in persisted_rules] == ["new-rule"]
 
 
 def test_local_automation_rule_store_updates_config_entry_rule() -> None:
