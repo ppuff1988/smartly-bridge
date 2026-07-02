@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -18,6 +19,13 @@ from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLi
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView, SmartlySyncView
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
 
 
 class FakeSyncStructureGateway:
@@ -278,19 +286,9 @@ class TestSmartlySyncView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "sync.structure.integration",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture(
+            "sync-structure-integration-not-configured.json"
+        )
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
@@ -320,19 +318,7 @@ class TestSmartlySyncView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "sync.structure.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("sync-structure-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
@@ -370,19 +356,7 @@ class TestSmartlySyncView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "sync.structure.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("sync-structure-rate-limit.json")
 
     def test_build_sync_structure_reads_gateway_payload(self):
         """Sync structure invocation adapter reads the gateway structure."""
@@ -515,19 +489,7 @@ class TestSmartlySyncView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "SYNC_STRUCTURE_GATEWAY_UNAVAILABLE",
-                    "message": "sync structure gateway unavailable",
-                    "target": "sync.structure.gateway",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("sync-structure-gateway-unavailable.json")
         assert (
             "sync_structure_gateway"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -628,19 +590,9 @@ class TestSmartlySyncStatesView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "sync.states.integration",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture(
+            "sync-states-integration-not-configured.json"
+        )
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
@@ -670,19 +622,7 @@ class TestSmartlySyncStatesView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "sync.states.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("sync-states-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
@@ -720,19 +660,7 @@ class TestSmartlySyncStatesView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "sync.states.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("sync-states-rate-limit.json")
 
     @pytest.mark.asyncio
     async def test_build_sync_states_forwards_read_path_and_raw_recorder(self):
@@ -920,19 +848,7 @@ class TestSmartlySyncStatesView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "SYNC_STATES_GATEWAY_UNAVAILABLE",
-                    "message": "sync states gateway unavailable",
-                    "target": "sync.states.gateway",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("sync-states-gateway-unavailable.json")
         assert (
             "sync_states_gateway"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -996,19 +912,9 @@ class TestSmartlySyncStatesView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "RAW_DIAGNOSTIC_STORE_UNAVAILABLE",
-                    "message": "raw diagnostic store unavailable",
-                    "target": "sync.states.raw_diagnostic_store",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture(
+            "sync-states-raw-diagnostic-store-unavailable.json"
+        )
         assert (
             "raw_diagnostic_store"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
