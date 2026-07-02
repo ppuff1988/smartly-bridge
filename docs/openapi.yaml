@@ -2628,10 +2628,24 @@ components:
           examples:
             missingHeaders:
               value:
-                error: missing_headers
+                schema_version: "2026.06"
+                data: null
+                warnings: []
+                errors:
+                  - code: missing_headers
+                    message: missing headers
+                    target: headers
+                    retryable: false
             invalidSignature:
               value:
-                error: invalid_signature
+                schema_version: "2026.06"
+                data: null
+                warnings: []
+                errors:
+                  - code: invalid_signature
+                    message: invalid signature
+                    target: auth.signature
+                    retryable: false
 
     RateLimitError:
       description: Rate limited
@@ -2649,7 +2663,14 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: rate_limited
+            schema_version: "2026.06"
+            data: null
+            warnings: []
+            errors:
+              - code: rate_limited
+                message: rate limited
+                target: rate_limit
+                retryable: true
 
     InternalError:
       description: Internal server error
@@ -2658,7 +2679,14 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: integration_not_configured
+            schema_version: "2026.06"
+            data: null
+            warnings: []
+            errors:
+              - code: integration_not_configured
+                message: integration not configured
+                target: integration
+                retryable: false
 
 webhooks:
   stateChanged:

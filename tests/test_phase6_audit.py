@@ -273,6 +273,32 @@ def test_phase6_audit_detects_openapi_top_level_error_response_schema(
     )
 
 
+def test_phase6_audit_detects_openapi_component_response_top_level_error_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects reusable OpenAPI response examples with top-level errors."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/openapi.yaml",
+        (
+            "components:\n"
+            "  responses:\n"
+            "    UnauthorizedError:\n"
+            "      content:\n"
+            "        application/json:\n"
+            "          example:\n"
+            "            error: invalid_signature\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "openapi-component-response-top-level-error-example"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_detects_public_control_legacy_body_docs(
     tmp_path: Path,
 ) -> None:
