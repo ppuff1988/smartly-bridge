@@ -81,6 +81,19 @@ def duplicate_status_gates(statuses: list[GateStatus]) -> list[str]:
     return duplicates
 
 
+def duplicate_signoff_evidence(signoffs: list[Signoff]) -> list[str]:
+    """Return sign-off gate/evidence pairs that appear more than once."""
+    seen: set[tuple[str, str]] = set()
+    duplicates: list[str] = []
+    for signoff in signoffs:
+        key = (signoff.gate, signoff.evidence_link)
+        label = f"{signoff.gate} ({signoff.evidence_link})"
+        if key in seen and label not in duplicates:
+            duplicates.append(label)
+        seen.add(key)
+    return duplicates
+
+
 def missing_ready_gate_signoffs(
     statuses: list[GateStatus],
     signoffs: list[Signoff],
@@ -254,9 +267,16 @@ def main(argv: list[str] | None = None) -> int:
     signoffs = load_signoffs(args.path)
     missing = missing_required_gates(statuses)
     duplicates = duplicate_status_gates(statuses)
+    duplicate_signoffs = duplicate_signoff_evidence(signoffs)
     missing_signoffs = missing_ready_gate_signoffs(statuses, signoffs)
     pending = [status for status in statuses if not status.ready]
-    if not missing and not duplicates and not missing_signoffs and not pending:
+    if (
+        not missing
+        and not duplicates
+        and not duplicate_signoffs
+        and not missing_signoffs
+        and not pending
+    ):
         print("Phase 6 release evidence ready.")
         return 0
 
@@ -265,6 +285,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- {gate}: missing required evidence row")
     for gate in duplicates:
         print(f"- {gate}: duplicate evidence rows")
+    for signoff in duplicate_signoffs:
+        print(f"- {signoff}: duplicate sign-off rows")
     for gate in missing_signoffs:
         print(f"- {gate}: missing completed sign-off row for gate evidence")
     for status in pending:

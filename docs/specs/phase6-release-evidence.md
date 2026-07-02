@@ -6,6 +6,7 @@ Do not mark a gate as ready from intent, verbal confirmation, or a local-only ch
 Do not leave placeholder wording such as `TBD`, `Pending`, or `n/a` inside owner, evidence, reviewer, or sign-off fields.
 Each required gate must appear exactly once in `Status`.
 Each ready gate also needs a matching completed row in `Sign-off Record`. The sign-off `Date` must be a valid `YYYY-MM-DD` calendar date, and the sign-off `Evidence link` must match the gate's `Evidence source`.
+Each `(Gate, Evidence link)` pair must appear exactly once in `Sign-off Record`.
 
 ## Status
 
@@ -115,6 +116,7 @@ Expected result:
 - Release evidence checker prints `Phase 6 release evidence ready.` and exits 0.
 - Release evidence checker verifies all required gate rows are present before evaluating readiness.
 - Release evidence checker rejects duplicate gate rows.
+- Release evidence checker rejects duplicate sign-off rows.
 - Release evidence checker verifies every ready gate has a completed sign-off row.
 - Release evidence checker verifies completed sign-off dates are valid `YYYY-MM-DD` calendar dates.
 - Release evidence checker verifies the sign-off `Evidence link` matches the gate `Evidence source`.

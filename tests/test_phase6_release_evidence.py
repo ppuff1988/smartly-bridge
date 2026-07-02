@@ -335,3 +335,43 @@ def test_phase6_release_evidence_rejects_duplicate_gate_rows(
     )
 
     assert checker.main([str(evidence_path)]) == 1
+
+
+def test_phase6_release_evidence_rejects_duplicate_signoff_rows(
+    tmp_path: Path,
+) -> None:
+    """Sign-off evidence must have exactly one row per gate/evidence pair."""
+    checker = _load_phase6_release_evidence()
+    evidence_path = tmp_path / "phase6-release-evidence.md"
+    _write(
+        evidence_path,
+        "\n".join(
+            [
+                "# Phase 6 API vNext Release Evidence",
+                "",
+                "| Gate | Owner | Evidence source | Decision | Notes |",
+                "|---|---|---|---|---|",
+                "| Active Platform clients support API vNext | Platform owner | release/client-matrix.md | Ready | All active clients checked. |",
+                "| Retired endpoint usage below removal threshold | Data owner | release/telemetry.md | Ready | Usage is below threshold. |",
+                "| Alias window announced and elapsed | Release owner | release/announcement.md | Ready | Window elapsed. |",
+                "| Rollback playbook verified | Ops owner | runbooks/phase6.md | Ready | Dry run passed. |",
+                "| Platform render source audit completed | Platform owner | platform/render-audit.md | Ready | Source audit passed. |",
+                "| API support policy decided | Product owner | release/api-policy.md | Ready | Policy accepted. |",
+                "",
+                "## Sign-off Record",
+                "",
+                "| Date | Gate | Reviewer | Decision | Evidence link |",
+                "|---|---|---|---|---|",
+                "| 2026-07-02 | Active Platform clients support API vNext | Platform reviewer | Approved | release/client-matrix.md |",
+                "| 2026-07-02 | Active Platform clients support API vNext | Platform reviewer | Approved | release/client-matrix.md |",
+                "| 2026-07-02 | Retired endpoint usage below removal threshold | Data reviewer | Approved | release/telemetry.md |",
+                "| 2026-07-02 | Alias window announced and elapsed | Release reviewer | Approved | release/announcement.md |",
+                "| 2026-07-02 | Rollback playbook verified | Ops reviewer | Approved | runbooks/phase6.md |",
+                "| 2026-07-02 | Platform render source audit completed | Platform reviewer | Approved | platform/render-audit.md |",
+                "| 2026-07-02 | API support policy decided | Product reviewer | Approved | release/api-policy.md |",
+                "",
+            ]
+        ),
+    )
+
+    assert checker.main([str(evidence_path)]) == 1
