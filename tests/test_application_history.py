@@ -31,6 +31,18 @@ def _fixture(name: str) -> dict:
     )
 
 
+def _assert_vnext_only_top_level(body: dict) -> None:
+    """Assert a response only exposes API vNext envelope fields at top-level."""
+    assert set(body) <= {
+        "schema_version",
+        "data",
+        "warnings",
+        "errors",
+        "request_id",
+        "correlation_id",
+    }
+
+
 def test_parse_datetime_accepts_iso8601_and_rejects_invalid_values() -> None:
     """Datetime parsing is framework independent."""
     parsed = parse_datetime("2026-01-10T10:00:00+00:00")
@@ -50,8 +62,7 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
 
     assert too_large is not None
     assert too_large.status == 400
-    assert too_large.body["error"] == "time_range_too_large"
-    assert too_large.body["max_days"] == 30
+    _assert_vnext_only_top_level(too_large.body)
     assert too_large.body["schema_version"] == "2026.06"
     assert too_large.body["data"] == {"status": "rejected"}
     assert too_large.body["warnings"] == []
@@ -65,7 +76,7 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
     ]
     assert reversed_range is not None
     assert reversed_range.status == 400
-    assert reversed_range.body["error"] == "invalid_time_range"
+    _assert_vnext_only_top_level(reversed_range.body)
     assert reversed_range.body["schema_version"] == "2026.06"
     assert reversed_range.body["data"] == {"status": "rejected"}
     assert reversed_range.body["warnings"] == []
@@ -513,18 +524,13 @@ async def test_single_history_use_case_formats_gateway_states() -> None:
     )
 
     assert result.status == 200
-    legacy_body = {
-        key: value
-        for key, value in result.body.items()
-        if key not in {"schema_version", "data", "warnings", "errors"}
-    }
-    assert result.body["entity_id"] == "sensor.temperature"
-    assert result.body["count"] >= 2
-    assert result.body["metadata"]["device_class"] == "temperature"
-    assert result.body["metadata"]["friendly_name"] == "Room Temperature"
-    assert result.body["truncated"] is False
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["entity_id"] == "sensor.temperature"
+    assert result.body["data"]["count"] >= 2
+    assert result.body["data"]["metadata"]["device_class"] == "temperature"
+    assert result.body["data"]["metadata"]["friendly_name"] == "Room Temperature"
+    assert result.body["data"]["truncated"] is False
     assert result.body["schema_version"] == "2026.06"
-    assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
 
@@ -570,22 +576,17 @@ async def test_batch_history_use_case_formats_multiple_entities() -> None:
     )
 
     assert result.status == 200
-    legacy_body = {
-        key: value
-        for key, value in result.body.items()
-        if key not in {"schema_version", "data", "warnings", "errors"}
-    }
-    assert result.body["history"]["sensor.temperature"][0]["state"] == 11.0
-    assert result.body["history"]["binary_sensor.door"][0]["state"] == "off"
-    assert result.body["count"] == {"sensor.temperature": 4, "binary_sensor.door": 2}
-    assert result.body["truncated"] == {
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["history"]["sensor.temperature"][0]["state"] == 11.0
+    assert result.body["data"]["history"]["binary_sensor.door"][0]["state"] == "off"
+    assert result.body["data"]["count"] == {"sensor.temperature": 4, "binary_sensor.door": 2}
+    assert result.body["data"]["truncated"] == {
         "sensor.temperature": False,
         "binary_sensor.door": False,
     }
-    assert result.body["denied_entities"] == ["sensor.denied"]
-    assert result.body["metadata"]["sensor.temperature"]["device_class"] == "temperature"
+    assert result.body["data"]["denied_entities"] == ["sensor.denied"]
+    assert result.body["data"]["metadata"]["sensor.temperature"]["device_class"] == "temperature"
     assert result.body["schema_version"] == "2026.06"
-    assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
 
@@ -631,8 +632,9 @@ async def test_batch_history_use_case_marks_truncated_entities() -> None:
     )
 
     assert result.status == 200
-    assert result.body["count"] == {"sensor.temperature": 3}
-    assert result.body["truncated"] == {"sensor.temperature": True}
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["count"] == {"sensor.temperature": 3}
+    assert result.body["data"]["truncated"] == {"sensor.temperature": True}
 
 
 @pytest.mark.asyncio
@@ -652,15 +654,11 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
     )
 
     assert result.status == 200
-    legacy_body = {
-        key: value
-        for key, value in result.body.items()
-        if key not in {"schema_version", "data", "warnings", "errors"}
-    }
-    assert result.body["entity_id"] == "sensor.energy"
-    assert result.body["period"] == "hour"
-    assert result.body["count"] == 2
-    assert result.body["statistics"][0] == {
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["entity_id"] == "sensor.energy"
+    assert result.body["data"]["period"] == "hour"
+    assert result.body["data"]["count"] == 2
+    assert result.body["data"]["statistics"][0] == {
         "start": "2026-01-01T00:00:00+00:00",
         "end": "2026-01-01T01:00:00+00:00",
         "mean": 150.5,
@@ -668,15 +666,14 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
         "max": 300.0,
         "sum": 3612.0,
     }
-    assert result.body["statistics"][1] == {
+    assert result.body["data"]["statistics"][1] == {
         "start": "2026-01-01T01:00:00+00:00",
         "end": None,
         "state": 180.0,
     }
-    assert result.body["start_time"] == start_time.isoformat()
-    assert result.body["end_time"] == end_time.isoformat()
+    assert result.body["data"]["start_time"] == start_time.isoformat()
+    assert result.body["data"]["end_time"] == end_time.isoformat()
     assert result.body["schema_version"] == "2026.06"
-    assert result.body["data"] == legacy_body
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
 
@@ -721,10 +718,11 @@ async def test_single_history_use_case_counts_first_paginated_page() -> None:
     )
 
     assert result.status == 200
-    assert result.body["page_size"] == 1
-    assert result.body["has_more"] is True
-    assert result.body["total_count"] == 2
-    assert "next_cursor" in result.body
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["page_size"] == 1
+    assert result.body["data"]["has_more"] is True
+    assert result.body["data"]["total_count"] == 2
+    assert "next_cursor" in result.body["data"]
 
 
 @pytest.mark.asyncio
@@ -747,7 +745,8 @@ async def test_single_history_use_case_falls_back_when_count_fails() -> None:
     )
 
     assert result.status == 200
-    assert result.body["total_count"] == 2
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["total_count"] == 2
 
 
 @pytest.mark.asyncio
@@ -771,4 +770,5 @@ async def test_single_history_use_case_ignores_first_state_metadata_failure() ->
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.temperature"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["entity_id"] == "sensor.temperature"

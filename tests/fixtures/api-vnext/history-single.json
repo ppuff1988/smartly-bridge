@@ -1,71 +1,4 @@
 {
-  "entity_id": "sensor.temperature",
-  "history": [
-    {
-      "state": 11.0,
-      "last_changed": "2026-01-01T00:00:00+00:00",
-      "last_updated": "2026-01-01T00:00:00+00:00"
-    },
-    {
-      "state": 11.0,
-      "last_changed": "2026-01-01T01:00:00+00:00",
-      "last_updated": "2026-01-01T01:00:00+00:00",
-      "attributes": {}
-    },
-    {
-      "state": 10.0,
-      "last_changed": "2026-01-01T00:00:00+00:00",
-      "last_updated": "2026-01-01T00:00:00+00:00"
-    },
-    {
-      "state": 10.0,
-      "last_changed": "2026-01-01T02:00:00+00:00",
-      "last_updated": "2026-01-01T02:00:00+00:00"
-    }
-  ],
-  "count": 4,
-  "start_time": "2026-01-01T00:00:00+00:00",
-  "end_time": "2026-01-01T02:00:00+00:00",
-  "truncated": false,
-  "metadata": {
-    "domain": "sensor",
-    "device_class": "temperature",
-    "unit_of_measurement": "\u00b0C",
-    "friendly_name": "Room Temperature",
-    "is_numeric": true,
-    "visualization": {
-      "type": "chart",
-      "chart_type": "spline",
-      "color": "#EF5350",
-      "show_points": false,
-      "interpolation": "natural"
-    },
-    "decimal_places": 1
-  },
-  "device_class": "temperature",
-  "unit_of_measurement": "\u00b0C",
-  "bridge_chart": {
-    "metric": "temperature",
-    "unit": "\u00b0C",
-    "points": [
-      {
-        "at": "2026-01-01T00:00:00+00:00",
-        "value": 11.0
-      },
-      {
-        "at": "2026-01-01T01:00:00+00:00",
-        "value": 11.0
-      },
-      {
-        "at": "2026-01-01T00:00:00+00:00",
-        "value": 10.0
-      },
-      {
-        "at": "2026-01-01T02:00:00+00:00",
-        "value": 10.0
-      }
-    ]
-  },
   "schema_version": "2026.06",
   "data": {
     "entity_id": "sensor.temperature",
@@ -99,7 +32,7 @@
     "metadata": {
       "domain": "sensor",
       "device_class": "temperature",
-      "unit_of_measurement": "\u00b0C",
+      "unit_of_measurement": "°C",
       "friendly_name": "Room Temperature",
       "is_numeric": true,
       "visualization": {
@@ -112,10 +45,10 @@
       "decimal_places": 1
     },
     "device_class": "temperature",
-    "unit_of_measurement": "\u00b0C",
+    "unit_of_measurement": "°C",
     "bridge_chart": {
       "metric": "temperature",
-      "unit": "\u00b0C",
+      "unit": "°C",
       "points": [
         {
           "at": "2026-01-01T00:00:00+00:00",

@@ -1,6 +1,4 @@
 {
-  "error": "time_range_too_large",
-  "max_days": 30,
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"

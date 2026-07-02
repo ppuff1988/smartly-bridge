@@ -164,7 +164,7 @@ async def test_query_single_history_forwards_query_to_application_use_case() -> 
     result = await _query_single_history(gateway, query)
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.temperature"
+    assert result.body["data"]["entity_id"] == "sensor.temperature"
     assert "query_states" in gateway.calls
 
 
@@ -212,7 +212,7 @@ async def test_query_single_history_uses_injected_use_case_factory() -> None:
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.temperature"
+    assert result.body["data"]["entity_id"] == "sensor.temperature"
     assert factory_calls == [gateway]
     assert use_case.queries == [query]
 
@@ -235,8 +235,8 @@ async def test_query_batch_history_forwards_query_to_application_use_case() -> N
     result = await _query_batch_history(gateway, query)
 
     assert result.status == 200
-    assert set(result.body["history"]) == {"sensor.temperature", "sensor.humidity"}
-    assert result.body["denied_entities"] == ["sensor.private"]
+    assert set(result.body["data"]["history"]) == {"sensor.temperature", "sensor.humidity"}
+    assert result.body["data"]["denied_entities"] == ["sensor.private"]
     assert "query_batch_states" in gateway.calls
 
 
@@ -304,9 +304,9 @@ async def test_query_statistics_forwards_query_to_application_use_case() -> None
     result = await _query_statistics(gateway, query)
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.energy"
-    assert result.body["period"] == "hour"
-    assert result.body["statistics"][0]["mean"] == 150.5
+    assert result.body["data"]["entity_id"] == "sensor.energy"
+    assert result.body["data"]["period"] == "hour"
+    assert result.body["data"]["statistics"][0]["mean"] == 150.5
     assert "query_statistics" in gateway.calls
 
 
@@ -352,8 +352,8 @@ async def test_query_statistics_uses_injected_use_case_factory() -> None:
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.energy"
-    assert result.body["period"] == "hour"
+    assert result.body["data"]["entity_id"] == "sensor.energy"
+    assert result.body["data"]["period"] == "hour"
     assert factory_calls == [gateway]
     assert use_case.queries == [query]
 
@@ -442,7 +442,7 @@ class TestSmartlyHistoryView:
         response = await view.get()
         assert response.status == 500
         data = json.loads(response.body)
-        assert data["error"] == "integration_not_configured"
+        assert data["errors"][0]["code"] == "INTEGRATION_NOT_CONFIGURED"
 
     @pytest.mark.asyncio
     async def test_integration_not_configured_returns_api_vnext_envelope(
@@ -457,7 +457,6 @@ class TestSmartlyHistoryView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -479,7 +478,7 @@ class TestSmartlyHistoryView:
         response = await view.get()
         assert response.status == 500
         data = json.loads(response.body)
-        assert data["error"] == "client_secret_not_configured"
+        assert data["errors"][0]["code"] == "CLIENT_SECRET_NOT_CONFIGURED"
 
     @pytest.mark.asyncio
     async def test_client_secret_not_configured_returns_api_vnext_envelope(
@@ -494,7 +493,6 @@ class TestSmartlyHistoryView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "client_secret_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -523,7 +521,6 @@ class TestSmartlyHistoryView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "client_secret_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -551,7 +548,7 @@ class TestSmartlyHistoryView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data["error"] == "invalid_signature"
+            assert data["errors"][0]["code"] == "INVALID_SIGNATURE"
 
     @pytest.mark.asyncio
     async def test_auth_failure_returns_api_vnext_envelope(self, mock_request):
@@ -568,7 +565,6 @@ class TestSmartlyHistoryView:
             assert response.status == 401
             data = json.loads(response.body)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -602,7 +598,6 @@ class TestSmartlyHistoryView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -636,7 +631,6 @@ class TestSmartlyHistoryView:
             assert response.status == 400
             data = json.loads(response.body)
             assert data == {
-                "error": "entity_id_required",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -672,7 +666,6 @@ class TestSmartlyHistoryView:
                 assert response.status == 403
                 data = json.loads(response.body)
                 assert data == {
-                    "error": "entity_not_allowed",
                     "schema_version": "2026.06",
                     "data": {"status": "rejected"},
                     "warnings": [],
@@ -714,8 +707,7 @@ class TestSmartlyHistoryView:
 
                 assert response.status == 400
                 data = json.loads(response.body)
-                assert data["error"] == "time_range_too_large"
-                assert data["max_days"] == HISTORY_MAX_DURATION_DAYS
+                assert data["errors"][0]["code"] == "TIME_RANGE_TOO_LARGE"
 
     @pytest.mark.asyncio
     async def test_successful_history_query(self, mock_request, mock_hass):
@@ -754,14 +746,14 @@ class TestSmartlyHistoryView:
 
                     assert response.status == 200
                     data = json.loads(response.body)
-                    assert data["entity_id"] == "sensor.temperature"
-                    assert "history" in data
+                    assert data["data"]["entity_id"] == "sensor.temperature"
+                    assert "history" in data["data"]
                     # 24 小時查詢會添加邊界點，所以數量會大於等於原始數據
-                    assert data["count"] >= 1
-                    assert data["truncated"] is False
+                    assert data["data"]["count"] >= 1
+                    assert data["data"]["truncated"] is False
                     # 驗證包含 metadata
-                    assert "metadata" in data
-                    assert data["metadata"]["is_numeric"] is True
+                    assert "metadata" in data["data"]
+                    assert data["data"]["metadata"]["is_numeric"] is True
 
     @pytest.mark.asyncio
     async def test_single_history_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -786,8 +778,8 @@ class TestSmartlyHistoryView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["entity_id"] == "sensor.temperature"
-        assert data["history"][0]["state"] == 11.0
+        assert data["data"]["entity_id"] == "sensor.temperature"
+        assert data["data"]["history"][0]["state"] == 11.0
         assert gateway.calls == ["query_states", "get_current_attributes"]
 
     @pytest.mark.asyncio
@@ -816,7 +808,6 @@ class TestSmartlyHistoryView:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "history_gateway_unavailable",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -860,8 +851,8 @@ class TestSmartlyHistoryView:
         data = json.loads(response.body)
         assert data["request_id"] == "req-history-001"
         assert data["correlation_id"] == "corr-history-001"
-        assert data["entity_id"] == "sensor.temperature"
-        assert data["history"][0]["state"] == 11.0
+        assert data["data"]["entity_id"] == "sensor.temperature"
+        assert data["data"]["history"][0]["state"] == 11.0
 
     @pytest.mark.asyncio
     async def test_query_timeout_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -891,7 +882,6 @@ class TestSmartlyHistoryView:
                     assert response.status == 504
                     data = json.loads(response.body)
                     assert data == {
-                        "error": "query_timeout",
                         "schema_version": "2026.06",
                         "data": {"status": "rejected"},
                         "warnings": [],
@@ -933,8 +923,6 @@ class TestSmartlyHistoryView:
                     assert response.status == 500
                     data = json.loads(response.body)
                     assert data == {
-                        "error": "history_query_failed",
-                        "message": "recorder unavailable",
                         "schema_version": "2026.06",
                         "data": {"status": "rejected"},
                         "warnings": [],
@@ -1006,7 +994,6 @@ class TestSmartlyHistoryBatchView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1036,7 +1023,6 @@ class TestSmartlyHistoryBatchView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "client_secret_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1065,7 +1051,6 @@ class TestSmartlyHistoryBatchView:
             assert response.status == 401
             data = json.loads(response.body)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1099,7 +1084,6 @@ class TestSmartlyHistoryBatchView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1132,7 +1116,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "invalid_json"
+            assert data["errors"][0]["code"] == "INVALID_JSON"
 
     @pytest.mark.asyncio
     async def test_invalid_json_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -1154,7 +1138,6 @@ class TestSmartlyHistoryBatchView:
             assert response.status == 400
             data = json.loads(response.body)
             assert data == {
-                "error": "invalid_json",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1187,7 +1170,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "entity_ids_required"
+            assert data["errors"][0]["code"] == "ENTITY_IDS_REQUIRED"
 
     @pytest.mark.asyncio
     async def test_entity_ids_required_returns_api_vnext_envelope(
@@ -1211,7 +1194,6 @@ class TestSmartlyHistoryBatchView:
             assert response.status == 400
             data = json.loads(response.body)
             assert data == {
-                "error": "entity_ids_required",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1248,8 +1230,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "too_many_entities"
-            assert data["max_entities"] == HISTORY_MAX_ENTITIES_BATCH
+            assert data["errors"][0]["code"] == "TOO_MANY_ENTITIES"
 
     @pytest.mark.asyncio
     async def test_too_many_entities_returns_api_vnext_envelope(
@@ -1277,8 +1258,6 @@ class TestSmartlyHistoryBatchView:
             assert response.status == 400
             data = json.loads(response.body)
             assert data == {
-                "error": "too_many_entities",
-                "max_entities": HISTORY_MAX_ENTITIES_BATCH,
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1316,7 +1295,6 @@ class TestSmartlyHistoryBatchView:
                 assert response.status == 403
                 data = json.loads(response.body)
                 assert data == {
-                    "error": "no_allowed_entities",
                     "schema_version": "2026.06",
                     "data": {"status": "rejected"},
                     "warnings": [],
@@ -1370,16 +1348,16 @@ class TestSmartlyHistoryBatchView:
 
                     assert response.status == 200
                     data = json.loads(response.body)
-                    assert "history" in data
-                    assert "sensor.temp1" in data["history"]
-                    assert "sensor.temp2" in data["history"]
+                    assert "history" in data["data"]
+                    assert "sensor.temp1" in data["data"]["history"]
+                    assert "sensor.temp2" in data["data"]["history"]
                     # 24 小時查詢會添加邊界點，所以數量會大於等於原始數據
-                    assert data["count"]["sensor.temp1"] >= 1
-                    assert data["count"]["sensor.temp2"] >= 2
+                    assert data["data"]["count"]["sensor.temp1"] >= 1
+                    assert data["data"]["count"]["sensor.temp2"] >= 2
                     # 驗證包含 metadata
-                    assert "metadata" in data
-                    assert "sensor.temp1" in data["metadata"]
-                    assert data["metadata"]["sensor.temp1"]["is_numeric"] is True
+                    assert "metadata" in data["data"]
+                    assert "sensor.temp1" in data["data"]["metadata"]
+                    assert data["data"]["metadata"]["sensor.temp1"]["is_numeric"] is True
 
     @pytest.mark.asyncio
     async def test_batch_history_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -1404,8 +1382,8 @@ class TestSmartlyHistoryBatchView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert sorted(data["history"]) == ["sensor.temp1", "sensor.temp2"]
-        assert data["history"]["sensor.temp1"][0]["state"] == 11.0
+        assert sorted(data["data"]["history"]) == ["sensor.temp1", "sensor.temp2"]
+        assert data["data"]["history"]["sensor.temp1"][0]["state"] == 11.0
         assert gateway.calls == [
             "query_batch_states",
             "get_current_attributes",
@@ -1438,7 +1416,6 @@ class TestSmartlyHistoryBatchView:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "history_gateway_unavailable",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1483,7 +1460,6 @@ class TestSmartlyHistoryBatchView:
                     assert response.status == 504
                     data = json.loads(response.body)
                     assert data == {
-                        "error": "query_timeout",
                         "schema_version": "2026.06",
                         "data": {"status": "rejected"},
                         "warnings": [],
@@ -1527,7 +1503,6 @@ class TestSmartlyHistoryBatchView:
                     assert response.status == 500
                     data = json.loads(response.body)
                     assert data == {
-                        "error": "history_query_failed",
                         "schema_version": "2026.06",
                         "data": {"status": "rejected"},
                         "warnings": [],
@@ -1594,7 +1569,6 @@ class TestSmartlyStatisticsView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1624,7 +1598,6 @@ class TestSmartlyStatisticsView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == {
-            "error": "client_secret_not_configured",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1653,7 +1626,6 @@ class TestSmartlyStatisticsView:
             assert response.status == 401
             data = json.loads(response.body)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1687,7 +1659,6 @@ class TestSmartlyStatisticsView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1721,7 +1692,6 @@ class TestSmartlyStatisticsView:
             assert response.status == 400
             data = json.loads(response.body)
             assert data == {
-                "error": "entity_id_required",
                 "schema_version": "2026.06",
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -1759,7 +1729,6 @@ class TestSmartlyStatisticsView:
                 assert response.status == 403
                 data = json.loads(response.body)
                 assert data == {
-                    "error": "entity_not_allowed",
                     "schema_version": "2026.06",
                     "data": {"status": "rejected"},
                     "warnings": [],
@@ -1797,8 +1766,6 @@ class TestSmartlyStatisticsView:
                 assert response.status == 400
                 data = json.loads(response.body)
                 assert data == {
-                    "error": "invalid_period",
-                    "valid_periods": ["hour", "day", "week", "month"],
                     "schema_version": "2026.06",
                     "data": {"status": "rejected"},
                     "warnings": [],
@@ -1856,13 +1823,13 @@ class TestSmartlyStatisticsView:
 
                     assert response.status == 200
                     data = json.loads(response.body)
-                    assert data["entity_id"] == "sensor.power"
-                    assert data["period"] == "hour"
-                assert "statistics" in data
-                assert len(data["statistics"]) == 1
-                assert data["statistics"][0]["mean"] == 150.5
-                assert data["statistics"][0]["min"] == 50.0
-                assert data["statistics"][0]["max"] == 300.0
+                    assert data["data"]["entity_id"] == "sensor.power"
+                    assert data["data"]["period"] == "hour"
+                assert "statistics" in data["data"]
+                assert len(data["data"]["statistics"]) == 1
+                assert data["data"]["statistics"][0]["mean"] == 150.5
+                assert data["data"]["statistics"][0]["min"] == 50.0
+                assert data["data"]["statistics"][0]["max"] == 300.0
 
     @pytest.mark.asyncio
     async def test_statistics_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -1887,8 +1854,8 @@ class TestSmartlyStatisticsView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["entity_id"] == "sensor.power"
-        assert data["statistics"][0]["mean"] == 150.5
+        assert data["data"]["entity_id"] == "sensor.power"
+        assert data["data"]["statistics"][0]["mean"] == 150.5
         assert gateway.calls == ["query_statistics"]
 
     @pytest.mark.asyncio
@@ -1917,7 +1884,6 @@ class TestSmartlyStatisticsView:
 
         assert response.status == 500
         assert json.loads(response.body) == {
-            "error": "history_gateway_unavailable",
             "schema_version": "2026.06",
             "data": {"status": "rejected"},
             "warnings": [],
@@ -1962,7 +1928,6 @@ class TestSmartlyStatisticsView:
                     assert response.status == 500
                     data = json.loads(response.body)
                     assert data == {
-                        "error": "statistics_query_failed",
                         "schema_version": "2026.06",
                         "data": {"status": "rejected"},
                         "warnings": [],
@@ -2109,15 +2074,15 @@ class TestCursorPagination:
                     data = json.loads(response.body)
 
                     # Verify pagination fields
-                    assert data["page_size"] == 5
-                    assert data["has_more"] is True
-                    assert "next_cursor" in data
-                    assert data["count"] <= 5
+                    assert data["data"]["page_size"] == 5
+                    assert data["data"]["has_more"] is True
+                    assert "next_cursor" in data["data"]
+                    assert data["data"]["count"] <= 5
 
                     # Verify cursor is valid
                     from custom_components.smartly_bridge.views.history import _decode_cursor
 
-                    decoded = _decode_cursor(data["next_cursor"])
+                    decoded = _decode_cursor(data["data"]["next_cursor"])
                     assert decoded is not None
                     assert "ts" in decoded
                     assert "lc" in decoded
@@ -2187,10 +2152,10 @@ class TestCursorPagination:
                     data = json.loads(response.body)
 
                     # Verify last page
-                    assert data["page_size"] == 5
-                    assert data["has_more"] is False
+                    assert data["data"]["page_size"] == 5
+                    assert data["data"]["has_more"] is False
                     assert "next_cursor" not in data
-                    assert data["count"] == 3
+                    assert data["data"]["count"] == 3
 
     @pytest.mark.asyncio
     async def test_history_with_invalid_cursor(self, mock_hass, mock_request):
@@ -2227,7 +2192,6 @@ class TestCursorPagination:
                 assert response.status == 400
                 data = json.loads(response.body)
                 assert data == {
-                    "error": "invalid_cursor",
                     "schema_version": "2026.06",
                     "data": {"status": "rejected"},
                     "warnings": [],

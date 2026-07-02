@@ -1,24 +1,4 @@
 {
-  "entity_id": "sensor.energy",
-  "period": "hour",
-  "statistics": [
-    {
-      "start": "2026-01-01T00:00:00+00:00",
-      "end": "2026-01-01T01:00:00+00:00",
-      "mean": 150.5,
-      "min": 50.0,
-      "max": 300.0,
-      "sum": 3612.0
-    },
-    {
-      "start": "2026-01-01T01:00:00+00:00",
-      "end": null,
-      "state": 180.0
-    }
-  ],
-  "count": 2,
-  "start_time": "2026-01-01T00:00:00+00:00",
-  "end_time": "2026-01-01T02:00:00+00:00",
   "schema_version": "2026.06",
   "data": {
     "entity_id": "sensor.energy",

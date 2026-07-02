@@ -223,11 +223,9 @@ def _history_error_response(
     target: str = "history",
     legacy_fields: dict[str, Any] | None = None,
 ) -> BridgeResponse:
-    """Return a legacy-compatible API vNext history error response."""
+    """Return an API vNext history error response."""
     return BridgeResponse(
         {
-            "error": error,
-            **(legacy_fields or {}),
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -245,10 +243,9 @@ def _history_error_response(
 
 
 def _history_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
-    """Return a legacy-compatible API vNext history success response."""
+    """Return an API vNext history success response."""
     return BridgeResponse(
         {
-            **body,
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": body,
             "warnings": [],
