@@ -149,6 +149,10 @@ SYNC_DOCS = [
 DEVICE_CARD_DOCS = [
     Path("docs/smartly-device-card-capability-spec.md"),
 ]
+DEVICE_CARD_STALE_CAPABILITY_PATTERNS = (
+    r"`color_temp`",
+    r"\bcolor_temp\b",
+)
 TRUST_PROXY_DOCS = [
     Path("docs/development/trust-proxy.md"),
 ]
@@ -199,6 +203,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
+    findings.extend(_device_card_stale_capability_doc_findings(root_path))
     findings.extend(_history_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_success_findings(root_path))
@@ -990,6 +995,36 @@ def _device_card_ha_action_payload_doc_findings(root: Path) -> list[Finding]:
                         "Device-card Platform docs still tell UI to send "
                         "Home Assistant action payloads; use API vNext "
                         "SmartlyCommand."
+                    ),
+                )
+            )
+    return findings
+
+
+def _device_card_stale_capability_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in DEVICE_CARD_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not any(
+                re.search(pattern, line)
+                for pattern in DEVICE_CARD_STALE_CAPABILITY_PATTERNS
+            ):
+                continue
+            findings.append(
+                Finding(
+                    code="device-card-stale-capability-doc",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Device-card docs still expose stale source capability "
+                        "names; use canonical color_temperature."
                     ),
                 )
             )
