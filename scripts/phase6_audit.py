@@ -240,6 +240,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_history_doc_top_level_parser_findings(root_path))
     findings.extend(_camera_doc_top_level_error_findings(root_path))
     findings.extend(_camera_doc_top_level_success_findings(root_path))
+    findings.extend(_camera_doc_top_level_parser_findings(root_path))
     findings.extend(_webrtc_doc_top_level_success_findings(root_path))
     findings.extend(_sync_doc_top_level_error_findings(root_path))
     findings.extend(_sync_doc_top_level_success_findings(root_path))
@@ -2306,6 +2307,7 @@ def _camera_doc_top_level_success_findings(root: Path) -> list[Finding]:
             lines = path.read_text(encoding="utf-8").splitlines()
         except UnicodeDecodeError:
             continue
+        findings.extend(_camera_doc_success_block_findings(root, path, lines))
         for line_number, line in enumerate(lines, start=1):
             if '"success":' not in line and '{"success"' not in line:
                 continue
@@ -2321,6 +2323,95 @@ def _camera_doc_top_level_success_findings(root: Path) -> list[Finding]:
                 )
             )
     return findings
+
+
+def _camera_doc_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_camera_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="camera-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Camera docs still show top-level success payloads; "
+                            "use API vNext data fields."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_camera_doc_top_level_success_block(block: str) -> bool:
+    payload_keys = {
+        "cameras",
+        "count",
+        "cache_stats",
+        "hls_stats",
+        "hls_url",
+        "mjpeg_url",
+        "stream_source",
+        "is_streaming",
+    }
+    return (
+        '"schema_version"' not in block
+        and '"data"' not in block
+        and any(f'"{key}"' in block for key in payload_keys)
+    )
+
+
+def _camera_doc_top_level_parser_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in CAMERA_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not _is_camera_doc_top_level_parser_line(line):
+                continue
+            findings.append(
+                Finding(
+                    code="camera-doc-top-level-parser",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Camera docs parse API vNext envelopes as top-level "
+                        "payloads; read response data from envelope.data."
+                    ),
+                )
+            )
+    return findings
+
+
+def _is_camera_doc_top_level_parser_line(line: str) -> bool:
+    stale_patterns = (
+        "const data = await response.json();",
+    )
+    return any(pattern in line for pattern in stale_patterns)
 
 
 def _webrtc_doc_top_level_success_findings(root: Path) -> list[Finding]:

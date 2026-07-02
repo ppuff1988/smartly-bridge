@@ -1026,6 +1026,43 @@ def test_phase6_audit_detects_camera_docs_top_level_success_examples(
     assert any(finding.code == "camera-doc-top-level-success" for finding in findings)
 
 
+def test_phase6_audit_detects_camera_docs_top_level_payload_examples(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects camera docs that still show top-level payload bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/camera-api.md",
+        '```json\n{"cameras": [], "count": 0, "hls_url": "/stream.m3u8"}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "camera-doc-top-level-success" for finding in findings)
+
+
+def test_phase6_audit_detects_camera_docs_top_level_response_parsing(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects camera docs that parse response JSON as payload."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/camera-api.md",
+        (
+            "```javascript\n"
+            "const data = await response.json();\n"
+            "if (data.hls_url) {\n"
+            "  const hlsUrl = data.hls_url;\n"
+            "}\n"
+            "```\n"
+        ),
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "camera-doc-top-level-parser" for finding in findings)
+
+
 def test_phase6_audit_detects_webrtc_docs_top_level_success_examples(
     tmp_path: Path,
 ) -> None:
