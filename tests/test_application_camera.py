@@ -29,7 +29,8 @@ def _fixture(name: str) -> dict[str, Any]:
 def _serializable_camera_body(body: dict[str, Any]) -> dict[str, Any]:
     """Convert camera domain objects into stable fixture data."""
     converted = dict(body)
-    snapshot = converted.get("snapshot")
+    data = dict(converted.get("data", {}))
+    snapshot = data.get("snapshot")
     if isinstance(snapshot, CameraSnapshot):
         snapshot_payload = {
             "entity_id": snapshot.entity_id,
@@ -38,11 +39,7 @@ def _serializable_camera_body(body: dict[str, Any]) -> dict[str, Any]:
             "etag": snapshot.etag,
             "image_size": len(snapshot.image_data),
         }
-        converted["snapshot"] = snapshot_payload
-        converted["data"] = {
-            **converted.get("data", {}),
-            "snapshot": snapshot_payload,
-        }
+        converted["data"] = {**data, "snapshot": snapshot_payload}
     return converted
 
 
@@ -696,14 +693,9 @@ async def test_camera_snapshot_use_case_returns_snapshot_payload_and_headers() -
     )
 
     assert result.status == 200
-    legacy_body = {
-        key: value
-        for key, value in result.body.items()
-        if key not in {"schema_version", "data", "warnings", "errors"}
-    }
-    assert legacy_body == {"snapshot": gateway.snapshot}
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
-    assert result.body["data"] == legacy_body
+    assert result.body["data"] == {"snapshot": gateway.snapshot}
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
     assert result.headers == {
@@ -716,7 +708,7 @@ async def test_camera_snapshot_use_case_returns_snapshot_payload_and_headers() -
 
 @pytest.mark.asyncio
 async def test_camera_snapshot_response_matches_api_vnext_fixture() -> None:
-    """Camera snapshot full response remains stable for legacy and vNext clients."""
+    """Camera snapshot full response remains stable for vNext clients."""
     result = await CameraSnapshotUseCase(FakeCameraGateway()).execute(
         "camera.front",
         force_refresh=True,

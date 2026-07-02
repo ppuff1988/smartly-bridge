@@ -478,7 +478,12 @@ class TestSmartlyCameraSnapshotView:
             etag="snapshot-etag",
         )
         result = BridgeResponse(
-            {"snapshot": snapshot},
+            {
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"snapshot": snapshot},
+                "warnings": [],
+                "errors": [],
+            },
             status=200,
             headers={
                 "ETag": "snapshot-etag",
@@ -566,7 +571,15 @@ class TestSmartlyCameraSnapshotView:
                     timestamp=123.45,
                     etag="factory-etag",
                 )
-                return BridgeResponse({"snapshot": snapshot}, status=200)
+                return BridgeResponse(
+                    {
+                        "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                        "data": {"snapshot": snapshot},
+                        "warnings": [],
+                        "errors": [],
+                    },
+                    status=200,
+                )
 
         gateway = FakeRuntimeCameraGateway()
         use_case = FakeSnapshotUseCase()
@@ -588,7 +601,8 @@ class TestSmartlyCameraSnapshotView:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.calls == [("camera.front_door", True, '"factory-etag"')]
-        assert result.body["snapshot"].image_data == b"factory-image"
+        _assert_vnext_only_top_level(result.body)
+        assert result.body["data"]["snapshot"].image_data == b"factory-image"
 
     @pytest.mark.asyncio
     async def test_invalid_entity_id(self, mock_request):

@@ -517,7 +517,7 @@ def _adapt_camera_snapshot_response(result: Any, request: web.Request) -> web.Re
             status=result.status,
         )
 
-    snapshot = result.body["snapshot"]
+    snapshot = result.body["data"]["snapshot"]
     return web.Response(
         body=snapshot.image_data,
         content_type=snapshot.content_type,

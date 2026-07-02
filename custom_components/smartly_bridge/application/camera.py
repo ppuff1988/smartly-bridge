@@ -207,7 +207,7 @@ class CameraSnapshotUseCase:
         if snapshot is None:
             return _camera_vnext_error_response("snapshot_unavailable", status=404)
 
-        return _camera_success_response(
+        return _camera_vnext_success_response(
             {"snapshot": snapshot},
             headers={
                 "ETag": snapshot.etag,
