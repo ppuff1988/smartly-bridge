@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -21,6 +22,13 @@ from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.local_automation import (
     SmartlyLocalAutomationRulesView,
 )
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
 
 
 def _request_for_rules(
@@ -525,36 +533,9 @@ async def test_local_automation_rules_get_lists_stored_rules(mock_hass) -> None:
 
         response = await SmartlyLocalAutomationRulesView(request).get()
 
-    expected_rule = {
-        "rule_id": "stored-left-single",
-        "enabled": True,
-        "trigger": {
-            "device_id": "ldev_button",
-            "capability": "button_event",
-            "event": "single_press",
-            "payload": {"button": "left"},
-        },
-        "actions": [
-            {
-                "type": "device_command",
-                "device_id": "ldev_light",
-                "capability": "power",
-                "command": "turn_on",
-                "params": {},
-            }
-        ],
-    }
     assert response.status == 200
     payload = json.loads(response.body)
-    assert payload == {
-        "schema_version": "2026.06",
-        "data": {
-            "rules": [expected_rule],
-            "count": 1,
-        },
-        "warnings": [],
-        "errors": [],
-    }
+    assert payload == _api_vnext_fixture("local-automation-list.json")
 
 
 @pytest.mark.asyncio
@@ -610,20 +591,9 @@ async def test_local_automation_rules_get_requires_setup_runtime_rule_store(
         response = await SmartlyLocalAutomationRulesView(request).get()
 
     assert response.status == 500
-    assert json.loads(response.body) == {
-        "schema_version": "2026.06",
-        "data": {
-            "status": "rejected",
-        },
-        "warnings": [],
-        "errors": [
-            {
-                "code": "local_automation_rule_store_unavailable",
-                "message": "Local automation rule store not initialized",
-                "target": "local_automation.rule_store",
-            }
-        ],
-    }
+    assert json.loads(response.body) == _api_vnext_fixture(
+        "local-automation-rule-store-unavailable.json"
+    )
     assert (
         "local_automation_rule_store"
         not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -676,20 +646,9 @@ async def test_local_automation_rules_get_not_configured_uses_vnext_error(
     response = await SmartlyLocalAutomationRulesView(request).get()
 
     assert response.status == 500
-    assert json.loads(response.body) == {
-        "schema_version": "2026.06",
-        "data": {
-            "status": "rejected",
-        },
-        "warnings": [],
-        "errors": [
-            {
-                "code": "integration_not_configured",
-                "message": "Smartly Bridge integration is not configured",
-                "target": "integration",
-            }
-        ],
-    }
+    assert json.loads(response.body) == _api_vnext_fixture(
+        "local-automation-rules-integration-not-configured.json"
+    )
 
 
 @pytest.mark.asyncio
@@ -712,20 +671,9 @@ async def test_local_automation_rules_get_auth_failure_uses_vnext_error(
         response = await SmartlyLocalAutomationRulesView(request).get()
 
     assert response.status == 401
-    assert json.loads(response.body) == {
-        "schema_version": "2026.06",
-        "data": {
-            "status": "rejected",
-        },
-        "warnings": [],
-        "errors": [
-            {
-                "code": "invalid_signature",
-                "message": "Local automation rule request authentication failed",
-                "target": "request.auth",
-            }
-        ],
-    }
+    assert json.loads(response.body) == _api_vnext_fixture(
+        "local-automation-rules-auth-failure.json"
+    )
 
 
 @pytest.mark.asyncio
@@ -752,20 +700,9 @@ async def test_local_automation_rules_get_rate_limit_uses_vnext_error(
     assert response.status == 429
     assert response.headers["Retry-After"] == "60"
     assert response.headers["X-RateLimit-Remaining"] == "0"
-    assert json.loads(response.body) == {
-        "schema_version": "2026.06",
-        "data": {
-            "status": "rejected",
-        },
-        "warnings": [],
-        "errors": [
-            {
-                "code": "rate_limited",
-                "message": "Local automation rule request was rate limited",
-                "target": "request.rate_limit",
-            }
-        ],
-    }
+    assert json.loads(response.body) == _api_vnext_fixture(
+        "local-automation-rules-rate-limit.json"
+    )
 
 
 @pytest.mark.asyncio
@@ -850,20 +787,9 @@ async def test_local_automation_rules_invalid_json_uses_vnext_error(
         response = await getattr(view, method_name)()
 
     assert response.status == 400
-    assert json.loads(response.body) == {
-        "schema_version": "2026.06",
-        "data": {
-            "status": "rejected",
-        },
-        "warnings": [],
-        "errors": [
-            {
-                "code": "invalid_json",
-                "message": "Request body must be valid JSON",
-                "target": "request.body",
-            }
-        ],
-    }
+    assert json.loads(response.body) == _api_vnext_fixture(
+        "local-automation-rules-invalid-json.json"
+    )
 
 
 @pytest.mark.asyncio
@@ -942,13 +868,7 @@ async def test_local_automation_rules_delete_removes_stored_rule(mock_hass) -> N
 
     assert response.status == 200
     payload = json.loads(response.body)
-    assert payload == {
-        "schema_version": "2026.06",
-        "data": {
-            "status": "deleted",
-            "rule_id": "stored-left-single",
-        },
-        "warnings": [],
-        "errors": [],
-    }
+    assert payload == _api_vnext_fixture(
+        "local-automation-delete-stored-left-single.json"
+    )
     mock_hass.config_entries.async_update_entry.assert_called_once()

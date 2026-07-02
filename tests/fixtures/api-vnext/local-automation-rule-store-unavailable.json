@@ -1,0 +1,14 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "local_automation_rule_store_unavailable",
+      "message": "Local automation rule store not initialized",
+      "target": "local_automation.rule_store"
+    }
+  ]
+}
