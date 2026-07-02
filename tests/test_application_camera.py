@@ -46,6 +46,18 @@ def _serializable_camera_body(body: dict[str, Any]) -> dict[str, Any]:
     return converted
 
 
+def _assert_vnext_only_top_level(body: dict[str, Any]) -> None:
+    """Assert a response only exposes API vNext envelope fields at top-level."""
+    assert set(body) <= {
+        "schema_version",
+        "data",
+        "warnings",
+        "errors",
+        "request_id",
+        "correlation_id",
+    }
+
+
 class FakeCameraGateway:
     """Fake camera port."""
 
@@ -151,13 +163,14 @@ async def test_camera_list_returns_only_allowed_camera_states() -> None:
     result = await CameraListUseCase(FakeCameraGateway()).execute(include_capabilities=False)
 
     assert result.status == 200
-    assert result.body["count"] == 2
-    assert [camera["entity_id"] for camera in result.body["cameras"]] == [
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["count"] == 2
+    assert [camera["entity_id"] for camera in result.body["data"]["cameras"]] == [
         "camera.front",
         "camera.back",
     ]
-    assert result.body["cache_stats"] == {"cached_snapshots": 0}
-    assert result.body["hls_stats"] == {"active_streams": 0}
+    assert result.body["data"]["cache_stats"] == {"cached_snapshots": 0}
+    assert result.body["data"]["hls_stats"] == {"active_streams": 0}
 
 
 @pytest.mark.asyncio
@@ -165,7 +178,8 @@ async def test_camera_list_adds_capabilities_when_requested() -> None:
     """Capability lookups stay behind the camera gateway."""
     result = await CameraListUseCase(FakeCameraGateway()).execute(include_capabilities=True)
 
-    front = result.body["cameras"][0]
+    _assert_vnext_only_top_level(result.body)
+    front = result.body["data"]["cameras"][0]
     assert front["capabilities"] == {
         "snapshot": True,
         "mjpeg": True,
@@ -173,7 +187,7 @@ async def test_camera_list_adds_capabilities_when_requested() -> None:
         "webrtc": False,
     }
     assert front["endpoints"]["hls"] == "/api/smartly/camera/camera.front/stream/hls"
-    assert "capabilities" not in result.body["cameras"][1]
+    assert "capabilities" not in result.body["data"]["cameras"][1]
 
 
 @pytest.mark.asyncio
@@ -185,15 +199,13 @@ async def test_camera_list_response_includes_vnext_envelope() -> None:
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
+    _assert_vnext_only_top_level(result.body)
     assert result.body["data"] == {
-        "cameras": result.body["cameras"],
+        "cameras": result.body["data"]["cameras"],
         "count": 2,
         "cache_stats": {"cached_snapshots": 0},
         "hls_stats": {"active_streams": 0},
     }
-    assert result.body["count"] == 2
-    assert result.body["cache_stats"] == {"cached_snapshots": 0}
-    assert result.body["hls_stats"] == {"active_streams": 0}
 
 
 @pytest.mark.asyncio

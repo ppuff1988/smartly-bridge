@@ -1550,8 +1550,8 @@ class TestSmartlyCameraListView:
         )
 
         assert result.status == 200
-        assert result.body["count"] == 1
-        assert result.body["cameras"][0]["capabilities"]["snapshot"] is True
+        assert result.body["data"]["count"] == 1
+        assert result.body["data"]["cameras"][0]["capabilities"]["snapshot"] is True
         assert gateway.calls == [
             "list_allowed_camera_ids",
             "get_camera_state",
@@ -1572,9 +1572,10 @@ class TestSmartlyCameraListView:
                 self.calls.append(include_capabilities)
                 return BridgeResponse(
                     {
-                        "cameras": [{"entity_id": "camera.factory"}],
-                        "count": 1,
-                        "data": {"count": 1},
+                        "data": {
+                            "cameras": [{"entity_id": "camera.factory"}],
+                            "count": 1,
+                        },
                     },
                     status=200,
                 )
@@ -1597,7 +1598,7 @@ class TestSmartlyCameraListView:
         assert result.status == 200
         assert factory_calls == [gateway]
         assert use_case.calls == [True]
-        assert result.body["cameras"] == [{"entity_id": "camera.factory"}]
+        assert result.body["data"]["cameras"] == [{"entity_id": "camera.factory"}]
 
     @pytest.mark.asyncio
     async def test_list_integration_not_configured(self, mock_request, mock_hass):
@@ -1737,11 +1738,11 @@ class TestSmartlyCameraListView:
 
             assert response.status == 200
             data = json.loads(response.body)
-            assert data["count"] == 2
-            assert len(data["cameras"]) == 2
+            assert data["data"]["count"] == 2
+            assert len(data["data"]["cameras"]) == 2
 
             # Verify camera data
-            camera_ids = [c["entity_id"] for c in data["cameras"]]
+            camera_ids = [c["entity_id"] for c in data["data"]["cameras"]]
             assert "camera.front_door" in camera_ids
             assert "camera.backyard" in camera_ids
 
@@ -1761,8 +1762,8 @@ class TestSmartlyCameraListView:
 
         assert response.status == 200
         data = json.loads(response.body)
-        assert data["count"] == 1
-        assert data["cameras"][0]["entity_id"] == "camera.runtime"
+        assert data["data"]["count"] == 1
+        assert data["data"]["cameras"][0]["entity_id"] == "camera.runtime"
         assert gateway.calls == [
             "list_allowed_camera_ids",
             "get_camera_state",
@@ -1795,8 +1796,8 @@ class TestSmartlyCameraListView:
         data = json.loads(response.body)
         assert data["request_id"] == "req-camera-001"
         assert data["correlation_id"] == "corr-camera-001"
-        assert data["count"] == 1
-        assert data["cameras"][0]["entity_id"] == "camera.runtime"
+        assert data["data"]["count"] == 1
+        assert data["data"]["cameras"][0]["entity_id"] == "camera.runtime"
 
 
 class TestSmartlyCameraConfigView:

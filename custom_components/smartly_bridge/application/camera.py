@@ -50,7 +50,6 @@ class CameraListUseCase:
         }
         return BridgeResponse(
             {
-                **body,
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": body,
                 "warnings": [],
