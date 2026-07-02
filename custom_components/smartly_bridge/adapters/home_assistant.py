@@ -209,12 +209,12 @@ class InMemoryDeviceEventDeduplicator:
 
 
 def _home_assistant_device_event_publisher(hass: Any) -> HomeAssistantDeviceEventPublisher:
-    """Build the Home Assistant-backed legacy device event publisher."""
+    """Build the Home Assistant-backed device event publisher runtime adapter."""
     return HomeAssistantDeviceEventPublisher(hass)
 
 
 def _in_memory_device_event_deduplicator() -> InMemoryDeviceEventDeduplicator:
-    """Build the legacy in-memory device event deduplicator."""
+    """Build the in-memory device event deduplicator runtime adapter."""
     return InMemoryDeviceEventDeduplicator()
 
 
@@ -418,7 +418,7 @@ def _local_automation_rule_to_config(rule: LocalAutomationRule) -> dict[str, Any
 
 
 def _home_assistant_local_automation_rule_store(hass: Any) -> HomeAssistantLocalAutomationRuleStore:
-    """Build the Home Assistant-backed legacy local automation rule store."""
+    """Build the Home Assistant-backed local automation rule store runtime adapter."""
     return HomeAssistantLocalAutomationRuleStore(hass)
 
 
@@ -436,7 +436,7 @@ def _home_assistant_history_gateway(
     hass: Any,
     history_semaphore_factory: Callable[[], Any],
 ) -> Any:
-    """Build the Home Assistant-backed legacy history gateway."""
+    """Build the Home Assistant-backed history gateway runtime adapter."""
     return HomeAssistantHistoryGateway(hass, history_semaphore_factory)
 
 
@@ -473,7 +473,7 @@ class HomeAssistantSmartlyCommandExecutor:
 def _home_assistant_smartly_command_executor(
     hass: Any, logger: Any
 ) -> HomeAssistantSmartlyCommandExecutor:
-    """Build the Home Assistant-backed legacy SmartlyCommand executor."""
+    """Build the Home Assistant-backed SmartlyCommand executor runtime adapter."""
     return HomeAssistantSmartlyCommandExecutor(hass, logger)
 
 
@@ -696,7 +696,7 @@ def _home_assistant_sync_structure_gateway(
     allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
     structure_fn: Callable[[Any, list[str], Any, Any, Any, Any], dict[str, Any]] = get_structure,
 ) -> HomeAssistantSyncGateway:
-    """Build the Home Assistant-backed legacy sync structure gateway."""
+    """Build the Home Assistant-backed sync structure gateway runtime adapter."""
     return HomeAssistantSyncGateway(
         hass,
         allowed_entities_fn=allowed_entities_fn,
@@ -759,7 +759,7 @@ class HomeAssistantRawDiagnosticStore:
 
 
 def _home_assistant_raw_diagnostic_store(hass: Any) -> HomeAssistantRawDiagnosticStore:
-    """Build the Home Assistant-backed legacy raw diagnostic store."""
+    """Build the Home Assistant-backed raw diagnostic store runtime adapter."""
     return HomeAssistantRawDiagnosticStore(hass)
 
 
@@ -997,7 +997,7 @@ def _home_assistant_sync_states_gateway(
         [Any, Callable[[], Any]], Any
     ] = _state_sync_history_gateway,
 ) -> HomeAssistantStateSyncGateway:
-    """Build the Home Assistant-backed legacy sync states gateway."""
+    """Build the Home Assistant-backed sync states gateway runtime adapter."""
     return HomeAssistantStateSyncGateway(
         hass,
         allowed_entities_fn=allowed_entities_fn,
@@ -1140,7 +1140,7 @@ def _home_assistant_camera_gateway(
     *,
     allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
 ) -> HomeAssistantCameraGateway:
-    """Build the Home Assistant-backed legacy camera gateway."""
+    """Build the Home Assistant-backed camera gateway runtime adapter."""
     return HomeAssistantCameraGateway(
         hass,
         camera_manager,
@@ -1314,7 +1314,7 @@ def _home_assistant_web_rtc_gateway(
     hass: Any,
     webrtc_manager: Any,
 ) -> HomeAssistantWebRTCGateway:
-    """Build the Home Assistant-backed legacy WebRTC gateway."""
+    """Build the Home Assistant-backed WebRTC gateway runtime adapter."""
     return HomeAssistantWebRTCGateway(hass, webrtc_manager)
 
 

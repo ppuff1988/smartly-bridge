@@ -50,8 +50,8 @@ def test_raw_diagnostic_store_expires_payloads_after_ttl() -> None:
     assert "raw_camera_porch" not in hass.data[DOMAIN]["raw_diagnostics"]
 
 
-def test_home_assistant_raw_diagnostic_store_factory_builds_legacy_store() -> None:
-    """Home Assistant raw diagnostic store factory preserves the legacy store type."""
+def test_home_assistant_raw_diagnostic_store_factory_builds_runtime_store() -> None:
+    """Home Assistant raw diagnostic store factory builds the runtime adapter type."""
     hass = MagicMock()
     hass.data = {DOMAIN: {}}
 

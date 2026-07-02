@@ -160,8 +160,8 @@ class FakeDeviceEventUseCase:
         )
 
 
-def test_home_assistant_device_event_publisher_factory_builds_legacy_publisher() -> None:
-    """Device event publisher factory centralizes legacy HA event bus wiring."""
+def test_home_assistant_device_event_publisher_factory_builds_runtime_publisher() -> None:
+    """Device event publisher factory centralizes Home Assistant event bus wiring."""
     hass = MagicMock()
 
     publisher = _home_assistant_device_event_publisher(hass)
@@ -169,8 +169,8 @@ def test_home_assistant_device_event_publisher_factory_builds_legacy_publisher()
     assert isinstance(publisher, HomeAssistantDeviceEventPublisher)
 
 
-def test_in_memory_device_event_deduplicator_factory_builds_legacy_deduplicator() -> None:
-    """Device event deduplicator factory centralizes legacy in-memory dedupe wiring."""
+def test_in_memory_device_event_deduplicator_factory_builds_runtime_deduplicator() -> None:
+    """Device event deduplicator factory centralizes in-memory dedupe wiring."""
     deduplicator = _in_memory_device_event_deduplicator()
 
     assert isinstance(deduplicator, InMemoryDeviceEventDeduplicator)

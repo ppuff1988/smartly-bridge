@@ -58,7 +58,7 @@ def _build_runtime_adapters(
     webrtc_manager: Any,
     logger: logging.Logger,
 ) -> dict[str, Any]:
-    """Build setup-created runtime ports used by legacy views."""
+    """Build setup-created runtime ports used by HTTP views."""
     from .adapters.home_assistant import (
         _home_assistant_camera_gateway,
         _home_assistant_device_event_publisher,

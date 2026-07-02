@@ -422,18 +422,18 @@ class TestSmartlySyncView:
         assert use_case.calls == 1
         assert result.body["entities"] == [{"entity_id": "light.factory"}]
 
-    def test_home_assistant_sync_structure_gateway_factory_builds_legacy_gateway(
+    def test_home_assistant_sync_structure_gateway_factory_builds_runtime_gateway(
         self, mock_hass
     ):
-        """Home Assistant sync structure factory preserves the legacy gateway type."""
+        """Home Assistant sync structure factory builds the runtime adapter type."""
         gateway = _home_assistant_sync_structure_gateway(mock_hass)
 
         assert isinstance(gateway, HomeAssistantSyncGateway)
 
-    def test_home_assistant_sync_states_gateway_factory_builds_legacy_gateway(
+    def test_home_assistant_sync_states_gateway_factory_builds_runtime_gateway(
         self, mock_hass
     ):
-        """Home Assistant sync states factory preserves the legacy gateway type."""
+        """Home Assistant sync states factory builds the runtime adapter type."""
         gateway = _home_assistant_sync_states_gateway(mock_hass)
 
         assert isinstance(gateway, HomeAssistantStateSyncGateway)

@@ -121,8 +121,8 @@ class FakeWebRTCGateway:
         return True
 
 
-def test_home_assistant_web_rtc_gateway_factory_builds_legacy_gateway(mock_hass) -> None:
-    """Home Assistant WebRTC gateway factory preserves the legacy gateway type."""
+def test_home_assistant_web_rtc_gateway_factory_builds_runtime_gateway(mock_hass) -> None:
+    """Home Assistant WebRTC gateway factory builds the runtime adapter type."""
     manager = MagicMock()
 
     gateway = _home_assistant_web_rtc_gateway(mock_hass, manager)

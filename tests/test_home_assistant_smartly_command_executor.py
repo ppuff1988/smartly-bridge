@@ -36,8 +36,8 @@ class FakeSmartlyCommandUseCase:
         )
 
 
-def test_home_assistant_smartly_command_executor_factory_builds_legacy_executor() -> None:
-    """Smartly command executor factory centralizes legacy executor wiring."""
+def test_home_assistant_smartly_command_executor_factory_builds_runtime_executor() -> None:
+    """Smartly command executor factory centralizes runtime executor wiring."""
     hass = MagicMock()
     logger = MagicMock()
 

@@ -134,7 +134,7 @@ class TestSetup:
     async def test_async_setup_entry_initializes_hexagonal_runtime_adapters(
         self, mock_hass, mock_config_entry
     ):
-        """Setup exposes Home Assistant adapters for legacy views through runtime ports."""
+        """Setup exposes Home Assistant adapters for HTTP views through runtime ports."""
         from custom_components.smartly_bridge import async_setup_entry
         from custom_components.smartly_bridge.adapters.home_assistant import (
             HomeAssistantCameraGateway,

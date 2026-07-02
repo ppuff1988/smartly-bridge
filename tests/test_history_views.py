@@ -112,8 +112,8 @@ class FakeRuntimeHistoryGateway:
         ]
 
 
-def test_home_assistant_history_gateway_factory_builds_legacy_gateway(mock_hass) -> None:
-    """Home Assistant history gateway factory preserves the legacy gateway type."""
+def test_home_assistant_history_gateway_factory_builds_runtime_gateway(mock_hass) -> None:
+    """Home Assistant history gateway factory builds the runtime adapter type."""
     gateway = _home_assistant_history_gateway(mock_hass, MagicMock())
 
     assert isinstance(gateway, HomeAssistantHistoryGateway)

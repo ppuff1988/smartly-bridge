@@ -16,8 +16,8 @@ from custom_components.smartly_bridge.application.local_automation import (
 from custom_components.smartly_bridge.const import DOMAIN
 
 
-def test_home_assistant_local_automation_rule_store_factory_builds_legacy_store() -> None:
-    """Home Assistant local automation store factory centralizes legacy rule wiring."""
+def test_home_assistant_local_automation_rule_store_factory_builds_runtime_store() -> None:
+    """Home Assistant local automation store factory centralizes runtime rule wiring."""
     hass = MagicMock()
 
     store = _home_assistant_local_automation_rule_store(hass)

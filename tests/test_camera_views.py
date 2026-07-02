@@ -198,8 +198,8 @@ class FakeRuntimeCameraGateway:
         self.streamed = (entity_id, request, response)
 
 
-def test_home_assistant_camera_gateway_factory_builds_legacy_gateway() -> None:
-    """Camera gateway factory centralizes legacy camera manager wiring."""
+def test_home_assistant_camera_gateway_factory_builds_runtime_gateway() -> None:
+    """Camera gateway factory centralizes runtime camera manager wiring."""
     hass = MagicMock()
     camera_manager = MagicMock()
 
