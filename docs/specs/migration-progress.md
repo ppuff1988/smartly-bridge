@@ -621,6 +621,7 @@
 | 431 | `0d2e9e6` | Phase 6 移除 Local automation `device_command` result 對 SmartlyCommand legacy top-level `status` 的 fallback，automation status 現在只透過 API vNext `data.status` 取得，測試替身同步改為 vNext SmartlyCommand response envelope | RED failed because `_command_response_status` still returned legacy top-level `status`; focused local automation status tests `2 passed`; local-automation/device-event/command/http scope `210 passed`; full suite `915 passed` |
 | 432 | `55127dd` | Phase 6 移除 WebRTC offer signaling failure log 對 response top-level `message` 的讀取，WebRTC diagnostic log 現在從 API vNext `errors[0].message` 取得 failure reason | RED failed because offer 500 logging printed `None` for vNext-only errors; focused WebRTC offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed` |
 | 433 | `7725443` | Phase 6 清理 API vNext fixture tests 的 legacy wording，將已鎖定 vNext-only envelope 的 camera、device-event、command、history 與 WebRTC fixture 測試描述改為 API vNext contract wording，避免後續重構誤解為仍需保留 legacy top-level 欄位 | Affected fixture test files `278 passed`; residual legacy wording search only leaves intentional legacy top-level-negative assertions and alias/runtime-factory compatibility wording |
+| 434 | `7d16680` | Phase 6 清理 Home Assistant-backed runtime adapter factory 的 legacy wording，將 adapter factory docstrings 與對應測試名稱/描述改成 runtime adapter wording，避免 setup-created adapter 被誤判為 request-time legacy fallback | Runtime adapter legacy wording search clean for targeted factories; affected runtime adapter tests `359 passed` |
 
 ## Completed Slices
 
@@ -676,6 +677,8 @@
 - WebRTC offer diagnostics verification: focused offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed`
 - API vNext fixture wording cleanup: camera/device-event/command/history/WebRTC fixture tests now describe vNext-only envelope contracts instead of legacy/vNext compatibility.
 - API vNext fixture wording verification: affected fixture test files `278 passed`
+- Runtime adapter wording cleanup: Home Assistant-backed setup factories now describe runtime adapters rather than legacy gateways/stores/executors/publishers.
+- Runtime adapter wording verification: targeted legacy runtime-adapter wording search is clean; affected runtime adapter tests `359 passed`
 - Phase 6 audit evidence: `/api/smartly/states` is not registered, all `tests/fixtures/api-vnext/*.json` files expose only `data` / `errors` / `schema_version` / `warnings` top-level keys, and sync raw diagnostic tests assert `raw_payload` stays out of sync bodies.
 - Phase 6 response-read audit: production response top-level read scan has no remaining `error` / `success` / `status` / `message` / payload-field reads; remaining `body.get("action")` / `body.get("entity_id")` hits are request-body parsing in camera/device-event views.
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
@@ -688,7 +691,6 @@
 - Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`, including release-window assumptions that cannot be proven from code alone.
 - Adapter contract pre-merge gates now cover manifest validation, match priority collision, normalization snapshots, command mapping snapshots, event dedupe snapshots, and health degradation snapshots.
 - Continue adding endpoint-level API vNext contract snapshots for HTTP shell paths that still use inline expected bodies instead of shared fixtures.
-- Decide whether runtime adapter factory names/docstrings should keep `legacy` wording for Home Assistant-backed compatibility adapters or be renamed after Platform cutover.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
 - Continue auditing local automation adapter persistence behavior before Platform read/write path cutover.
 - Phase 6 request-time runtime fallback cleanup has no explicit remaining gateway/use-case fallback area from the current code audit; expired `/api/smartly/states` alias, Control legacy `entity_id` / `action` body branch, internal ControlUseCase legacy success/error body fields, Control endpoint legacy top-level error field, sync error legacy top-level error field, sync structure/states success legacy top-level fields, raw diagnostic legacy top-level fields, SmartlyCommand success/error legacy top-level duplicate fields, device-event legacy top-level response fields, local automation rules legacy top-level response fields, history legacy top-level response fields, and WebRTC token/offer/ICE/hangup legacy top-level response fields have been removed, and broader spec audit should continue for additional legacy aliases or deprecated endpoints.
