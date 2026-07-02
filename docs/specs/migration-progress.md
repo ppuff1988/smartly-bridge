@@ -702,6 +702,8 @@
 - Setting source-domain verification: RED failed because wrong-domain setting commands returned success; focused setting-domain tests `2 passed`; application/control/logical/HTTP scope `181 passed`; full suite `918 passed`.
 - Local automation persistence hardening: Home Assistant rule-store create path ignores malformed config entry rule collections and non-dict entries before persisting new Platform rules.
 - Local automation persistence verification: RED failed because dict-shaped `local_automation_rules` was persisted as string keys; focused malformed create test `1 passed`; Home Assistant local automation adapter `18 passed`; local automation/device-event/http scope `151 passed`.
+- Phase 6 requirement audit: migration-plan Phase 6 gates, API vNext response rules, capability canonical/source-ref rules, raw diagnostic retention, alias retention, endpoint removal and unknown-device fallback were mapped to code evidence or external release gates.
+- Phase 6 requirement audit verification: focused control/register-view tests `2 passed`; adapter contract tests `20 passed`; production legacy top-level dict literal AST scan passed; legacy control wording search passed.
 - Phase 6 audit evidence: `/api/smartly/states` is not registered, all `tests/fixtures/api-vnext/*.json` files expose only `data` / `errors` / `schema_version` / `warnings` top-level keys, and sync raw diagnostic tests assert `raw_payload` stays out of sync bodies.
 - Phase 6 response-read audit: production response top-level read scan has no remaining `error` / `success` / `status` / `message` / payload-field reads; remaining `body.get("action")` / `body.get("entity_id")` hits are request-body parsing in camera/device-event views.
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
@@ -709,8 +711,29 @@
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
 - Full suite: `918 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
 
+## Phase 6 Requirement Audit
+
+| Requirement | Current evidence | Status |
+|---|---|---|
+| Active Platform clients support API vNext before final legacy removal | Not provable from Bridge code; requires Platform release inventory / client telemetry. | External release gate |
+| Legacy endpoint usage is below the removal threshold | Not provable from Bridge code; requires production usage telemetry. | External release gate |
+| Alias window has been announced and expired | Alias payloads are still emitted, but announcement/expiry is a release-process artifact. | External release gate |
+| Rollback playbook has been verified | Not represented in code; requires release/ops verification. | External release gate |
+| Remove expired legacy alias/deprecated endpoint | `register_views` no longer registers `/api/smartly/states`; `tests/test_http.py::test_register_views` asserts it is absent. | Code-verified |
+| Remove legacy `entity_id` / `action` control body branch | `POST /api/smartly/control` rejects legacy body as `missing_required_fields`; `_smartly_command_from_body` does not parse legacy entity/action bodies. | Code-verified |
+| Remove source-specific request-time fallback adapters from views | Control, sync, diagnostics, WebRTC, camera, history, local automation and device-event views require setup-created runtime adapters; production constructor scan for fallback adapters in views is clean. | Code-verified |
+| Remove unnecessary raw payload from sync response | Sync diagnostic devices emit `raw_refs` and record raw payload out-of-band; tests assert `raw_payload` is not in sync bodies. | Code-verified |
+| Preserve raw diagnostic storage | `RawDiagnosticStorePort` / `RawDiagnosticRecorderPort` and `HomeAssistantRawDiagnosticStore` remain, with TTL and redacted fetch endpoint coverage. | Preserved |
+| Preserve alias mapping history shape | Logical devices emit `aliases` with `kind`, `value`, `valid_from`, and `valid_until`; alias deletion still requires release-window proof. | Preserved, release-gated |
+| Preserve migration audit log | This file remains the chronological migration audit log and records each refactor slice in order. | Preserved |
+| API vNext common envelope for JSON responses | Shared fixtures and API vNext fixture audit enforce only `schema_version` / `data` / `warnings` / `errors` top-level keys, with request/correlation IDs where applicable. | Code-verified |
+| API vNext media exceptions | Camera snapshot image/304 and MJPEG stream responses preserve media/empty response modes instead of JSON wrapping. | Code-verified |
+| API vNext event dedupe | Device event use case deduplicates by canonical event key; adapter contract event mapping snapshots require source event id or dedupe key and reject duplicates. | Code-verified |
+| Capability contract canonical names and source refs | Logical-device normalization maps legacy source capabilities to canonical capability contracts and keeps `source_refs` diagnostic-only; adapter manifest validation rejects source-specific capability names. | Code-verified |
+| Unknown device safe fallback | Unsupported entities remain visible as diagnostic fallback devices with normalization warnings and out-of-band raw diagnostics. | Code-verified |
+| Platform dashboard does not depend on brand/source entity render | Bridge emits canonical capabilities and presentation hints, but final Platform renderer dependency must be audited in the Platform repo/client. | External Platform gate |
+| Legacy API has an explicit LTS or removal strategy | Removed paths are documented here; any remaining long-term LTS commitment is a product/release policy decision. | External release gate |
+
 ## Remaining Work
 
-- Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`, including release-window assumptions that cannot be proven from code alone.
-- Adapter contract pre-merge gates now cover manifest validation, match priority collision, normalization snapshots, command mapping snapshots, event dedupe snapshots, and health degradation snapshots.
-- Phase 6 request-time runtime fallback cleanup has no explicit remaining gateway/use-case fallback area from the current code audit; expired `/api/smartly/states` alias, Control legacy `entity_id` / `action` body branch, internal ControlUseCase legacy success/error body fields, Control endpoint legacy top-level error field, sync error legacy top-level error field, sync structure/states success legacy top-level fields, raw diagnostic legacy top-level fields, SmartlyCommand success/error legacy top-level duplicate fields, device-event legacy top-level response fields, local automation rules legacy top-level response fields, history legacy top-level response fields, and WebRTC token/offer/ICE/hangup legacy top-level response fields have been removed, and broader spec audit should continue for additional legacy aliases or deprecated endpoints.
+- Resolve external Phase 6 release gates: active Platform API vNext adoption, legacy endpoint usage threshold, alias-window announcement/expiry, rollback playbook verification, Platform dashboard source/brand render audit, and final Legacy API LTS/removal policy.
