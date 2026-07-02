@@ -341,9 +341,20 @@ class TestSmartlyCameraSnapshotView:
         assert result.entity_id == ""
         assert result.response is not None
         assert result.response.status == 400
-        assert json.loads(result.response.body) == _api_vnext_fixture(
-            "camera-snapshot-invalid-entity-id.json"
-        )
+        assert json.loads(result.response.body) == {
+            "error": "invalid_entity_id",
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": "INVALID_ENTITY_ID",
+                    "message": "invalid entity id",
+                    "target": "camera.entity_id",
+                    "retryable": False,
+                }
+            ],
+        }
 
     def test_camera_entity_id_from_request_reads_path_entity(
         self,
@@ -573,8 +584,8 @@ class TestSmartlyCameraSnapshotView:
         response = await view.get()
         assert response.status == 400
         data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
         assert data == {
-            "error": "invalid_entity_id",
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -599,9 +610,9 @@ class TestSmartlyCameraSnapshotView:
         response = await SmartlyCameraSnapshotView(mock_request).get()
 
         assert response.status == 400
-        assert json.loads(response.body) == _api_vnext_fixture(
-            "camera-snapshot-invalid-entity-id.json"
-        )
+        data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
+        assert data == _api_vnext_fixture("camera-snapshot-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_integration_not_configured(self, mock_request, mock_hass):
@@ -611,8 +622,8 @@ class TestSmartlyCameraSnapshotView:
         response = await view.get()
         assert response.status == 500
         data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
         assert data == {
-            "error": "integration_not_configured",
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],
@@ -638,9 +649,9 @@ class TestSmartlyCameraSnapshotView:
         response = await SmartlyCameraSnapshotView(mock_request).get()
 
         assert response.status == 500
-        assert json.loads(response.body) == _api_vnext_fixture(
-            "camera-snapshot-integration-not-configured.json"
-        )
+        data = json.loads(response.body)
+        _assert_vnext_only_top_level(data)
+        assert data == _api_vnext_fixture("camera-snapshot-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request, mock_hass):
@@ -656,8 +667,8 @@ class TestSmartlyCameraSnapshotView:
 
             assert response.status == 401
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "invalid_signature",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -690,9 +701,9 @@ class TestSmartlyCameraSnapshotView:
             response = await SmartlyCameraSnapshotView(mock_request).get()
 
             assert response.status == 401
-            assert json.loads(response.body) == _api_vnext_fixture(
-                "camera-snapshot-auth-failure.json"
-            )
+            data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
+            assert data == _api_vnext_fixture("camera-snapshot-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
@@ -714,8 +725,8 @@ class TestSmartlyCameraSnapshotView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
             assert data == {
-                "error": "rate_limited",
                 "schema_version": SMARTLY_API_SCHEMA_VERSION,
                 "data": {"status": "rejected"},
                 "warnings": [],
@@ -749,9 +760,9 @@ class TestSmartlyCameraSnapshotView:
             assert response.status == 429
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
-            assert json.loads(response.body) == _api_vnext_fixture(
-                "camera-snapshot-rate-limited.json"
-            )
+            data = json.loads(response.body)
+            _assert_vnext_only_top_level(data)
+            assert data == _api_vnext_fixture("camera-snapshot-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_entity_not_allowed(self, mock_request, mock_hass):
@@ -771,8 +782,8 @@ class TestSmartlyCameraSnapshotView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
+                _assert_vnext_only_top_level(data)
                 assert data == {
-                    "error": "entity_not_allowed",
                     "schema_version": SMARTLY_API_SCHEMA_VERSION,
                     "data": {"status": "rejected"},
                     "warnings": [],
@@ -806,9 +817,9 @@ class TestSmartlyCameraSnapshotView:
                 response = await SmartlyCameraSnapshotView(mock_request).get()
 
                 assert response.status == 403
-                assert json.loads(response.body) == _api_vnext_fixture(
-                    "camera-snapshot-entity-not-allowed.json"
-                )
+                data = json.loads(response.body)
+                _assert_vnext_only_top_level(data)
+                assert data == _api_vnext_fixture("camera-snapshot-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_camera_gateway_unavailable(self, mock_request, mock_hass):

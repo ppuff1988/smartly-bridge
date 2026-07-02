@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import json
 import time
 from unittest.mock import AsyncMock, MagicMock, patch
 
@@ -649,7 +650,9 @@ class TestCameraHTTPEndpoints:
         response = await view.get()
 
         assert response.status == 400
-        assert b"invalid_entity_id" in response.body
+        data = json.loads(response.body)
+        assert set(data) <= {"schema_version", "data", "warnings", "errors"}
+        assert data["errors"][0]["code"] == "INVALID_ENTITY_ID"
 
     @pytest.mark.asyncio
     async def test_camera_list_success(self):

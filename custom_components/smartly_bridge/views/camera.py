@@ -561,6 +561,7 @@ class SmartlyCameraSnapshotView(BaseView):
         validation = _validate_camera_entity_id(
             self.request,
             _camera_entity_id_from_request(self.request),
+            error_response_factory=_camera_vnext_error_response,
         )
         if validation.response is not None:
             return validation.response
@@ -572,6 +573,7 @@ class SmartlyCameraSnapshotView(BaseView):
             entity_id=entity_id,
             service="camera_snapshot",
             require_entity_allowed=True,
+            error_response_factory=_camera_vnext_error_response,
         )
         if guard.response is not None:
             return guard.response

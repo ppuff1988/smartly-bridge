@@ -1,5 +1,4 @@
 {
-  "error": "integration_not_configured",
   "schema_version": "2026.06",
   "data": {
     "status": "rejected"
