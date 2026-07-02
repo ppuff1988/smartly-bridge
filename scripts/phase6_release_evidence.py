@@ -279,10 +279,10 @@ def _is_iso_date(value: str) -> bool:
     if re.fullmatch(r"\d{4}-\d{2}-\d{2}", candidate) is None:
         return False
     try:
-        date.fromisoformat(candidate)
+        parsed_date = date.fromisoformat(candidate)
     except ValueError:
         return False
-    return True
+    return parsed_date <= date.today()
 
 
 def _is_ready_decision(value: str) -> bool:

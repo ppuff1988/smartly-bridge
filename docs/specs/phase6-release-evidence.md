@@ -6,7 +6,7 @@ Do not mark a gate as ready from intent, verbal confirmation, or a local-only ch
 Do not leave placeholder wording such as `TBD`, `Pending`, or `n/a` inside owner, evidence, reviewer, or sign-off fields.
 Each required gate must appear exactly once in `Status`.
 Do not add extra rows to `Status`; every row must match one of the required Phase 6 release gates.
-Each ready gate also needs a matching completed row in `Sign-off Record`. The sign-off `Date` must be a valid `YYYY-MM-DD` calendar date, and the sign-off `Evidence link` must match the gate's `Evidence source`.
+Each ready gate also needs a matching completed row in `Sign-off Record`. The sign-off `Date` must be a valid `YYYY-MM-DD` calendar date that is not in the future, and the sign-off `Evidence link` must match the gate's `Evidence source`.
 Each `(Gate, Evidence link)` pair must appear exactly once in `Sign-off Record`.
 Do not add extra gate names to `Sign-off Record`; every sign-off row must match one of the required Phase 6 release gates.
 Do not add alternate evidence links to `Sign-off Record`; every complete sign-off row must match the gate's `Status` evidence source.
@@ -124,7 +124,7 @@ Expected result:
 - Release evidence checker rejects unknown sign-off rows.
 - Release evidence checker rejects sign-off evidence links that do not match the gate evidence source.
 - Release evidence checker verifies every ready gate has a completed sign-off row.
-- Release evidence checker verifies completed sign-off dates are valid `YYYY-MM-DD` calendar dates.
+- Release evidence checker verifies completed sign-off dates are valid `YYYY-MM-DD` calendar dates that are not in the future.
 - Release evidence checker verifies the sign-off `Evidence link` matches the gate `Evidence source`.
 - Release evidence checker treats embedded `TBD`, `Pending`, and `n/a` placeholder wording as incomplete.
 
