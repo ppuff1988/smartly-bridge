@@ -36,10 +36,16 @@ Content-Type: application/json
 
 ```json
 {
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 200
+  "command_id": "cmd_20260627_0001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 78
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
 }
 ```

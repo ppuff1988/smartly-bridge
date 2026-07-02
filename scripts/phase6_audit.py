@@ -54,6 +54,23 @@ ACTIVE_CONTRACT_LEGACY_TERMS = (
     "deprecated",
     "backward compatibility",
 )
+PUBLIC_CONTROL_ENTRY_DOCS = [
+    Path("docs/control/README.md"),
+    Path("docs/control/api-basics.md"),
+]
+PUBLIC_CONTROL_LEGACY_BODY_TERMS = (
+    '"entity_id"',
+    " entity_id:",
+    " entity_id =",
+    "`entity_id`",
+    '"action"',
+    " action:",
+    " action =",
+    "`action`",
+    "service_data",
+    "ControlRequest",
+    "ControlResponse",
+)
 
 
 class Finding(NamedTuple):
@@ -87,6 +104,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_control_application_legacy_wording_findings(root_path))
     findings.extend(_active_contract_legacy_wording_findings(root_path))
     findings.extend(_openapi_legacy_control_body_findings(root_path))
+    findings.extend(_public_control_legacy_body_doc_findings(root_path))
     return findings
 
 
@@ -490,6 +508,33 @@ def _openapi_legacy_control_body_findings(root: Path) -> list[Finding]:
                 ),
             )
         )
+    return findings
+
+
+def _public_control_legacy_body_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in PUBLIC_CONTROL_ENTRY_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not any(term in line for term in PUBLIC_CONTROL_LEGACY_BODY_TERMS):
+                continue
+            findings.append(
+                Finding(
+                    code="public-control-legacy-body-doc",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Public control entry docs still show entity_id/action "
+                        "body; use API vNext SmartlyCommand."
+                    ),
+                )
+            )
     return findings
 
 

@@ -232,6 +232,21 @@ def test_phase6_audit_detects_openapi_legacy_control_body(tmp_path: Path) -> Non
     assert any(finding.code == "openapi-legacy-control-body" for finding in findings)
 
 
+def test_phase6_audit_detects_public_control_legacy_body_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects public control guides that still show entity/action body."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/control/api-basics.md",
+        '```json\n{"entity_id": "light.bedroom", "action": "turn_on"}\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:
