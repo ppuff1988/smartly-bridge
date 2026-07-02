@@ -129,34 +129,6 @@ def _camera_vnext_success_response(
     )
 
 
-def _camera_error_response(
-    error: str,
-    *,
-    status: int,
-    message: str | None = None,
-    target: str = "camera",
-) -> BridgeResponse:
-    """Return a legacy-compatible API vNext camera error response."""
-    error_message = message or error.replace("_", " ")
-    return BridgeResponse(
-        {
-            "error": error,
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": error.upper(),
-                    "message": error_message,
-                    "target": target,
-                    "retryable": False,
-                }
-            ],
-        },
-        status=status,
-    )
-
-
 class CameraSnapshotUseCase:
     """Handle camera snapshot retrieval."""
 

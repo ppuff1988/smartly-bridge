@@ -331,18 +331,19 @@ class TestSmartlyCameraSnapshotView:
         assert result.response is None
         assert result.entity_id == "camera.front_door"
 
-    def test_validate_camera_entity_id_returns_legacy_vnext_error(
+    def test_validate_camera_entity_id_returns_vnext_error_by_default(
         self,
         mock_request,
     ):
-        """Camera entity-id guard preserves invalid-entity legacy and vNext response."""
+        """Camera entity-id guard defaults to a vNext-only invalid-entity response."""
         result = _validate_camera_entity_id(mock_request, "light.kitchen")
 
         assert result.entity_id == ""
         assert result.response is not None
         assert result.response.status == 400
-        assert json.loads(result.response.body) == {
-            "error": "invalid_entity_id",
+        body = json.loads(result.response.body)
+        _assert_vnext_only_top_level(body)
+        assert body == {
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {"status": "rejected"},
             "warnings": [],

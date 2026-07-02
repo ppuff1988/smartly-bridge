@@ -22,7 +22,6 @@ from ..application.camera import (
     CameraListUseCase,
     CameraSnapshotUseCase,
     CameraStreamUseCase,
-    _camera_error_response,
     _camera_vnext_error_response,
 )
 from ..audit import log_control, log_deny
@@ -151,7 +150,7 @@ async def _authorize_camera_request(
     entity_id: str,
     service: str,
     require_entity_allowed: bool = False,
-    error_response_factory: Callable[..., Any] = _camera_error_response,
+    error_response_factory: Callable[..., Any] = _camera_vnext_error_response,
 ) -> CameraRequestGuardResult:
     """Authorize a camera HTTP request and return auth context or a response."""
     integration_data = hass.data.get(DOMAIN)
@@ -269,9 +268,9 @@ async def _authorize_camera_request(
 def _validate_camera_entity_id(
     request: web.Request,
     entity_id: str,
-    error_response_factory: Callable[..., Any] = _camera_error_response,
+    error_response_factory: Callable[..., Any] = _camera_vnext_error_response,
 ) -> CameraEntityIdValidationResult:
-    """Return a camera entity ID or a legacy-compatible invalid entity response."""
+    """Return a camera entity ID or a vNext invalid entity response."""
     if not entity_id or not entity_id.startswith("camera."):
         result = error_response_factory(
             "invalid_entity_id",
@@ -480,7 +479,7 @@ def _build_camera_stream_log_context(
     request: web.Request,
     entity_id: str,
 ) -> CameraStreamLogContext:
-    """Return legacy MJPEG stream request diagnostics for logging."""
+    """Return MJPEG stream request diagnostics for logging."""
     return CameraStreamLogContext(
         entity_id=entity_id,
         method=request.method,
@@ -497,7 +496,7 @@ def _build_camera_stream_log_context(
 
 
 async def _prepare_camera_stream_response(request: web.Request) -> web.StreamResponse:
-    """Prepare the legacy MJPEG stream response metadata for proxy streaming."""
+    """Prepare MJPEG stream response metadata for proxy streaming."""
     stream_result = _prepare_camera_stream()
     response = web.StreamResponse(status=stream_result.status, headers=stream_result.headers)
     response.enable_compression(False)
@@ -506,7 +505,7 @@ async def _prepare_camera_stream_response(request: web.Request) -> web.StreamRes
 
 
 def _adapt_camera_snapshot_response(result: Any, request: web.Request) -> web.Response:
-    """Adapt a snapshot application response into a legacy-compatible HTTP response."""
+    """Adapt a snapshot application response into a media-aware HTTP response."""
     if result.status == 304:
         return web.Response(status=304, headers=result.headers)
 
