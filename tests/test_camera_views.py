@@ -614,19 +614,7 @@ class TestSmartlyCameraSnapshotView:
         assert response.status == 400
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ENTITY_ID",
-                    "message": "invalid entity id",
-                    "target": "camera.entity_id",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-snapshot-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_snapshot_invalid_entity_id_matches_api_vnext_fixture(
@@ -652,19 +640,7 @@ class TestSmartlyCameraSnapshotView:
         assert response.status == 500
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "camera.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-snapshot-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_snapshot_integration_not_configured_matches_api_vnext_fixture(
@@ -697,19 +673,7 @@ class TestSmartlyCameraSnapshotView:
             assert response.status == 401
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "camera.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-snapshot-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_snapshot_auth_failure_matches_api_vnext_fixture(
@@ -755,19 +719,7 @@ class TestSmartlyCameraSnapshotView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "camera.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-snapshot-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_snapshot_rate_limited_matches_api_vnext_fixture(
@@ -812,19 +764,7 @@ class TestSmartlyCameraSnapshotView:
                 assert response.status == 403
                 data = json.loads(response.body)
                 _assert_vnext_only_top_level(data)
-                assert data == {
-                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "ENTITY_NOT_ALLOWED",
-                            "message": "entity not allowed",
-                            "target": "camera.entity_id",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("camera-snapshot-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_snapshot_entity_not_allowed_matches_api_vnext_fixture(
@@ -1207,19 +1147,7 @@ class TestSmartlyCameraStreamView:
         assert response.status == 400
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ENTITY_ID",
-                    "message": "invalid entity id",
-                    "target": "camera.entity_id",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-stream-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_stream_invalid_entity_id_matches_api_vnext_fixture(self, mock_request):
@@ -1247,19 +1175,7 @@ class TestSmartlyCameraStreamView:
             assert response.status == 401
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "camera.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-stream-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_stream_auth_failure_matches_api_vnext_fixture(self, mock_request):
@@ -1287,19 +1203,7 @@ class TestSmartlyCameraStreamView:
         assert response.status == 500
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "camera.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-stream-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_stream_integration_not_configured_matches_api_vnext_fixture(
@@ -1337,19 +1241,7 @@ class TestSmartlyCameraStreamView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "camera.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-stream-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_stream_rate_limited_matches_api_vnext_fixture(
@@ -1395,19 +1287,7 @@ class TestSmartlyCameraStreamView:
                 assert response.status == 403
                 data = json.loads(response.body)
                 _assert_vnext_only_top_level(data)
-                assert data == {
-                    "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "ENTITY_NOT_ALLOWED",
-                            "message": "entity not allowed",
-                            "target": "camera.entity_id",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("camera-stream-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_stream_entity_not_allowed_matches_api_vnext_fixture(
@@ -1572,8 +1452,12 @@ class TestSmartlyCameraListView:
             "X-Request-Id": "req-123",
             "X-Correlation-Id": "corr-456",
         }
+        expected_body = _api_vnext_fixture("camera-list.json") | {
+            "request_id": "req-123",
+            "correlation_id": "corr-456",
+        }
         result = BridgeResponse(
-            {"count": 0, "cameras": []},
+            _api_vnext_fixture("camera-list.json"),
             status=202,
             headers={"X-Camera-Test": "yes"},
         )
@@ -1582,12 +1466,7 @@ class TestSmartlyCameraListView:
 
         assert response.status == 202
         assert response.headers["X-Camera-Test"] == "yes"
-        assert json.loads(response.body) == {
-            "count": 0,
-            "cameras": [],
-            "request_id": "req-123",
-            "correlation_id": "corr-456",
-        }
+        assert json.loads(response.body) == expected_body
 
     @pytest.mark.asyncio
     async def test_list_cameras_forwards_legacy_capabilities_flag(
@@ -1663,19 +1542,7 @@ class TestSmartlyCameraListView:
         assert response.status == 500
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "camera.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-list-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_list_auth_failure(self, mock_request):
@@ -1692,19 +1559,7 @@ class TestSmartlyCameraListView:
             assert response.status == 401
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "camera.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-list-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_list_rate_limited(self, mock_request, mock_hass):
@@ -1726,19 +1581,7 @@ class TestSmartlyCameraListView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "camera.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-list-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_list_success_with_cameras(self, mock_request, mock_hass):
@@ -1927,19 +1770,7 @@ class TestSmartlyCameraConfigView:
         assert result.response.status == 400
         data = json.loads(result.response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_JSON",
-                    "message": "invalid json",
-                    "target": "camera.request",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-config-invalid-json.json")
 
     @pytest.mark.asyncio
     async def test_configure_camera_forwards_application_command(self):
@@ -2014,19 +1845,7 @@ class TestSmartlyCameraConfigView:
         assert response.status == 500
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "camera.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-config-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_config_auth_failure(self, mock_request):
@@ -2043,19 +1862,7 @@ class TestSmartlyCameraConfigView:
             assert response.status == 401
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "camera.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-config-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_config_rate_limited(self, mock_request, mock_hass):
@@ -2077,19 +1884,7 @@ class TestSmartlyCameraConfigView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "camera.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-config-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_config_invalid_json(self, mock_request):
@@ -2109,19 +1904,7 @@ class TestSmartlyCameraConfigView:
             assert response.status == 400
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_JSON",
-                        "message": "invalid json",
-                        "target": "camera.request",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-config-invalid-json.json")
 
     @pytest.mark.asyncio
     async def test_config_missing_action(self, mock_request):
@@ -2140,19 +1923,7 @@ class TestSmartlyCameraConfigView:
             assert response.status == 400
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "MISSING_ACTION",
-                        "message": "missing action",
-                        "target": "camera.action",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-config-missing-action.json")
 
     @pytest.mark.asyncio
     async def test_config_camera_gateway_unavailable(self, mock_request, mock_hass):
@@ -2464,19 +2235,7 @@ class TestSmartlyCameraHLSInfoView:
         assert response.status == 400
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ENTITY_ID",
-                    "message": "invalid entity id",
-                    "target": "camera.entity_id",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-hls-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_hls_integration_not_configured(self, mock_request):
@@ -2489,19 +2248,7 @@ class TestSmartlyCameraHLSInfoView:
         assert response.status == 500
         data = json.loads(response.body)
         _assert_vnext_only_top_level(data)
-        assert data == {
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "camera.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("camera-hls-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_hls_auth_failure(self, mock_request, mock_hass):
@@ -2533,19 +2280,7 @@ class TestSmartlyCameraHLSInfoView:
             assert response.status == 401
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "camera.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-hls-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_hls_rate_limited(self, mock_request, mock_hass):
@@ -2581,19 +2316,7 @@ class TestSmartlyCameraHLSInfoView:
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
             _assert_vnext_only_top_level(data)
-            assert data == {
-                "schema_version": SMARTLY_API_SCHEMA_VERSION,
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "camera.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("camera-hls-rate-limited.json")
 
     @pytest.mark.asyncio
     async def test_hls_entity_not_allowed(self, mock_request, mock_hass):
