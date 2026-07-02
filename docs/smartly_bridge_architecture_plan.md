@@ -198,6 +198,7 @@ Smartly Bridge Architecture
 | [Presentation Contract](specs/presentation-contract.md) | Platform card template、detail page、dashboard priority、secondary control render 規則、override 邊界 | Draft |
 | [API vNext Contract](specs/api-vnext-contract.md) | logical device sync、capability state sync、event ingestion、command dispatch、raw diagnostic fetch、錯誤 envelope | Draft |
 | [Migration Plan](specs/migration-plan.md) | 現有 entity-based sync 遷移到 logical-device sync 的階段、相容策略、alias window、rollback gate | Draft |
+| [Phase 6 Release Evidence](specs/phase6-release-evidence.md) | Phase 6 API vNext cleanup release gates 的外部證據與 sign-off 紀錄 | Active |
 
 ### 0.11 擴充性決策矩陣
 
