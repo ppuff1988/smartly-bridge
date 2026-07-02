@@ -73,7 +73,7 @@ def logical_device_id_for_source_id(source_id: str) -> str:
 
 
 def canonical_capability_name(capability: str) -> str:
-    """Return the canonical capability name for a legacy capability."""
+    """Return the canonical capability name for a source capability."""
     return _canonical_capability(capability)
 
 
@@ -126,8 +126,8 @@ def _capabilities_from_group(snapshots: list[EntityStateSnapshot]) -> list[Smart
     """Return de-duplicated capabilities while retaining all source references."""
     capabilities: OrderedDict[str, SmartlyCapability] = OrderedDict()
     for snapshot in snapshots:
-        for legacy_capability in snapshot.capabilities:
-            capability = _capability_from_snapshot(snapshot, legacy_capability)
+        for source_capability in snapshot.capabilities:
+            capability = _capability_from_snapshot(snapshot, source_capability)
             existing = capabilities.get(capability.type)
             if existing is None:
                 capabilities[capability.type] = capability
@@ -221,7 +221,7 @@ def _logical_device_class(snapshot: EntityStateSnapshot) -> str:
 
 
 def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) -> SmartlyCapability:
-    """Map legacy presentation capabilities to canonical capability contracts."""
+    """Map source presentation capabilities to canonical capability contracts."""
     canonical = _canonical_capability(capability)
     state = _capability_state(snapshot, canonical)
     return SmartlyCapability(
@@ -238,7 +238,7 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
 
 
 def _canonical_capability(capability: str) -> str:
-    """Return the canonical capability name for a legacy capability."""
+    """Return the canonical capability name for a source capability."""
     return {
         "on_off": "power",
         "color_temp": "color_temperature",
@@ -474,7 +474,7 @@ def _temperature_unit(value: Any) -> str:
 
 
 def _signal_quality_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
-    """Return canonical signal quality state from legacy signal metadata."""
+    """Return canonical signal quality state from source signal metadata."""
     attributes = snapshot.attributes or {}
     raw_value = _numeric_value(attributes.get("signal_strength"))
     if raw_value is None:
@@ -503,7 +503,7 @@ def _signal_quality_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
 
 
 def _signal_raw_kind(signal_unit: Any) -> str:
-    """Return the raw signal metric kind from legacy signal metadata."""
+    """Return the raw signal metric kind from source signal metadata."""
     if signal_unit == "lqi":
         return "lqi"
     if signal_unit == "dBm":
@@ -855,7 +855,7 @@ def _logical_device_presentation(
 ) -> dict[str, Any]:
     """Translate existing UI metadata into API vNext presentation hints."""
     capability_types = [capability.type for capability in capabilities]
-    template_by_legacy = {
+    template_by_source_card = {
         "light_card": "light_control",
         "control_card": "switch_control",
         "metric_card": "sensor_summary",
@@ -864,7 +864,7 @@ def _logical_device_presentation(
         "multi_control_card": "button_automation",
         "unknown_card": "diagnostic_device",
     }
-    template = template_by_legacy.get(
+    template = template_by_source_card.get(
         str(presentation.get("card_template", "")),
         "diagnostic_device",
     )

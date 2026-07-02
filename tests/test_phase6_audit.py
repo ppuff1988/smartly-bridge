@@ -154,6 +154,19 @@ def test_phase6_audit_detects_device_event_legacy_wording(tmp_path: Path) -> Non
     assert any(finding.code == "device-event-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_logical_device_legacy_wording(tmp_path: Path) -> None:
+    """The audit rejects logical-device wording that still labels source data legacy."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "custom_components/smartly_bridge/application/logical_devices.py",
+        '"""Return the canonical capability name for a legacy capability."""\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "logical-device-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

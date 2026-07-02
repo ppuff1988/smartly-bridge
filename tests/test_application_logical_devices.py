@@ -158,7 +158,7 @@ def test_light_effect_metadata_and_state_use_effect_contract() -> None:
 
 
 def test_lqi_signal_strength_uses_signal_quality_contract() -> None:
-    """Legacy LQI signal strength is normalized to canonical signal quality."""
+    """Source LQI signal strength is normalized to canonical signal quality."""
     snapshot = EntityStateSnapshot(
         entity_id="sensor.living_temperature",
         state="24.6",
@@ -190,7 +190,7 @@ def test_lqi_signal_strength_uses_signal_quality_contract() -> None:
 
 
 def test_rssi_signal_strength_uses_signal_quality_contract() -> None:
-    """Legacy RSSI signal strength is normalized to canonical signal quality."""
+    """Source RSSI signal strength is normalized to canonical signal quality."""
     snapshot = EntityStateSnapshot(
         entity_id="sensor.router_signal",
         state="-58",
@@ -243,7 +243,7 @@ def test_air_quality_sensor_state_uses_measurement_contract() -> None:
 
 
 def test_environment_sensor_aliases_use_canonical_measurement_names() -> None:
-    """Legacy environment aliases are normalized before logical sync."""
+    """Source environment aliases are normalized before logical sync."""
     devices = [
         device.to_dict()
         for device in logical_devices_from_states(
@@ -366,7 +366,7 @@ def test_motion_binary_sensor_state_uses_motion_contract() -> None:
 
 
 def test_occupancy_binary_sensor_state_uses_presence_contract() -> None:
-    """Legacy occupancy binary sensors are normalized to presence state."""
+    """Source occupancy binary sensors are normalized to presence state."""
     snapshot = EntityStateSnapshot(
         entity_id="binary_sensor.office_presence",
         state="off",
@@ -650,7 +650,7 @@ def test_cover_open_close_state_uses_open_close_contract() -> None:
 
 
 def test_cover_stop_capability_merges_into_position_commands() -> None:
-    """Legacy cover stop support is exposed through canonical position commands."""
+    """Source cover stop support is exposed through canonical position commands."""
     snapshot = EntityStateSnapshot(
         entity_id="cover.garage",
         state="open",

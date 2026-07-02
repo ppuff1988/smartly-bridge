@@ -72,6 +72,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_manual_legacy_control_body_findings(root_path))
     findings.extend(_camera_legacy_wording_findings(root_path))
     findings.extend(_device_event_legacy_wording_findings(root_path))
+    findings.extend(_logical_device_legacy_wording_findings(root_path))
     return findings
 
 
@@ -328,6 +329,36 @@ def _device_event_legacy_wording_findings(root: Path) -> list[Finding]:
                     message=(
                         "Device-event path wording still labels source/runtime "
                         "behavior as legacy."
+                    ),
+                )
+            )
+    return findings
+
+
+def _logical_device_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    paths = [
+        root / "custom_components" / "smartly_bridge" / "application" / "logical_devices.py",
+        root / "tests" / "test_application_logical_devices.py",
+    ]
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="logical-device-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Logical-device path wording still labels source/canonical "
+                        "normalization behavior as legacy."
                     ),
                 )
             )
