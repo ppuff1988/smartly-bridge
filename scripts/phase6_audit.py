@@ -199,6 +199,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_migration_plan_legacy_wording_findings(root_path))
     findings.extend(_control_test_legacy_wording_findings(root_path))
     findings.extend(_application_test_legacy_wording_findings(root_path))
+    findings.extend(_test_top_level_response_fixture_findings(root_path))
     findings.extend(_application_test_top_level_error_findings(root_path))
     findings.extend(_history_view_test_top_level_success_findings(root_path))
     findings.extend(_webrtc_test_top_level_success_findings(root_path))
@@ -310,6 +311,56 @@ def _legacy_top_level_response_findings(root: Path, python_files: list[Path]) ->
                         ),
                     )
                 )
+    return findings
+
+
+def _test_top_level_response_fixture_findings(root: Path) -> list[Finding]:
+    tests_root = root / "tests"
+    if not tests_root.exists():
+        return []
+
+    findings: list[Finding] = []
+    for path in sorted(tests_root.rglob("*.py")):
+        if path.name == "test_phase6_audit.py":
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError as err:
+            findings.append(
+                Finding(
+                    code="python-parse-error",
+                    path=_relative_path(root, path),
+                    line=err.lineno or 1,
+                    message=err.msg,
+                )
+            )
+            continue
+        body_assignments = _response_body_assignments(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or _call_name(node.func) not in RESPONSE_BUILDERS:
+                continue
+            if not node.args:
+                continue
+            first_arg = node.args[0]
+            body_node = first_arg
+            if isinstance(first_arg, ast.Name):
+                body_node = body_assignments.get(first_arg.id, first_arg)
+            if not isinstance(body_node, ast.Dict):
+                continue
+            keys = _legacy_keys_on_dict(body_node)
+            if not keys:
+                continue
+            findings.append(
+                Finding(
+                    code="test-top-level-response-fixture",
+                    path=_relative_path(root, path),
+                    line=body_node.lineno,
+                    message=(
+                        "Test response fixture rebuilds removed top-level keys: "
+                        + ", ".join(sorted(keys))
+                    ),
+                )
+            )
     return findings
 
 

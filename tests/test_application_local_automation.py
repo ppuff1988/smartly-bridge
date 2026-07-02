@@ -99,11 +99,10 @@ def _fixture(name: str) -> dict[str, Any]:
     )
 
 
-def test_command_response_status_ignores_removed_top_level_status() -> None:
-    """Local automation command results only read SmartlyCommand vNext data.status."""
+def test_command_response_status_defaults_without_vnext_data_status() -> None:
+    """Local automation command results require SmartlyCommand vNext data.status."""
     response = BridgeResponse(
         {
-            "status": "completed",
             "schema_version": "2026.06",
             "data": {},
             "warnings": [],

@@ -84,6 +84,27 @@ def test_phase6_audit_allows_vnext_data_and_errors(tmp_path: Path) -> None:
     assert findings == []
 
 
+def test_phase6_audit_detects_test_top_level_response_fixture(tmp_path: Path) -> None:
+    """The audit rejects test fixtures that rebuild removed top-level fields."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "tests/test_example_response.py",
+        "def response_fixture():\n"
+        "    return BridgeResponse({\n"
+        "        'schema_version': '2026.06',\n"
+        "        'token': 'abc123',\n"
+        "        'warnings': [],\n"
+        "        'errors': [],\n"
+        "    })\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "test-top-level-response-fixture" for finding in findings
+    )
+
+
 def test_phase6_audit_detects_request_time_fallback_constructor(tmp_path: Path) -> None:
     """The audit rejects view-level request-time fallback adapter construction."""
     audit = _load_phase6_audit()
