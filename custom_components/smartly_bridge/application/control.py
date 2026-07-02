@@ -870,10 +870,6 @@ def _smartly_command_error_response(
 
 def _bridge_response_error_code(result: BridgeResponse) -> str:
     """Return a stable snake_case error code from a vNext BridgeResponse."""
-    legacy_error = result.body.get("error")
-    if isinstance(legacy_error, str):
-        return legacy_error
-
     errors = result.body.get("errors")
     if isinstance(errors, list) and errors:
         first_error = errors[0]
@@ -886,13 +882,13 @@ def _bridge_response_error_code(result: BridgeResponse) -> str:
 
 
 def _smartly_command_vnext_error(error_code: Any, status: int) -> dict[str, Any]:
-    """Return API vNext structured error while preserving legacy error codes."""
-    legacy_code = str(error_code)
+    """Return API vNext structured error for a snake_case error code."""
+    error_key = str(error_code)
     code, message, target = SMARTLY_COMMAND_ERROR_DETAILS.get(
-        legacy_code,
+        error_key,
         (
-            legacy_code.upper(),
-            legacy_code.replace("_", " "),
+            error_key.upper(),
+            error_key.replace("_", " "),
             "command",
         ),
     )

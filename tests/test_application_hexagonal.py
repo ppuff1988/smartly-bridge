@@ -697,6 +697,62 @@ async def test_smartly_command_use_case_uses_injected_control_use_case_factory()
 
 
 @pytest.mark.asyncio
+async def test_smartly_command_error_wrapper_prefers_vnext_error_code() -> None:
+    """Resolved source errors are wrapped from API vNext errors, not legacy error."""
+    audit = FakeAudit()
+    gateway = FakeControlGateway(
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 204},
+        )
+    )
+    resolver = FakeCommandTargetResolver({("ldev_light_kitchen", "brightness"): "light.kitchen"})
+
+    class ConflictingErrorControlUseCase:
+        async def execute(self, client_id: str, command: ControlCommand) -> BridgeResponse:
+            return BridgeResponse(
+                {
+                    "error": "service_call_failed",
+                    "schema_version": "2026.06",
+                    "data": {"status": "rejected"},
+                    "warnings": [],
+                    "errors": [
+                        {
+                            "code": "ENTITY_NOT_ALLOWED",
+                            "message": "Resolved source entity is not allowed.",
+                            "target": "source.entity_id",
+                            "retryable": False,
+                        }
+                    ],
+                },
+                status=403,
+            )
+
+    use_case = SmartlyCommandUseCase(
+        FakeEntityPolicy(),
+        gateway,
+        audit,
+        resolver,
+        control_use_case_factory=lambda policy, gateway, audit: ConflictingErrorControlUseCase(),
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        SmartlyCommand(
+            command_id="cmd-vnext-error",
+            device_id="ldev_light_kitchen",
+            capability="brightness",
+            command="set_brightness",
+            params={"value": 80},
+        ),
+    )
+
+    assert result.status == 403
+    assert_smartly_command_error(result, "entity_not_allowed", "light.kitchen")
+
+
+@pytest.mark.asyncio
 async def test_smartly_command_success_response_uses_vnext_envelope_only() -> None:
     """Command success responses expose source result only through vNext data."""
     audit = FakeAudit()
