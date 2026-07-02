@@ -234,6 +234,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_trust_proxy_doc_top_level_error_findings(root_path))
     findings.extend(_architecture_plan_doc_top_level_error_findings(root_path))
     findings.extend(_architecture_plan_doc_top_level_success_findings(root_path))
+    findings.extend(_architecture_plan_doc_success_prose_findings(root_path))
     return findings
 
 
@@ -2365,6 +2366,38 @@ def _architecture_plan_doc_top_level_success_findings(root: Path) -> list[Findin
         except UnicodeDecodeError:
             continue
         findings.extend(_architecture_plan_success_block_findings(root, path, lines))
+    return findings
+
+
+def _architecture_plan_doc_success_prose_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ARCHITECTURE_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if (
+                "回傳 success" not in line
+                and "return success" not in lower_line
+                and "returns success" not in lower_line
+            ):
+                continue
+            findings.append(
+                Finding(
+                    code="architecture-plan-doc-success-prose",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Architecture plan prose still describes returning success; "
+                        "describe API vNext data.status instead."
+                    ),
+                )
+            )
     return findings
 
 

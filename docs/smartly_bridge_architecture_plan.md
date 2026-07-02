@@ -1778,7 +1778,7 @@ Home Assistant:
 執行 service call
 
 Bridge:
-回傳 success
+回傳 API vNext `data.status=completed`
 ```
 
 ---

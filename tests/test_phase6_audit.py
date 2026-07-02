@@ -1046,6 +1046,24 @@ def test_phase6_audit_detects_architecture_plan_top_level_success_examples(
     )
 
 
+def test_phase6_audit_detects_architecture_plan_success_prose(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects architecture prose that describes returning success."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/smartly_bridge_architecture_plan.md",
+        "Bridge:\n回傳 success\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(
+        finding.code == "architecture-plan-doc-success-prose"
+        for finding in findings
+    )
+
+
 def test_phase6_audit_allows_public_docs_source_entity_references(
     tmp_path: Path,
 ) -> None:
