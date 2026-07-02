@@ -283,7 +283,7 @@ async def test_camera_config_rejects_register_without_entity_id() -> None:
     )
 
     assert result.status == 400
-    assert result.body["error"] == "missing_entity_id"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -299,7 +299,7 @@ async def test_camera_config_rejects_register_without_entity_id() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_config_register_missing_entity_response_matches_api_vnext_fixture() -> None:
-    """Camera register missing-entity response remains stable for legacy clients."""
+    """Camera register missing-entity response remains vNext-only."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(action="register", entity_id=None, data={})
     )
@@ -349,7 +349,7 @@ async def test_camera_config_rejects_unregister_without_entity_id() -> None:
     )
 
     assert result.status == 400
-    assert result.body["error"] == "missing_entity_id"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -366,7 +366,7 @@ async def test_camera_config_rejects_unregister_without_entity_id() -> None:
 
 @pytest.mark.asyncio
 async def test_camera_config_unregister_missing_entity_response_matches_api_vnext_fixture() -> None:
-    """Camera unregister missing-entity response remains stable for legacy clients."""
+    """Camera unregister missing-entity response remains vNext-only."""
     gateway = FakeCameraGateway()
     result = await CameraConfigUseCase(gateway).execute(
         CameraConfigCommand(action="unregister", entity_id=None, data={})
@@ -446,7 +446,7 @@ async def test_camera_config_unknown_action_response_includes_vnext_envelope() -
     )
 
     assert result.status == 400
-    assert result.body["error"] == "unknown_action"
+    _assert_vnext_only_top_level(result.body)
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {"status": "rejected"}
     assert result.body["warnings"] == []
@@ -462,7 +462,7 @@ async def test_camera_config_unknown_action_response_includes_vnext_envelope() -
 
 @pytest.mark.asyncio
 async def test_camera_config_unknown_action_response_matches_api_vnext_fixture() -> None:
-    """Camera config unknown-action response remains stable for legacy clients."""
+    """Camera config unknown-action response remains vNext-only."""
     result = await CameraConfigUseCase(FakeCameraGateway()).execute(
         CameraConfigCommand(action="unsupported", entity_id=None, data={})
     )

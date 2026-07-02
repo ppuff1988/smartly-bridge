@@ -57,6 +57,18 @@ def _api_vnext_fixture(name: str) -> dict:
     return json.loads(fixture_path.read_text())
 
 
+def _assert_vnext_only_top_level(body: dict) -> None:
+    """Assert a JSON body only exposes the API vNext top-level envelope."""
+    assert set(body) <= {
+        "schema_version",
+        "data",
+        "warnings",
+        "errors",
+        "request_id",
+        "correlation_id",
+    }
+
+
 def _camera_gateway_unavailable_body() -> dict:
     """Expected response when setup did not create the camera gateway."""
     return {
@@ -2190,7 +2202,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "missing_entity_id"
+            _assert_vnext_only_top_level(data)
+            assert data == _api_vnext_fixture("camera-config-missing-entity.json")
 
     @pytest.mark.asyncio
     async def test_config_unregister_camera(self, mock_request, mock_hass):
@@ -2285,7 +2298,8 @@ class TestSmartlyCameraConfigView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data["error"] == "unknown_action"
+            _assert_vnext_only_top_level(data)
+            assert data == _api_vnext_fixture("camera-config-unknown-action.json")
 
 
 class TestSmartlyCameraHLSInfoView:

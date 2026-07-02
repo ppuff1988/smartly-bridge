@@ -69,7 +69,7 @@ class CameraConfigUseCase:
         """Execute a camera configuration command."""
         if command.action == "register":
             if not command.entity_id:
-                return _camera_error_response("missing_entity_id", status=400)
+                return _camera_vnext_error_response("missing_entity_id", status=400)
 
             config = {
                 "entity_id": command.entity_id,
@@ -88,7 +88,7 @@ class CameraConfigUseCase:
 
         if command.action == "unregister":
             if not command.entity_id:
-                return _camera_error_response("missing_entity_id", status=400)
+                return _camera_vnext_error_response("missing_entity_id", status=400)
 
             self._gateway.unregister_camera(command.entity_id)
             return _camera_vnext_success_response(
@@ -107,7 +107,7 @@ class CameraConfigUseCase:
                 {"cameras": cameras, "count": len(cameras)}
             )
 
-        return _camera_error_response("unknown_action", status=400)
+        return _camera_vnext_error_response("unknown_action", status=400)
 
 
 def _camera_success_response(
