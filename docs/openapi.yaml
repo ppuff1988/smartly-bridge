@@ -284,10 +284,24 @@ paths:
               examples:
                 invalidJson:
                   value:
-                    error: invalid_json
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_json
+                        message: invalid json
+                        target: request.body
+                        retryable: false
                 missingFields:
                   value:
-                    error: missing_required_fields
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: missing_required_fields
+                        message: missing required fields
+                        target: request.body
+                        retryable: false
         '401':
           description: Authentication failed
           content:
@@ -297,19 +311,54 @@ paths:
               examples:
                 missingHeaders:
                   value:
-                    error: missing_headers
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: missing_headers
+                        message: missing headers
+                        target: headers
+                        retryable: false
                 invalidTimestamp:
                   value:
-                    error: invalid_timestamp
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_timestamp
+                        message: invalid timestamp
+                        target: headers.x-timestamp
+                        retryable: false
                 nonceReused:
                   value:
-                    error: nonce_reused
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: nonce_reused
+                        message: nonce reused
+                        target: headers.x-nonce
+                        retryable: false
                 invalidSignature:
                   value:
-                    error: invalid_signature
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_signature
+                        message: invalid signature
+                        target: auth.signature
+                        retryable: false
                 ipNotAllowed:
                   value:
-                    error: ip_not_allowed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: ip_not_allowed
+                        message: ip not allowed
+                        target: request.ip
+                        retryable: false
         '403':
           description: Forbidden
           content:
@@ -319,10 +368,24 @@ paths:
               examples:
                 entityNotAllowed:
                   value:
-                    error: entity_not_allowed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: entity_not_allowed
+                        message: entity not allowed
+                        target: device_id
+                        retryable: false
                 serviceNotAllowed:
                   value:
-                    error: service_not_allowed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: service_not_allowed
+                        message: service not allowed
+                        target: command
+                        retryable: false
         '429':
           description: Rate limited
           headers:
@@ -339,7 +402,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: rate_limited
+                schema_version: "2026.06"
+                data: null
+                warnings: []
+                errors:
+                  - code: rate_limited
+                    message: rate limited
+                    target: rate_limit
+                    retryable: true
         '500':
           description: Internal server error
           content:
@@ -349,10 +419,24 @@ paths:
               examples:
                 integrationNotConfigured:
                   value:
-                    error: integration_not_configured
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: integration_not_configured
+                        message: integration not configured
+                        target: integration
+                        retryable: false
                 serviceCallFailed:
                   value:
-                    error: service_call_failed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: service_call_failed
+                        message: service call failed
+                        target: source.service
+                        retryable: true
 
   /api/smartly/sync/structure:
     get:

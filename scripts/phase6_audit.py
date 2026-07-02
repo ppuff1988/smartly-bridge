@@ -206,6 +206,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
     findings.extend(_openapi_legacy_control_body_findings(root_path))
     findings.extend(_openapi_top_level_error_response_schema_findings(root_path))
     findings.extend(_openapi_component_response_error_example_findings(root_path))
+    findings.extend(_openapi_control_response_error_example_findings(root_path))
     findings.extend(_public_control_legacy_body_doc_findings(root_path))
     findings.extend(_public_control_stale_light_command_doc_findings(root_path))
     findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
@@ -952,15 +953,7 @@ def _openapi_component_response_error_example_findings(root: Path) -> list[Findi
     responses = spec.get("components", {}).get("responses", {})
     for response_name, response in responses.items():
         media = response.get("content", {}).get("application/json", {})
-        examples: list[object] = []
-        if "example" in media:
-            examples.append(media["example"])
-        if isinstance(media.get("examples"), dict):
-            examples.extend(
-                example.get("value")
-                for example in media["examples"].values()
-                if isinstance(example, dict)
-            )
+        examples = _openapi_media_examples(media)
         if not any(_is_top_level_error_example(example) for example in examples):
             continue
         findings.append(
@@ -975,6 +968,53 @@ def _openapi_component_response_error_example_findings(root: Path) -> list[Findi
             )
         )
     return findings
+
+
+def _openapi_control_response_error_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    control_post = spec.get("paths", {}).get("/api/smartly/control", {}).get("post", {})
+    findings: list[Finding] = []
+    for status_code, response in control_post.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_error_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-control-top-level-error-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"        '{status_code}':"),
+                message=(
+                    "OpenAPI control response example still exposes top-level "
+                    "error/message; use API vNext errors[]."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_media_examples(media: dict[str, object]) -> list[object]:
+    examples: list[object] = []
+    if "example" in media:
+        examples.append(media["example"])
+    if isinstance(media.get("examples"), dict):
+        examples.extend(
+            example.get("value")
+            for example in media["examples"].values()
+            if isinstance(example, dict)
+        )
+    return examples
 
 
 def _is_top_level_error_example(example: object) -> bool:
