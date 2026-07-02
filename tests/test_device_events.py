@@ -1108,7 +1108,7 @@ class TestDeviceEventsEndpoint:
 
     @pytest.mark.asyncio
     async def test_device_event_uses_setup_runtime_event_publisher(self, mock_hass):
-        """Legacy event endpoint dispatches through setup-created hexagonal adapters."""
+        """Smartly event endpoint dispatches through setup-created hexagonal adapters."""
         _configure_integration(mock_hass)
         publisher = FakeDeviceEventPublisher()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {
@@ -1300,11 +1300,11 @@ class TestDeviceEventsEndpoint:
         )
 
     @pytest.mark.asyncio
-    async def test_device_event_uses_runtime_rule_store_even_without_legacy_rules(
+    async def test_device_event_uses_runtime_rule_store_even_without_config_entry_rules(
         self,
         mock_hass,
     ):
-        """Runtime rule store rules enable automation without legacy rule data."""
+        """Runtime rule store rules enable automation without config entry rule data."""
         _configure_integration(mock_hass)
         rule_store = FakeLocalAutomationRuleStore(
             [

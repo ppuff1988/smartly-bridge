@@ -137,7 +137,7 @@ class DeviceEventUseCase:
 
 
 class _NoEventDeduplicator:
-    """Default deduplicator that preserves legacy non-idempotent behavior."""
+    """Default deduplicator for non-idempotent event handling."""
 
     def event_id_for_key(self, key: str) -> str | None:
         """Return no existing event."""
@@ -225,7 +225,7 @@ def device_event_error_response(
 
 
 def _canonical_button_event(action: str) -> dict[str, Any] | None:
-    """Map legacy source button action to canonical Smartly event fields."""
+    """Map source button action to canonical Smartly event fields."""
     source_event, _, button = action.partition("_")
     if source_event == "rotate":
         if button not in {"left", "right"}:

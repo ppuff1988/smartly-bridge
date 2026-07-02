@@ -141,6 +141,19 @@ def test_phase6_audit_detects_camera_legacy_wording(tmp_path: Path) -> None:
     assert any(finding.code == "camera-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_device_event_legacy_wording(tmp_path: Path) -> None:
+    """The audit rejects device-event wording that still labels source behavior legacy."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "custom_components/smartly_bridge/application/device_events.py",
+        '"""Map legacy source button action to canonical Smartly event fields."""\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "device-event-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:
