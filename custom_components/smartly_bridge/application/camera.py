@@ -110,26 +110,6 @@ class CameraConfigUseCase:
         return _camera_vnext_error_response("unknown_action", status=400)
 
 
-def _camera_success_response(
-    body: dict[str, Any],
-    *,
-    status: int = 200,
-    headers: dict[str, str] | None = None,
-) -> BridgeResponse:
-    """Return a legacy-compatible API vNext camera success response."""
-    return BridgeResponse(
-        {
-            **body,
-            "schema_version": SMARTLY_API_SCHEMA_VERSION,
-            "data": body,
-            "warnings": [],
-            "errors": [],
-        },
-        status=status,
-        headers=headers,
-    )
-
-
 def _camera_vnext_success_response(
     body: dict[str, Any],
     *,
