@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "TOO_MANY_ENTITIES",
+      "message": "too many entities",
+      "target": "history.batch.entity_ids",
+      "retryable": false
+    }
+  ]
+}

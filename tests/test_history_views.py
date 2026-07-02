@@ -5,6 +5,7 @@ from __future__ import annotations
 import asyncio
 import json
 from datetime import datetime, timedelta
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -33,6 +34,13 @@ from custom_components.smartly_bridge.views.history import (
     _format_state,
     _parse_datetime,
 )
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
 
 
 class FakeRuntimeHistoryGateway:
@@ -456,19 +464,7 @@ class TestSmartlyHistoryView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "history.integration",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("history-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_client_secret_not_configured(self, mock_request, mock_hass):
@@ -492,19 +488,7 @@ class TestSmartlyHistoryView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "CLIENT_SECRET_NOT_CONFIGURED",
-                    "message": "client secret not configured",
-                    "target": "history.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("history-client-secret-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_helper_client_secret_missing_returns_api_vnext_envelope(
@@ -520,19 +504,7 @@ class TestSmartlyHistoryView:
         assert response is not None
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "CLIENT_SECRET_NOT_CONFIGURED",
-                    "message": "client secret not configured",
-                    "target": "history.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("history-client-secret-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
@@ -564,19 +536,7 @@ class TestSmartlyHistoryView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "history.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
@@ -597,19 +557,7 @@ class TestSmartlyHistoryView:
             assert response.headers["Retry-After"] == str(RATE_WINDOW)
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "history.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-rate-limit.json")
 
     @pytest.mark.asyncio
     async def test_entity_id_required(self, mock_request, mock_hass):
@@ -630,19 +578,7 @@ class TestSmartlyHistoryView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "ENTITY_ID_REQUIRED",
-                        "message": "entity id required",
-                        "target": "history.entity_id",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-entity-id-required.json")
 
     @pytest.mark.asyncio
     async def test_entity_not_allowed(self, mock_request, mock_hass):
@@ -665,19 +601,7 @@ class TestSmartlyHistoryView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
-                assert data == {
-                    "schema_version": "2026.06",
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "ENTITY_NOT_ALLOWED",
-                            "message": "entity not allowed",
-                            "target": "history.entity_id",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("history-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_time_range_too_large(self, mock_request, mock_hass):
@@ -807,19 +731,9 @@ class TestSmartlyHistoryView:
             response = await SmartlyHistoryView(mock_request).get()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "HISTORY_GATEWAY_UNAVAILABLE",
-                    "message": "history gateway unavailable",
-                    "target": "history.gateway",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "history-gateway-unavailable.json"
+        )
         assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
@@ -881,19 +795,7 @@ class TestSmartlyHistoryView:
 
                     assert response.status == 504
                     data = json.loads(response.body)
-                    assert data == {
-                        "schema_version": "2026.06",
-                        "data": {"status": "rejected"},
-                        "warnings": [],
-                        "errors": [
-                            {
-                                "code": "QUERY_TIMEOUT",
-                                "message": "query timeout",
-                                "target": "history",
-                                "retryable": False,
-                            }
-                        ],
-                    }
+                    assert data == _api_vnext_fixture("history-query-timeout.json")
 
     @pytest.mark.asyncio
     async def test_query_failure_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -922,19 +824,7 @@ class TestSmartlyHistoryView:
 
                     assert response.status == 500
                     data = json.loads(response.body)
-                    assert data == {
-                        "schema_version": "2026.06",
-                        "data": {"status": "rejected"},
-                        "warnings": [],
-                        "errors": [
-                            {
-                                "code": "HISTORY_QUERY_FAILED",
-                                "message": "history query failed",
-                                "target": "history",
-                                "retryable": False,
-                            }
-                        ],
-                    }
+                    assert data == _api_vnext_fixture("history-query-failure.json")
 
 
 class TestSmartlyHistoryBatchView:
@@ -993,19 +883,7 @@ class TestSmartlyHistoryBatchView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "history.batch.integration",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("history-batch-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_client_secret_not_configured_returns_api_vnext_envelope(
@@ -1022,19 +900,9 @@ class TestSmartlyHistoryBatchView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "CLIENT_SECRET_NOT_CONFIGURED",
-                    "message": "client secret not configured",
-                    "target": "history.batch.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture(
+            "history-batch-client-secret-not-configured.json"
+        )
 
     @pytest.mark.asyncio
     async def test_auth_failure_returns_api_vnext_envelope(self, mock_request):
@@ -1050,19 +918,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "history.batch.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-batch-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -1083,19 +939,7 @@ class TestSmartlyHistoryBatchView:
             assert response.headers["Retry-After"] == str(RATE_WINDOW)
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "history.batch.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-batch-rate-limit.json")
 
     @pytest.mark.asyncio
     async def test_invalid_json(self, mock_request, mock_hass):
@@ -1137,19 +981,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_JSON",
-                        "message": "invalid json",
-                        "target": "history.batch.body",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-batch-invalid-json.json")
 
     @pytest.mark.asyncio
     async def test_entity_ids_required(self, mock_request, mock_hass):
@@ -1193,19 +1025,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "ENTITY_IDS_REQUIRED",
-                        "message": "entity ids required",
-                        "target": "history.batch.entity_ids",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-batch-entity-ids-required.json")
 
     @pytest.mark.asyncio
     async def test_too_many_entities(self, mock_request, mock_hass):
@@ -1257,19 +1077,7 @@ class TestSmartlyHistoryBatchView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "TOO_MANY_ENTITIES",
-                        "message": "too many entities",
-                        "target": "history.batch.entity_ids",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("history-batch-too-many-entities.json")
 
     @pytest.mark.asyncio
     async def test_no_allowed_entities_returns_api_vnext_envelope(
@@ -1294,19 +1102,7 @@ class TestSmartlyHistoryBatchView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
-                assert data == {
-                    "schema_version": "2026.06",
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "NO_ALLOWED_ENTITIES",
-                            "message": "no allowed entities",
-                            "target": "history.batch.entity_ids",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("history-batch-no-allowed-entities.json")
 
     @pytest.mark.asyncio
     async def test_successful_batch_query(self, mock_request, mock_hass):
@@ -1415,19 +1211,9 @@ class TestSmartlyHistoryBatchView:
             response = await SmartlyHistoryBatchView(mock_request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "HISTORY_GATEWAY_UNAVAILABLE",
-                    "message": "history gateway unavailable",
-                    "target": "history.gateway",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "history-batch-gateway-unavailable.json"
+        )
         assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
@@ -1459,19 +1245,7 @@ class TestSmartlyHistoryBatchView:
 
                     assert response.status == 504
                     data = json.loads(response.body)
-                    assert data == {
-                        "schema_version": "2026.06",
-                        "data": {"status": "rejected"},
-                        "warnings": [],
-                        "errors": [
-                            {
-                                "code": "QUERY_TIMEOUT",
-                                "message": "query timeout",
-                                "target": "history.batch",
-                                "retryable": False,
-                            }
-                        ],
-                    }
+                    assert data == _api_vnext_fixture("history-batch-query-timeout.json")
 
     @pytest.mark.asyncio
     async def test_batch_query_failure_returns_api_vnext_envelope(
@@ -1502,19 +1276,7 @@ class TestSmartlyHistoryBatchView:
 
                     assert response.status == 500
                     data = json.loads(response.body)
-                    assert data == {
-                        "schema_version": "2026.06",
-                        "data": {"status": "rejected"},
-                        "warnings": [],
-                        "errors": [
-                            {
-                                "code": "HISTORY_QUERY_FAILED",
-                                "message": "history query failed",
-                                "target": "history.batch",
-                                "retryable": False,
-                            }
-                        ],
-                    }
+                    assert data == _api_vnext_fixture("history-batch-query-failure.json")
 
 
 class TestSmartlyStatisticsView:
@@ -1568,19 +1330,7 @@ class TestSmartlyStatisticsView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "integration not configured",
-                    "target": "statistics.integration",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("statistics-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_client_secret_not_configured_returns_api_vnext_envelope(
@@ -1597,19 +1347,7 @@ class TestSmartlyStatisticsView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "CLIENT_SECRET_NOT_CONFIGURED",
-                    "message": "client secret not configured",
-                    "target": "statistics.config",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert data == _api_vnext_fixture("statistics-client-secret-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_failure_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -1625,19 +1363,7 @@ class TestSmartlyStatisticsView:
 
             assert response.status == 401
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "INVALID_SIGNATURE",
-                        "message": "invalid signature",
-                        "target": "statistics.auth",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("statistics-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -1658,19 +1384,7 @@ class TestSmartlyStatisticsView:
             assert response.headers["Retry-After"] == "60"
             assert response.headers["X-RateLimit-Remaining"] == "0"
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "RATE_LIMITED",
-                        "message": "rate limited",
-                        "target": "statistics.rate_limit",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("statistics-rate-limit.json")
 
     @pytest.mark.asyncio
     async def test_entity_id_required_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -1691,19 +1405,7 @@ class TestSmartlyStatisticsView:
 
             assert response.status == 400
             data = json.loads(response.body)
-            assert data == {
-                "schema_version": "2026.06",
-                "data": {"status": "rejected"},
-                "warnings": [],
-                "errors": [
-                    {
-                        "code": "ENTITY_ID_REQUIRED",
-                        "message": "entity id required",
-                        "target": "statistics.entity_id",
-                        "retryable": False,
-                    }
-                ],
-            }
+            assert data == _api_vnext_fixture("statistics-entity-id-required.json")
 
     @pytest.mark.asyncio
     async def test_entity_not_allowed_returns_api_vnext_envelope(
@@ -1728,19 +1430,7 @@ class TestSmartlyStatisticsView:
 
                 assert response.status == 403
                 data = json.loads(response.body)
-                assert data == {
-                    "schema_version": "2026.06",
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "ENTITY_NOT_ALLOWED",
-                            "message": "entity not allowed",
-                            "target": "statistics.entity_id",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("statistics-entity-not-allowed.json")
 
     @pytest.mark.asyncio
     async def test_invalid_period_returns_api_vnext_envelope(self, mock_request, mock_hass):
@@ -1765,19 +1455,7 @@ class TestSmartlyStatisticsView:
 
                 assert response.status == 400
                 data = json.loads(response.body)
-                assert data == {
-                    "schema_version": "2026.06",
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "INVALID_PERIOD",
-                            "message": "invalid period",
-                            "target": "statistics.period",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("statistics-invalid-period.json")
 
     @pytest.mark.asyncio
     async def test_successful_statistics_query(self, mock_request, mock_hass):
@@ -1883,19 +1561,9 @@ class TestSmartlyStatisticsView:
             response = await SmartlyStatisticsView(mock_request).get()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "HISTORY_GATEWAY_UNAVAILABLE",
-                    "message": "history gateway unavailable",
-                    "target": "history.gateway",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "statistics-gateway-unavailable.json"
+        )
         assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
@@ -1927,19 +1595,7 @@ class TestSmartlyStatisticsView:
 
                     assert response.status == 500
                     data = json.loads(response.body)
-                    assert data == {
-                        "schema_version": "2026.06",
-                        "data": {"status": "rejected"},
-                        "warnings": [],
-                        "errors": [
-                            {
-                                "code": "STATISTICS_QUERY_FAILED",
-                                "message": "statistics query failed",
-                                "target": "statistics",
-                                "retryable": False,
-                            }
-                        ],
-                    }
+                    assert data == _api_vnext_fixture("statistics-query-failure.json")
 
 
 class TestCursorPagination:
@@ -2191,16 +1847,4 @@ class TestCursorPagination:
 
                 assert response.status == 400
                 data = json.loads(response.body)
-                assert data == {
-                    "schema_version": "2026.06",
-                    "data": {"status": "rejected"},
-                    "warnings": [],
-                    "errors": [
-                        {
-                            "code": "INVALID_CURSOR",
-                            "message": "invalid cursor",
-                            "target": "history.cursor",
-                            "retryable": False,
-                        }
-                    ],
-                }
+                assert data == _api_vnext_fixture("history-invalid-cursor.json")

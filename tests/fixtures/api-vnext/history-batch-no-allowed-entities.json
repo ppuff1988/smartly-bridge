@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "NO_ALLOWED_ENTITIES",
+      "message": "no allowed entities",
+      "target": "history.batch.entity_ids",
+      "retryable": false
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ENTITY_IDS_REQUIRED",
+      "message": "entity ids required",
+      "target": "history.batch.entity_ids",
+      "retryable": false
+    }
+  ]
+}

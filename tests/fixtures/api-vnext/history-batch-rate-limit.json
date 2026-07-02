@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RATE_LIMITED",
+      "message": "rate limited",
+      "target": "history.batch.rate_limit",
+      "retryable": false
+    }
+  ]
+}
