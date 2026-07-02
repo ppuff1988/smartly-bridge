@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 import time
 import uuid
 from unittest.mock import AsyncMock, MagicMock, patch
@@ -30,6 +31,13 @@ from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.control import (
     _smartly_command_from_body,
 )
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
 
 
 class FakeSmartlyCommandExecutor:
@@ -105,6 +113,7 @@ class FakeRawDiagnosticStore:
             "entity_id": "light.kitchen",
             "access_token": "secret-token",
             "attributes": {
+                "password": "secret-password",
                 "host": "192.168.1.25",
                 "brightness": 128,
             },
@@ -609,22 +618,9 @@ class TestRawDiagnosticEndpoint:
 
         assert response.status == 200
         assert store.refs == ["raw_light_001"]
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "raw_ref": "raw_light_001",
-                "payload": {
-                    "entity_id": "light.kitchen",
-                    "access_token": "<redacted>",
-                    "attributes": {
-                        "host": "<redacted>",
-                        "brightness": 128,
-                    },
-                },
-            },
-            "warnings": [],
-            "errors": [],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "raw-diagnostic-success.json"
+        )
 
         await nonce_cache.stop()
 
@@ -712,19 +708,9 @@ class TestRawDiagnosticEndpoint:
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
         assert response.status == 401
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "AUTH_FAILED",
-                    "message": "Raw diagnostic request authentication failed",
-                    "target": "diagnostics.raw.auth",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "raw-diagnostic-auth-failure.json"
+        )
 
         await nonce_cache.stop()
 
@@ -772,19 +758,9 @@ class TestRawDiagnosticEndpoint:
 
         assert response.status == 500
         assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {"status": "rejected"},
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "RAW_DIAGNOSTIC_STORE_UNAVAILABLE",
-                    "message": "Raw diagnostic store runtime adapter is not available",
-                    "target": "diagnostics.raw.store",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "raw-diagnostic-store-unavailable.json"
+        )
 
         await nonce_cache.stop()
 
