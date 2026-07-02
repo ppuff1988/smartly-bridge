@@ -3,6 +3,7 @@
 This document is the evidence workspace for Phase 6 API vNext cleanup release gates. It records external proof that cannot be produced by Bridge unit tests or static audit alone.
 
 Do not mark a gate as ready from intent, verbal confirmation, or a local-only check. Each gate needs an owner, source link or command output, review date, and explicit decision.
+Do not leave placeholder wording such as `TBD`, `Pending`, or `n/a` inside owner, evidence, reviewer, or sign-off fields.
 Each ready gate also needs a matching completed row in `Sign-off Record`. The sign-off `Evidence link` must match the gate's `Evidence source`.
 
 ## Status
@@ -114,6 +115,7 @@ Expected result:
 - Release evidence checker verifies all required gate rows are present before evaluating readiness.
 - Release evidence checker verifies every ready gate has a completed sign-off row.
 - Release evidence checker verifies the sign-off `Evidence link` matches the gate `Evidence source`.
+- Release evidence checker treats embedded `TBD`, `Pending`, and `n/a` placeholder wording as incomplete.
 
 While evidence is still being collected, use this non-release status command:
 

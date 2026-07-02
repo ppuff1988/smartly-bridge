@@ -183,3 +183,37 @@ def test_phase6_release_evidence_blocks_mismatched_signoff_evidence(
     )
 
     assert checker.main([str(evidence_path)]) == 1
+
+
+def test_phase6_release_evidence_treats_placeholder_text_as_incomplete(
+    tmp_path: Path,
+) -> None:
+    """Ready gates cannot hide placeholder wording inside owner or evidence text."""
+    checker = _load_phase6_release_evidence()
+    evidence_path = tmp_path / "phase6-release-evidence.md"
+    _write(
+        evidence_path,
+        "\n".join(
+            [
+                "# Phase 6 API vNext Release Evidence",
+                "",
+                "| Gate | Owner | Evidence source | Decision | Notes |",
+                "|---|---|---|---|---|",
+                "| Active Platform clients support API vNext | TBD Platform owner | release/client-matrix.md | Ready | All active clients checked. |",
+                "| Retired endpoint usage below removal threshold | Data owner | pending telemetry link | Ready | Usage is below threshold. |",
+                "| Alias window announced and elapsed | Release owner | release/announcement.md | Ready | Window elapsed. |",
+                "| Rollback playbook verified | Ops owner | runbooks/phase6.md | Ready | Dry run passed. |",
+                "| Platform render source audit completed | Platform owner | platform/render-audit.md | Ready | Source audit passed. |",
+                "| API support policy decided | Product owner | release/api-policy.md | Ready | Policy accepted. |",
+                "",
+            ]
+        ),
+    )
+
+    statuses = checker.load_statuses(evidence_path)
+
+    pending = [status.gate for status in statuses if not status.ready]
+    assert pending == [
+        "Active Platform clients support API vNext",
+        "Retired endpoint usage below removal threshold",
+    ]

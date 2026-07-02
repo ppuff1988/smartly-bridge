@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import re
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -198,7 +199,10 @@ def _signoff_from_row(row: dict[str, str]) -> Signoff:
 
 
 def _is_complete(value: str) -> bool:
-    return value.strip().lower() not in INCOMPLETE_MARKERS
+    normalized = value.strip().lower()
+    if normalized in INCOMPLETE_MARKERS:
+        return False
+    return not re.search(r"\b(tbd|pending|n/a)\b", normalized)
 
 
 def _is_ready_decision(value: str) -> bool:
