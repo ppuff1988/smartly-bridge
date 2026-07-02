@@ -65,8 +65,13 @@ def test_sync_api():
     return response
 
 
-def test_control_api(entity_id: str, action: str, service_data: dict = None):
-    """Test the control API endpoint."""
+def test_control_api(
+    device_id: str,
+    capability: str,
+    command: str,
+    params: dict | None = None,
+):
+    """Test the control API endpoint with an API vNext SmartlyCommand."""
     print(f"\n=== 測試 Control API ===")
     
     timestamp = str(int(time.time()))
@@ -74,11 +79,13 @@ def test_control_api(entity_id: str, action: str, service_data: dict = None):
     path = "/api/smartly/control"
     
     body_dict = {
-        "entity_id": entity_id,
-        "action": action,
-        "service_data": service_data or {},
-        "actor": {
-            "id": "test_user",
+        "command_id": f"manual-{int(time.time())}",
+        "device_id": device_id,
+        "capability": capability,
+        "command": command,
+        "params": params or {},
+        "source": {
+            "user_id": "test_user",
             "name": "Test User",
         },
     }
@@ -119,8 +126,8 @@ if __name__ == "__main__":
         # 測試 Sync API
         test_sync_api()
         
-        # 測試 Control API（需要有實際的實體）
-        # test_control_api("light.living_room", "turn_on", {"brightness": 255})
+        # 測試 Control API（需要有實際的 logical device id）
+        # test_control_api("ldev_living_room_light", "brightness", "set_brightness", {"value": 255})
         
     except requests.exceptions.ConnectionError:
         print("❌ 無法連接到 Home Assistant，請確保它正在運行")

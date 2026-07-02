@@ -96,7 +96,10 @@ def sample_hmac_headers():
     nonce = str(uuid.uuid4())
     method = "POST"
     path = "/api/smartly/control"
-    body = b'{"entity_id": "light.test_light", "action": "turn_on"}'
+    body = (
+        b'{"command_id":"cmd-test","device_id":"ldev_test_light",'
+        b'"capability":"power","command":"turn_on","params":{}}'
+    )
 
     body_hash = hashlib.sha256(body).hexdigest()
     message = f"{method}\n{path}\n{timestamp}\n{nonce}\n{body_hash}"

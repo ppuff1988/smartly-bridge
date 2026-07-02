@@ -111,6 +111,23 @@ def test_phase6_audit_detects_legacy_http_reexport_module(tmp_path: Path) -> Non
     assert any(finding.code == "legacy-http-reexport-module" for finding in findings)
 
 
+def test_phase6_audit_detects_manual_legacy_control_body(tmp_path: Path) -> None:
+    """The audit rejects manual scripts that still demonstrate legacy control bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "scripts/manual_tests/test_smartly_api.py",
+        "body = {\n"
+        '    "entity_id": entity_id,\n'
+        '    "action": action,\n'
+        '    "service_data": service_data,\n'
+        "}\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "manual-legacy-control-body" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:

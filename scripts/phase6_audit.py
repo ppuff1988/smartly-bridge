@@ -69,6 +69,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
         findings.extend(_request_time_fallback_constructor_findings(root_path, package_root))
     findings.extend(_api_vnext_fixture_findings(root_path))
     findings.extend(_sync_raw_payload_fixture_findings(root_path))
+    findings.extend(_manual_legacy_control_body_findings(root_path))
     return findings
 
 
@@ -239,6 +240,41 @@ def _sync_raw_payload_fixture_findings(root: Path) -> list[Finding]:
     return findings
 
 
+def _manual_legacy_control_body_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    manual_root = root / "scripts" / "manual_tests"
+    for path in _python_files_from_paths([manual_root]):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError as err:
+            findings.append(
+                Finding(
+                    code="python-parse-error",
+                    path=_relative_path(root, path),
+                    line=err.lineno or 1,
+                    message=err.msg,
+                )
+            )
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            keys = _string_keys_on_dict(node)
+            if {"entity_id", "action", "service_data"}.issubset(keys):
+                findings.append(
+                    Finding(
+                        code="manual-legacy-control-body",
+                        path=_relative_path(root, path),
+                        line=node.lineno,
+                        message=(
+                            "Manual control script uses legacy entity_id/action body; "
+                            "use API vNext SmartlyCommand."
+                        ),
+                    )
+                )
+    return findings
+
+
 def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:
     assignments: dict[str, ast.Dict] = {}
     for node in ast.walk(tree):
@@ -251,11 +287,14 @@ def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:
 
 
 def _legacy_keys_on_dict(node: ast.Dict) -> set[str]:
+    return _string_keys_on_dict(node) & LEGACY_TOP_LEVEL_KEYS
+
+
+def _string_keys_on_dict(node: ast.Dict) -> set[str]:
     keys: set[str] = set()
     for key in node.keys:
         if isinstance(key, ast.Constant) and isinstance(key.value, str):
-            if key.value in LEGACY_TOP_LEVEL_KEYS:
-                keys.add(key.value)
+            keys.add(key.value)
     return keys
 
 
