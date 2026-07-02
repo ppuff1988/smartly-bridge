@@ -676,17 +676,19 @@
 - WebRTC offer diagnostics verification: focused offer log test `1 passed`; WebRTC/http scope `155 passed`; full suite `916 passed`
 - API vNext fixture wording cleanup: camera/device-event/command/history/WebRTC fixture tests now describe vNext-only envelope contracts instead of legacy/vNext compatibility.
 - API vNext fixture wording verification: affected fixture test files `278 passed`
+- Phase 6 audit evidence: `/api/smartly/states` is not registered, all `tests/fixtures/api-vnext/*.json` files expose only `data` / `errors` / `schema_version` / `warnings` top-level keys, and sync raw diagnostic tests assert `raw_payload` stays out of sync bodies.
+- Phase 6 response-read audit: production response top-level read scan has no remaining `error` / `success` / `status` / `message` / payload-field reads; remaining `body.get("action")` / `body.get("entity_id")` hits are request-body parsing in camera/device-event views.
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
-- Full suite: `913 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
+- Full suite: `916 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
 
 ## Remaining Work
 
-- Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`.
+- Finish a requirement-by-requirement audit against `migration-plan.md`, `api-vnext-contract.md`, and `capability-contracts.md`, including release-window assumptions that cannot be proven from code alone.
 - Adapter contract pre-merge gates now cover manifest validation, match priority collision, normalization snapshots, command mapping snapshots, event dedupe snapshots, and health degradation snapshots.
-- Continue adding broader API vNext contract snapshots for remaining un-fixtured camera/media, sync, control, and diagnostics responses.
-- Continue API vNext envelope migration for endpoints beyond SmartlyCommand command responses.
+- Continue adding endpoint-level API vNext contract snapshots for HTTP shell paths that still use inline expected bodies instead of shared fixtures.
+- Decide whether runtime adapter factory names/docstrings should keep `legacy` wording for Home Assistant-backed compatibility adapters or be renamed after Platform cutover.
 - Continue hardening editable sibling setting controls now that `number` / `select` are covered by canonical `numeric_setting` / `option_setting` command capabilities.
 - Continue auditing local automation adapter persistence behavior before Platform read/write path cutover.
 - Phase 6 request-time runtime fallback cleanup has no explicit remaining gateway/use-case fallback area from the current code audit; expired `/api/smartly/states` alias, Control legacy `entity_id` / `action` body branch, internal ControlUseCase legacy success/error body fields, Control endpoint legacy top-level error field, sync error legacy top-level error field, sync structure/states success legacy top-level fields, raw diagnostic legacy top-level fields, SmartlyCommand success/error legacy top-level duplicate fields, device-event legacy top-level response fields, local automation rules legacy top-level response fields, history legacy top-level response fields, and WebRTC token/offer/ICE/hangup legacy top-level response fields have been removed, and broader spec audit should continue for additional legacy aliases or deprecated endpoints.
