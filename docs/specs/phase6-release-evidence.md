@@ -11,6 +11,19 @@ Each `(Gate, Evidence link)` pair must appear exactly once in `Sign-off Record`.
 Do not add extra gate names to `Sign-off Record`; every sign-off row must match one of the required Phase 6 release gates.
 Do not add alternate evidence links to `Sign-off Record`; every complete sign-off row must match the gate's `Status` evidence source.
 
+## Why This Evidence Is External
+
+Bridge tests and `scripts/phase6_audit.py` can prove the repository no longer exposes known code-verifiable pre-vNext API behavior. They cannot prove rollout facts that live in Platform clients, production telemetry, release communications, or product policy. Phase 6 release readiness therefore requires the evidence below before marking the cleanup release ready.
+
+| Release question | Why Bridge code cannot prove it | Acceptable evidence |
+|---|---|---|
+| Are all active Platform clients compatible with API vNext? | Client versions and deployed Platform behavior live outside this repository. | Platform release inventory, compatibility matrix, client build audit, or linked Platform PR/build output. |
+| Is retired endpoint usage below the removal threshold? | Only production telemetry can show real consumer traffic after rollout. | Telemetry query, dashboard export, or release-window usage report. |
+| Has the alias/removal window elapsed? | The repository cannot prove customer communication dates or elapsed release windows. | Announcement link, release note, target removal date, and elapsed-window sign-off. |
+| Can operations roll back safely? | Unit tests do not prove deployment or operational recovery steps. | Rollback runbook plus rehearsal result and verification commands. |
+| Does Platform render from vNext contracts? | The renderer lives in the Platform repo/client build, not in Bridge. | Platform UI audit, client build audit, linked PR, or reviewer sign-off. |
+| What is the final API support policy? | Removing or retaining an API path is a product/release decision, not a code fact. | Product/release decision record with removed paths, retained paths, owners, and support horizon. |
+
 ## Status
 
 | Gate | Owner | Evidence source | Decision | Notes |
