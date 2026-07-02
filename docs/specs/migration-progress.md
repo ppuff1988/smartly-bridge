@@ -19,6 +19,7 @@
 - Phase 6 已移除 Control endpoint 的 legacy `entity_id` / `action` body branch；非 SmartlyCommand body 會回 `missing_required_fields`，不再呼叫 setup-created `ControlUseCase` 或維護 `_control_use_case` view resolver。
 - Control endpoint 現在只要求 setup-created `smartly_command_executor` runtime adapter；缺少 executor 時回傳 `smartly_command_executor_unavailable` API vNext error，不再 request-time 建立 Home Assistant control fallback adapters，也不再暴露 `control_use_case` runtime adapter 給 view。
 - Phase 6 已移除 Control endpoint 與 internal `ControlUseCase` error response 的 legacy top-level `error` 欄位；control error code 現在只透過 API vNext top-level `errors[]` 暴露，SmartlyCommand source-control wrapper 會從 vNext error envelope 讀回 snake_case error code。
+- Phase 6 已移除 SmartlyCommand source-control error wrapping 對 resolved control response legacy top-level `error` 的 fallback；source-control error code 現在只從 API vNext `errors[]` 讀取，沒有 vNext error 時才回 `command_failed`。
 - Home Assistant-backed SmartlyCommand executor 建立現在集中在 `_home_assistant_smartly_command_executor`，setup composition root 透過同一個 executor factory 建立 runtime adapter；control canonical command path 與 device-event local automation assembly 都只接受 setup-created executor runtime adapter。
 - Home Assistant SmartlyCommand executor 現在透過 `_smartly_command_use_case` factory 建立 application use case，並可在測試或後續 setup wiring 中注入替代 use case factory；既有 `HomeAssistantSmartlyCommandExecutor(hass, logger)` 建構方式維持相容。
 - Phase 6 已移除 internal `ControlUseCase` success response 的 legacy top-level `success` / `entity_id` / `action` / `new_state` / `new_attributes` body；resolved source command result 現在只透過 API vNext `data.status` / `data.source_entity_id` / `data.source_action` / `data.new_state` / `data.new_attributes` 交給 canonical SmartlyCommand path 使用，並刪除 legacy control full-response fixtures。
@@ -614,6 +615,7 @@
 | 427 | `902c7cf` | Phase 6 移除 Camera snapshot success application response 的 legacy top-level `snapshot` 欄位，snapshot payload 現在只透過 API vNext `data.snapshot` 暴露，HTTP image/cache headers 維持 media response 行為 | RED failed because snapshot success still returned top-level `snapshot` and adapter read image payload from the legacy location; focused snapshot success tests `4 passed`; camera/http scope `262 passed`; full suite `913 passed` |
 | 428 | `f3d2b80` | Phase 6 刪除 Camera application 已無呼叫點的 `_camera_success_response` legacy-compatible helper，避免後續 camera use case 重構重新產生 top-level duplicate success payload | Camera/http scope `262 passed`; full suite `913 passed` |
 | 429 | `4c4d5d3` | Phase 6 刪除 Camera application `_camera_error_response` legacy helper，並讓 camera HTTP guard / entity-id validation default factory 改用 `_camera_vnext_error_response`，避免 default seam 重新產生 legacy top-level `error` body；camera stream/snapshot adapter docstring 同步改為 media/vNext wording | RED failed because default entity-id validation response still returned top-level `error`; focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed` |
+| 430 | `a7bdc47` | Phase 6 移除 SmartlyCommand source-control error wrapping 對 resolved `BridgeResponse.body.error` 的 legacy fallback，error code 現在只從 API vNext `errors[]` 讀取，缺少 vNext error 才回 `command_failed` | RED failed because a conflicting source response used legacy `service_call_failed` instead of vNext `ENTITY_NOT_ALLOWED`; focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed` |
 
 ## Completed Slices
 
@@ -661,6 +663,8 @@
 
 - Camera legacy error helper cleanup: `_camera_error_response` removed; camera guard and entity-id validation default factories now use `_camera_vnext_error_response`.
 - Camera legacy error helper verification: focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed`
+- Control/SmartlyCommand error fallback cleanup: source-control error wrapping no longer reads resolved response top-level `error`; vNext `errors[]` is authoritative.
+- Control/SmartlyCommand fallback verification: focused SmartlyCommand error wrapper test `1 passed`; command/control/local-automation/device-event/http scope `209 passed`; full suite `914 passed`
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
