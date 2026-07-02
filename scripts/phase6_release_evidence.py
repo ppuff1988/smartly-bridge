@@ -110,6 +110,33 @@ def duplicate_signoff_evidence(signoffs: list[Signoff]) -> list[str]:
     return duplicates
 
 
+def unmatched_signoff_evidence(
+    statuses: list[GateStatus],
+    signoffs: list[Signoff],
+) -> list[str]:
+    """Return sign-offs whose evidence link does not match the gate evidence source."""
+    evidence_by_gate = {
+        status.gate: status.evidence_source
+        for status in statuses
+        if status.gate in REQUIRED_GATES and _is_complete(status.evidence_source)
+    }
+    unmatched: list[str] = []
+    for signoff in signoffs:
+        expected_evidence = evidence_by_gate.get(signoff.gate)
+        if (
+            expected_evidence is not None
+            and _is_complete(signoff.evidence_link)
+            and signoff.evidence_link != expected_evidence
+        ):
+            label = (
+                f"{signoff.gate} ({signoff.evidence_link}; "
+                f"expected {expected_evidence})"
+            )
+            if label not in unmatched:
+                unmatched.append(label)
+    return unmatched
+
+
 def missing_ready_gate_signoffs(
     statuses: list[GateStatus],
     signoffs: list[Signoff],
@@ -286,6 +313,7 @@ def main(argv: list[str] | None = None) -> int:
     unknown = unknown_status_gates(statuses)
     unknown_signoffs = unknown_signoff_gates(signoffs)
     duplicate_signoffs = duplicate_signoff_evidence(signoffs)
+    unmatched_signoffs = unmatched_signoff_evidence(statuses, signoffs)
     missing_signoffs = missing_ready_gate_signoffs(statuses, signoffs)
     pending = [status for status in statuses if not status.ready]
     if (
@@ -294,6 +322,7 @@ def main(argv: list[str] | None = None) -> int:
         and not unknown
         and not unknown_signoffs
         and not duplicate_signoffs
+        and not unmatched_signoffs
         and not missing_signoffs
         and not pending
     ):
@@ -311,6 +340,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"- {gate}: unknown sign-off row")
     for signoff in duplicate_signoffs:
         print(f"- {signoff}: duplicate sign-off rows")
+    for signoff in unmatched_signoffs:
+        print(f"- {signoff}: sign-off evidence does not match gate evidence")
     for gate in missing_signoffs:
         print(f"- {gate}: missing completed sign-off row for gate evidence")
     for status in pending:
