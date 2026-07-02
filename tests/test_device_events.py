@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -28,6 +29,13 @@ from custom_components.smartly_bridge.views.device_events import (
     SmartlyDeviceEventsView,
     SmartlyDeviceEventsViewWrapper,
 )
+
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
 
 
 def _request_for_device_event(
@@ -622,22 +630,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "DEVICE_EVENT_PUBLISHER_UNAVAILABLE",
-                    "message": "Device event publisher not initialized",
-                    "target": "device_event.publisher",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-publisher-unavailable.json"
+        )
         assert (
             "device_event_publisher"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -665,22 +660,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "DEVICE_EVENT_DEDUPLICATOR_UNAVAILABLE",
-                    "message": "Device event deduplicator not initialized",
-                    "target": "device_event.deduplicator",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-deduplicator-unavailable.json"
+        )
         assert (
             "device_event_deduplicator"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -737,22 +719,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "ldev_button",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "LOCAL_AUTOMATION_RULE_STORE_UNAVAILABLE",
-                    "message": "Local automation rule store not initialized",
-                    "target": "local_automation.rule_store",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-local-automation-rule-store-unavailable.json"
+        )
         assert (
             "local_automation_rule_store"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -811,22 +780,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "ldev_button",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
-                    "message": "Smartly command executor not initialized",
-                    "target": "local_automation.command_executor",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-smartly-command-executor-unavailable.json"
+        )
         assert (
             "smartly_command_executor"
             not in mock_hass.data[DOMAIN]["runtime_adapters"]
@@ -875,22 +831,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_JSON",
-                    "message": "Invalid JSON body",
-                    "target": "request.body",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-invalid-json.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -921,22 +864,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 401
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_SIGNATURE",
-                    "message": "Device event request authentication failed",
-                    "target": "request.auth",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-auth-failure.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -971,22 +901,9 @@ class TestDeviceEventsEndpoint:
         assert response.status == 429
         assert response.headers["Retry-After"] == "60"
         assert response.headers["X-RateLimit-Remaining"] == "0"
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "RATE_LIMITED",
-                    "message": "Device event request was rate limited",
-                    "target": "request.rate_limit",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-rate-limit.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1008,22 +925,9 @@ class TestDeviceEventsEndpoint:
         response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INTEGRATION_NOT_CONFIGURED",
-                    "message": "Smartly Bridge integration is not configured",
-                    "target": "integration",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-integration-not-configured.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1049,22 +953,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "MISSING_REQUIRED_FIELDS",
-                    "message": "Missing required event fields",
-                    "target": "event.action",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-missing-required-fields.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1091,22 +982,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_ACTION",
-                    "message": "Unsupported button action",
-                    "target": "event.action",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-invalid-action.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1133,22 +1011,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_TIMESTAMP",
-                    "message": "Invalid event timestamp",
-                    "target": "event.timestamp",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-invalid-timestamp.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1176,22 +1041,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 400
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "INVALID_META",
-                    "message": "Invalid event metadata",
-                    "target": "event.meta",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-invalid-meta.json"
+        )
         mock_hass.bus.async_fire.assert_not_called()
 
     @pytest.mark.asyncio
@@ -1542,22 +1394,9 @@ class TestDeviceEventsEndpoint:
             response = await SmartlyDeviceEventsView(request).post()
 
         assert response.status == 500
-        assert json.loads(response.body) == {
-            "schema_version": "2026.06",
-            "data": {
-                "device_id": "device_abc123",
-                "status": "rejected",
-            },
-            "warnings": [],
-            "errors": [
-                {
-                    "code": "DEVICE_EVENT_FAILED",
-                    "message": "RuntimeError: event bus unavailable",
-                    "target": "device_event.dispatch",
-                    "retryable": False,
-                }
-            ],
-        }
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "device-event-dispatch-failure.json"
+        )
 
     @pytest.mark.asyncio
     async def test_device_event_wrapper_accepts_route_device_id(self, mock_hass):

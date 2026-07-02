@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "device_abc123",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_JSON",
+      "message": "Invalid JSON body",
+      "target": "request.body",
+      "retryable": false
+    }
+  ]
+}
