@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import sys
 from pathlib import Path
 from typing import NamedTuple
@@ -44,6 +45,23 @@ FALLBACK_CONSTRUCTORS = {
 }
 RESPONSE_BUILDERS = {"BridgeResponse", "_json_response"}
 API_VNEXT_TOP_LEVEL_KEYS = {"schema_version", "data", "warnings", "errors"}
+GENERAL_LEGACY_WORDING_ROOTS = [
+    Path("custom_components"),
+    Path("tests"),
+    Path("docs"),
+    Path("scripts"),
+]
+GENERAL_LEGACY_WORDING_EXCLUDED_PATHS = {
+    Path("docs/specs/migration-progress.md"),
+    Path("scripts/phase6_audit.py"),
+    Path("tests/test_phase6_audit.py"),
+}
+GENERAL_LEGACY_WORDING_TERMS = (
+    "legacy",
+    "deprecated",
+    "backward compatibility",
+    "LTS",
+)
 ACTIVE_CONTRACT_DOCS = [
     Path("docs/openapi.yaml"),
     Path("docs/specs/api-vnext-contract.md"),
@@ -123,6 +141,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
         findings.extend(_production_legacy_wording_findings(root_path, python_files))
     findings.extend(_api_vnext_fixture_findings(root_path))
     findings.extend(_sync_raw_payload_fixture_findings(root_path))
+    findings.extend(_general_legacy_wording_findings(root_path))
     findings.extend(_manual_legacy_control_body_findings(root_path))
     findings.extend(_camera_legacy_wording_findings(root_path))
     findings.extend(_device_event_legacy_wording_findings(root_path))
@@ -475,6 +494,54 @@ def _production_legacy_wording_findings(
                 )
             )
     return findings
+
+
+def _general_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for scan_root in GENERAL_LEGACY_WORDING_ROOTS:
+        path = root / scan_root
+        if not path.exists():
+            continue
+        files = (
+            [path]
+            if path.is_file()
+            else sorted(p for p in path.rglob("*") if p.is_file())
+        )
+        for file_path in files:
+            relative_path = _relative_path(root, file_path)
+            if Path(relative_path) in GENERAL_LEGACY_WORDING_EXCLUDED_PATHS:
+                continue
+            try:
+                lines = file_path.read_text(encoding="utf-8").splitlines()
+            except UnicodeDecodeError:
+                continue
+            for line_number, line in enumerate(lines, start=1):
+                lower_line = line.lower()
+                if not _contains_general_legacy_wording(line, lower_line):
+                    continue
+                findings.append(
+                    Finding(
+                        code="general-legacy-wording",
+                        path=relative_path,
+                        line=line_number,
+                        message=(
+                            "General repo content still uses Phase 6 legacy wording; "
+                            "describe source/current behavior directly."
+                        ),
+                    )
+                )
+    return findings
+
+
+def _contains_general_legacy_wording(line: str, lower_line: str) -> bool:
+    for term in GENERAL_LEGACY_WORDING_TERMS:
+        if term == "LTS":
+            if re.search(r"\bLTS\b", line):
+                return True
+            continue
+        if term.lower() in lower_line:
+            return True
+    return False
 
 
 def _active_contract_legacy_wording_findings(root: Path) -> list[Finding]:

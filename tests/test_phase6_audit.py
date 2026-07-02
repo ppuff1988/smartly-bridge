@@ -325,6 +325,19 @@ def test_phase6_audit_detects_application_test_legacy_wording(
     assert any(finding.code == "application-test-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_general_legacy_wording(tmp_path: Path) -> None:
+    """The audit rejects general Phase 6 legacy wording outside audit records."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs" / "guide.md",
+        "This deprecated control body should not be documented.\n",
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "general-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_request_time_fallback_wording(
     tmp_path: Path,
 ) -> None:
