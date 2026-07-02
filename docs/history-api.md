@@ -628,35 +628,87 @@ print(f"Total records: {len(history)}")
 ```json
 // 401 Unauthorized - 簽名驗證失敗
 {
-  "error": "invalid_signature"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_SIGNATURE",
+      "message": "invalid signature",
+      "target": "history.auth",
+      "retryable": false
+    }
+  ]
 }
 
 // 403 Forbidden - 無權限訪問該實體
 {
-  "error": "forbidden",
-  "message": "No permission to access entity: camera.test"
-}
-
-// 404 Not Found - 實體不存在
-{
-  "error": "entity_not_found",
-  "message": "Entity camera.test not found"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ENTITY_NOT_ALLOWED",
+      "message": "entity not allowed",
+      "target": "history.entity_id",
+      "retryable": false
+    }
+  ]
 }
 
 // 400 Bad Request - 時間範圍過長
 {
-  "error": "invalid_time_range",
-  "message": "Time range cannot exceed 30 days"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "TIME_RANGE_TOO_LARGE",
+      "message": "time range too large",
+      "target": "history.time_range",
+      "retryable": false
+    }
+  ]
 }
 
 // 400 Bad Request - 無效的游標
 {
-  "error": "invalid_cursor"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_CURSOR",
+      "message": "invalid cursor",
+      "target": "history.cursor",
+      "retryable": false
+    }
+  ]
 }
 
 // 500 Internal Server Error - 查詢失敗
 {
-  "error": "history_query_failed"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "HISTORY_QUERY_FAILED",
+      "message": "history query failed",
+      "target": "history",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -759,14 +811,36 @@ X-Signature: computed-hmac-signature
 ```json
 // 400 Bad Request - 實體數量過多
 {
-  "error": "too_many_entities",
-  "message": "Cannot query more than 50 entities at once"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "TOO_MANY_ENTITIES",
+      "message": "too many entities",
+      "target": "history.batch.entity_ids",
+      "retryable": false
+    }
+  ]
 }
 
 // 400 Bad Request - entity_ids 不是列表
 {
-  "error": "invalid_request",
-  "message": "entity_ids must be a list"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ENTITY_IDS_REQUIRED",
+      "message": "entity ids required",
+      "target": "history.batch.entity_ids",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -865,13 +939,36 @@ X-Signature: computed-hmac-signature
 ```json
 // 400 Bad Request - 無效的統計週期
 {
-  "error": "invalid_period",
-  "message": "Period must be one of: 5minute, hour, day, week, month"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_PERIOD",
+      "message": "invalid period",
+      "target": "history.statistics.period",
+      "retryable": false
+    }
+  ]
 }
 
 // 500 Internal Server Error - 統計查詢失敗
 {
-  "error": "statistics_query_failed"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "STATISTICS_QUERY_FAILED",
+      "message": "statistics query failed",
+      "target": "history.statistics",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -1355,7 +1452,7 @@ stats = client.get_statistics(
 
 ### 1. 簽名驗證失敗
 
-**問題：** 返回 `{"error": "invalid_signature"}`
+**問題：** 回應 `errors[0].code` 為 `INVALID_SIGNATURE`
 
 **可能原因：**
 - 路徑中缺少查詢參數（必須包含完整的 `?start_time=...&limit=...`）
@@ -1375,7 +1472,7 @@ const path = urlObj.pathname + urlObj.search; // 包含查詢參數
 
 ### 2. 時間範圍錯誤
 
-**問題：** 返回 `{"error": "invalid_time_range"}`
+**問題：** 回應 `errors[0].code` 為 `TIME_RANGE_TOO_LARGE`
 
 **解決方案：**
 - 確保時間範圍不超過 30 天
@@ -1384,23 +1481,14 @@ const path = urlObj.pathname + urlObj.search; // 包含查詢參數
 
 ### 3. 權限錯誤
 
-**問題：** 返回 `{"error": "forbidden"}`
+**問題：** 回應 `errors[0].code` 為 `ENTITY_NOT_ALLOWED`
 
 **解決方案：**
 - 確認客戶端配置中 `allowed_entity_ids` 包含該實體
 - 檢查 ACL 規則是否允許訪問
 - 使用 `/api/smartly/sync/structure` 確認可訪問的實體列表
 
-### 4. 實體不存在
-
-**問題：** 返回 `{"error": "entity_not_found"}`
-
-**解決方案：**
-- 檢查 entity_id 拼寫是否正確
-- 確認實體在 Home Assistant 中存在
-- 使用 `/api/smartly/sync/states` 查看所有可用實體
-
-### 5. 無歷史數據
+### 4. 無歷史數據
 
 **問題：** 返回空的 `history` 陣列
 
