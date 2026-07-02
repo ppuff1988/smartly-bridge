@@ -67,6 +67,7 @@ def audit(root: Path | str = ".") -> list[Finding]:
         findings.extend(_legacy_states_alias_findings(root_path, python_files))
         findings.extend(_legacy_top_level_response_findings(root_path, python_files))
         findings.extend(_request_time_fallback_constructor_findings(root_path, package_root))
+        findings.extend(_production_legacy_wording_findings(root_path, python_files))
     findings.extend(_api_vnext_fixture_findings(root_path))
     findings.extend(_sync_raw_payload_fixture_findings(root_path))
     findings.extend(_manual_legacy_control_body_findings(root_path))
@@ -389,6 +390,30 @@ def _control_application_legacy_wording_findings(root: Path) -> list[Finding]:
                 ),
             )
         )
+    return findings
+
+
+def _production_legacy_wording_findings(
+    root: Path,
+    python_files: list[Path],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in python_files:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="production-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message="Production Bridge code still contains legacy wording.",
+                )
+            )
     return findings
 
 

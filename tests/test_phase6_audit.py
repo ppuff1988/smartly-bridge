@@ -182,6 +182,19 @@ def test_phase6_audit_detects_control_application_legacy_wording(
     assert any(finding.code == "control-application-legacy-wording" for finding in findings)
 
 
+def test_phase6_audit_detects_production_legacy_wording(tmp_path: Path) -> None:
+    """The audit rejects generic legacy wording in production Bridge modules."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "custom_components/smartly_bridge/application/example.py",
+        '"""Temporary legacy compatibility helper."""\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "production-legacy-wording" for finding in findings)
+
+
 def test_phase6_audit_detects_api_vnext_fixture_legacy_top_level_key(
     tmp_path: Path,
 ) -> None:
