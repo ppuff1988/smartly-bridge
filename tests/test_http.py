@@ -174,7 +174,7 @@ def test_control_request_builds_vnext_smartly_command() -> None:
 
 
 def test_control_request_ignores_legacy_body_as_vnext_command() -> None:
-    """Legacy control requests continue through entity/action normalization."""
+    """Legacy control requests are not parsed as SmartlyCommand bodies."""
     assert (
         _smartly_command_from_body(
             {"entity_id": "light.kitchen", "action": "turn_on", "service_data": {}}
