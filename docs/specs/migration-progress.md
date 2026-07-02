@@ -703,7 +703,7 @@
 - Camera legacy success helper cleanup: `_camera_success_response` had no remaining call sites after snapshot success moved to `data.snapshot`.
 - Camera legacy success helper verification: camera/http scope `262 passed`; full suite `913 passed`
 - Camera/http scope: `tests/test_application_camera.py tests/test_camera_views.py tests/test_camera.py tests/test_camera_hls.py tests/test_camera_coverage.py tests/test_http.py` `262 passed`
-- Full suite: `916 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
+- Full suite: `918 passed` on Python 3.14.6 / existing `smartly-bridge-devcontainer-check`
 
 ## Remaining Work
 
