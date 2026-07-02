@@ -598,7 +598,6 @@ class SmartlyHistoryView(web.View):
             result = _history_error_response(
                 "history_query_failed",
                 status=500,
-                legacy_fields={"message": str(err)},
             )
             return _json_response(
                 result.body, self.request, status=result.status, headers=result.headers
@@ -807,7 +806,6 @@ class SmartlyHistoryBatchView(web.View):
                 "too_many_entities",
                 status=400,
                 target="history.batch.entity_ids",
-                legacy_fields={"max_entities": HISTORY_MAX_ENTITIES_BATCH},
             )
             return _json_response(
                 result.body, self.request, status=result.status, headers=result.headers
@@ -1065,7 +1063,6 @@ class SmartlyStatisticsView(web.View):
                 "invalid_period",
                 status=400,
                 target="statistics.period",
-                legacy_fields={"valid_periods": ["hour", "day", "week", "month"]},
             )
             return _json_response(
                 result.body, self.request, status=result.status, headers=result.headers

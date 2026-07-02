@@ -128,7 +128,6 @@ class HistoryQueryPlanner:
                 "time_range_too_large",
                 status=400,
                 target="history.time_range",
-                legacy_fields={"max_days": self._max_duration_days},
             )
 
         if start_time > end_time:
@@ -221,7 +220,6 @@ def _history_error_response(
     *,
     status: int,
     target: str = "history",
-    legacy_fields: dict[str, Any] | None = None,
 ) -> BridgeResponse:
     """Return an API vNext history error response."""
     return BridgeResponse(
