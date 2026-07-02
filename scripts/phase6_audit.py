@@ -109,6 +109,7 @@ PUBLIC_CONTROL_DOCS = [
     Path("docs/control/device-types.md"),
     Path("docs/control/responses.md"),
     Path("docs/control/troubleshooting.md"),
+    Path("docs/security-audit.md"),
 ]
 PUBLIC_CONTROL_LEGACY_BODY_TERMS = (
     "service_data",
@@ -797,10 +798,11 @@ def _legacy_control_doc_block_findings(
 
 
 def _is_legacy_control_body_block(block: str) -> bool:
-    return (
-        '"entity_id"' in block
-        and ('"action"' in block or "service_data" in block)
-    )
+    has_entity_id = '"entity_id"' in block
+    has_action = '"action"' in block or "service_data" in block
+    reads_entity_id = 'body.get("entity_id")' in block or "body.get('entity_id')" in block
+    reads_action = 'body.get("action")' in block or "body.get('action')" in block
+    return (has_entity_id and has_action) or (reads_entity_id and reads_action)
 
 
 def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:

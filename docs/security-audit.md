@@ -194,23 +194,28 @@ ALLOWED_SERVICES: dict[str, list[str]] = {
 try:
     body = await self.request.json()
 except json.JSONDecodeError:
-    return web.json_response(
-        {"error": "invalid_json"},
-        status=400,
+    result = control_error_response("invalid_json", status=400)
+    return _json_response(
+        result.body,
+        self.request,
+        status=result.status,
+        headers=result.headers,
     )  # ✅ 捕捉無效 JSON
 ```
 
 ### 3.2 必要欄位檢查 ✅
 
 ```python
-entity_id = body.get("entity_id")
-action = body.get("action")
+smartly_command = _smartly_command_from_body(body)
 
-if not entity_id or not action:
-    return web.json_response(
-        {"error": "missing_required_fields"},
-        status=400,
-    )  # ✅ 檢查必要欄位
+if smartly_command is None:
+    result = control_error_response("missing_required_fields", status=400)
+    return _json_response(
+        result.body,
+        self.request,
+        status=result.status,
+        headers=result.headers,
+    )  # ✅ 檢查 SmartlyCommand 必要欄位
 ```
 
 ### 3.3 CIDR 格式驗證 ✅
@@ -337,17 +342,12 @@ await self.hass.services.async_call(
 ```python
 except Exception as err:
     _LOGGER.error("Service call failed: %s", err)  # ✅ 詳細錯誤記錄在日誌
-    log_control(
-        _LOGGER,
-        client_id=auth_result.client_id or "unknown",
-        entity_id=entity_id,
-        service=action,
-        result=f"error: {type(err).__name__}",  # ✅ 僅返回錯誤類型
-        actor=actor,
-    )
-    return web.json_response(
-        {"error": "service_call_failed"},  # ✅ 通用錯誤訊息，不洩露細節
-        status=500,
+    result = control_error_response("service_call_failed", status=500)
+    return _json_response(
+        result.body,  # ✅ API vNext envelope，不洩露內部錯誤細節
+        self.request,
+        status=result.status,
+        headers=result.headers,
     )
 ```
 

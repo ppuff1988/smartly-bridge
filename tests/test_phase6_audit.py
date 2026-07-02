@@ -262,6 +262,21 @@ def test_phase6_audit_detects_nested_public_control_legacy_body_docs(
     assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
 
 
+def test_phase6_audit_detects_security_audit_legacy_control_body_docs(
+    tmp_path: Path,
+) -> None:
+    """The audit rejects security docs that still validate entity/action bodies."""
+    audit = _load_phase6_audit()
+    _write(
+        tmp_path / "docs/security-audit.md",
+        '```python\nentity_id = body.get("entity_id")\naction = body.get("action")\n```\n',
+    )
+
+    findings = audit.audit(tmp_path)
+
+    assert any(finding.code == "public-control-legacy-body-doc" for finding in findings)
+
+
 def test_phase6_audit_allows_public_docs_source_entity_references(
     tmp_path: Path,
 ) -> None:
