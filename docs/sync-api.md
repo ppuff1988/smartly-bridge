@@ -477,7 +477,19 @@ print(response.json())
 
 ```json
 {
-  "error": "rate_limited"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RATE_LIMITED",
+      "message": "rate limited",
+      "target": "sync.structure.rate_limit",
+      "retryable": false
+    }
+  ]
 }
 ```
 
