@@ -62,6 +62,9 @@ env/
 *~
 .DS_Store
 
+# Dev Containers
+.devcontainer/devcontainer-lock.json
+
 # Home Assistant specific
 # Ignore root config directory (legacy local test/development environment only)
 /config/
