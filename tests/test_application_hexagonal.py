@@ -9,6 +9,7 @@ from typing import Any
 
 import pytest
 
+from custom_components.smartly_bridge.acl import is_service_allowed
 from custom_components.smartly_bridge.application.control import (
     ControlCommand,
     ControlUseCase,
@@ -19,7 +20,6 @@ from custom_components.smartly_bridge.application.sync import (
     SyncStatesUseCase,
     SyncStructureUseCase,
 )
-from custom_components.smartly_bridge.acl import is_service_allowed
 from custom_components.smartly_bridge.domain.models import BridgeResponse, EntityStateSnapshot
 
 
@@ -337,13 +337,16 @@ async def test_control_use_case_calls_allowed_service_and_returns_new_state() ->
     )
 
     assert result.status == 200
-    assert not {
-        "success",
-        "entity_id",
-        "action",
-        "new_state",
-        "new_attributes",
-    } & result.body.keys()
+    assert (
+        not {
+            "success",
+            "entity_id",
+            "action",
+            "new_state",
+            "new_attributes",
+        }
+        & result.body.keys()
+    )
     assert result.body["schema_version"] == "2026.06"
     assert result.body["data"] == {
         "status": "completed",
@@ -777,20 +780,23 @@ async def test_smartly_command_success_response_uses_vnext_envelope_only() -> No
     )
 
     assert result.status == 200
-    assert not {
-        "success",
-        "command_id",
-        "status",
-        "adapter_id",
-        "correlation_id",
-        "device_id",
-        "capability",
-        "command",
-        "entity_id",
-        "expected_state",
-        "new_state",
-        "new_attributes",
-    } & result.body.keys()
+    assert (
+        not {
+            "success",
+            "command_id",
+            "status",
+            "adapter_id",
+            "correlation_id",
+            "device_id",
+            "capability",
+            "command",
+            "entity_id",
+            "expected_state",
+            "new_state",
+            "new_attributes",
+        }
+        & result.body.keys()
+    )
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []
     assert result.body["errors"] == []
@@ -812,9 +818,7 @@ async def test_smartly_command_success_response_uses_vnext_envelope_only() -> No
 @pytest.mark.asyncio
 async def test_smartly_command_success_matches_api_vnext_fixture() -> None:
     """Command success full response matches the API vNext envelope contract."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "command-success.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "command-success.json"
     expected_body = json.loads(fixture_path.read_text())
     audit = FakeAudit()
     gateway = FakeControlGateway(
@@ -879,9 +883,7 @@ async def test_smartly_command_use_case_dispatches_brightness_delta_commands(
 
     assert result.status == 200
     assert result.body["data"]["expected_state"] == {}
-    assert gateway.calls == [
-        ("light.kitchen", "turn_on", {"brightness_step_pct": expected_step})
-    ]
+    assert gateway.calls == [("light.kitchen", "turn_on", {"brightness_step_pct": expected_step})]
 
 
 @pytest.mark.asyncio
@@ -1008,12 +1010,8 @@ async def test_smartly_command_use_case_dispatches_cover_position_command() -> N
     )
 
     assert result.status == 200
-    assert result.body["data"]["expected_state"] == {
-        "position": {"value": 55, "unit": "percent"}
-    }
-    assert gateway.calls == [
-        ("cover.living_curtain", "set_cover_position", {"position": 55})
-    ]
+    assert result.body["data"]["expected_state"] == {"position": {"value": 55, "unit": "percent"}}
+    assert gateway.calls == [("cover.living_curtain", "set_cover_position", {"position": 55})]
 
 
 @pytest.mark.asyncio
@@ -1157,9 +1155,7 @@ async def test_smartly_command_use_case_dispatches_fan_direction_command() -> No
             attributes={"direction": "forward"},
         )
     )
-    resolver = FakeCommandTargetResolver(
-        {("ldev_fan_bedroom", "fan_direction"): "fan.bedroom"}
-    )
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_direction"): "fan.bedroom"})
     use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
 
     result = await use_case.execute(
@@ -1175,9 +1171,7 @@ async def test_smartly_command_use_case_dispatches_fan_direction_command() -> No
 
     assert result.status == 200
     assert result.body["data"]["expected_state"] == {"fan_direction": {"value": "reverse"}}
-    assert gateway.calls == [
-        ("fan.bedroom", "set_direction", {"direction": "reverse"})
-    ]
+    assert gateway.calls == [("fan.bedroom", "set_direction", {"direction": "reverse"})]
 
 
 @pytest.mark.asyncio
@@ -1191,9 +1185,7 @@ async def test_smartly_command_use_case_dispatches_fan_oscillation_command() -> 
             attributes={"oscillating": False},
         )
     )
-    resolver = FakeCommandTargetResolver(
-        {("ldev_fan_bedroom", "fan_oscillation"): "fan.bedroom"}
-    )
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_oscillation"): "fan.bedroom"})
     use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
 
     result = await use_case.execute(
@@ -1209,9 +1201,7 @@ async def test_smartly_command_use_case_dispatches_fan_oscillation_command() -> 
 
     assert result.status == 200
     assert result.body["data"]["expected_state"] == {"fan_oscillation": {"value": True}}
-    assert gateway.calls == [
-        ("fan.bedroom", "oscillate", {"oscillating": True})
-    ]
+    assert gateway.calls == [("fan.bedroom", "oscillate", {"oscillating": True})]
 
 
 @pytest.mark.asyncio
@@ -1243,9 +1233,7 @@ async def test_smartly_command_use_case_dispatches_climate_fan_speed_command() -
 
     assert result.status == 200
     assert result.body["data"]["expected_state"] == {"fan_speed": {"speed": "auto"}}
-    assert gateway.calls == [
-        ("climate.living_room", "set_fan_mode", {"fan_mode": "auto"})
-    ]
+    assert gateway.calls == [("climate.living_room", "set_fan_mode", {"fan_mode": "auto"})]
 
 
 @pytest.mark.asyncio
@@ -1277,9 +1265,7 @@ async def test_smartly_command_use_case_dispatches_climate_preset_mode_command()
 
     assert result.status == 200
     assert result.body["data"]["expected_state"] == {"preset_mode": {"value": "eco"}}
-    assert gateway.calls == [
-        ("climate.living_room", "set_preset_mode", {"preset_mode": "eco"})
-    ]
+    assert gateway.calls == [("climate.living_room", "set_preset_mode", {"preset_mode": "eco"})]
 
 
 @pytest.mark.asyncio
@@ -1311,9 +1297,7 @@ async def test_smartly_command_use_case_dispatches_climate_swing_mode_command() 
 
     assert result.status == 200
     assert result.body["data"]["expected_state"] == {"swing_mode": {"value": "vertical"}}
-    assert gateway.calls == [
-        ("climate.living_room", "set_swing_mode", {"swing_mode": "vertical"})
-    ]
+    assert gateway.calls == [("climate.living_room", "set_swing_mode", {"swing_mode": "vertical"})]
 
 
 @pytest.mark.asyncio
@@ -1357,9 +1341,7 @@ async def test_smartly_command_use_case_dispatches_scene_run_command() -> None:
             attributes={},
         )
     )
-    resolver = FakeCommandTargetResolver(
-        {("ldev_scene_movie_night", "run"): "scene.movie_night"}
-    )
+    resolver = FakeCommandTargetResolver({("ldev_scene_movie_night", "run"): "scene.movie_night"})
     use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
 
     result = await use_case.execute(
@@ -1389,9 +1371,7 @@ async def test_smartly_command_use_case_dispatches_script_run_command() -> None:
             attributes={},
         )
     )
-    resolver = FakeCommandTargetResolver(
-        {("ldev_script_notify_user", "run"): "script.notify_user"}
-    )
+    resolver = FakeCommandTargetResolver({("ldev_script_notify_user", "run"): "script.notify_user"})
     use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
 
     result = await use_case.execute(
@@ -1553,9 +1533,7 @@ async def test_smartly_command_use_case_rejects_numeric_setting_outside_range() 
     )
 
     assert result.status == 400
-    assert_smartly_command_error(
-        result, "invalid_params", "number.presence_detection_delay"
-    )
+    assert_smartly_command_error(result, "invalid_params", "number.presence_detection_delay")
     assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
@@ -1602,9 +1580,7 @@ async def test_smartly_command_use_case_rejects_numeric_setting_invalid_step() -
     )
 
     assert result.status == 400
-    assert_smartly_command_error(
-        result, "invalid_params", "number.presence_detection_delay"
-    )
+    assert_smartly_command_error(result, "invalid_params", "number.presence_detection_delay")
     assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
@@ -1774,9 +1750,7 @@ async def test_smartly_command_use_case_rejects_option_setting_unknown_option() 
     )
 
     assert result.status == 400
-    assert_smartly_command_error(
-        result, "invalid_params", "select.presence_occupancy_sensitivity"
-    )
+    assert_smartly_command_error(result, "invalid_params", "select.presence_occupancy_sensitivity")
     assert result.body["data"]["expected_state"] == {}
     assert gateway.calls == []
     assert audit.denials == [
@@ -1873,9 +1847,7 @@ async def test_smartly_command_use_case_dispatches_climate_temperature_command()
     assert result.body["data"]["expected_state"] == {
         "target_temperature": {"value": 24, "unit": "celsius"}
     }
-    assert gateway.calls == [
-        ("climate.living_room", "set_temperature", {"temperature": 24})
-    ]
+    assert gateway.calls == [("climate.living_room", "set_temperature", {"temperature": 24})]
 
 
 @pytest.mark.asyncio
@@ -2542,9 +2514,7 @@ async def test_smartly_command_use_case_rejects_invalid_fan_direction_params() -
     """Fan direction commands require a supported direction value."""
     audit = FakeAudit()
     gateway = FakeControlGateway()
-    resolver = FakeCommandTargetResolver(
-        {("ldev_fan_bedroom", "fan_direction"): "fan.bedroom"}
-    )
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_direction"): "fan.bedroom"})
     use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
 
     result = await use_case.execute(
@@ -2582,9 +2552,7 @@ async def test_smartly_command_use_case_rejects_invalid_fan_oscillation_params()
     """Fan oscillation commands require a boolean oscillating value."""
     audit = FakeAudit()
     gateway = FakeControlGateway()
-    resolver = FakeCommandTargetResolver(
-        {("ldev_fan_bedroom", "fan_oscillation"): "fan.bedroom"}
-    )
+    resolver = FakeCommandTargetResolver({("ldev_fan_bedroom", "fan_oscillation"): "fan.bedroom"})
     use_case = SmartlyCommandUseCase(FakeEntityPolicy(), gateway, audit, resolver)
 
     result = await use_case.execute(
@@ -2824,9 +2792,7 @@ def test_sync_structure_use_case_includes_vnext_envelope() -> None:
 
 def test_sync_structure_use_case_matches_current_sync_vnext_data_fixture() -> None:
     """Structure sync vNext data matches the current-sync contract snapshot."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "current-sync" / "structure-vnext-data.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "current-sync" / "structure-vnext-data.json"
     expected_data = json.loads(fixture_path.read_text())
 
     result = SyncStructureUseCase(FakeSyncGateway()).execute()
@@ -2836,9 +2802,7 @@ def test_sync_structure_use_case_matches_current_sync_vnext_data_fixture() -> No
 
 def test_sync_structure_use_case_matches_current_sync_envelope_fixture() -> None:
     """Structure sync full response matches the vNext-only envelope fixture."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "current-sync" / "structure-envelope.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "current-sync" / "structure-envelope.json"
     expected_body = json.loads(fixture_path.read_text())
 
     result = SyncStructureUseCase(FakeSyncGateway()).execute()
@@ -3108,9 +3072,7 @@ async def test_sync_states_use_case_passes_label_trace_as_logical_device_diagnos
 @pytest.mark.asyncio
 async def test_sync_states_use_case_matches_current_sync_vnext_data_fixture() -> None:
     """State sync vNext data matches the current-sync contract snapshot."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "current-sync" / "states-vnext-data.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "current-sync" / "states-vnext-data.json"
     expected_data = json.loads(fixture_path.read_text())
 
     result = await SyncStatesUseCase(FakeSyncGateway()).execute()
@@ -3121,9 +3083,7 @@ async def test_sync_states_use_case_matches_current_sync_vnext_data_fixture() ->
 @pytest.mark.asyncio
 async def test_sync_states_use_case_matches_current_sync_envelope_fixture() -> None:
     """State sync full response matches the vNext-only envelope fixture."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "current-sync" / "states-envelope.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "current-sync" / "states-envelope.json"
     expected_body = json.loads(fixture_path.read_text())
 
     result = await SyncStatesUseCase(FakeSyncGateway()).execute()

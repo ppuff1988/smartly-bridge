@@ -339,7 +339,10 @@ def _capability_role(capability: str) -> str:
     return "primary"
 
 
-def _capability_state(snapshot: EntityStateSnapshot, capability: str) -> dict[str, Any]:
+def _capability_state(  # noqa: C901
+    snapshot: EntityStateSnapshot,
+    capability: str,
+) -> dict[str, Any]:
     """Return a normalized state payload for a capability when available."""
     attributes = snapshot.attributes or {}
     if capability == "power":
@@ -422,11 +425,7 @@ def _setting_capabilities_from_presentation(
             state: dict[str, Any] = {"value": control.get("value")}
             if control.get("unit"):
                 state["unit"] = control["unit"]
-            constraints = {
-                key: control[key]
-                for key in ("min", "max", "step")
-                if key in control
-            }
+            constraints = {key: control[key] for key in ("min", "max", "step") if key in control}
             capabilities.append(
                 _setting_capability_from_control(
                     snapshot,
@@ -777,21 +776,9 @@ def _xy_color_value(value: Any) -> dict[str, int] | None:
     x_luminance = (y_luminance / y_value) * x_value
     z_luminance = (y_luminance / y_value) * (1 - x_value - y_value)
 
-    red = (
-        x_luminance * 1.656492
-        - y_luminance * 0.354851
-        - z_luminance * 0.255038
-    )
-    green = (
-        -x_luminance * 0.707196
-        + y_luminance * 1.655397
-        + z_luminance * 0.036152
-    )
-    blue = (
-        x_luminance * 0.051713
-        - y_luminance * 0.121364
-        + z_luminance * 1.011530
-    )
+    red = x_luminance * 1.656492 - y_luminance * 0.354851 - z_luminance * 0.255038
+    green = -x_luminance * 0.707196 + y_luminance * 1.655397 + z_luminance * 0.036152
+    blue = x_luminance * 0.051713 - y_luminance * 0.121364 + z_luminance * 1.011530
 
     red = _gamma_correct(red)
     green = _gamma_correct(green)

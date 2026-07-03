@@ -8,6 +8,10 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantCameraGateway,
+    _home_assistant_camera_gateway,
+)
 from custom_components.smartly_bridge.application.camera import (
     SMARTLY_API_SCHEMA_VERSION,
     CameraConfigCommand,
@@ -15,13 +19,11 @@ from custom_components.smartly_bridge.application.camera import (
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.camera import CameraConfig, CameraManager, CameraSnapshot
 from custom_components.smartly_bridge.const import DOMAIN
-from custom_components.smartly_bridge.adapters.home_assistant import (
-    HomeAssistantCameraGateway,
-    _home_assistant_camera_gateway,
-)
 from custom_components.smartly_bridge.domain.models import (
     BridgeResponse,
-    CameraSnapshot as DomainCameraSnapshot,
+)
+from custom_components.smartly_bridge.domain.models import CameraSnapshot as DomainCameraSnapshot
+from custom_components.smartly_bridge.domain.models import (
     CameraStreamInfo,
 )
 from custom_components.smartly_bridge.views.camera import (
@@ -30,22 +32,22 @@ from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraListView,
     SmartlyCameraSnapshotView,
     SmartlyCameraStreamView,
-    _adapt_camera_snapshot_response,
     _adapt_camera_json_response,
+    _adapt_camera_snapshot_response,
     _authorize_camera_request,
-    _camera_entity_id_from_request,
-    _configure_camera,
-    _capture_camera_snapshot,
     _build_camera_stream_log_context,
+    _camera_entity_id_from_request,
     _camera_hls_audit_event,
+    _capture_camera_snapshot,
+    _configure_camera,
     _handle_camera_hls,
     _list_cameras,
     _log_camera_control_event,
-    _prepare_camera_stream_response,
     _parse_camera_config_command,
     _parse_camera_hls_action,
     _parse_camera_list_options,
     _parse_camera_snapshot_options,
+    _prepare_camera_stream_response,
     _resolve_camera_gateway,
     _validate_camera_entity_id,
 )
@@ -1669,9 +1671,7 @@ class TestSmartlyCameraListView:
         ]
 
     @pytest.mark.asyncio
-    async def test_list_response_includes_request_context_headers(
-        self, mock_request, mock_hass
-    ):
+    async def test_list_response_includes_request_context_headers(self, mock_request, mock_hass):
         """Camera list responses echo optional request correlation headers."""
         gateway = FakeRuntimeCameraGateway()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {"camera_gateway": gateway}

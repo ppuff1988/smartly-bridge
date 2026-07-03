@@ -40,9 +40,7 @@ class TestStatePushManager:
         from custom_components.smartly_bridge.push import _push_history_gateway
 
         history_gateway = MagicMock()
-        mock_hass.data[DOMAIN] = {
-            "runtime_adapters": {"history_gateway": history_gateway}
-        }
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {"history_gateway": history_gateway}}
 
         result = _push_history_gateway(mock_hass, MagicMock())
 
@@ -150,9 +148,7 @@ class TestStatePushManager:
 
         history_gateway = MagicMock()
         history_gateway.query_states = AsyncMock(return_value=history)
-        push_manager.hass.data[DOMAIN] = {
-            "runtime_adapters": {"history_gateway": history_gateway}
-        }
+        push_manager.hass.data[DOMAIN] = {"runtime_adapters": {"history_gateway": history_gateway}}
 
         await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
@@ -299,9 +295,7 @@ class TestStatePushManager:
                 {"s": "24.567", "lu": 1782453600},
             ]
         )
-        push_manager.hass.data[DOMAIN] = {
-            "runtime_adapters": {"history_gateway": history_gateway}
-        }
+        push_manager.hass.data[DOMAIN] = {"runtime_adapters": {"history_gateway": history_gateway}}
 
         await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
@@ -325,9 +319,7 @@ class TestStatePushManager:
 
         history_gateway = MagicMock()
         history_gateway.query_states = AsyncMock(return_value=[])
-        push_manager.hass.data[DOMAIN] = {
-            "runtime_adapters": {"history_gateway": history_gateway}
-        }
+        push_manager.hass.data[DOMAIN] = {"runtime_adapters": {"history_gateway": history_gateway}}
 
         await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 
@@ -357,9 +349,7 @@ class TestStatePushManager:
                 {"s": "24.567", "lu": 1782453600},
             ]
         )
-        mock_hass.data[DOMAIN] = {
-            "runtime_adapters": {"history_gateway": history_gateway}
-        }
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {"history_gateway": history_gateway}}
 
         await push_manager._queue_event("sensor.temperature", None, mock_new_state)
 

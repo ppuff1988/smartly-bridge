@@ -65,9 +65,7 @@ class RawDiagnosticFetchUseCase:
                     "errors": [
                         {
                             "code": "RAW_DIAGNOSTIC_NOT_FOUND",
-                            "message": (
-                                "Raw diagnostic payload was not found or has expired."
-                            ),
+                            "message": ("Raw diagnostic payload was not found or has expired."),
                             "target": "raw_ref",
                             "retryable": False,
                         }

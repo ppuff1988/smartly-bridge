@@ -374,7 +374,9 @@ def test_local_automation_rule_store_create_persists_runtime_visible_rules() -> 
     assert [rule["rule_id"] for rule in persisted_rules] == ["runtime-rule", "new-rule"]
 
 
-def test_local_automation_rule_store_create_ignores_malformed_config_entry_rule_collection() -> None:
+def test_local_automation_rule_store_create_ignores_malformed_config_entry_rule_collection() -> (
+    None
+):
     """Creating a rule does not carry malformed config entry rule collections forward."""
     config_entry = MagicMock(
         data={

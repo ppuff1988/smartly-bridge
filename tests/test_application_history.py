@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 import pytest
@@ -26,9 +26,7 @@ from custom_components.smartly_bridge.application.history import (
 
 def _fixture(name: str) -> dict:
     """Load an API vNext fixture."""
-    return json.loads(
-        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
-    )
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
 
 
 def _assert_vnext_only_top_level(body: dict) -> None:

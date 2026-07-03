@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 import json
+from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
@@ -19,9 +19,7 @@ from custom_components.smartly_bridge.application.webrtc import (
 
 def _fixture(name: str) -> dict[str, Any]:
     """Load an API vNext fixture."""
-    return json.loads(
-        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
-    )
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
 
 
 def _assert_vnext_only_top_level(body: dict[str, Any]) -> None:
@@ -151,10 +149,7 @@ async def test_webrtc_token_use_case_returns_connection_info() -> None:
     assert result.body["data"]["token"] == "token-123"
     assert result.body["data"]["expires_at"] == 2000
     assert result.body["data"]["expires_in"] == 250
-    assert (
-        result.body["data"]["offer_endpoint"]
-        == "/api/smartly/camera/camera.front/webrtc/offer"
-    )
+    assert result.body["data"]["offer_endpoint"] == "/api/smartly/camera/camera.front/webrtc/offer"
     assert result.body["data"]["ice_servers"][1]["urls"] == "turn:turn.example.com:3478"
     assert result.body["schema_version"] == "2026.06"
     assert result.body["warnings"] == []

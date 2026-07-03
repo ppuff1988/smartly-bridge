@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from typing import Any, Callable
 
 from ..acl import get_entity_domain
-from ..domain.models import BridgeResponse
+from ..domain.models import BridgeResponse, EntityStateSnapshot
 from .ports import AuditPort, CommandTargetResolverPort, ControlGatewayPort, EntityPolicyPort
 
 LIGHT_TURN_ON_ACTIONS = {
@@ -210,10 +210,9 @@ class SmartlyCommandUseCase:
         audit: AuditPort,
         target_resolver: CommandTargetResolverPort,
         *,
-        control_use_case_factory: Callable[
-            [EntityPolicyPort, ControlGatewayPort, AuditPort], Any
-        ]
-        | None = None,
+        control_use_case_factory: (
+            Callable[[EntityPolicyPort, ControlGatewayPort, AuditPort], Any] | None
+        ) = None,
     ) -> None:
         self._policy = policy
         self._gateway = gateway
@@ -408,10 +407,7 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     }:
         delta = command.params.get("delta")
         return isinstance(delta, (int, float)) and 1 <= delta <= 100
-    if (
-        command.capability == "color_temperature"
-        and command.command == "set_color_temperature"
-    ):
+    if command.capability == "color_temperature" and command.command == "set_color_temperature":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and value > 0
     if command.capability == "rgb_color" and command.command == "set_rgb_color":
@@ -421,10 +417,7 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
         return all(0 <= channel <= 255 for channel in rgb_color.values())
     if command.capability == "effect" and command.command == "set_effect":
         return isinstance(command.params.get("effect"), str)
-    if (
-        command.capability == "target_temperature"
-        and command.command == "set_temperature"
-    ):
+    if command.capability == "target_temperature" and command.command == "set_temperature":
         return isinstance(command.params.get("value"), (int, float))
     if (
         command.capability == "target_temperature_range"
@@ -432,33 +425,22 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
     ):
         low = command.params.get("low")
         high = command.params.get("high")
-        return (
-            isinstance(low, (int, float))
-            and isinstance(high, (int, float))
-            and low <= high
-        )
+        return isinstance(low, (int, float)) and isinstance(high, (int, float)) and low <= high
     if command.capability == "position" and command.command == "set_position":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
-    if (
-        command.capability == "tilt_position"
-        and command.command == "set_tilt_position"
-    ):
+    if command.capability == "tilt_position" and command.command == "set_tilt_position":
         value = command.params.get("value")
         return isinstance(value, (int, float)) and 0 <= value <= 100
     if command.capability == "fan_speed" and command.command == "set_fan_speed":
         percentage = command.params.get("percentage")
         speed = command.params.get("speed")
-        return (
-            isinstance(percentage, (int, float))
-            and 0 <= percentage <= 100
-        ) or isinstance(speed, str)
+        return (isinstance(percentage, (int, float)) and 0 <= percentage <= 100) or isinstance(
+            speed, str
+        )
     if command.capability == "fan_direction" and command.command == "set_direction":
         return command.params.get("direction") in {"forward", "reverse"}
-    if (
-        command.capability == "fan_oscillation"
-        and command.command == "set_oscillation"
-    ):
+    if command.capability == "fan_oscillation" and command.command == "set_oscillation":
         return isinstance(command.params.get("oscillating"), bool)
     if command.capability == "mode_select" and command.command == "set_mode":
         return isinstance(command.params.get("mode"), str)
@@ -502,11 +484,7 @@ def _has_valid_source_setting_params(
             return False
         if isinstance(maximum, (int, float)) and value > maximum:
             return False
-        if (
-            isinstance(minimum, (int, float))
-            and isinstance(step, (int, float))
-            and step > 0
-        ):
+        if isinstance(minimum, (int, float)) and isinstance(step, (int, float)) and step > 0:
             offset = (float(value) - float(minimum)) / float(step)
             if abs(offset - round(offset)) > 1e-9:
                 return False
@@ -624,7 +602,7 @@ def _normalize_light_service_data(action: str, service_data: dict[str, Any]) -> 
     return normalized
 
 
-def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
+def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:  # noqa: C901
     """Return the expected canonical state after a command is accepted."""
     if command.capability == "power":
         if command.command == "turn_on":
@@ -721,10 +699,7 @@ def _expected_state_for_command(command: SmartlyCommand) -> dict[str, Any]:
             }
         }
 
-    if (
-        command.capability == "fan_speed"
-        and command.command == "set_fan_speed"
-    ):
+    if command.capability == "fan_speed" and command.command == "set_fan_speed":
         if isinstance(command.params.get("speed"), str):
             return {"fan_speed": {"speed": command.params["speed"]}}
         if not isinstance(command.params.get("percentage"), (int, float)):

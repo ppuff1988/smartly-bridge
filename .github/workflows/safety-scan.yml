@@ -35,7 +35,7 @@ jobs:
       - name: Set up Python
         uses: actions/setup-python@v6
         with:
-          python-version: '3.13'
+          python-version: '3.14.2'
           cache: 'pip'
 
       - name: Install dependencies
@@ -67,8 +67,8 @@ jobs:
             pip-audit >> $GITHUB_STEP_SUMMARY || true
             echo "" >> $GITHUB_STEP_SUMMARY
             echo "### 📌 Note" >> $GITHUB_STEP_SUMMARY
-            echo "Some vulnerabilities are from Home Assistant dependencies (constrained by Python 3.12)." >> $GITHUB_STEP_SUMMARY
-            echo "These will be resolved when upgrading to Python 3.13 and HA 2025.2+." >> $GITHUB_STEP_SUMMARY
+            echo "Some vulnerabilities are from Home Assistant dependencies (constrained by the active Python/Home Assistant support window)." >> $GITHUB_STEP_SUMMARY
+            echo "These will be resolved by dependency updates within the Python 3.14.2 and Home Assistant support window." >> $GITHUB_STEP_SUMMARY
             echo "vulnerability_found=true" >> $GITHUB_OUTPUT
           fi
           

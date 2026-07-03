@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 from custom_components.smartly_bridge.application.adapter_contract import (
-    validate_adapter_manifest,
-    validate_adapter_manifest_set,
     validate_adapter_command_mapping_snapshot,
     validate_adapter_event_mapping_snapshot,
     validate_adapter_health_snapshot,
+    validate_adapter_manifest,
+    validate_adapter_manifest_set,
     validate_adapter_normalization_snapshot,
 )
 
@@ -208,9 +208,7 @@ def test_adapter_normalization_snapshot_rejects_undeclared_capabilities() -> Non
         {
             "code": "UNDECLARED_SNAPSHOT_CAPABILITY",
             "path": "logical_device.capabilities[0].type",
-            "message": (
-                "Normalization snapshot emits undeclared capability: temperature"
-            ),
+            "message": ("Normalization snapshot emits undeclared capability: temperature"),
         }
     ]
 
@@ -240,9 +238,7 @@ def test_adapter_normalization_snapshot_rejects_out_of_scope_source_refs() -> No
         {
             "code": "SNAPSHOT_SOURCE_OUT_OF_SCOPE",
             "path": "logical_device.capabilities[0].source_refs[0].source",
-            "message": (
-                "Normalization snapshot source is not declared by manifest: zigbee2mqtt"
-            ),
+            "message": ("Normalization snapshot source is not declared by manifest: zigbee2mqtt"),
         },
         {
             "code": "SNAPSHOT_DOMAIN_OUT_OF_SCOPE",
@@ -293,8 +289,7 @@ def test_adapter_command_mapping_snapshot_rejects_undeclared_expected_state() ->
             "code": "UNDECLARED_COMMAND_EXPECTED_STATE",
             "path": "command_result.expected_state.temperature",
             "message": (
-                "Command mapping snapshot expected_state uses undeclared "
-                "capability: temperature"
+                "Command mapping snapshot expected_state uses undeclared " "capability: temperature"
             ),
         }
     ]
@@ -413,9 +408,7 @@ def test_adapter_event_mapping_snapshot_rejects_duplicate_source_event_ids() -> 
         {
             "code": "DUPLICATE_SOURCE_EVENT_ID",
             "path": "events[1].source_event_id",
-            "message": (
-                "Source event id duplicates events[0].source_event_id: ha_event_001"
-            ),
+            "message": ("Source event id duplicates events[0].source_event_id: ha_event_001"),
         }
     ]
 

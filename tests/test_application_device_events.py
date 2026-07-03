@@ -63,9 +63,7 @@ class FakeLocalAutomation:
 
 def _fixture(name: str) -> dict[str, Any]:
     """Load an API vNext fixture."""
-    return json.loads(
-        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
-    )
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
 
 
 @pytest.mark.asyncio
@@ -576,9 +574,7 @@ async def test_unsupported_button_action_response_includes_vnext_error_envelope(
 @pytest.mark.asyncio
 async def test_unsupported_button_action_response_matches_api_vnext_fixture() -> None:
     """Device event error full response matches the API vNext envelope contract."""
-    fixture_path = (
-        Path(__file__).parent / "fixtures" / "api-vnext" / "device-event-error.json"
-    )
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "device-event-error.json"
     expected_body = json.loads(fixture_path.read_text())
     publisher = FakeDeviceEventPublisher()
     use_case = DeviceEventUseCase(

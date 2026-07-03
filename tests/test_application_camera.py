@@ -21,9 +21,7 @@ from custom_components.smartly_bridge.domain.models import CameraSnapshot, Camer
 
 def _fixture(name: str) -> dict[str, Any]:
     """Load an API vNext fixture."""
-    return json.loads(
-        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
-    )
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
 
 
 def _serializable_camera_body(body: dict[str, Any]) -> dict[str, Any]:

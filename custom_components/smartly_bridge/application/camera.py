@@ -115,9 +115,7 @@ class CameraConfigUseCase:
 
         if command.action == "list":
             cameras = self._gateway.list_registered_cameras()
-            return _camera_vnext_success_response(
-                {"cameras": cameras, "count": len(cameras)}
-            )
+            return _camera_vnext_success_response({"cameras": cameras, "count": len(cameras)})
 
         return _camera_vnext_error_response("unknown_action", status=400)
 
@@ -217,9 +215,7 @@ class CameraHLSUseCase:
         if action == "stop":
             stopped = await self._gateway.stop_hls_stream(entity_id)
             if stopped:
-                return _camera_vnext_success_response(
-                    {"status": "stopped", "action": "stopped"}
-                )
+                return _camera_vnext_success_response({"status": "stopped", "action": "stopped"})
             return _camera_vnext_success_response(
                 {"status": "not_found", "action": "stopped"},
                 status=404,

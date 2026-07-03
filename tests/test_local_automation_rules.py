@@ -8,21 +8,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    _home_assistant_local_automation_rule_store,
+)
 from custom_components.smartly_bridge.application.local_automation import (
     AutomationAction,
     AutomationTrigger,
     LocalAutomationRule,
 )
-from custom_components.smartly_bridge.adapters.home_assistant import (
-    _home_assistant_local_automation_rule_store,
-)
+from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import API_PATH_LOCAL_AUTOMATION_RULES, DOMAIN
 from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.local_automation import (
     SmartlyLocalAutomationRulesView,
 )
-
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
 
@@ -87,9 +86,7 @@ def _configure_integration(mock_hass: MagicMock) -> None:
         "rate_limiter": RateLimiter(60, 60),
     }
     mock_hass.data[DOMAIN]["runtime_adapters"] = {
-        "local_automation_rule_store": _home_assistant_local_automation_rule_store(
-            mock_hass
-        ),
+        "local_automation_rule_store": _home_assistant_local_automation_rule_store(mock_hass),
     }
 
 
@@ -247,9 +244,7 @@ def test_list_local_automation_rules_reads_store_payload() -> None:
     assert store.list_calls == 1
     assert result.body["data"]["count"] == 1
     assert result.body["data"]["rules"][0]["rule_id"] == "runtime-left-single"
-    assert result.body["data"]["rules"][0]["trigger"]["device_id"] == (
-        "ldev_runtime_button"
-    )
+    assert result.body["data"]["rules"][0]["trigger"]["device_id"] == ("ldev_runtime_button")
 
 
 def test_list_local_automation_rules_uses_injected_use_case_factory() -> None:
@@ -509,10 +504,7 @@ def test_local_automation_rule_store_resolver_requires_runtime_store(
 
     result = _local_automation_rule_store(mock_hass)
 
-    assert (
-        "local_automation_rule_store"
-        not in mock_hass.data[DOMAIN]["runtime_adapters"]
-    )
+    assert "local_automation_rule_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
     assert result is None
 
 
@@ -565,9 +557,7 @@ async def test_local_automation_rules_get_uses_setup_runtime_rule_store(
     payload = json.loads(response.body)
     assert store.list_calls == 1
     assert payload["data"]["rules"][0]["rule_id"] == "runtime-left-single"
-    assert payload["data"]["rules"][0]["trigger"]["device_id"] == (
-        "ldev_runtime_button"
-    )
+    assert payload["data"]["rules"][0]["trigger"]["device_id"] == ("ldev_runtime_button")
 
 
 @pytest.mark.asyncio
@@ -594,10 +584,7 @@ async def test_local_automation_rules_get_requires_setup_runtime_rule_store(
     assert json.loads(response.body) == _api_vnext_fixture(
         "local-automation-rule-store-unavailable.json"
     )
-    assert (
-        "local_automation_rule_store"
-        not in mock_hass.data[DOMAIN]["runtime_adapters"]
-    )
+    assert "local_automation_rule_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
 
 @pytest.mark.asyncio
@@ -700,9 +687,7 @@ async def test_local_automation_rules_get_rate_limit_uses_vnext_error(
     assert response.status == 429
     assert response.headers["Retry-After"] == "60"
     assert response.headers["X-RateLimit-Remaining"] == "0"
-    assert json.loads(response.body) == _api_vnext_fixture(
-        "local-automation-rules-rate-limit.json"
-    )
+    assert json.loads(response.body) == _api_vnext_fixture("local-automation-rules-rate-limit.json")
 
 
 @pytest.mark.asyncio
@@ -868,7 +853,5 @@ async def test_local_automation_rules_delete_removes_stored_rule(mock_hass) -> N
 
     assert response.status == 200
     payload = json.loads(response.body)
-    assert payload == _api_vnext_fixture(
-        "local-automation-delete-stored-left-single.json"
-    )
+    assert payload == _api_vnext_fixture("local-automation-delete-stored-left-single.json")
     mock_hass.config_entries.async_update_entry.assert_called_once()

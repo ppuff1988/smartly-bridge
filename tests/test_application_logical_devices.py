@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from custom_components.smartly_bridge.device_presentation import build_device_card_metadata
 from custom_components.smartly_bridge.application.logical_devices import (
     logical_device_from_state,
     logical_devices_from_states,
 )
+from custom_components.smartly_bridge.device_presentation import build_device_card_metadata
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 
 
@@ -68,9 +68,7 @@ def test_light_rgb_color_state_uses_channel_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
 
-    assert device["capabilities"][0]["state"] == {
-        "value": {"r": 255, "g": 120, "b": 40}
-    }
+    assert device["capabilities"][0]["state"] == {"value": {"r": 255, "g": 120, "b": 40}}
     assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
 
 
@@ -90,9 +88,7 @@ def test_light_hs_color_state_uses_rgb_color_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
 
-    assert device["capabilities"][0]["state"] == {
-        "value": {"r": 0, "g": 255, "b": 0}
-    }
+    assert device["capabilities"][0]["state"] == {"value": {"r": 0, "g": 255, "b": 0}}
     assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
 
 
@@ -112,9 +108,7 @@ def test_light_xy_color_state_uses_rgb_color_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
 
-    assert device["capabilities"][0]["state"] == {
-        "value": {"r": 0, "g": 255, "b": 0}
-    }
+    assert device["capabilities"][0]["state"] == {"value": {"r": 0, "g": 255, "b": 0}}
     assert device["capabilities"][0]["commands"] == ["set_rgb_color"]
 
 
@@ -145,9 +139,7 @@ def test_light_effect_metadata_and_state_use_effect_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
     effect = next(
-        capability
-        for capability in device["capabilities"]
-        if capability["type"] == "effect"
+        capability for capability in device["capabilities"] if capability["type"] == "effect"
     )
 
     assert metadata["capabilities"] == ["on_off", "effect"]
@@ -424,9 +416,7 @@ def test_fan_percentage_state_uses_fan_speed_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
     fan_speed = next(
-        capability
-        for capability in device["capabilities"]
-        if capability["type"] == "fan_speed"
+        capability for capability in device["capabilities"] if capability["type"] == "fan_speed"
     )
 
     assert fan_speed["state"] == {
@@ -474,9 +464,7 @@ def test_fan_direction_uses_fan_direction_contract() -> None:
 
     assert device["capabilities"][0]["type"] == "fan_direction"
     assert device["capabilities"][0]["state"] == {"value": "forward"}
-    assert device["capabilities"][0]["constraints"] == {
-        "values": ["forward", "reverse"]
-    }
+    assert device["capabilities"][0]["constraints"] == {"values": ["forward", "reverse"]}
     assert device["capabilities"][0]["commands"] == ["set_direction"]
 
 
@@ -519,9 +507,7 @@ def test_climate_fan_mode_state_uses_fan_speed_contract() -> None:
     device = logical_device_from_state(snapshot).to_dict()
 
     assert device["capabilities"][0]["state"] == {"speed": "auto"}
-    assert device["capabilities"][0]["constraints"] == {
-        "values": ["auto", "low", "high"]
-    }
+    assert device["capabilities"][0]["constraints"] == {"values": ["auto", "low", "high"]}
     assert device["capabilities"][0]["commands"] == ["set_fan_speed"]
 
 
@@ -546,9 +532,7 @@ def test_climate_preset_mode_uses_preset_mode_contract() -> None:
 
     assert device["capabilities"][0]["type"] == "preset_mode"
     assert device["capabilities"][0]["state"] == {"value": "eco"}
-    assert device["capabilities"][0]["constraints"] == {
-        "values": ["eco", "comfort", "sleep"]
-    }
+    assert device["capabilities"][0]["constraints"] == {"values": ["eco", "comfort", "sleep"]}
     assert device["capabilities"][0]["commands"] == ["set_preset_mode"]
 
 
@@ -573,9 +557,7 @@ def test_climate_swing_mode_uses_swing_mode_contract() -> None:
 
     assert device["capabilities"][0]["type"] == "swing_mode"
     assert device["capabilities"][0]["state"] == {"value": "vertical"}
-    assert device["capabilities"][0]["constraints"] == {
-        "values": ["off", "vertical", "horizontal"]
-    }
+    assert device["capabilities"][0]["constraints"] == {"values": ["off", "vertical", "horizontal"]}
     assert device["capabilities"][0]["commands"] == ["set_swing_mode"]
 
 
@@ -595,9 +577,7 @@ def test_cover_position_state_uses_position_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
     position = next(
-        capability
-        for capability in device["capabilities"]
-        if capability["type"] == "position"
+        capability for capability in device["capabilities"] if capability["type"] == "position"
     )
 
     assert position["state"] == {"value": 55, "unit": "percent"}
@@ -620,9 +600,7 @@ def test_cover_tilt_position_state_uses_tilt_position_contract() -> None:
 
     device = logical_device_from_state(snapshot).to_dict()
     tilt_position = next(
-        capability
-        for capability in device["capabilities"]
-        if capability["type"] == "tilt_position"
+        capability for capability in device["capabilities"] if capability["type"] == "tilt_position"
     )
 
     assert tilt_position["state"] == {"value": 35, "unit": "percent"}
@@ -718,9 +696,7 @@ def test_climate_hvac_mode_uses_mode_select_contract() -> None:
 
     assert device["capabilities"][0]["type"] == "mode_select"
     assert device["capabilities"][0]["state"] == {"value": "cool"}
-    assert device["capabilities"][0]["constraints"] == {
-        "values": ["off", "heat", "cool", "auto"]
-    }
+    assert device["capabilities"][0]["constraints"] == {"values": ["off", "heat", "cool", "auto"]}
     assert device["capabilities"][0]["commands"] == ["set_mode"]
 
 
@@ -840,10 +816,7 @@ def test_multiple_number_settings_keep_all_numeric_setting_source_refs() -> None
         if capability["type"] == "numeric_setting"
     )
 
-    assert [
-        source_ref["source_entity_id"]
-        for source_ref in numeric_setting["source_refs"]
-    ] == [
+    assert [source_ref["source_entity_id"] for source_ref in numeric_setting["source_refs"]] == [
         "number.presence_detection_delay",
         "number.presence_cooldown",
     ]

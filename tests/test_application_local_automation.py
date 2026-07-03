@@ -15,8 +15,8 @@ from custom_components.smartly_bridge.application.local_automation import (
     LocalAutomationRule,
     LocalAutomationRuleCreateUseCase,
     LocalAutomationRuleDeleteUseCase,
-    LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
+    LocalAutomationRuleUpdateUseCase,
     LocalAutomationUseCase,
     _command_response_status,
 )
@@ -94,9 +94,7 @@ class FakeSmartlyCommandExecutor:
 
 def _fixture(name: str) -> dict[str, Any]:
     """Load an API vNext fixture."""
-    return json.loads(
-        (Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text()
-    )
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
 
 
 def test_command_response_status_defaults_without_vnext_data_status() -> None:
