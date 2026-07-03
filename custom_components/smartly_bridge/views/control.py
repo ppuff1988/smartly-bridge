@@ -76,9 +76,7 @@ def _json_response(
     )
 
 
-async def _execute_smartly_command(
-    executor: Any, client_id: str, command: SmartlyCommand
-) -> Any:
+async def _execute_smartly_command(executor: Any, client_id: str, command: SmartlyCommand) -> Any:
     """Execute the canonical SmartlyCommand with the selected runtime port."""
     return await executor.execute(client_id, command)
 

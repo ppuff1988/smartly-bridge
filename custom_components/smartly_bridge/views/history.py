@@ -578,7 +578,7 @@ class SmartlyHistoryView(web.View):
                     page_size=page_size,
                     use_pagination=use_pagination,
                     cursor_data=cursor_data,
-                )
+                ),
             )
         except asyncio.TimeoutError:
             _LOGGER.error("History query timeout for %s", entity_id)
@@ -865,7 +865,7 @@ class SmartlyHistoryBatchView(web.View):
                     end_time=end_time,
                     limit=limit,
                     significant_changes_only=True,
-                )
+                ),
             )
         except asyncio.TimeoutError:
             _LOGGER.error("Batch history query timeout for %d entities", len(allowed_entity_ids))
@@ -1083,7 +1083,7 @@ class SmartlyStatisticsView(web.View):
                     start_time=start_time,
                     end_time=end_time,
                     period=period,
-                )
+                ),
             )
         except Exception as err:
             _LOGGER.error("Failed to query statistics for %s: %s", entity_id, err)

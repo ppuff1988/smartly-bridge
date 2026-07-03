@@ -133,9 +133,7 @@ class LocalAutomationRuleUpdateUseCase:
                 status=400,
                 target="rule",
             )
-        rule_exists = any(
-            existing.rule_id == rule.rule_id for existing in self._rules.list_rules()
-        )
+        rule_exists = any(existing.rule_id == rule.rule_id for existing in self._rules.list_rules())
         if not self._rules.update_rule(rule):
             if rule_exists:
                 return _rule_error_response(
@@ -181,9 +179,7 @@ class LocalAutomationRuleDeleteUseCase:
                 status=400,
                 target="rule.rule_id",
             )
-        rule_exists = any(
-            existing.rule_id == rule_id for existing in self._rules.list_rules()
-        )
+        rule_exists = any(existing.rule_id == rule_id for existing in self._rules.list_rules())
         if not self._rules.delete_rule(rule_id):
             if rule_exists:
                 return _rule_error_response(
@@ -374,8 +370,7 @@ def _action_from_payload(value: Any) -> AutomationAction | None:
     capability = value.get("capability")
     command = value.get("command")
     if not all(
-        isinstance(item, str) and item
-        for item in (action_type, device_id, capability, command)
+        isinstance(item, str) and item for item in (action_type, device_id, capability, command)
     ):
         return None
     params = value.get("params", {})

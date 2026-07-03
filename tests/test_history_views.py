@@ -10,21 +10,20 @@ from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
-from custom_components.smartly_bridge.const import (
-    DOMAIN,
-    HISTORY_MAX_DURATION_DAYS,
-    HISTORY_MAX_ENTITIES_BATCH,
-    RATE_WINDOW,
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantHistoryGateway,
+    _home_assistant_history_gateway,
 )
 from custom_components.smartly_bridge.application.history import (
     BatchHistoryQuery,
     SingleHistoryQuery,
     StatisticsQuery,
 )
-from custom_components.smartly_bridge.adapters.home_assistant import (
-    HomeAssistantHistoryGateway,
-    _home_assistant_history_gateway,
+from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
+from custom_components.smartly_bridge.const import (
+    DOMAIN,
+    HISTORY_MAX_ENTITIES_BATCH,
+    RATE_WINDOW,
 )
 from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.history import (
@@ -34,7 +33,6 @@ from custom_components.smartly_bridge.views.history import (
     _format_state,
     _parse_datetime,
 )
-
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
 
@@ -132,9 +130,7 @@ def test_history_read_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
     from custom_components.smartly_bridge.views.history import _history_read_gateway
 
     gateway = FakeRuntimeHistoryGateway()
-    mock_hass.data[DOMAIN] = {
-        "runtime_adapters": {"history_gateway": gateway}
-    }
+    mock_hass.data[DOMAIN] = {"runtime_adapters": {"history_gateway": gateway}}
 
     result = _history_read_gateway(mock_hass)
 
@@ -496,9 +492,7 @@ class TestSmartlyHistoryView:
         assert data == _api_vnext_fixture("history-client-secret-not-configured.json")
 
     @pytest.mark.asyncio
-    async def test_auth_helper_client_secret_missing_returns_api_vnext_envelope(
-        self, mock_request
-    ):
+    async def test_auth_helper_client_secret_missing_returns_api_vnext_envelope(self, mock_request):
         """Test defensive auth helper client-secret failure returns API vNext envelope."""
         view = SmartlyHistoryView(mock_request)
 
@@ -736,9 +730,7 @@ class TestSmartlyHistoryView:
             response = await SmartlyHistoryView(mock_request).get()
 
         assert response.status == 500
-        assert json.loads(response.body) == _api_vnext_fixture(
-            "history-gateway-unavailable.json"
-        )
+        assert json.loads(response.body) == _api_vnext_fixture("history-gateway-unavailable.json")
         assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
@@ -905,9 +897,7 @@ class TestSmartlyHistoryBatchView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == _api_vnext_fixture(
-            "history-batch-client-secret-not-configured.json"
-        )
+        assert data == _api_vnext_fixture("history-batch-client-secret-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_failure_returns_api_vnext_envelope(self, mock_request):
@@ -1010,9 +1000,7 @@ class TestSmartlyHistoryBatchView:
             assert data["errors"][0]["code"] == "ENTITY_IDS_REQUIRED"
 
     @pytest.mark.asyncio
-    async def test_entity_ids_required_returns_api_vnext_envelope(
-        self, mock_request, mock_hass
-    ):
+    async def test_entity_ids_required_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test missing entity IDs returns API vNext envelope."""
         mock_request.json = AsyncMock(return_value={})
 
@@ -1058,9 +1046,7 @@ class TestSmartlyHistoryBatchView:
             assert data["errors"][0]["code"] == "TOO_MANY_ENTITIES"
 
     @pytest.mark.asyncio
-    async def test_too_many_entities_returns_api_vnext_envelope(
-        self, mock_request, mock_hass
-    ):
+    async def test_too_many_entities_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test too many entity IDs returns API vNext envelope."""
         mock_request.json = AsyncMock(
             return_value={
@@ -1085,9 +1071,7 @@ class TestSmartlyHistoryBatchView:
             assert data == _api_vnext_fixture("history-batch-too-many-entities.json")
 
     @pytest.mark.asyncio
-    async def test_no_allowed_entities_returns_api_vnext_envelope(
-        self, mock_request, mock_hass
-    ):
+    async def test_no_allowed_entities_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test denied batch entities returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.history.verify_request",
@@ -1222,9 +1206,7 @@ class TestSmartlyHistoryBatchView:
         assert "history_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
-    async def test_batch_query_timeout_returns_api_vnext_envelope(
-        self, mock_request, mock_hass
-    ):
+    async def test_batch_query_timeout_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test batch history timeout returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.history.verify_request",
@@ -1253,9 +1235,7 @@ class TestSmartlyHistoryBatchView:
                     assert data == _api_vnext_fixture("history-batch-query-timeout.json")
 
     @pytest.mark.asyncio
-    async def test_batch_query_failure_returns_api_vnext_envelope(
-        self, mock_request, mock_hass
-    ):
+    async def test_batch_query_failure_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test batch history failure returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.history.verify_request",
@@ -1413,9 +1393,7 @@ class TestSmartlyStatisticsView:
             assert data == _api_vnext_fixture("statistics-entity-id-required.json")
 
     @pytest.mark.asyncio
-    async def test_entity_not_allowed_returns_api_vnext_envelope(
-        self, mock_request, mock_hass
-    ):
+    async def test_entity_not_allowed_returns_api_vnext_envelope(self, mock_request, mock_hass):
         """Test denied entity returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.history.verify_request",

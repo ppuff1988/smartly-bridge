@@ -6,7 +6,6 @@ import importlib.util
 import json
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -31,9 +30,7 @@ def test_phase6_release_evidence_reports_pending_gates() -> None:
     """The checked-in evidence file reports pending external gates."""
     checker = _load_phase6_release_evidence()
 
-    statuses = checker.load_statuses(
-        PROJECT_ROOT / "docs/specs/phase6-release-evidence.md"
-    )
+    statuses = checker.load_statuses(PROJECT_ROOT / "docs/specs/phase6-release-evidence.md")
 
     pending = [status for status in statuses if not status.ready]
     assert {status.gate for status in pending} == {

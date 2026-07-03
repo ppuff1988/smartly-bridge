@@ -3,17 +3,17 @@
 from __future__ import annotations
 
 import json
-from pathlib import Path
 import time
 import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.application.control import SmartlyCommand
 from custom_components.smartly_bridge.adapters.home_assistant import (
     _home_assistant_smartly_command_executor,
 )
+from custom_components.smartly_bridge.application.control import SmartlyCommand
 from custom_components.smartly_bridge.const import (
     API_PATH_CONTROL,
     API_PATH_DEVICE_EVENTS,
@@ -31,7 +31,6 @@ from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.control import (
     _smartly_command_from_body,
 )
-
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
 
@@ -145,10 +144,7 @@ def test_smartly_command_executor_resolver_requires_runtime_executor(mock_hass) 
     result = _smartly_command_executor(mock_hass)
 
     assert result is None
-    assert (
-        "smartly_command_executor"
-        not in mock_hass.data[DOMAIN]["runtime_adapters"]
-    )
+    assert "smartly_command_executor" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
 
 def test_control_request_builds_vnext_smartly_command() -> None:
@@ -471,9 +467,7 @@ class TestSyncEndpoint:
         }
         hass.data[DOMAIN]["runtime_adapters"]["sync_structure_gateway"] = gateway
 
-        with patch(
-            "custom_components.smartly_bridge.views.sync.verify_request"
-        ) as mock_verify:
+        with patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify:
             mock_verify.return_value = MagicMock(success=True, client_id="test_client")
 
             view = SmartlySyncView(request)
@@ -610,17 +604,13 @@ class TestRawDiagnosticEndpoint:
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
         ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
         assert response.status == 200
         assert store.refs == ["raw_light_001"]
-        assert json.loads(response.body) == _api_vnext_fixture(
-            "raw-diagnostic-success.json"
-        )
+        assert json.loads(response.body) == _api_vnext_fixture("raw-diagnostic-success.json")
 
         await nonce_cache.stop()
 
@@ -658,9 +648,7 @@ class TestRawDiagnosticEndpoint:
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
         ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
@@ -701,23 +689,17 @@ class TestRawDiagnosticEndpoint:
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
         ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=False, client_id=None, error="auth_failed"
-            )
+            mock_verify.return_value = MagicMock(success=False, client_id=None, error="auth_failed")
 
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
         assert response.status == 401
-        assert json.loads(response.body) == _api_vnext_fixture(
-            "raw-diagnostic-auth-failure.json"
-        )
+        assert json.loads(response.body) == _api_vnext_fixture("raw-diagnostic-auth-failure.json")
 
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
-    async def test_raw_diagnostic_requires_setup_runtime_store(
-        self, mock_hass, mock_config_entry
-    ):
+    async def test_raw_diagnostic_requires_setup_runtime_store(self, mock_hass, mock_config_entry):
         """Raw diagnostic requests require the setup-created storage port."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
@@ -750,9 +732,7 @@ class TestRawDiagnosticEndpoint:
         with patch(
             "custom_components.smartly_bridge.views.diagnostics.verify_request"
         ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyRawDiagnosticView(mock_request).get()
 
@@ -773,11 +753,11 @@ class TestStatesEndpoint:
         """Test states endpoint returns all entity states."""
         from unittest.mock import AsyncMock, MagicMock
 
-        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.adapters.home_assistant import (
             _home_assistant_sync_states_gateway,
         )
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views import sync as sync_views
         from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView
 
@@ -1002,9 +982,7 @@ class TestControlEndpointFullFlow:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
-    async def test_control_entity_action_body_is_rejected(
-        self, mock_hass, mock_config_entry
-    ):
+    async def test_control_entity_action_body_is_rejected(self, mock_hass, mock_config_entry):
         """Entity/action control bodies are no longer accepted by Phase 6."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
@@ -1031,12 +1009,8 @@ class TestControlEndpointFullFlow:
         mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         mock_request.headers = {}
 
-        with patch(
-            "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyControlView(mock_request).post()
 
@@ -1077,12 +1051,8 @@ class TestControlEndpointFullFlow:
         mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         mock_request.headers = {}
 
-        with patch(
-            "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyControlView(mock_request).post()
 
@@ -1131,12 +1101,8 @@ class TestControlEndpointFullFlow:
             "X-Correlation-Id": "corr-control-001",
         }
 
-        with patch(
-            "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyControlView(mock_request).post()
 
@@ -1181,12 +1147,8 @@ class TestControlEndpointFullFlow:
         mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         mock_request.headers = {}
 
-        with patch(
-            "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyControlView(mock_request).post()
 
@@ -1237,12 +1199,8 @@ class TestControlEndpointFullFlow:
         mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
         mock_request.headers = {}
 
-        with patch(
-            "custom_components.smartly_bridge.views.control.verify_request"
-        ) as mock_verify:
-            mock_verify.return_value = MagicMock(
-                success=True, client_id="test_client", error=None
-            )
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
             response = await SmartlyControlView(mock_request).post()
 
@@ -1252,10 +1210,7 @@ class TestControlEndpointFullFlow:
             code="SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
             message="smartly command executor unavailable",
         )
-        assert (
-            "smartly_command_executor"
-            not in mock_hass.data[DOMAIN]["runtime_adapters"]
-        )
+        assert "smartly_command_executor" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_control_vnext_smartly_command_dispatches_resolved_source_entity(
@@ -1512,9 +1467,7 @@ class TestControlEndpointFullFlow:
         assert response.status == 200
         payload = json.loads(response.body)
         assert payload["data"]["source_entity_id"] == "number.presence_detection_delay"
-        assert payload["data"]["expected_state"] == {
-            "numeric_setting": {"value": 20}
-        }
+        assert payload["data"]["expected_state"] == {"numeric_setting": {"value": 20}}
         mock_hass.services.async_call.assert_awaited_once_with(
             "number",
             "set_value",
@@ -1637,9 +1590,7 @@ class TestControlEndpointFullFlow:
         assert response.status == 200
         payload = json.loads(response.body)
         assert payload["data"]["source_entity_id"] == "number.presence_cooldown"
-        assert payload["data"]["expected_state"] == {
-            "numeric_setting": {"value": 5}
-        }
+        assert payload["data"]["expected_state"] == {"numeric_setting": {"value": 5}}
         mock_hass.services.async_call.assert_awaited_once_with(
             "number",
             "set_value",
@@ -1742,12 +1693,8 @@ class TestControlEndpointFullFlow:
 
         assert response.status == 200
         payload = json.loads(response.body)
-        assert payload["data"]["source_entity_id"] == (
-            "select.presence_occupancy_sensitivity"
-        )
-        assert payload["data"]["expected_state"] == {
-            "option_setting": {"value": "medium"}
-        }
+        assert payload["data"]["source_entity_id"] == ("select.presence_occupancy_sensitivity")
+        assert payload["data"]["expected_state"] == {"option_setting": {"value": "medium"}}
         mock_hass.services.async_call.assert_awaited_once_with(
             "select",
             "select_option",

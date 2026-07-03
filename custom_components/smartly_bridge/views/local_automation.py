@@ -12,8 +12,8 @@ from homeassistant.components.http import HomeAssistantView
 from ..application.local_automation import (
     LocalAutomationRuleCreateUseCase,
     LocalAutomationRuleDeleteUseCase,
-    LocalAutomationRuleUpdateUseCase,
     LocalAutomationRulesListUseCase,
+    LocalAutomationRuleUpdateUseCase,
     local_automation_rule_error_response,
 )
 from ..audit import log_deny

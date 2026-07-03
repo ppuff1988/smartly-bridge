@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
+import uuid
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-import uuid
 from typing import Any, Callable
 
 from ..domain.models import BridgeResponse

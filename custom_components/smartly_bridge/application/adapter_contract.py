@@ -6,7 +6,6 @@ import re
 from dataclasses import dataclass, field
 from typing import Any
 
-
 CANONICAL_CAPABILITIES = {
     "air_quality",
     "aqi",
@@ -520,8 +519,7 @@ def _validate_snapshot_source_refs(
 
     for source_ref_index, source_ref in enumerate(source_refs):
         path = (
-            f"logical_device.capabilities[{capability_index}]"
-            f".source_refs[{source_ref_index}]"
+            f"logical_device.capabilities[{capability_index}]" f".source_refs[{source_ref_index}]"
         )
         if not isinstance(source_ref, dict):
             errors.append(

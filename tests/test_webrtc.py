@@ -6,22 +6,22 @@ import asyncio
 import hashlib
 import hmac
 import json
-from pathlib import Path
 import time
 import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.application.webrtc import (
-    SMARTLY_API_SCHEMA_VERSION,
-    WebRTCICEUseCase,
-    WebRTCOfferUseCase,
-    WebRTCHangupUseCase,
-)
 from custom_components.smartly_bridge.adapters.home_assistant import (
     HomeAssistantWebRTCGateway,
     _home_assistant_web_rtc_gateway,
+)
+from custom_components.smartly_bridge.application.webrtc import (
+    SMARTLY_API_SCHEMA_VERSION,
+    WebRTCHangupUseCase,
+    WebRTCICEUseCase,
+    WebRTCOfferUseCase,
 )
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache
 from custom_components.smartly_bridge.const import DOMAIN, RATE_WINDOW
@@ -952,9 +952,7 @@ class TestWebRTCViews:
 
         assert result.status == 200
         assert factory_calls == [gateway]
-        assert use_case.calls == [
-            ("camera.front_door", "valid-token", "v=0\r\ns=Platform\r\n")
-        ]
+        assert use_case.calls == [("camera.front_door", "valid-token", "v=0\r\ns=Platform\r\n")]
         assert result.body["data"]["session_id"] == "factory-session"
 
     @pytest.mark.asyncio
@@ -1142,9 +1140,7 @@ class TestWebRTCViews:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == _load_api_vnext_fixture(
-            "webrtc-token-integration-not-configured.json"
-        )
+        assert data == _load_api_vnext_fixture("webrtc-token-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_token_view_auth_failure_returns_envelope(self, mock_hass_with_webrtc):
@@ -1202,7 +1198,9 @@ class TestWebRTCViews:
         with (
             patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
             patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
-            patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test_client")
             mock_registry_get.return_value = MagicMock()
@@ -1216,9 +1214,7 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-token-entity-not-allowed.json")
 
     @pytest.mark.asyncio
-    async def test_token_view_webrtc_not_available_returns_envelope(
-        self, mock_hass_with_webrtc
-    ):
+    async def test_token_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
         """Test token request returns API vNext envelope when WebRTC manager is missing."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
 
@@ -1231,7 +1227,9 @@ class TestWebRTCViews:
         with (
             patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
             patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
-            patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test_client")
             mock_registry_get.return_value = MagicMock()
@@ -1290,7 +1288,9 @@ class TestWebRTCViews:
         with (
             patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
             patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
-            patch("custom_components.smartly_bridge.views.webrtc.is_entity_allowed") as mock_allowed,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
         ):
             mock_verify.return_value = AuthResult(success=True, client_id="test_client")
             mock_registry_get.return_value = MagicMock()
@@ -1506,9 +1506,7 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-offer-invalid-sdp-type.json")
 
     @pytest.mark.asyncio
-    async def test_offer_view_webrtc_not_available_returns_envelope(
-        self, mock_hass_with_webrtc
-    ):
+    async def test_offer_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
         """Test offer request returns API vNext envelope when WebRTC manager is missing."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
 
@@ -1613,9 +1611,7 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-ice-invalid-json.json")
 
     @pytest.mark.asyncio
-    async def test_ice_view_missing_session_id_returns_envelope(
-        self, mock_hass_with_webrtc
-    ):
+    async def test_ice_view_missing_session_id_returns_envelope(self, mock_hass_with_webrtc):
         """Test ICE request returns API vNext envelope when session ID is missing."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
 
@@ -1632,9 +1628,7 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-ice-missing-session-id.json")
 
     @pytest.mark.asyncio
-    async def test_ice_view_webrtc_not_available_returns_envelope(
-        self, mock_hass_with_webrtc
-    ):
+    async def test_ice_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
         """Test ICE request returns API vNext envelope when WebRTC manager is missing."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
 
@@ -1674,9 +1668,7 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-hangup-invalid-json.json")
 
     @pytest.mark.asyncio
-    async def test_hangup_view_missing_session_id_returns_envelope(
-        self, mock_hass_with_webrtc
-    ):
+    async def test_hangup_view_missing_session_id_returns_envelope(self, mock_hass_with_webrtc):
         """Test hangup request returns API vNext envelope when session ID is missing."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCHangupView
 
@@ -1693,9 +1685,7 @@ class TestWebRTCViews:
         assert data == _load_api_vnext_fixture("webrtc-hangup-missing-session-id.json")
 
     @pytest.mark.asyncio
-    async def test_hangup_view_webrtc_not_available_returns_envelope(
-        self, mock_hass_with_webrtc
-    ):
+    async def test_hangup_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
         """Test hangup request returns API vNext envelope when WebRTC manager is missing."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCHangupView
 

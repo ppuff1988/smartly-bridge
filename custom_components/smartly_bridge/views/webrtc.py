@@ -500,7 +500,9 @@ class SmartlyWebRTCOfferView(BaseView):
             return _json_response(result.body, self.request, status=result.status)
 
         if result.status == 500:
-            _LOGGER.error("WebRTC offer failed for %s: %s", entity_id, _webrtc_error_message(result))
+            _LOGGER.error(
+                "WebRTC offer failed for %s: %s", entity_id, _webrtc_error_message(result)
+            )
             log_control(
                 _LOGGER,
                 client_id="unknown",
@@ -520,11 +522,7 @@ class SmartlyWebRTCOfferView(BaseView):
         _LOGGER.debug(
             "WebRTC SDP answer content for %s:\n%s",
             entity_id,
-            (
-                answer["sdp"][:500] + "..."
-                if len(answer["sdp"]) > 500
-                else answer["sdp"]
-            ),
+            (answer["sdp"][:500] + "..." if len(answer["sdp"]) > 500 else answer["sdp"]),
         )
 
         log_control(

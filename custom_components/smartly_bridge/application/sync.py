@@ -166,8 +166,7 @@ def _state_updates(
 ) -> list[dict[str, Any]]:
     """Return API vNext capability state updates from logical-device state."""
     updated_at_by_entity = {
-        snapshot.entity_id: snapshot.last_updated or snapshot.last_changed
-        for snapshot in snapshots
+        snapshot.entity_id: snapshot.last_updated or snapshot.last_changed for snapshot in snapshots
     }
     updates: list[dict[str, Any]] = []
     for device in logical_devices:

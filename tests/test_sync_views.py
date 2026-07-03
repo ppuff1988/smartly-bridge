@@ -21,7 +21,6 @@ from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView, SmartlySyncView
 
-
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
 
 
@@ -159,9 +158,7 @@ class FakeHistoryGateway:
         significant_changes_only: bool = False,
     ) -> list[object]:
         """Record the history query and return configured states."""
-        self.calls.append(
-            (entity_id, start_time, end_time, significant_changes_only)
-        )
+        self.calls.append((entity_id, start_time, end_time, significant_changes_only))
         return self.states
 
 
@@ -287,9 +284,7 @@ class TestSmartlySyncView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == _api_vnext_fixture(
-            "sync-structure-integration-not-configured.json"
-        )
+        assert data == _api_vnext_fixture("sync-structure-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
@@ -397,17 +392,13 @@ class TestSmartlySyncView:
         assert use_case.calls == 1
         assert result.body["entities"] == [{"entity_id": "light.factory"}]
 
-    def test_home_assistant_sync_structure_gateway_factory_builds_runtime_gateway(
-        self, mock_hass
-    ):
+    def test_home_assistant_sync_structure_gateway_factory_builds_runtime_gateway(self, mock_hass):
         """Home Assistant sync structure factory builds the runtime adapter type."""
         gateway = _home_assistant_sync_structure_gateway(mock_hass)
 
         assert isinstance(gateway, HomeAssistantSyncGateway)
 
-    def test_home_assistant_sync_states_gateway_factory_builds_runtime_gateway(
-        self, mock_hass
-    ):
+    def test_home_assistant_sync_states_gateway_factory_builds_runtime_gateway(self, mock_hass):
         """Home Assistant sync states factory builds the runtime adapter type."""
         gateway = _home_assistant_sync_states_gateway(mock_hass)
 
@@ -445,9 +436,7 @@ class TestSmartlySyncView:
         assert response.status == 200
         data = json.loads(response.body)
         assert "entities" not in data
-        assert data["data"]["entities"] == [
-            {"entity_id": "light.runtime", "name": "Runtime Light"}
-        ]
+        assert data["data"]["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
 
     @pytest.mark.asyncio
     async def test_successful_sync_uses_setup_runtime_gateway(self, mock_request, mock_hass):
@@ -469,14 +458,10 @@ class TestSmartlySyncView:
         data = json.loads(response.body)
         assert gateway.calls == 1
         assert "entities" not in data
-        assert data["data"]["entities"] == [
-            {"entity_id": "light.runtime", "name": "Runtime Light"}
-        ]
+        assert data["data"]["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
 
     @pytest.mark.asyncio
-    async def test_structure_sync_requires_setup_runtime_gateway(
-        self, mock_request, mock_hass
-    ):
+    async def test_structure_sync_requires_setup_runtime_gateway(self, mock_request, mock_hass):
         """Structure sync rejects requests when the setup runtime gateway is missing."""
         mock_hass.data[DOMAIN]["runtime_adapters"] = {}
 
@@ -491,10 +476,7 @@ class TestSmartlySyncView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == _api_vnext_fixture("sync-structure-gateway-unavailable.json")
-        assert (
-            "sync_structure_gateway"
-            not in mock_hass.data[DOMAIN]["runtime_adapters"]
-        )
+        assert "sync_structure_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_successful_sync_echoes_request_correlation_headers(
@@ -591,9 +573,7 @@ class TestSmartlySyncStatesView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == _api_vnext_fixture(
-            "sync-states-integration-not-configured.json"
-        )
+        assert data == _api_vnext_fixture("sync-states-integration-not-configured.json")
 
     @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
@@ -682,9 +662,7 @@ class TestSmartlySyncStatesView:
         assert gateway.calls == 1
         assert result.body["data"]["read_path"] == "logical_devices"
         assert result.body["data"]["logical_devices"][0]["raw_refs"][0]["raw_ref"] == raw_ref
-        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
-            "camera.runtime"
-        )
+        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == ("camera.runtime")
 
     @pytest.mark.asyncio
     async def test_build_sync_states_uses_injected_use_case_factory(self):
@@ -794,21 +772,23 @@ class TestSmartlySyncStatesView:
                     assert len(data["data"]["states"]) == 2
 
                     # Verify first state with custom icon
-                    state1 = next(s for s in data["data"]["states"] if s["entity_id"] == "light.kitchen")
+                    state1 = next(
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.kitchen"
+                    )
                     assert state1["state"] == "on"
                     assert state1["attributes"]["brightness"] == 255
                     assert state1["last_changed"] is not None
                     assert state1["icon"] == "mdi:lightbulb"  # Custom icon is returned
 
                     # Verify second state with fallback to original_icon
-                    state2 = next(s for s in data["data"]["states"] if s["entity_id"] == "switch.bedroom")
+                    state2 = next(
+                        s for s in data["data"]["states"] if s["entity_id"] == "switch.bedroom"
+                    )
                     assert state2["state"] == "off"
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
 
     @pytest.mark.asyncio
-    async def test_successful_states_sync_uses_setup_runtime_gateway(
-        self, mock_request, mock_hass
-    ):
+    async def test_successful_states_sync_uses_setup_runtime_gateway(self, mock_request, mock_hass):
         """State sync executes through the setup-created sync states gateway."""
         gateway = FakeSyncStatesGateway()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {
@@ -830,9 +810,7 @@ class TestSmartlySyncStatesView:
         assert data["data"]["states"][0]["entity_id"] == "light.runtime"
 
     @pytest.mark.asyncio
-    async def test_states_sync_requires_setup_runtime_gateway(
-        self, mock_request, mock_hass
-    ):
+    async def test_states_sync_requires_setup_runtime_gateway(self, mock_request, mock_hass):
         """State sync rejects requests when the setup runtime gateway is missing."""
         recorder = FakeRawDiagnosticRecorder()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {
@@ -850,10 +828,7 @@ class TestSmartlySyncStatesView:
         assert response.status == 500
         data = json.loads(response.body)
         assert data == _api_vnext_fixture("sync-states-gateway-unavailable.json")
-        assert (
-            "sync_states_gateway"
-            not in mock_hass.data[DOMAIN]["runtime_adapters"]
-        )
+        assert "sync_states_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
         assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is recorder
 
     def test_sync_states_gateway_resolver_uses_runtime_gateway(self, mock_hass):
@@ -894,9 +869,7 @@ class TestSmartlySyncStatesView:
         assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
-    async def test_states_sync_requires_setup_raw_diagnostic_store(
-        self, mock_request, mock_hass
-    ):
+    async def test_states_sync_requires_setup_raw_diagnostic_store(self, mock_request, mock_hass):
         """State sync rejects requests when the setup raw diagnostic store is missing."""
         gateway = FakeSyncStatesGateway()
         mock_hass.data[DOMAIN]["runtime_adapters"] = {
@@ -913,13 +886,8 @@ class TestSmartlySyncStatesView:
 
         assert response.status == 500
         data = json.loads(response.body)
-        assert data == _api_vnext_fixture(
-            "sync-states-raw-diagnostic-store-unavailable.json"
-        )
-        assert (
-            "raw_diagnostic_store"
-            not in mock_hass.data[DOMAIN]["runtime_adapters"]
-        )
+        assert data == _api_vnext_fixture("sync-states-raw-diagnostic-store-unavailable.json")
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
     async def test_successful_states_sync_echoes_request_correlation_headers(
@@ -984,9 +952,7 @@ class TestSmartlySyncStatesView:
             }
         ]
         assert "raw_payload" not in data["data"]["logical_devices"][0]
-        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == (
-            "camera.runtime"
-        )
+        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == ("camera.runtime")
 
     @pytest.mark.asyncio
     async def test_states_sync_uses_logical_device_read_path_when_enabled(
@@ -1682,7 +1648,9 @@ class TestSmartlySyncStatesView:
                     )
                     assert switch_state["icon"] == "mdi:toggle-switch-outline"
 
-                    light_state = next(s for s in data["data"]["states"] if s["entity_id"] == "light.test")
+                    light_state = next(
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.test"
+                    )
                     assert light_state["icon"] == "mdi:lightbulb-outline"
 
                     camera_state = next(
@@ -1835,7 +1803,9 @@ class TestSmartlySyncStatesView:
                 assert current_a_state["state"] == "0.457"
 
                 # Check power: 2 decimal places (W)
-                power_state = next(s for s in data["data"]["states"] if s["entity_id"] == "sensor.power")
+                power_state = next(
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.power"
+                )
                 assert power_state["state"] == "0.8"
 
                 # Check temperature: 1 decimal place
@@ -2346,9 +2316,7 @@ async def test_state_sync_label_trace_reports_accepted_class_override(mock_hass)
         original_icon=None,
         labels={"smartly", "smartly.class.fan_control"},
     )
-    mock_hass.states.get = MagicMock(
-        return_value=_state("off", {"friendly_name": "Fan Switch"})
-    )
+    mock_hass.states.get = MagicMock(return_value=_state("off", {"friendly_name": "Fan Switch"}))
     mock_registry = MagicMock()
     mock_registry.async_get.return_value = entry
 

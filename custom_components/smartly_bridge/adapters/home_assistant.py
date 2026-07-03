@@ -14,7 +14,6 @@ from ..acl import (
     is_entity_allowed,
     is_service_allowed,
 )
-from ..audit import log_control, log_deny
 from ..application.control import SmartlyCommand, SmartlyCommandUseCase
 from ..application.local_automation import (
     AutomationAction,
@@ -25,6 +24,7 @@ from ..application.logical_devices import (
     canonical_capability_name,
     logical_device_id_for_source_id,
 )
+from ..audit import log_control, log_deny
 from ..const import (
     BRIDGE_CHART_LOOKBACK_HOURS,
     DEFAULT_DOMAIN_ICONS,
@@ -89,9 +89,7 @@ def _label_trace_for_entity(
         }
 
     presentation_hints = [
-        label
-        for label in ("smartly.dashboard", "smartly.favorite")
-        if label in labels
+        label for label in ("smartly.dashboard", "smartly.favorite") if label in labels
     ]
     if presentation_hints:
         trace["presentation_hints"] = presentation_hints
@@ -334,10 +332,7 @@ class HomeAssistantLocalAutomationRuleStore:
         remaining_rules = [
             stored_rule
             for stored_rule in stored_rules
-            if not (
-                isinstance(stored_rule, dict)
-                and stored_rule.get("rule_id") == rule_id
-            )
+            if not (isinstance(stored_rule, dict) and stored_rule.get("rule_id") == rule_id)
         ]
         if len(remaining_rules) == len(stored_rules):
             return False
@@ -425,8 +420,7 @@ def _automation_action_from_config(value: Any) -> AutomationAction | None:
     capability = value.get("capability")
     command = value.get("command")
     if not all(
-        isinstance(item, str) and item
-        for item in (action_type, device_id, capability, command)
+        isinstance(item, str) and item for item in (action_type, device_id, capability, command)
     ):
         return None
     params = value.get("params", {})
@@ -1053,9 +1047,7 @@ def _home_assistant_sync_states_gateway(
     *,
     allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
     history_semaphore_factory: Callable[[], Any] | None = None,
-    history_gateway_factory: Callable[
-        [Any, Callable[[], Any]], Any
-    ] = _state_sync_history_gateway,
+    history_gateway_factory: Callable[[Any, Callable[[], Any]], Any] = _state_sync_history_gateway,
 ) -> HomeAssistantStateSyncGateway:
     """Build the Home Assistant-backed sync states gateway runtime adapter."""
     return HomeAssistantStateSyncGateway(

@@ -7,7 +7,6 @@ from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 from homeassistant.core import HomeAssistant
 
-from ..acl import get_allowed_entities
 from ..application.sync import SyncStatesUseCase, SyncStructureUseCase, sync_error_response
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request

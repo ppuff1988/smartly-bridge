@@ -5,7 +5,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -100,9 +99,7 @@ def test_phase6_audit_detects_test_top_level_response_fixture(tmp_path: Path) ->
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "test-top-level-response-fixture" for finding in findings
-    )
+    assert any(finding.code == "test-top-level-response-fixture" for finding in findings)
 
 
 def test_phase6_audit_detects_request_time_fallback_constructor(tmp_path: Path) -> None:
@@ -110,8 +107,7 @@ def test_phase6_audit_detects_request_time_fallback_constructor(tmp_path: Path) 
     audit = _load_phase6_audit()
     _write(
         tmp_path / "custom_components/smartly_bridge/views/example.py",
-        "def build(hass):\n"
-        "    return HomeAssistantHistoryGateway(hass)\n",
+        "def build(hass):\n" "    return HomeAssistantHistoryGateway(hass)\n",
     )
 
     findings = audit.audit(tmp_path)
@@ -288,10 +284,7 @@ def test_phase6_audit_detects_openapi_top_level_error_response_schema(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-top-level-error-response-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-top-level-error-response-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_component_response_top_level_error_examples(
@@ -315,8 +308,7 @@ def test_phase6_audit_detects_openapi_component_response_top_level_error_example
     findings = audit.audit(tmp_path)
 
     assert any(
-        finding.code == "openapi-component-response-top-level-error-example"
-        for finding in findings
+        finding.code == "openapi-component-response-top-level-error-example" for finding in findings
     )
 
 
@@ -344,10 +336,7 @@ def test_phase6_audit_detects_openapi_control_top_level_error_examples(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-control-top-level-error-example"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-control-top-level-error-example" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_device_event_top_level_success_schema(
@@ -373,8 +362,7 @@ def test_phase6_audit_detects_openapi_device_event_top_level_success_schema(
     findings = audit.audit(tmp_path)
 
     assert any(
-        finding.code == "openapi-device-event-top-level-success-schema"
-        for finding in findings
+        finding.code == "openapi-device-event-top-level-success-schema" for finding in findings
     )
 
 
@@ -405,10 +393,7 @@ def test_phase6_audit_detects_openapi_sync_top_level_success_schemas(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-sync-top-level-success-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-sync-top-level-success-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_sync_top_level_success_examples(
@@ -434,10 +419,7 @@ def test_phase6_audit_detects_openapi_sync_top_level_success_examples(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-sync-top-level-success-example"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-sync-top-level-success-example" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_history_top_level_success_schemas(
@@ -472,10 +454,7 @@ def test_phase6_audit_detects_openapi_history_top_level_success_schemas(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-history-top-level-success-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-history-top-level-success-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_history_top_level_success_examples(
@@ -501,10 +480,7 @@ def test_phase6_audit_detects_openapi_history_top_level_success_examples(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-history-top-level-success-example"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-history-top-level-success-example" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_camera_top_level_success_schemas(
@@ -532,10 +508,7 @@ def test_phase6_audit_detects_openapi_camera_top_level_success_schemas(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-camera-top-level-success-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-camera-top-level-success-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_generic_top_level_response_schema(
@@ -558,10 +531,7 @@ def test_phase6_audit_detects_openapi_generic_top_level_response_schema(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-response-top-level-payload-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-response-top-level-payload-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_webrtc_hangup_top_level_success_schema(
@@ -589,10 +559,7 @@ def test_phase6_audit_detects_openapi_webrtc_hangup_top_level_success_schema(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-camera-top-level-success-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-camera-top-level-success-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_inline_top_level_response_schema(
@@ -621,8 +588,7 @@ def test_phase6_audit_detects_openapi_inline_top_level_response_schema(
     findings = audit.audit(tmp_path)
 
     assert any(
-        finding.code == "openapi-inline-response-top-level-payload-schema"
-        for finding in findings
+        finding.code == "openapi-inline-response-top-level-payload-schema" for finding in findings
     )
 
 
@@ -648,10 +614,7 @@ def test_phase6_audit_detects_openapi_generic_top_level_response_example(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-response-top-level-payload-example"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-response-top-level-payload-example" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
@@ -678,8 +641,7 @@ def test_phase6_audit_detects_openapi_device_event_top_level_success_examples(
     findings = audit.audit(tmp_path)
 
     assert any(
-        finding.code == "openapi-device-event-top-level-success-example"
-        for finding in findings
+        finding.code == "openapi-device-event-top-level-success-example" for finding in findings
     )
 
 
@@ -709,8 +671,7 @@ def test_phase6_audit_detects_openapi_device_event_top_level_error_examples(
     findings = audit.audit(tmp_path)
 
     assert any(
-        finding.code == "openapi-device-event-top-level-error-example"
-        for finding in findings
+        finding.code == "openapi-device-event-top-level-error-example" for finding in findings
     )
 
 
@@ -739,10 +700,7 @@ def test_phase6_audit_detects_openapi_history_top_level_error_examples(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-history-top-level-error-example"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-history-top-level-error-example" for finding in findings)
 
 
 def test_phase6_audit_detects_openapi_webhook_top_level_success_schemas(
@@ -770,10 +728,7 @@ def test_phase6_audit_detects_openapi_webhook_top_level_success_schemas(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "openapi-webhook-top-level-success-schema"
-        for finding in findings
-    )
+    assert any(finding.code == "openapi-webhook-top-level-success-schema" for finding in findings)
 
 
 def test_phase6_audit_detects_public_control_legacy_body_docs(
@@ -806,9 +761,7 @@ def test_phase6_audit_detects_device_card_home_assistant_action_payload_docs(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "device-card-ha-action-payload-doc" for finding in findings
-    )
+    assert any(finding.code == "device-card-ha-action-payload-doc" for finding in findings)
 
 
 def test_phase6_audit_detects_device_card_stale_color_temperature_capability_docs(
@@ -823,9 +776,7 @@ def test_phase6_audit_detects_device_card_stale_color_temperature_capability_doc
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "device-card-stale-capability-doc" for finding in findings
-    )
+    assert any(finding.code == "device-card-stale-capability-doc" for finding in findings)
 
 
 def test_phase6_audit_detects_device_card_top_level_sync_success_docs(
@@ -840,10 +791,7 @@ def test_phase6_audit_detects_device_card_top_level_sync_success_docs(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "device-card-top-level-sync-success-doc"
-        for finding in findings
-    )
+    assert any(finding.code == "device-card-top-level-sync-success-doc" for finding in findings)
 
 
 def test_phase6_audit_detects_device_presentation_stale_color_temp_capability(
@@ -858,10 +806,7 @@ def test_phase6_audit_detects_device_presentation_stale_color_temp_capability(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "device-presentation-stale-capability"
-        for finding in findings
-    )
+    assert any(finding.code == "device-presentation-stale-capability" for finding in findings)
 
 
 def test_phase6_audit_detects_public_control_stale_light_color_command_docs(
@@ -873,16 +818,13 @@ def test_phase6_audit_detects_public_control_stale_light_color_command_docs(
         tmp_path / "docs/control/device-types.md",
         (
             "| `color_rgb` | `set_rgb` | `{}` |\n"
-            "| `color_temperature` | `set_kelvin` | `{\"kelvin\": 3000}` |\n"
+            '| `color_temperature` | `set_kelvin` | `{"kelvin": 3000}` |\n'
         ),
     )
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "public-control-stale-light-command-doc"
-        for finding in findings
-    )
+    assert any(finding.code == "public-control-stale-light-command-doc" for finding in findings)
 
 
 def test_phase6_audit_detects_nested_public_control_legacy_body_docs(
@@ -1176,9 +1118,7 @@ def test_phase6_audit_detects_trust_proxy_docs_top_level_error_examples(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "trust-proxy-doc-top-level-error" for finding in findings
-    )
+    assert any(finding.code == "trust-proxy-doc-top-level-error" for finding in findings)
 
 
 def test_phase6_audit_detects_architecture_plan_top_level_error_examples(
@@ -1193,10 +1133,7 @@ def test_phase6_audit_detects_architecture_plan_top_level_error_examples(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "architecture-plan-doc-top-level-error"
-        for finding in findings
-    )
+    assert any(finding.code == "architecture-plan-doc-top-level-error" for finding in findings)
 
 
 def test_phase6_audit_detects_architecture_plan_top_level_success_examples(
@@ -1206,18 +1143,12 @@ def test_phase6_audit_detects_architecture_plan_top_level_success_examples(
     audit = _load_phase6_audit()
     _write(
         tmp_path / "docs/smartly_bridge_architecture_plan.md",
-        (
-            '```json\n{"command_id": "cmd_1", "status": "success", '
-            '"device_id": "dev_1"}\n```\n'
-        ),
+        ('```json\n{"command_id": "cmd_1", "status": "success", ' '"device_id": "dev_1"}\n```\n'),
     )
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "architecture-plan-doc-top-level-success"
-        for finding in findings
-    )
+    assert any(finding.code == "architecture-plan-doc-top-level-success" for finding in findings)
 
 
 def test_phase6_audit_detects_architecture_plan_success_prose(
@@ -1232,10 +1163,7 @@ def test_phase6_audit_detects_architecture_plan_success_prose(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "architecture-plan-doc-success-prose"
-        for finding in findings
-    )
+    assert any(finding.code == "architecture-plan-doc-success-prose" for finding in findings)
 
 
 def test_phase6_audit_allows_public_docs_source_entity_references(
@@ -1250,9 +1178,7 @@ def test_phase6_audit_allows_public_docs_source_entity_references(
 
     findings = audit.audit(tmp_path)
 
-    assert not any(
-        finding.code == "public-control-legacy-body-doc" for finding in findings
-    )
+    assert not any(finding.code == "public-control-legacy-body-doc" for finding in findings)
 
 
 def test_phase6_audit_detects_readme_sync_top_level_success_examples(
@@ -1307,8 +1233,7 @@ def test_phase6_audit_detects_control_test_legacy_wording(
     audit = _load_phase6_audit()
     _write(
         tmp_path / "tests/test_http.py",
-        "def test_control_legacy_entity_action_body_is_rejected():\n"
-        "    pass\n",
+        "def test_control_legacy_entity_action_body_is_rejected():\n" "    pass\n",
     )
 
     findings = audit.audit(tmp_path)
@@ -1343,9 +1268,7 @@ def test_phase6_audit_detects_application_test_top_level_error_fields(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "application-test-top-level-error" for finding in findings
-    )
+    assert any(finding.code == "application-test-top-level-error" for finding in findings)
 
 
 def test_phase6_audit_detects_history_view_test_top_level_success_fields(
@@ -1360,9 +1283,7 @@ def test_phase6_audit_detects_history_view_test_top_level_success_fields(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "history-view-test-top-level-success" for finding in findings
-    )
+    assert any(finding.code == "history-view-test-top-level-success" for finding in findings)
 
 
 def test_phase6_audit_detects_webrtc_test_top_level_success_fields(
@@ -1377,9 +1298,7 @@ def test_phase6_audit_detects_webrtc_test_top_level_success_fields(
 
     findings = audit.audit(tmp_path)
 
-    assert any(
-        finding.code == "webrtc-test-top-level-success" for finding in findings
-    )
+    assert any(finding.code == "webrtc-test-top-level-success" for finding in findings)
 
 
 def test_phase6_audit_detects_general_legacy_wording(tmp_path: Path) -> None:
