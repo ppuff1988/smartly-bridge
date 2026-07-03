@@ -40,6 +40,7 @@
   },
 
   "postCreateCommand": "python -m pip install --user --upgrade pip && python -m pip install --user -r requirements-dev.txt",
+  "postStartCommand": "sudo chown -R vscode:vscode /home/vscode/.config/gh",
 
   "remoteEnv": {
     "GH_TOKEN": "${localEnv:GH_TOKEN}"
