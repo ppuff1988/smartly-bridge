@@ -13,15 +13,13 @@ flake8>=7.3.0
 mypy>=2.1.0
 
 # Type stubs
-types-aiofiles>=25.1.0.20260409
+types-aiofiles>=25.1.0.20260518
 
 # HTTP testing
 # aiohttp version is managed by homeassistant dependency
-aioresponses>=0.7.8
-# DNS resolver stack used by Home Assistant tests
+aioresponses>=0.7.9
 aiodns>=4.0.4,<5.0.0
 pycares>=5.0.1,<6.0.0
 
 # Home Assistant (required for testing)
-# Home Assistant 2026.6 requires Python 3.14.2+
 homeassistant>=2026.6.4
