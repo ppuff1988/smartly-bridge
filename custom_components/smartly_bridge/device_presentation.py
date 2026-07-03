@@ -119,6 +119,8 @@ def _infer_capabilities(domain: str, attributes: dict[str, Any]) -> list[str]:
         "scene": _scene_or_script_capabilities,
         "script": _scene_or_script_capabilities,
         "button": _button_capabilities,
+        "input_button": _button_capabilities,
+        "input_boolean": _switch_capabilities,
     }
     capabilities = by_domain.get(domain, _no_capabilities)(attributes)
     return _with_health_capabilities(capabilities, attributes)
@@ -296,7 +298,7 @@ def _automatic_device_class(
             return "smart_light"
         return "simple_light_switch"
 
-    if domain == "switch":
+    if domain in {"switch", "input_boolean"}:
         return "simple_switch" if "on_off" in capability_set else "unknown_device"
 
     if domain == "fan":
@@ -316,7 +318,7 @@ def _automatic_device_class(
             return "contact_sensor"
         return "unknown_device"
 
-    if domain == "button":
+    if domain in {"button", "input_button"}:
         return "button_device"
 
     if domain == "cover" and capability_set.intersection(

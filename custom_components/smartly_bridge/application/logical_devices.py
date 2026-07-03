@@ -267,6 +267,10 @@ def _primary_type_for_snapshot(snapshot: EntityStateSnapshot) -> str:
         return "environment_sensor"
     if domain == "binary_sensor":
         return "sensor"
+    if domain == "input_boolean":
+        return "switch"
+    if domain == "input_button":
+        return "button"
     return domain or "unknown"
 
 

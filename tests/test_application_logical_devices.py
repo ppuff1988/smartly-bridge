@@ -1040,6 +1040,68 @@ def test_button_entity_exposes_press_command_capability() -> None:
     assert device["presentation"]["primary_controls"] == ["button_press"]
 
 
+def test_input_button_helper_exposes_press_command_capability() -> None:
+    """Home Assistant input_button helpers behave as Smartly button devices."""
+    metadata = build_device_card_metadata(
+        "input_button.an_niu",
+        "2026-07-03T13:00:00+00:00",
+        {"friendly_name": "按鈕"},
+        {"smartly"},
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="input_button.an_niu",
+        state="2026-07-03T13:00:00+00:00",
+        attributes={"friendly_name": "按鈕"},
+        name="按鈕",
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["primary_type"] == "button"
+    assert device["device_class"] == "button_automation"
+    assert [capability["type"] for capability in device["capabilities"]] == [
+        "button_event",
+        "button_press",
+    ]
+    assert device["presentation"]["template"] == "button_automation"
+    assert device["presentation"]["primary_controls"] == ["button_press"]
+
+
+def test_input_boolean_helper_exposes_power_capability() -> None:
+    """Home Assistant input_boolean helpers behave as Smartly switch devices."""
+    metadata = build_device_card_metadata(
+        "input_boolean.kai_guan",
+        "off",
+        {"friendly_name": "開關"},
+        {"smartly"},
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="input_boolean.kai_guan",
+        state="off",
+        attributes={"friendly_name": "開關"},
+        name="開關",
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["primary_type"] == "switch"
+    assert device["device_class"] == "switch_control"
+    assert [capability["type"] for capability in device["capabilities"]] == ["power"]
+    assert device["capabilities"][0]["commands"] == ["turn_on", "turn_off", "toggle"]
+    assert device["presentation"]["template"] == "switch_control"
+    assert device["presentation"]["primary_controls"] == ["power"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

@@ -61,8 +61,10 @@ PLATFORM_CONTROL_LABEL = "smartly"
 # Allowed services whitelist
 ALLOWED_SERVICES: dict[str, list[str]] = {
     "switch": ["turn_on", "turn_off", "toggle"],
+    "input_boolean": ["turn_on", "turn_off", "toggle"],
     "light": ["turn_on", "turn_off", "toggle"],
     "button": ["press"],
+    "input_button": ["press"],
     "cover": [
         "open_cover",
         "close_cover",
