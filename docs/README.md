@@ -173,23 +173,26 @@ client_secret: your_client_secret_here
 
 ```json
 {
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 200,
-    "rgb_color": [255, 0, 0]
+  "command_id": "cmd_20260627_0001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 78
   },
-  "actor": {
+  "source": {
     "user_id": "u_123",
     "role": "tenant"
   }
 }
 ```
 
-- `entity_id` (必填): 實體 ID，格式為 `domain.entity_name`
-- `action` (必填): 操作動作，如 `turn_on`, `turn_off`, `set_temperature` 等
-- `service_data` (選填): 額外參數，根據 domain 和 action 而定，可為空物件 `{}`
-- `actor` (選填): 操作者資訊，用於審計日誌
+- `command_id` (必填): 命令追蹤 ID
+- `device_id` (必填): Sync API 回傳的邏輯設備 ID
+- `capability` (必填): canonical capability，例如 `brightness`
+- `command` (必填): capability 支援的 command，例如 `set_brightness`
+- `params` (選填): command 參數，依 capability contract 而定
+- `source` (選填): 操作者資訊，用於審計日誌
 
 **必要的 HTTP Headers：**
 ```

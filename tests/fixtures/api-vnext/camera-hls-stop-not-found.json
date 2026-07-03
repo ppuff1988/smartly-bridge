@@ -1,0 +1,9 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "not_found",
+    "action": "stopped"
+  },
+  "warnings": [],
+  "errors": []
+}

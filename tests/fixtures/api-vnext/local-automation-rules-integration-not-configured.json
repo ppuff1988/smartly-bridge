@@ -1,0 +1,14 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "integration_not_configured",
+      "message": "Smartly Bridge integration is not configured",
+      "target": "integration"
+    }
+  ]
+}

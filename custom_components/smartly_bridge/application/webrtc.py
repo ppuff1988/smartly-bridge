@@ -7,6 +7,8 @@ from typing import Any
 from ..domain.models import BridgeResponse
 from .ports import WebRTCGatewayPort
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 
 class WebRTCTokenUseCase:
     """Generate a WebRTC token response."""
@@ -23,8 +25,8 @@ class WebRTCTokenUseCase:
     ) -> BridgeResponse:
         """Generate token and connection metadata."""
         if not self._gateway.camera_exists(entity_id):
-            return BridgeResponse(
-                {"error": "entity_not_found", "message": f"Camera {entity_id} not found"},
+            return _webrtc_error_response(
+                "entity_not_found",
                 status=404,
             )
 
@@ -34,7 +36,7 @@ class WebRTCTokenUseCase:
             turn_username=turn_config.get("turn_username"),
             turn_credential=turn_config.get("turn_credential"),
         )
-        return BridgeResponse(
+        return _webrtc_success_response(
             {
                 "token": token.token,
                 "expires_at": int(token.expires_at),
@@ -45,7 +47,6 @@ class WebRTCTokenUseCase:
                 "hangup_endpoint": f"/api/smartly/camera/{entity_id}/webrtc/hangup",
                 "ice_servers": ice_servers,
             },
-            status=200,
         )
 
 
@@ -65,15 +66,15 @@ class WebRTCICEUseCase:
         """Add an ICE candidate to a session."""
         session = self._gateway.get_session_by_partial_token(session_id)
         if session is None:
-            return BridgeResponse({"error": "session_not_found"}, status=404)
+            return _webrtc_error_response("session_not_found", status=404)
 
         if session.entity_id != entity_id:
-            return BridgeResponse({"error": "session_entity_mismatch"}, status=403)
+            return _webrtc_error_response("session_entity_mismatch", status=403)
 
         if candidate:
             session.add_ice_candidate(candidate)
 
-        return BridgeResponse({"status": "accepted", "candidates": []}, status=200)
+        return _webrtc_success_response({"status": "accepted", "candidates": []})
 
 
 class WebRTCOfferUseCase:
@@ -92,8 +93,8 @@ class WebRTCOfferUseCase:
         """Consume a token, create an SDP answer, and update session state."""
         session = await self._gateway.consume_token(token, entity_id)
         if session is None:
-            return BridgeResponse(
-                {"error": "invalid_or_expired_token", "message": "Token is invalid or expired"},
+            return _webrtc_error_response(
+                "invalid_or_expired_token",
                 status=401,
             )
 
@@ -109,13 +110,9 @@ class WebRTCOfferUseCase:
                 sdp_offer,
                 session,
             )
-        except Exception as err:
-            return BridgeResponse(
-                {
-                    "error": "webrtc_failed",
-                    "message": str(err),
-                    "session_id": session.token[:16],
-                },
+        except Exception:
+            return _webrtc_error_response(
+                "webrtc_failed",
                 status=500,
             )
 
@@ -125,13 +122,12 @@ class WebRTCOfferUseCase:
             local_sdp=answer_sdp,
         )
 
-        return BridgeResponse(
+        return _webrtc_success_response(
             {
                 "type": "answer",
                 "sdp": answer_sdp,
                 "session_id": session.token[:16],
             },
-            status=200,
         )
 
 
@@ -145,10 +141,47 @@ class WebRTCHangupUseCase:
         """Close a matching WebRTC session."""
         session = self._gateway.get_session_by_partial_token(session_id)
         if session is None:
-            return BridgeResponse({"error": "session_not_found"}, status=404)
+            return _webrtc_error_response("session_not_found", status=404)
 
         if entity_id and session.entity_id != entity_id:
-            return BridgeResponse({"error": "session_entity_mismatch"}, status=403)
+            return _webrtc_error_response("session_entity_mismatch", status=403)
 
         await self._gateway.close_session(session.token)
-        return BridgeResponse({"status": "closed"}, status=200)
+        return _webrtc_success_response({"status": "closed"})
+
+
+def _webrtc_error_response(
+    error: str,
+    *,
+    status: int,
+) -> BridgeResponse:
+    """Return an API vNext WebRTC error response."""
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error.replace("_", " "),
+                    "target": "webrtc",
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )
+
+
+def _webrtc_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
+    """Return an API vNext WebRTC success response."""
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
+        },
+        status=status,
+    )

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -13,6 +15,23 @@ from custom_components.smartly_bridge.application.webrtc import (
     WebRTCOfferUseCase,
     WebRTCTokenUseCase,
 )
+
+
+def _fixture(name: str) -> dict[str, Any]:
+    """Load an API vNext fixture."""
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+
+
+def _assert_vnext_only_top_level(body: dict[str, Any]) -> None:
+    """Assert a response only exposes API vNext envelope fields at top-level."""
+    assert set(body) <= {
+        "schema_version",
+        "data",
+        "warnings",
+        "errors",
+        "request_id",
+        "correlation_id",
+    }
 
 
 @dataclass
@@ -126,11 +145,49 @@ async def test_webrtc_token_use_case_returns_connection_info() -> None:
     )
 
     assert result.status == 200
-    assert result.body["token"] == "token-123"
-    assert result.body["expires_at"] == 2000
-    assert result.body["expires_in"] == 250
-    assert result.body["offer_endpoint"] == "/api/smartly/camera/camera.front/webrtc/offer"
-    assert result.body["ice_servers"][1]["urls"] == "turn:turn.example.com:3478"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["token"] == "token-123"
+    assert result.body["data"]["expires_at"] == 2000
+    assert result.body["data"]["expires_in"] == 250
+    assert result.body["data"]["offer_endpoint"] == "/api/smartly/camera/camera.front/webrtc/offer"
+    assert result.body["data"]["ice_servers"][1]["urls"] == "turn:turn.example.com:3478"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {
+        "token": "token-123",
+        "expires_at": 2000,
+        "expires_in": 250,
+        "entity_id": "camera.front",
+        "offer_endpoint": "/api/smartly/camera/camera.front/webrtc/offer",
+        "ice_endpoint": "/api/smartly/camera/camera.front/webrtc/ice",
+        "hangup_endpoint": "/api/smartly/camera/camera.front/webrtc/hangup",
+        "ice_servers": [
+            {"urls": "stun:stun.example.com:19302"},
+            {
+                "urls": "turn:turn.example.com:3478",
+                "username": "user",
+                "credential": "secret",
+            },
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_webrtc_token_response_matches_api_vnext_fixture() -> None:
+    """WebRTC token full response matches the API vNext envelope contract."""
+    result = await WebRTCTokenUseCase(FakeWebRTCGateway()).execute(
+        entity_id="camera.front",
+        client_id="client-1",
+        turn_config={
+            "turn_url": "turn:turn.example.com:3478",
+            "turn_username": "user",
+            "turn_credential": "secret",
+        },
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("webrtc-token.json")
 
 
 @pytest.mark.asyncio
@@ -143,7 +200,31 @@ async def test_webrtc_token_use_case_rejects_missing_camera() -> None:
     )
 
     assert result.status == 404
-    assert result.body["error"] == "entity_not_found"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "ENTITY_NOT_FOUND",
+            "message": "entity not found",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_webrtc_token_camera_missing_response_matches_api_vnext_fixture() -> None:
+    """WebRTC token missing-camera response matches the API vNext envelope contract."""
+    result = await WebRTCTokenUseCase(FakeWebRTCGateway()).execute(
+        entity_id="camera.missing",
+        client_id="client-1",
+        turn_config={},
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("webrtc-token-camera-missing.json")
 
 
 @pytest.mark.asyncio
@@ -159,8 +240,100 @@ async def test_webrtc_ice_use_case_adds_candidate() -> None:
     )
 
     assert result.status == 200
-    assert result.body == {"status": "accepted", "candidates": []}
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["status"] == "accepted"
+    assert result.body["data"]["candidates"] == []
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {"status": "accepted", "candidates": []}
     assert gateway.session.ice_candidates == [candidate]
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_use_case_returns_vnext_error_for_missing_session() -> None:
+    """ICE use case reports missing sessions with API vNext errors."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 404
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SESSION_NOT_FOUND",
+            "message": "session not found",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+    assert gateway.session.ice_candidates == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_missing_session_response_matches_api_vnext_fixture() -> None:
+    """WebRTC ICE missing-session response matches the API vNext envelope contract."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("webrtc-ice-session-not-found.json")
+    assert gateway.session.ice_candidates == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_use_case_returns_vnext_error_for_entity_mismatch() -> None:
+    """ICE use case reports entity mismatches with API vNext errors."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 403
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SESSION_ENTITY_MISMATCH",
+            "message": "session entity mismatch",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+    assert gateway.session.ice_candidates == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_entity_mismatch_response_matches_api_vnext_fixture() -> None:
+    """WebRTC ICE entity-mismatch response matches the API vNext envelope contract."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCICEUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+        candidate={"candidate": "candidate:1"},
+    )
+
+    assert result.status == 403
+    assert result.body == _fixture("webrtc-ice-entity-mismatch.json")
+    assert gateway.session.ice_candidates == []
 
 
 @pytest.mark.asyncio
@@ -174,8 +347,95 @@ async def test_webrtc_hangup_use_case_closes_matching_session() -> None:
     )
 
     assert result.status == 200
-    assert result.body == {"status": "closed"}
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["status"] == "closed"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == {"status": "closed"}
     assert gateway.closed == ["abcdef1234567890-full"]
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_use_case_returns_vnext_error_for_missing_session() -> None:
+    """Hangup use case reports missing sessions with API vNext errors."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+    )
+
+    assert result.status == 404
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SESSION_NOT_FOUND",
+            "message": "session not found",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+    assert gateway.closed == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_missing_session_response_matches_api_vnext_fixture() -> None:
+    """WebRTC hangup missing-session response matches the API vNext envelope contract."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.front",
+        session_id="missing-session",
+    )
+
+    assert result.status == 404
+    assert result.body == _fixture("webrtc-hangup-session-not-found.json")
+    assert gateway.closed == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_use_case_returns_vnext_error_for_entity_mismatch() -> None:
+    """Hangup use case reports entity mismatches with API vNext errors."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+    )
+
+    assert result.status == 403
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "SESSION_ENTITY_MISMATCH",
+            "message": "session entity mismatch",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+    assert gateway.closed == []
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_entity_mismatch_response_matches_api_vnext_fixture() -> None:
+    """WebRTC hangup entity-mismatch response matches the API vNext envelope contract."""
+    gateway = FakeWebRTCGateway()
+
+    result = await WebRTCHangupUseCase(gateway).execute(
+        entity_id="camera.back",
+        session_id="abcdef1234567890",
+    )
+
+    assert result.status == 403
+    assert result.body == _fixture("webrtc-hangup-entity-mismatch.json")
+    assert gateway.closed == []
 
 
 @pytest.mark.asyncio
@@ -190,11 +450,19 @@ async def test_webrtc_offer_use_case_creates_answer_and_updates_session() -> Non
     )
 
     assert result.status == 200
-    assert result.body == {
+    expected_answer = {
         "type": "answer",
         "sdp": "answer-sdp",
         "session_id": "abcdef1234567890",
     }
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["type"] == "answer"
+    assert result.body["data"]["sdp"] == "answer-sdp"
+    assert result.body["data"]["session_id"] == "abcdef1234567890"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+    assert result.body["data"] == expected_answer
     assert gateway.consumed == [("valid-token", "camera.front")]
     assert gateway.state_updates == [
         {
@@ -222,10 +490,31 @@ async def test_webrtc_offer_use_case_rejects_invalid_token() -> None:
     )
 
     assert result.status == 401
-    assert result.body == {
-        "error": "invalid_or_expired_token",
-        "message": "Token is invalid or expired",
-    }
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "INVALID_OR_EXPIRED_TOKEN",
+            "message": "invalid or expired token",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_webrtc_offer_invalid_token_response_matches_api_vnext_fixture() -> None:
+    """WebRTC offer invalid-token response matches the API vNext envelope contract."""
+    result = await WebRTCOfferUseCase(FakeWebRTCGateway()).execute(
+        entity_id="camera.front",
+        token="invalid-token",
+        sdp_offer="offer-sdp",
+    )
+
+    assert result.status == 401
+    assert result.body == _fixture("webrtc-offer-invalid-token.json")
 
 
 @pytest.mark.asyncio
@@ -241,8 +530,31 @@ async def test_webrtc_offer_use_case_reports_signaling_failure() -> None:
     )
 
     assert result.status == 500
-    assert result.body == {
-        "error": "webrtc_failed",
-        "message": "go2rtc failed",
-        "session_id": "abcdef1234567890",
-    }
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["data"] == {"status": "rejected"}
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == [
+        {
+            "code": "WEBRTC_FAILED",
+            "message": "webrtc failed",
+            "target": "webrtc",
+            "retryable": False,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_webrtc_offer_signaling_failure_response_matches_api_vnext_fixture() -> None:
+    """WebRTC offer signaling failure matches the API vNext envelope contract."""
+    gateway = FakeWebRTCGateway()
+    gateway.answer_error = RuntimeError("go2rtc failed")
+
+    result = await WebRTCOfferUseCase(gateway).execute(
+        entity_id="camera.front",
+        token="valid-token",
+        sdp_offer="offer-sdp",
+    )
+
+    assert result.status == 500
+    assert result.body == _fixture("webrtc-offer-signaling-failure.json")

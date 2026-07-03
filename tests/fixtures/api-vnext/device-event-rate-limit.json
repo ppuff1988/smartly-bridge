@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "device_abc123",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RATE_LIMITED",
+      "message": "Device event request was rate limited",
+      "target": "request.rate_limit",
+      "retryable": false
+    }
+  ]
+}

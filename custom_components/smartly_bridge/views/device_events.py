@@ -4,13 +4,19 @@ from __future__ import annotations
 
 import json
 import logging
-import uuid
-from datetime import UTC, datetime
-from typing import TYPE_CHECKING, Any
+from datetime import datetime
+from typing import TYPE_CHECKING, Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
+from ..application.device_events import (
+    DeviceEventCommand,
+    DeviceEventUseCase,
+    device_event_error_response,
+    is_supported_button_action,
+)
+from ..application.local_automation import LocalAutomationUseCase
 from ..audit import log_deny
 from ..auth import RateLimiter, verify_request
 from ..const import (
@@ -28,22 +34,6 @@ if TYPE_CHECKING:
 
 _LOGGER = logging.getLogger(__name__)
 
-DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
-
-SUPPORTED_BUTTON_ACTIONS = {
-    "single_left",
-    "single_right",
-    "double_left",
-    "double_right",
-    "hold_left",
-    "hold_right",
-    "release_left",
-    "release_right",
-    "single_both",
-    "double_both",
-    "hold_both",
-}
-
 
 def _is_valid_timestamp(value: Any) -> bool:
     """Return whether value is an ISO 8601 timestamp string."""
@@ -55,6 +45,178 @@ def _is_valid_timestamp(value: Any) -> bool:
     except ValueError:
         return False
     return True
+
+
+def _missing_event_field_target(
+    device_id: Any,
+    event_type: Any,
+    action: Any,
+    timestamp: Any,
+) -> str:
+    """Return the first missing or invalid required event field target."""
+    if not device_id:
+        return "event.device_id"
+    if event_type != "button_action":
+        return "event.type"
+    if not action:
+        return "event.action"
+    if not timestamp:
+        return "event.timestamp"
+    return "event"
+
+
+def _has_local_automation_rules(integration_data: dict[str, Any]) -> bool:
+    """Return whether local automation rules are configured."""
+    runtime_adapters = integration_data.get("runtime_adapters")
+    if isinstance(runtime_adapters, dict):
+        rule_store = runtime_adapters.get("local_automation_rule_store")
+        if rule_store is not None:
+            try:
+                return bool(rule_store.list_rules())
+            except Exception:
+                _LOGGER.debug("Failed to inspect runtime local automation rules", exc_info=True)
+    if "local_automation_rules" in integration_data:
+        return bool(integration_data.get("local_automation_rules"))
+    config_entry = integration_data.get("config_entry")
+    data = getattr(config_entry, "data", {}) if config_entry else {}
+    return bool(data.get("local_automation_rules"))
+
+
+def _runtime_adapters(integration_data: dict[str, Any]) -> dict[str, Any]:
+    """Return setup-created Home Assistant adapters."""
+    return integration_data.setdefault("runtime_adapters", {})
+
+
+def _device_event_publisher(
+    integration_data: dict[str, Any],
+    hass: HomeAssistant,
+) -> Any | None:
+    """Return the setup-created event publisher."""
+    adapters = _runtime_adapters(integration_data)
+    return adapters.get("device_event_publisher")
+
+
+def _device_event_deduplicator(
+    integration_data: dict[str, Any],
+) -> Any | None:
+    """Return the setup-created event deduplicator."""
+    adapters = _runtime_adapters(integration_data)
+    return adapters.get("device_event_deduplicator")
+
+
+def _local_automation_use_case(
+    rule_store: Any,
+    command_executor: Any,
+) -> LocalAutomationUseCase:
+    """Build the local automation application use case."""
+    return LocalAutomationUseCase(
+        rule_store,
+        command_executor,
+    )
+
+
+def _build_local_automation(
+    integration_data: dict[str, Any],
+    _hass: HomeAssistant,
+    *,
+    use_case_factory: Callable[[Any, Any], Any] = _local_automation_use_case,
+) -> LocalAutomationUseCase | None:
+    """Build local automation from runtime adapters when rules are configured."""
+    if not _has_local_automation_rules(integration_data):
+        return None
+    adapters = _runtime_adapters(integration_data)
+    rule_store = adapters.get("local_automation_rule_store")
+    command_executor = adapters.get("smartly_command_executor")
+    if rule_store is None or command_executor is None:
+        return None
+    return use_case_factory(
+        rule_store,
+        command_executor,
+    )
+
+
+def _local_automation_runtime_error(
+    integration_data: dict[str, Any],
+    command: DeviceEventCommand,
+) -> Any | None:
+    """Return an error response when configured automation lacks setup runtime ports."""
+    if not _has_local_automation_rules(integration_data):
+        return None
+    adapters = _runtime_adapters(integration_data)
+    if adapters.get("local_automation_rule_store") is None:
+        return device_event_error_response(
+            command=command,
+            error="local_automation_rule_store_unavailable",
+            status=500,
+            message="Local automation rule store not initialized",
+            target="local_automation.rule_store",
+        )
+    if adapters.get("smartly_command_executor") is None:
+        return device_event_error_response(
+            command=command,
+            error="smartly_command_executor_unavailable",
+            status=500,
+            message="Smartly command executor not initialized",
+            target="local_automation.command_executor",
+        )
+    return None
+
+
+def _device_event_use_case(
+    publisher: Any,
+    deduplicator: Any,
+    automation: Any,
+) -> DeviceEventUseCase:
+    """Build the device event ingestion application use case."""
+    return DeviceEventUseCase(
+        publisher,
+        deduplicator=deduplicator,
+        automation=automation,
+    )
+
+
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a device event JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
+async def _ingest_device_event(
+    publisher: Any,
+    deduplicator: Any,
+    automation: Any,
+    client_id: str,
+    command: DeviceEventCommand,
+    *,
+    use_case_factory: Callable[[Any, Any, Any], Any] = _device_event_use_case,
+) -> Any:
+    """Execute device event ingestion through the application use case."""
+    return await use_case_factory(
+        publisher,
+        deduplicator,
+        automation,
+    ).execute(client_id, command)
 
 
 class SmartlyDeviceEventsView(web.View):
@@ -82,21 +244,48 @@ class SmartlyDeviceEventsView(web.View):
             return await self._post()
         except Exception as err:
             _LOGGER.exception("Failed to handle device event")
-            return web.json_response(
-                {
-                    "error": "device_event_failed",
-                    "message": f"{type(err).__name__}: {err}",
-                },
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error="device_event_failed",
+                message=f"{type(err).__name__}: {err}",
+                target="device_event.dispatch",
                 status=500,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
     async def _post(self) -> web.Response:
         """Handle stateless device event request from Platform."""
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error="integration_not_configured",
+                message="Smartly Bridge integration is not configured",
+                target="integration",
                 status=500,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
@@ -113,14 +302,33 @@ class SmartlyDeviceEventsView(web.View):
             trust_proxy_mode,
         )
         if not auth_result.success:
+            error = auth_result.error or "auth_failed"
             log_deny(
                 _LOGGER,
                 client_id=self.request.headers.get("X-Client-Id", "unknown"),
                 entity_id="",
                 service="device_event",
-                reason=auth_result.error or "auth_failed",
+                reason=error,
             )
-            return web.json_response({"error": auth_result.error}, status=401)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error=error,
+                message="Device event request authentication failed",
+                target="request.auth",
+                status=401,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if not await rate_limiter.check(auth_result.client_id or ""):
             log_deny(
@@ -130,19 +338,51 @@ class SmartlyDeviceEventsView(web.View):
                 service="device_event",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error="rate_limited",
+                message="Device event request was rate limited",
+                target="request.rate_limit",
                 status=429,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
+                    **result.headers,
                 },
             )
 
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response({"error": "invalid_json"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=self.request.match_info.get("device_id", ""),
+                    type="",
+                    action="",
+                    timestamp="",
+                    meta={},
+                ),
+                error="invalid_json",
+                message="Invalid JSON body",
+                target="request.body",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         device_id = self.request.match_info.get("device_id")
         event_type = body.get("type")
@@ -151,43 +391,147 @@ class SmartlyDeviceEventsView(web.View):
         meta = body.get("meta", {})
 
         if not device_id or event_type != "button_action" or not action or not timestamp:
-            return web.json_response({"error": "missing_required_fields"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id or "",
+                    type=event_type or "",
+                    action=action or "",
+                    timestamp=timestamp or "",
+                    meta=meta if isinstance(meta, dict) else {},
+                ),
+                error="missing_required_fields",
+                message="Missing required event fields",
+                target=_missing_event_field_target(device_id, event_type, action, timestamp),
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
-        if action not in SUPPORTED_BUTTON_ACTIONS:
-            return web.json_response(
-                {"error": "invalid_action", "message": "Unsupported button action"},
-                status=400,
+        if not is_supported_button_action(action):
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id,
+                    type=event_type,
+                    action=action,
+                    timestamp=timestamp,
+                    meta=meta or {},
+                ),
+                error="invalid_action",
+                message="Unsupported button action",
+                target="event.action",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         if not _is_valid_timestamp(timestamp):
-            return web.json_response({"error": "invalid_timestamp"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id,
+                    type=event_type,
+                    action=action,
+                    timestamp=timestamp,
+                    meta=meta or {},
+                ),
+                error="invalid_timestamp",
+                message="Invalid event timestamp",
+                target="event.timestamp",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
         if meta is not None and not isinstance(meta, dict):
-            return web.json_response({"error": "invalid_meta"}, status=400)
+            result = device_event_error_response(
+                command=DeviceEventCommand(
+                    device_id=device_id,
+                    type=event_type,
+                    action=action,
+                    timestamp=timestamp,
+                    meta={},
+                ),
+                error="invalid_meta",
+                message="Invalid event metadata",
+                target="event.meta",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
-        event_id = f"evt_{uuid.uuid4().hex}"
-        received_at = datetime.now(UTC).isoformat().replace("+00:00", "Z")
-        event_data = {
-            "event_id": event_id,
-            "device_id": device_id,
-            "type": event_type,
-            "action": action,
-            "timestamp": timestamp,
-            "received_at": received_at,
-            "client_id": auth_result.client_id or "unknown",
-            "meta": meta or {},
-        }
-        self.hass.bus.async_fire(DEVICE_EVENT_TYPE, event_data)
+        integration_data = self.hass.data[DOMAIN]
+        command = DeviceEventCommand(
+            device_id=device_id,
+            type=event_type,
+            action=action,
+            timestamp=timestamp,
+            meta=meta or {},
+        )
+        publisher = _device_event_publisher(integration_data, self.hass)
+        if publisher is None:
+            result = device_event_error_response(
+                command=command,
+                error="device_event_publisher_unavailable",
+                status=500,
+                message="Device event publisher not initialized",
+                target="device_event.publisher",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+        deduplicator = _device_event_deduplicator(integration_data)
+        if deduplicator is None:
+            result = device_event_error_response(
+                command=command,
+                error="device_event_deduplicator_unavailable",
+                status=500,
+                message="Device event deduplicator not initialized",
+                target="device_event.deduplicator",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
-        return web.json_response(
-            {
-                "success": True,
-                "event_id": event_id,
-                "device_id": device_id,
-                "action": action,
-                "received_at": received_at,
-            },
-            status=202,
+        result = _local_automation_runtime_error(integration_data, command)
+        if result is not None:
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        automation = _build_local_automation(integration_data, self.hass)
+        result = await _ingest_device_event(
+            publisher,
+            deduplicator,
+            automation,
+            auth_result.client_id or "unknown",
+            command,
+        )
+
+        return _json_response(
+            result.body,
+            self.request,
+            status=result.status,
+            headers=result.headers,
         )
 
 

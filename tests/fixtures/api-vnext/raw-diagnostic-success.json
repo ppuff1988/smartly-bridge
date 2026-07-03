@@ -1,0 +1,17 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "raw_ref": "raw_light_001",
+    "payload": {
+      "entity_id": "light.kitchen",
+      "access_token": "<redacted>",
+      "attributes": {
+        "password": "<redacted>",
+        "host": "<redacted>",
+        "brightness": 128
+      }
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

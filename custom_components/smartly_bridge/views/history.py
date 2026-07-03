@@ -10,7 +10,7 @@ from __future__ import annotations
 import asyncio
 import logging
 from datetime import datetime, timedelta
-from typing import Any
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.core import HomeAssistant
@@ -18,7 +18,6 @@ from homeassistant.helpers.http import HomeAssistantView
 from homeassistant.util import dt as dt_util
 
 from ..acl import is_entity_allowed
-from ..adapters.home_assistant import HomeAssistantHistoryGateway
 from ..application.history import (
     BatchHistoryQuery,
     BatchHistoryUseCase,
@@ -29,6 +28,7 @@ from ..application.history import (
     SingleHistoryUseCase,
     StatisticsQuery,
     StatisticsUseCase,
+    _history_error_response,
     decode_cursor,
     encode_cursor,
     parse_datetime,
@@ -65,6 +65,97 @@ def _get_history_semaphore() -> asyncio.Semaphore:
     if _history_query_semaphore is None:
         _history_query_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
     return _history_query_semaphore
+
+
+def _history_read_gateway(
+    hass: HomeAssistant,
+) -> Any | None:
+    """Return the setup-created history gateway."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    return runtime_adapters.get("history_gateway")
+
+
+def _history_gateway(hass: HomeAssistant) -> Any | None:
+    """Return the setup-created history gateway."""
+    return _history_read_gateway(hass)
+
+
+def _history_gateway_unavailable_response() -> Any:
+    """Return the API response for a missing setup-created history gateway."""
+    return _history_error_response(
+        "history_gateway_unavailable",
+        status=500,
+        target="history.gateway",
+    )
+
+
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if request_id:
+        enriched["request_id"] = request_id
+    if correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a history JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
+def _single_history_use_case(gateway: Any) -> SingleHistoryUseCase:
+    """Build the single history application use case."""
+    return SingleHistoryUseCase(gateway)
+
+
+async def _query_single_history(
+    gateway: Any,
+    query: SingleHistoryQuery,
+    use_case_factory: Callable[[Any], Any] = _single_history_use_case,
+) -> Any:
+    """Execute the single history query use case with a history gateway port."""
+    return await use_case_factory(gateway).execute(query)
+
+
+def _batch_history_use_case(gateway: Any) -> BatchHistoryUseCase:
+    """Build the batch history application use case."""
+    return BatchHistoryUseCase(gateway)
+
+
+async def _query_batch_history(
+    gateway: Any,
+    query: BatchHistoryQuery,
+    use_case_factory: Callable[[Any], Any] = _batch_history_use_case,
+) -> Any:
+    """Execute the batch history query use case with a history gateway port."""
+    return await use_case_factory(gateway).execute(query)
+
+
+def _statistics_use_case(gateway: Any) -> StatisticsUseCase:
+    """Build the statistics application use case."""
+    return StatisticsUseCase(gateway)
+
+
+async def _query_statistics(
+    gateway: Any,
+    query: StatisticsQuery,
+    use_case_factory: Callable[[Any], Any] = _statistics_use_case,
+) -> Any:
+    """Execute the statistics query use case with a history gateway port."""
+    return await use_case_factory(gateway).execute(query)
 
 
 def _encode_cursor(timestamp: str, last_changed: str) -> str:
@@ -264,9 +355,16 @@ class SmartlyHistoryView(web.View):
         if not client_secret:
             # This should never happen as we check in get(), but handle defensively
             dummy_auth = AuthResult(success=False, error="client_secret_not_configured")
-            return dummy_auth, web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="history.config",
+            )
+            return dummy_auth, _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
@@ -291,9 +389,16 @@ class SmartlyHistoryView(web.View):
                 service="history",
                 reason=auth_result.error or "auth_failed",
             )
-            return auth_result, web.json_response(
-                {"error": auth_result.error},
+            result = _history_error_response(
+                auth_result.error or "auth_failed",
                 status=401,
+                target="history.auth",
+            )
+            return auth_result, _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Check rate limit
@@ -305,9 +410,15 @@ class SmartlyHistoryView(web.View):
                 service="history",
                 reason="rate_limited",
             )
-            return auth_result, web.json_response(
-                {"error": "rate_limited"},
+            result = _history_error_response(
+                "rate_limited",
                 status=429,
+                target="history.rate_limit",
+            )
+            return auth_result, _json_response(
+                result.body,
+                self.request,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
@@ -324,7 +435,9 @@ class SmartlyHistoryView(web.View):
         """
         result = self._history_planner.validate_time_range(start_time, end_time)
         if result is not None:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         return None
 
@@ -353,15 +466,23 @@ class SmartlyHistoryView(web.View):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = _history_error_response(
+                "integration_not_configured",
                 status=500,
+                target="history.integration",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         if not data.get(CONF_CLIENT_SECRET):
-            return web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="history.config",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Verify authentication and rate limit
@@ -372,9 +493,13 @@ class SmartlyHistoryView(web.View):
         # Get entity_id from path
         entity_id = self.request.match_info.get("entity_id")
         if not entity_id:
-            return web.json_response(
-                {"error": "entity_id_required"},
+            result = _history_error_response(
+                "entity_id_required",
                 status=400,
+                target="history.entity_id",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Check entity access permission
@@ -389,9 +514,13 @@ class SmartlyHistoryView(web.View):
                 service="history",
                 reason="entity_not_allowed",
             )
-            return web.json_response(
-                {"error": "entity_not_allowed"},
+            result = _history_error_response(
+                "entity_not_allowed",
                 status=403,
+                target="history.entity_id",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Parse query parameters
@@ -413,9 +542,13 @@ class SmartlyHistoryView(web.View):
         )
 
         if cursor_str and not cursor_data:
-            return web.json_response(
-                {"error": "invalid_cursor"},
+            result = _history_error_response(
+                "invalid_cursor",
                 status=400,
+                target="history.cursor",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Get query parameters
@@ -426,10 +559,16 @@ class SmartlyHistoryView(web.View):
             start_time, end_time, cursor_data, entity_id
         )
 
+        gateway = _history_gateway(self.hass)
+        if gateway is None:
+            result = _history_gateway_unavailable_response()
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
+
         try:
-            result = await SingleHistoryUseCase(
-                HomeAssistantHistoryGateway(self.hass, _get_history_semaphore)
-            ).execute(
+            result = await _query_single_history(
+                gateway,
                 SingleHistoryQuery(
                     entity_id=entity_id,
                     start_time=query_start_time,
@@ -439,11 +578,14 @@ class SmartlyHistoryView(web.View):
                     page_size=page_size,
                     use_pagination=use_pagination,
                     cursor_data=cursor_data,
-                )
+                ),
             )
         except asyncio.TimeoutError:
             _LOGGER.error("History query timeout for %s", entity_id)
-            return web.json_response({"error": "query_timeout"}, status=504)
+            result = _history_error_response("query_timeout", status=504)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
         except Exception as err:
             _LOGGER.error(
                 "Failed to query history for %s (range: %s to %s): %s",
@@ -453,12 +595,17 @@ class SmartlyHistoryView(web.View):
                 err,
                 exc_info=True,
             )
-            return web.json_response(
-                {"error": "history_query_failed", "message": str(err)},
+            result = _history_error_response(
+                "history_query_failed",
                 status=500,
             )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyHistoryViewWrapper(HomeAssistantView):
@@ -544,7 +691,9 @@ class SmartlyHistoryBatchView(web.View):
 
         result = self._history_planner.validate_time_range(start_time, end_time)
         if result is not None:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         return start_time, end_time
 
@@ -553,16 +702,24 @@ class SmartlyHistoryBatchView(web.View):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = _history_error_response(
+                "integration_not_configured",
                 status=500,
+                target="history.batch.integration",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         if not client_secret:
-            return web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="history.batch.config",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
         trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
@@ -586,9 +743,13 @@ class SmartlyHistoryBatchView(web.View):
                 service="history_batch",
                 reason=auth_result.error or "auth_failed",
             )
-            return web.json_response(
-                {"error": auth_result.error},
+            result = _history_error_response(
+                auth_result.error or "auth_failed",
                 status=401,
+                target="history.batch.auth",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Check rate limit
@@ -600,9 +761,15 @@ class SmartlyHistoryBatchView(web.View):
                 service="history_batch",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = _history_error_response(
+                "rate_limited",
                 status=429,
+                target="history.batch.rate_limit",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
                 headers={
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
@@ -613,26 +780,35 @@ class SmartlyHistoryBatchView(web.View):
         try:
             body = await self.request.json()
         except Exception:
-            return web.json_response(
-                {"error": "invalid_json"},
+            result = _history_error_response(
+                "invalid_json",
                 status=400,
+                target="history.batch.body",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         entity_ids = body.get("entity_ids", [])
         if not isinstance(entity_ids, list) or not entity_ids:
-            return web.json_response(
-                {"error": "entity_ids_required"},
+            result = _history_error_response(
+                "entity_ids_required",
                 status=400,
+                target="history.batch.entity_ids",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Limit batch size
         if len(entity_ids) > HISTORY_MAX_ENTITIES_BATCH:
-            return web.json_response(
-                {
-                    "error": "too_many_entities",
-                    "max_entities": HISTORY_MAX_ENTITIES_BATCH,
-                },
+            result = _history_error_response(
+                "too_many_entities",
                 status=400,
+                target="history.batch.entity_ids",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Check entity access permissions
@@ -644,9 +820,13 @@ class SmartlyHistoryBatchView(web.View):
         )
 
         if not allowed_entity_ids:
-            return web.json_response(
-                {"error": "no_allowed_entities"},
+            result = _history_error_response(
+                "no_allowed_entities",
                 status=403,
+                target="history.batch.entity_ids",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Parse time parameters
@@ -668,10 +848,16 @@ class SmartlyHistoryBatchView(web.View):
             except (ValueError, TypeError):
                 limit = HISTORY_DEFAULT_LIMIT
 
+        gateway = _history_gateway(self.hass)
+        if gateway is None:
+            result = _history_gateway_unavailable_response()
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
+
         try:
-            result = await BatchHistoryUseCase(
-                HomeAssistantHistoryGateway(self.hass, _get_history_semaphore)
-            ).execute(
+            result = await _query_batch_history(
+                gateway,
                 BatchHistoryQuery(
                     entity_ids=allowed_entity_ids,
                     denied_entity_ids=denied_entity_ids,
@@ -679,22 +865,28 @@ class SmartlyHistoryBatchView(web.View):
                     end_time=end_time,
                     limit=limit,
                     significant_changes_only=True,
-                )
+                ),
             )
         except asyncio.TimeoutError:
             _LOGGER.error("Batch history query timeout for %d entities", len(allowed_entity_ids))
-            return web.json_response(
-                {"error": "query_timeout"},
-                status=504,
+            result = _history_error_response("query_timeout", status=504, target="history.batch")
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
         except Exception as err:
             _LOGGER.error("Failed to query batch history: %s", err)
-            return web.json_response(
-                {"error": "history_query_failed"},
+            result = _history_error_response(
+                "history_query_failed",
                 status=500,
+                target="history.batch",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyHistoryBatchViewWrapper(HomeAssistantView):
@@ -738,16 +930,24 @@ class SmartlyStatisticsView(web.View):
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
+            result = _history_error_response(
+                "integration_not_configured",
                 status=500,
+                target="statistics.integration",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
         if not client_secret:
-            return web.json_response(
-                {"error": "client_secret_not_configured"},
+            result = _history_error_response(
+                "client_secret_not_configured",
                 status=500,
+                target="statistics.config",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
         allowed_cidrs = data.get(CONF_ALLOWED_CIDRS, "")
         trust_proxy_mode = data.get(CONF_TRUST_PROXY, DEFAULT_TRUST_PROXY)
@@ -771,9 +971,13 @@ class SmartlyStatisticsView(web.View):
                 service="statistics",
                 reason=auth_result.error or "auth_failed",
             )
-            return web.json_response(
-                {"error": auth_result.error},
+            result = _history_error_response(
+                auth_result.error or "auth_failed",
                 status=401,
+                target="statistics.auth",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Check rate limit
@@ -785,10 +989,17 @@ class SmartlyStatisticsView(web.View):
                 service="statistics",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
+            result = _history_error_response(
+                "rate_limited",
                 status=429,
+                target="statistics.rate_limit",
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
                 headers={
+                    **result.headers,
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
                 },
@@ -797,9 +1008,13 @@ class SmartlyStatisticsView(web.View):
         # Get entity_id from path
         entity_id = self.request.match_info.get("entity_id")
         if not entity_id:
-            return web.json_response(
-                {"error": "entity_id_required"},
+            result = _history_error_response(
+                "entity_id_required",
                 status=400,
+                target="statistics.entity_id",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Check entity access permission
@@ -814,9 +1029,13 @@ class SmartlyStatisticsView(web.View):
                 service="statistics",
                 reason="entity_not_allowed",
             )
-            return web.json_response(
-                {"error": "entity_not_allowed"},
+            result = _history_error_response(
+                "entity_not_allowed",
                 status=403,
+                target="statistics.entity_id",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         # Parse query parameters
@@ -833,35 +1052,53 @@ class SmartlyStatisticsView(web.View):
 
         result = self._history_planner.validate_time_range(start_time, end_time)
         if result is not None:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         # Parse period parameter (hour, day, week, month)
         period = query.get("period", "hour")
         if period not in ("hour", "day", "week", "month"):
-            return web.json_response(
-                {"error": "invalid_period", "valid_periods": ["hour", "day", "week", "month"]},
+            result = _history_error_response(
+                "invalid_period",
                 status=400,
+                target="statistics.period",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
+
+        gateway = _history_gateway(self.hass)
+        if gateway is None:
+            result = _history_gateway_unavailable_response()
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
         try:
-            result = await StatisticsUseCase(
-                HomeAssistantHistoryGateway(self.hass, _get_history_semaphore)
-            ).execute(
+            result = await _query_statistics(
+                gateway,
                 StatisticsQuery(
                     entity_id=entity_id,
                     start_time=start_time,
                     end_time=end_time,
                     period=period,
-                )
+                ),
             )
         except Exception as err:
             _LOGGER.error("Failed to query statistics for %s: %s", entity_id, err)
-            return web.json_response(
-                {"error": "statistics_query_failed"},
+            result = _history_error_response(
+                "statistics_query_failed",
                 status=500,
+                target="statistics",
+            )
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
             )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyStatisticsViewWrapper(HomeAssistantView):

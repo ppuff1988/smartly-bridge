@@ -2,9 +2,12 @@
 
 from __future__ import annotations
 
-from typing import Any, Protocol
+from typing import TYPE_CHECKING, Any, Protocol
 
-from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
+from ..domain.models import BridgeResponse, CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
+
+if TYPE_CHECKING:
+    from .control import SmartlyCommand
 
 
 class EntityPolicyPort(Protocol):
@@ -20,10 +23,25 @@ class EntityPolicyPort(Protocol):
 class ControlGatewayPort(Protocol):
     """Executes allowed control commands."""
 
+    def get_state(self, entity_id: str) -> EntityStateSnapshot | None:
+        """Return the current source entity state before command execution."""
+
     async def call_service(
         self, entity_id: str, action: str, service_data: dict[str, Any]
     ) -> EntityStateSnapshot | None:
         """Call a Home Assistant service and return the updated entity state."""
+
+
+class CommandTargetResolverPort(Protocol):
+    """Resolves canonical Smartly commands to source control targets."""
+
+    def resolve_command_target(
+        self,
+        device_id: str,
+        capability: str,
+        params: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Return the source entity ID for a logical device capability."""
 
 
 class AuditPort(Protocol):
@@ -50,6 +68,57 @@ class AuditPort(Protocol):
         """Record a control operation."""
 
 
+class DeviceEventPublisherPort(Protocol):
+    """Publishes canonical device events to the runtime event bus."""
+
+    def publish_device_event(self, event_data: dict[str, Any]) -> None:
+        """Publish a normalized device event."""
+
+
+class DeviceEventDeduplicatorPort(Protocol):
+    """Tracks event idempotency keys for stateless event ingestion."""
+
+    def event_id_for_key(self, key: str) -> str | None:
+        """Return the existing event ID for a key, if it was seen before."""
+
+    def remember_event(self, key: str, event_id: str) -> None:
+        """Remember the event ID for an idempotency key."""
+
+
+class LocalAutomationPort(Protocol):
+    """Handles canonical device events with local automation rules."""
+
+    async def handle_device_event(
+        self,
+        client_id: str,
+        event: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Run matching local automations for a canonical event."""
+
+
+class LocalAutomationRuleStorePort(Protocol):
+    """Provides local automation rules."""
+
+    def list_rules(self) -> list[Any]:
+        """Return configured local automation rules."""
+
+    def create_rule(self, rule: Any) -> bool:
+        """Persist a new local automation rule."""
+
+    def update_rule(self, rule: Any) -> bool:
+        """Replace an existing local automation rule."""
+
+    def delete_rule(self, rule_id: str) -> bool:
+        """Delete an existing local automation rule."""
+
+
+class SmartlyCommandExecutorPort(Protocol):
+    """Executes canonical Smartly commands."""
+
+    async def execute(self, client_id: str, command: "SmartlyCommand") -> BridgeResponse:
+        """Execute a canonical Smartly command."""
+
+
 class SyncStructurePort(Protocol):
     """Provides the allowed entity structure."""
 
@@ -62,6 +131,20 @@ class SyncStatesPort(Protocol):
 
     async def list_states(self) -> list[EntityStateSnapshot]:
         """Return allowed entity state snapshots."""
+
+
+class RawDiagnosticStorePort(Protocol):
+    """Provides raw diagnostic payloads by raw reference."""
+
+    def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
+        """Return a raw diagnostic payload for a reference."""
+
+
+class RawDiagnosticRecorderPort(Protocol):
+    """Stores raw diagnostic payloads by raw reference."""
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict[str, Any]) -> None:
+        """Record a raw diagnostic payload for a reference."""
 
 
 class CameraGatewayPort(Protocol):
@@ -107,6 +190,9 @@ class CameraGatewayPort(Protocol):
 
     async def stop_hls_stream(self, entity_id: str) -> bool:
         """Stop HLS streaming for a camera."""
+
+    async def stream_proxy(self, entity_id: str, request: Any, response: Any) -> None:
+        """Proxy an MJPEG camera stream into a prepared response."""
 
 
 class WebRTCGatewayPort(Protocol):

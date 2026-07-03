@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "SNAPSHOT_UNAVAILABLE",
+      "message": "snapshot unavailable",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
+}

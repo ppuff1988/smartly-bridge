@@ -1,0 +1,25 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "command_id": "cmd-fixture-success",
+    "status": "completed",
+    "device_id": "ldev_light_kitchen",
+    "capability": "brightness",
+    "command": "set_brightness",
+    "adapter_id": "home_assistant",
+    "correlation_id": "cmd-fixture-success",
+    "expected_state": {
+      "brightness": {
+        "value": 80,
+        "unit": "percent"
+      }
+    },
+    "source_entity_id": "light.kitchen",
+    "new_state": "on",
+    "new_attributes": {
+      "brightness": 204
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

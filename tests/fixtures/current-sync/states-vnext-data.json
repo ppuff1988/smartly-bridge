@@ -1,0 +1,144 @@
+{
+  "states": [
+    {
+      "entity_id": "light.kitchen",
+      "state": "on",
+      "attributes": {
+        "brightness": 128
+      },
+      "last_changed": "2026-06-24T00:00:00+00:00",
+      "last_updated": "2026-06-24T00:00:00+00:00",
+      "icon": "mdi:lightbulb",
+      "name": "Kitchen Light",
+      "domain": "light",
+      "device_class": "smart_light",
+      "capabilities": [
+        "on_off",
+        "brightness"
+      ],
+      "status": "online",
+      "presentation": {
+        "card_template": "light_card"
+      }
+    }
+  ],
+  "count": 1,
+  "logical_devices": [
+    {
+      "id": "ldev_light_kitchen",
+      "name": "Kitchen Light",
+      "primary_type": "light",
+      "device_class": "light_control",
+      "status": "online",
+      "source_entities": [
+        "light.kitchen"
+      ],
+      "aliases": [
+        {
+          "kind": "home_assistant_entity_id",
+          "value": "light.kitchen",
+          "valid_from": null,
+          "valid_until": null
+        }
+      ],
+      "raw_refs": [],
+      "capabilities": [
+        {
+          "type": "power",
+          "role": "primary",
+          "readable": true,
+          "writable": true,
+          "event_only": false,
+          "state": {
+            "value": true
+          },
+          "commands": [
+            "turn_on",
+            "turn_off",
+            "toggle"
+          ],
+          "events": [],
+          "constraints": {},
+          "presentation": {},
+          "source_refs": [
+            {
+              "source": "home_assistant",
+              "source_device_id": null,
+              "source_entity_id": "light.kitchen",
+              "domain": "light",
+              "role": "primary_control",
+              "capability_types": [
+                "power"
+              ]
+            }
+          ]
+        },
+        {
+          "type": "brightness",
+          "role": "primary",
+          "readable": true,
+          "writable": true,
+          "event_only": false,
+          "state": {
+            "value": 50,
+            "unit": "percent"
+          },
+          "commands": [
+            "set_brightness",
+            "increase_brightness",
+            "decrease_brightness"
+          ],
+          "events": [],
+          "constraints": {
+            "min": 0,
+            "max": 100,
+            "step": 1
+          },
+          "presentation": {},
+          "source_refs": [
+            {
+              "source": "home_assistant",
+              "source_device_id": null,
+              "source_entity_id": "light.kitchen",
+              "domain": "light",
+              "role": "primary_control",
+              "capability_types": [
+                "brightness"
+              ]
+            }
+          ]
+        }
+      ],
+      "presentation": {
+        "template": "light_control",
+        "primary_controls": [
+          "power",
+          "brightness"
+        ],
+        "status_badges": []
+      },
+      "schema_version": "2026.06"
+    }
+  ],
+  "normalization_warnings": [],
+  "device_count": 1,
+  "updates": [
+    {
+      "device_id": "ldev_light_kitchen",
+      "capability": "power",
+      "state": {
+        "value": true,
+        "updated_at": "2026-06-24T00:00:00+00:00"
+      }
+    },
+    {
+      "device_id": "ldev_light_kitchen",
+      "capability": "brightness",
+      "state": {
+        "value": 50,
+        "unit": "percent",
+        "updated_at": "2026-06-24T00:00:00+00:00"
+      }
+    }
+  ]
+}

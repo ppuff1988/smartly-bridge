@@ -1,0 +1,23 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "command_id": "cmd-fixture-error",
+    "status": "rejected",
+    "device_id": "ldev_light_kitchen",
+    "capability": "brightness",
+    "command": "set_brightness",
+    "adapter_id": "home_assistant",
+    "correlation_id": "cmd-fixture-error",
+    "expected_state": {},
+    "source_entity_id": "light.kitchen"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_PARAMS",
+      "message": "Command params are invalid for this capability.",
+      "target": "command.params",
+      "retryable": false
+    }
+  ]
+}

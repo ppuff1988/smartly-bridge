@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "HLS_NOT_SUPPORTED",
+      "message": "hls not supported",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
+}

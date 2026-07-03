@@ -182,21 +182,26 @@ GET /api/smartly/sync/states
 
 ```json
 {
-  "states": [
-    {
-      "entity_id": "light.living_room",
-      "state": "on",
-      "attributes": {
-        "brightness": 255,
-        "color_temp": 400,
-        "friendly_name": "Living Room Light"
-      },
-      "last_changed": "2026-01-09T10:30:00.000Z",
-      "last_updated": "2026-01-09T10:30:00.000Z",
-      "icon": "mdi:lightbulb"
-    }
-  ],
-  "count": 1
+  "schema_version": "2026.06",
+  "data": {
+    "states": [
+      {
+        "entity_id": "light.living_room",
+        "state": "on",
+        "attributes": {
+          "brightness": 255,
+          "color_temp": 400,
+          "friendly_name": "Living Room Light"
+        },
+        "last_changed": "2026-01-09T10:30:00.000Z",
+        "last_updated": "2026-01-09T10:30:00.000Z",
+        "icon": "mdi:lightbulb"
+      }
+    ],
+    "count": 1
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -204,6 +209,11 @@ GET /api/smartly/sync/states
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
+| `schema_version` | string | API vNext schema version |
+| `data.states` | array | 授權實體狀態列表 |
+| `data.count` | integer | 實體總數 |
+| `warnings` | array | 非阻斷警告 |
+| `errors` | array | 結構化錯誤列表；成功時為空陣列 |
 | `entity_id` | string | 實體 ID |
 | `state` | string | 實體目前狀態（例如：`on`、`off`、`unavailable`） |
 | `attributes` | object | 實體屬性（依實體類型而異）；符合 Bridge chart 規則時包含 `attributes.bridge_chart` |
@@ -211,7 +221,6 @@ GET /api/smartly/sync/states
 | `last_updated` | string \| null | 最後更新時間（ISO 8601 格式） |
 | `icon` | string \| null | MDI 格式圖示，優先使用使用者自訂圖示，若無則自動使用原始圖示 |
 | `device_class` | string | Smartly normalized 設備類別（例如 `environment_sensor`、`smart_light`） |
-| `count` | integer | 實體總數 |
 
 #### Bridge chart 判斷規則
 
@@ -337,30 +346,35 @@ curl -X GET "https://your-ha-instance.com/api/smartly/sync/states" \
 
 ```json
 {
-  "states": [
-    {
-      "entity_id": "light.kitchen",
-      "state": "on",
-      "attributes": {
-        "brightness": 200,
-        "friendly_name": "Kitchen Light"
+  "schema_version": "2026.06",
+  "data": {
+    "states": [
+      {
+        "entity_id": "light.kitchen",
+        "state": "on",
+        "attributes": {
+          "brightness": 200,
+          "friendly_name": "Kitchen Light"
+        },
+        "last_changed": "2026-01-09T10:15:30.000Z",
+        "last_updated": "2026-01-09T10:15:30.000Z",
+        "icon": "mdi:ceiling-light"
       },
-      "last_changed": "2026-01-09T10:15:30.000Z",
-      "last_updated": "2026-01-09T10:15:30.000Z",
-      "icon": "mdi:ceiling-light"
-    },
-    {
-      "entity_id": "switch.bedroom",
-      "state": "off",
-      "attributes": {
-        "friendly_name": "Bedroom Switch"
-      },
-      "last_changed": "2026-01-09T09:00:00.000Z",
-      "last_updated": "2026-01-09T09:00:00.000Z",
-      "icon": "mdi:toggle-switch"
-    }
-  ],
-  "count": 2
+      {
+        "entity_id": "switch.bedroom",
+        "state": "off",
+        "attributes": {
+          "friendly_name": "Bedroom Switch"
+        },
+        "last_changed": "2026-01-09T09:00:00.000Z",
+        "last_updated": "2026-01-09T09:00:00.000Z",
+        "icon": "mdi:toggle-switch"
+      }
+    ],
+    "count": 2
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -477,7 +491,19 @@ print(response.json())
 
 ```json
 {
-  "error": "rate_limited"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RATE_LIMITED",
+      "message": "rate limited",
+      "target": "sync.structure.rate_limit",
+      "retryable": false
+    }
+  ]
 }
 ```
 

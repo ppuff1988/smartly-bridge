@@ -21,6 +21,7 @@ from .ports import HistoryGatewayPort
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 1000
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
 
 @dataclass(frozen=True)
@@ -123,16 +124,18 @@ class HistoryQueryPlanner:
     ) -> BridgeResponse | None:
         """Validate public history time range rules."""
         if end_time - start_time > timedelta(days=self._max_duration_days):
-            return BridgeResponse(
-                {
-                    "error": "time_range_too_large",
-                    "max_days": self._max_duration_days,
-                },
+            return _history_error_response(
+                "time_range_too_large",
                 status=400,
+                target="history.time_range",
             )
 
         if start_time > end_time:
-            return BridgeResponse({"error": "invalid_time_range"}, status=400)
+            return _history_error_response(
+                "invalid_time_range",
+                status=400,
+                target="history.time_range",
+            )
 
         return None
 
@@ -210,6 +213,44 @@ def _ensure_timezone(value: datetime) -> datetime:
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
     return value
+
+
+def _history_error_response(
+    error: str,
+    *,
+    status: int,
+    target: str = "history",
+) -> BridgeResponse:
+    """Return an API vNext history error response."""
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error.replace("_", " "),
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )
+
+
+def _history_success_response(body: dict[str, Any], *, status: int = 200) -> BridgeResponse:
+    """Return an API vNext history success response."""
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
+        },
+        status=status,
+    )
 
 
 class HistoryResponseFormatter:
@@ -636,7 +677,7 @@ class SingleHistoryUseCase:
             metadata=metadata,
             total_count=total_count,
         )
-        return BridgeResponse(body, status=200)
+        return _history_success_response(body)
 
     def _build_metadata(
         self,
@@ -737,7 +778,7 @@ class BatchHistoryUseCase:
         if metadata_data:
             body["metadata"] = metadata_data
 
-        return BridgeResponse(body, status=200)
+        return _history_success_response(body)
 
     def _format_entity_history(
         self,
@@ -813,17 +854,15 @@ class StatisticsUseCase:
             query.period,
         )
         statistics_data = [self._format_statistic(stat) for stat in stats]
-        return BridgeResponse(
-            {
-                "entity_id": query.entity_id,
-                "period": query.period,
-                "statistics": statistics_data,
-                "count": len(statistics_data),
-                "start_time": query.start_time.isoformat(),
-                "end_time": query.end_time.isoformat(),
-            },
-            status=200,
-        )
+        body = {
+            "entity_id": query.entity_id,
+            "period": query.period,
+            "statistics": statistics_data,
+            "count": len(statistics_data),
+            "start_time": query.start_time.isoformat(),
+            "end_time": query.end_time.isoformat(),
+        }
+        return _history_success_response(body)
 
     def _format_statistic(self, stat: dict[str, Any]) -> dict[str, Any]:
         stat_entry: dict[str, Any] = {

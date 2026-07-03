@@ -5,14 +5,28 @@ from __future__ import annotations
 import asyncio
 import hashlib
 import hmac
+import json
 import time
 import uuid
-from unittest.mock import AsyncMock, MagicMock
+from pathlib import Path
+from typing import Any
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.auth import NonceCache
-from custom_components.smartly_bridge.const import DOMAIN
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantWebRTCGateway,
+    _home_assistant_web_rtc_gateway,
+)
+from custom_components.smartly_bridge.application.webrtc import (
+    SMARTLY_API_SCHEMA_VERSION,
+    WebRTCHangupUseCase,
+    WebRTCICEUseCase,
+    WebRTCOfferUseCase,
+)
+from custom_components.smartly_bridge.auth import AuthResult, NonceCache
+from custom_components.smartly_bridge.const import DOMAIN, RATE_WINDOW
+from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.webrtc import (
     WebRTCSession,
     WebRTCToken,
@@ -20,6 +34,136 @@ from custom_components.smartly_bridge.webrtc import (
     get_default_ice_servers,
     get_ice_servers_with_turn,
 )
+
+
+def _load_api_vnext_fixture(name: str) -> dict:
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+
+
+class FakeWebRTCGateway:
+    """Fake WebRTC application gateway."""
+
+    def __init__(self) -> None:
+        self.session = WebRTCSession(
+            token="session1234567890abcdef",
+            entity_id="camera.front_door",
+            client_id="platform_client",
+        )
+        self.calls: list[str] = []
+        self.state_updates: list[dict[str, str | None]] = []
+        self.closed_tokens: list[str] = []
+        self.ice_server_args: tuple[str | None, str | None, str | None] | None = None
+
+    def camera_exists(self, entity_id: str) -> bool:
+        self.calls.append("camera_exists")
+        return entity_id == "camera.front_door"
+
+    async def generate_token(self, entity_id: str, client_id: str) -> WebRTCToken:
+        self.calls.append("generate_token")
+        return WebRTCToken(
+            token="token123",
+            entity_id=entity_id,
+            client_id=client_id,
+            created_at=1000,
+            expires_at=1300,
+        )
+
+    def get_ice_servers(
+        self,
+        turn_url: str | None = None,
+        turn_username: str | None = None,
+        turn_credential: str | None = None,
+    ) -> list[dict[str, str]]:
+        self.calls.append("get_ice_servers")
+        self.ice_server_args = (turn_url, turn_username, turn_credential)
+        return [{"urls": "stun:stun.l.google.com:19302"}]
+
+    def get_session_by_partial_token(self, session_id: str) -> WebRTCSession | None:
+        self.calls.append("get_session_by_partial_token")
+        if self.session.token.startswith(session_id):
+            return self.session
+        return None
+
+    async def consume_token(self, token: str, entity_id: str) -> WebRTCSession | None:
+        self.calls.append("consume_token")
+        if token == "valid-token" and entity_id == self.session.entity_id:
+            return self.session
+        return None
+
+    async def update_session_state(
+        self,
+        token: str,
+        state: str,
+        local_sdp: str | None = None,
+        remote_sdp: str | None = None,
+    ) -> None:
+        self.calls.append("update_session_state")
+        self.state_updates.append(
+            {
+                "token": token,
+                "state": state,
+                "local_sdp": local_sdp,
+                "remote_sdp": remote_sdp,
+            }
+        )
+
+    async def create_webrtc_answer(
+        self,
+        entity_id: str,
+        offer_sdp: str,
+        session: WebRTCSession,
+    ) -> str:
+        self.calls.append("create_webrtc_answer")
+        return "v=0\r\ns=Smartly Bridge\r\n"
+
+    async def close_session(self, token: str) -> bool:
+        self.calls.append("close_session")
+        self.closed_tokens.append(token)
+        return True
+
+
+def test_home_assistant_web_rtc_gateway_factory_builds_runtime_gateway(mock_hass) -> None:
+    """Home Assistant WebRTC gateway factory builds the runtime adapter type."""
+    manager = MagicMock()
+
+    gateway = _home_assistant_web_rtc_gateway(mock_hass, manager)
+
+    assert isinstance(gateway, HomeAssistantWebRTCGateway)
+
+
+def test_web_rtc_gateway_resolver_uses_runtime_gateway(mock_hass) -> None:
+    """WebRTC gateway resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
+
+    gateway = FakeWebRTCGateway()
+    manager = MagicMock()
+    mock_hass.data[DOMAIN] = {
+        "webrtc_manager": manager,
+        "runtime_adapters": {
+            "webrtc_gateway": gateway,
+        },
+    }
+
+    result = _web_rtc_gateway(mock_hass, manager)
+
+    assert result is gateway
+
+
+def test_web_rtc_gateway_resolver_requires_runtime_gateway(mock_hass) -> None:
+    """WebRTC gateway resolver requires a setup-created runtime gateway."""
+    from custom_components.smartly_bridge.views.webrtc import _web_rtc_gateway
+
+    manager = MagicMock()
+    mock_hass.data[DOMAIN] = {
+        "webrtc_manager": manager,
+        "runtime_adapters": {},
+    }
+
+    result = _web_rtc_gateway(mock_hass, manager)
+
+    assert result is None
+    assert "webrtc_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
 
 # ============================================================================
 # WebRTCToken Tests
@@ -212,6 +356,61 @@ class TestWebRTCSession:
         assert result["state"] == "connected"
         assert "created_at" in result
         assert "last_activity" in result
+
+
+# ============================================================================
+# WebRTC Application Use Case Tests
+# ============================================================================
+
+
+@pytest.mark.asyncio
+async def test_webrtc_offer_response_matches_api_vnext_fixture() -> None:
+    """WebRTC offer answer response remains stable for old and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "webrtc-offer.json"
+    expected_body = json.loads(fixture_path.read_text())
+    gateway = FakeWebRTCGateway()
+    use_case = WebRTCOfferUseCase(gateway)
+
+    result = await use_case.execute(
+        entity_id="camera.front_door",
+        token="valid-token",
+        sdp_offer="v=0\r\ns=Platform\r\n",
+    )
+
+    assert result.body == expected_body
+
+
+@pytest.mark.asyncio
+async def test_webrtc_ice_response_matches_api_vnext_fixture() -> None:
+    """WebRTC ICE accepted response remains stable for old and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "webrtc-ice.json"
+    expected_body = json.loads(fixture_path.read_text())
+    gateway = FakeWebRTCGateway()
+    use_case = WebRTCICEUseCase(gateway)
+
+    result = await use_case.execute(
+        entity_id="camera.front_door",
+        session_id=gateway.session.token[:16],
+        candidate={"candidate": "candidate:1", "sdpMid": "0", "sdpMLineIndex": 0},
+    )
+
+    assert result.body == expected_body
+
+
+@pytest.mark.asyncio
+async def test_webrtc_hangup_response_matches_api_vnext_fixture() -> None:
+    """WebRTC hangup response remains stable for old and vNext clients."""
+    fixture_path = Path(__file__).parent / "fixtures" / "api-vnext" / "webrtc-hangup.json"
+    expected_body = json.loads(fixture_path.read_text())
+    gateway = FakeWebRTCGateway()
+    use_case = WebRTCHangupUseCase(gateway)
+
+    result = await use_case.execute(
+        entity_id="camera.front_door",
+        session_id=gateway.session.token[:16],
+    )
+
+    assert result.body == expected_body
 
 
 # ============================================================================
@@ -584,8 +783,319 @@ class TestWebRTCViews:
         }
 
     @pytest.mark.asyncio
+    async def test_create_webrtc_token_forwards_client_and_turn_config(self):
+        """WebRTC token invocation adapter forwards client and TURN config."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_token
+
+        gateway = FakeWebRTCGateway()
+
+        result = await _create_webrtc_token(
+            gateway,
+            entity_id="camera.front_door",
+            client_id="platform_client",
+            turn_config={
+                "turn_url": "turn:turn.example.com:3478",
+                "turn_username": "user",
+                "turn_credential": "secret",
+            },
+        )
+
+        assert result.status == 200
+        assert result.body["data"]["token"] == "token123"
+        assert result.body["data"]["entity_id"] == "camera.front_door"
+        assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
+        assert gateway.ice_server_args == (
+            "turn:turn.example.com:3478",
+            "user",
+            "secret",
+        )
+
+    @pytest.mark.asyncio
+    async def test_create_webrtc_token_uses_injected_use_case_factory(self):
+        """WebRTC token invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_token
+
+        class FakeTokenUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                client_id: str,
+                turn_config: dict[str, str],
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, client_id, turn_config))
+                return BridgeResponse(
+                    {
+                        "schema_version": "2026.06",
+                        "data": {
+                            "token": "factory-token",
+                            "entity_id": entity_id,
+                        },
+                        "warnings": [],
+                        "errors": [],
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeTokenUseCase()
+        factory_calls = []
+        turn_config = {
+            "turn_url": "turn:turn.example.com:3478",
+            "turn_username": "user",
+            "turn_credential": "secret",
+        }
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _create_webrtc_token(
+            gateway,
+            entity_id="camera.front_door",
+            client_id="platform_client",
+            turn_config=turn_config,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "platform_client", turn_config)]
+        assert result.body["data"]["token"] == "factory-token"
+
+    @pytest.mark.asyncio
+    async def test_create_webrtc_offer_forwards_token_and_sdp(self):
+        """WebRTC offer invocation adapter forwards token and SDP payload."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_offer
+
+        gateway = FakeWebRTCGateway()
+
+        result = await _create_webrtc_offer(
+            gateway,
+            entity_id="camera.front_door",
+            token="valid-token",
+            sdp_offer="v=0\r\ns=Platform\r\n",
+        )
+
+        assert result.status == 200
+        assert result.body["data"]["type"] == "answer"
+        assert result.body["data"]["session_id"] == gateway.session.token[:16]
+        assert gateway.calls == [
+            "consume_token",
+            "update_session_state",
+            "create_webrtc_answer",
+            "update_session_state",
+        ]
+        assert gateway.state_updates == [
+            {
+                "token": gateway.session.token,
+                "state": "connecting",
+                "local_sdp": None,
+                "remote_sdp": "v=0\r\ns=Platform\r\n",
+            },
+            {
+                "token": gateway.session.token,
+                "state": "connected",
+                "local_sdp": "v=0\r\ns=Smartly Bridge\r\n",
+                "remote_sdp": None,
+            },
+        ]
+
+    @pytest.mark.asyncio
+    async def test_create_webrtc_offer_uses_injected_use_case_factory(self):
+        """WebRTC offer invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _create_webrtc_offer
+
+        class FakeOfferUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                token: str,
+                sdp_offer: str,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, token, sdp_offer))
+                return BridgeResponse(
+                    {
+                        "schema_version": "2026.06",
+                        "data": {
+                            "type": "answer",
+                            "sdp": "factory-answer",
+                            "session_id": "factory-session",
+                        },
+                        "warnings": [],
+                        "errors": [],
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeOfferUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _create_webrtc_offer(
+            gateway,
+            entity_id="camera.front_door",
+            token="valid-token",
+            sdp_offer="v=0\r\ns=Platform\r\n",
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "valid-token", "v=0\r\ns=Platform\r\n")]
+        assert result.body["data"]["session_id"] == "factory-session"
+
+    @pytest.mark.asyncio
+    async def test_add_webrtc_ice_candidate_forwards_session_and_candidate(self):
+        """WebRTC ICE invocation adapter forwards session and candidate payload."""
+        from custom_components.smartly_bridge.views.webrtc import _add_webrtc_ice_candidate
+
+        gateway = FakeWebRTCGateway()
+        candidate = {"candidate": "candidate:1", "sdpMid": "0"}
+
+        result = await _add_webrtc_ice_candidate(
+            gateway,
+            entity_id="camera.front_door",
+            session_id=gateway.session.token[:16],
+            candidate=candidate,
+        )
+
+        assert result.status == 200
+        assert result.body["data"]["status"] == "accepted"
+        assert result.body["data"]["candidates"] == []
+        assert gateway.calls == ["get_session_by_partial_token"]
+        assert gateway.session.ice_candidates == [candidate]
+
+    @pytest.mark.asyncio
+    async def test_add_webrtc_ice_candidate_uses_injected_use_case_factory(self):
+        """WebRTC ICE invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _add_webrtc_ice_candidate
+
+        class FakeICEUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                session_id: str,
+                candidate: dict[str, Any] | None,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, session_id, candidate))
+                return BridgeResponse(
+                    {
+                        "schema_version": "2026.06",
+                        "data": {
+                            "status": "accepted",
+                            "candidates": [{"candidate": "factory-candidate"}],
+                        },
+                        "warnings": [],
+                        "errors": [],
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeICEUseCase()
+        factory_calls = []
+        candidate = {"candidate": "candidate:1", "sdpMid": "0"}
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _add_webrtc_ice_candidate(
+            gateway,
+            entity_id="camera.front_door",
+            session_id="factory-session",
+            candidate=candidate,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "factory-session", candidate)]
+        assert result.body["data"]["candidates"] == [{"candidate": "factory-candidate"}]
+
+    @pytest.mark.asyncio
+    async def test_close_webrtc_session_forwards_entity_and_session(self):
+        """WebRTC hangup invocation adapter forwards entity and session payload."""
+        from custom_components.smartly_bridge.views.webrtc import _close_webrtc_session
+
+        gateway = FakeWebRTCGateway()
+
+        result = await _close_webrtc_session(
+            gateway,
+            entity_id="camera.front_door",
+            session_id=gateway.session.token[:16],
+        )
+
+        assert result.status == 200
+        assert result.body["data"]["status"] == "closed"
+        assert gateway.calls == ["get_session_by_partial_token", "close_session"]
+        assert gateway.closed_tokens == [gateway.session.token]
+
+    @pytest.mark.asyncio
+    async def test_close_webrtc_session_uses_injected_use_case_factory(self):
+        """WebRTC hangup invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.webrtc import _close_webrtc_session
+
+        class FakeHangupUseCase:
+            def __init__(self) -> None:
+                self.calls = []
+
+            async def execute(
+                self,
+                *,
+                entity_id: str,
+                session_id: str,
+            ) -> BridgeResponse:
+                self.calls.append((entity_id, session_id))
+                return BridgeResponse(
+                    {
+                        "schema_version": "2026.06",
+                        "data": {"status": "closed"},
+                        "warnings": [],
+                        "errors": [],
+                    },
+                    status=200,
+                )
+
+        gateway = FakeWebRTCGateway()
+        use_case = FakeHangupUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = await _close_webrtc_session(
+            gateway,
+            entity_id="camera.front_door",
+            session_id="factory-session",
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == [("camera.front_door", "factory-session")]
+        assert result.body["data"]["status"] == "closed"
+
+    @pytest.mark.asyncio
     async def test_token_view_invalid_entity_id(self, mock_hass_with_webrtc):
-        """Test token request with invalid entity ID."""
+        """Test token request returns API vNext envelope with invalid entity ID."""
         from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
 
         request = MagicMock()
@@ -597,6 +1107,8 @@ class TestWebRTCViews:
 
         # Check it's a bad request response
         assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-invalid-entity-id.json")
 
     @pytest.mark.asyncio
     async def test_token_view_missing_entity(self, mock_hass_with_webrtc):
@@ -611,6 +1123,585 @@ class TestWebRTCViews:
         response = await view.post()
 
         assert response.status == 400
+
+    @pytest.mark.asyncio
+    async def test_token_view_integration_not_configured_returns_envelope(
+        self, mock_hass_with_webrtc
+    ):
+        """Test token request returns API vNext envelope when integration is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data = {}
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+
+        view = SmartlyWebRTCTokenView(request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-integration-not-configured.json")
+
+    @pytest.mark.asyncio
+    async def test_token_view_auth_failure_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request returns API vNext envelope when authentication fails."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 401
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-auth-failure.json")
+
+    @pytest.mark.asyncio
+    async def test_token_view_rate_limited_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request preserves rate-limit headers with API vNext envelope."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data[DOMAIN]["rate_limiter"].check.return_value = False
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 429
+        assert response.headers["Retry-After"] == str(RATE_WINDOW)
+        assert response.headers["X-RateLimit-Remaining"] == "0"
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-rate-limited.json")
+
+    @pytest.mark.asyncio
+    async def test_token_view_entity_not_allowed_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request returns API vNext envelope when entity access is denied."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = False
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 403
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-entity-not-allowed.json")
+
+    @pytest.mark.asyncio
+    async def test_token_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
+        """Test token request returns API vNext envelope when WebRTC manager is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data[DOMAIN].pop("webrtc_manager")
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            view = SmartlyWebRTCTokenView(request)
+            response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-not-available.json")
+
+    @pytest.mark.asyncio
+    async def test_token_view_requires_setup_runtime_gateway(self, mock_hass_with_webrtc):
+        """Token requests fail when setup did not create the WebRTC gateway."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {}
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            response = await SmartlyWebRTCTokenView(request).post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-token-not-available.json")
+        assert "webrtc_gateway" not in mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_token_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
+        """Token requests execute through the setup-created WebRTC gateway."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        gateway = FakeWebRTCGateway()
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": gateway,
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {"X-Client-Id": "test_client"}
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            response = await SmartlyWebRTCTokenView(request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["data"]["token"] == "token123"
+        assert gateway.calls == ["camera_exists", "generate_token", "get_ice_servers"]
+
+    @pytest.mark.asyncio
+    async def test_token_view_response_includes_request_context_headers(
+        self, mock_hass_with_webrtc
+    ):
+        """Token responses echo optional request correlation headers."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCTokenView
+
+        gateway = FakeWebRTCGateway()
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": gateway,
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-webrtc-001",
+            "X-Correlation-Id": "corr-webrtc-001",
+        }
+
+        with (
+            patch("custom_components.smartly_bridge.views.webrtc.verify_request") as mock_verify,
+            patch("homeassistant.helpers.entity_registry.async_get") as mock_registry_get,
+            patch(
+                "custom_components.smartly_bridge.views.webrtc.is_entity_allowed"
+            ) as mock_allowed,
+        ):
+            mock_verify.return_value = AuthResult(success=True, client_id="test_client")
+            mock_registry_get.return_value = MagicMock()
+            mock_allowed.return_value = True
+
+            response = await SmartlyWebRTCTokenView(request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-webrtc-001"
+        assert data["correlation_id"] == "corr-webrtc-001"
+        assert data["data"]["token"] == "token123"
+        assert data["data"]["entity_id"] == "camera.front_door"
+
+    @pytest.mark.asyncio
+    async def test_offer_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
+        """Offer requests execute through the setup-created WebRTC gateway."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        gateway = FakeWebRTCGateway()
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": gateway,
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={"token": "valid-token", "sdp": "v=0\r\n", "type": "offer"}
+        )
+
+        response = await SmartlyWebRTCOfferView(request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["data"]["type"] == "answer"
+        assert data["data"]["session_id"] == gateway.session.token[:16]
+        assert gateway.calls == [
+            "consume_token",
+            "update_session_state",
+            "create_webrtc_answer",
+            "update_session_state",
+        ]
+
+    @pytest.mark.asyncio
+    async def test_ice_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
+        """ICE requests execute through the setup-created WebRTC gateway."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        gateway = FakeWebRTCGateway()
+        session_id = gateway.session.token[:16]
+        candidate = {"candidate": "candidate:1"}
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": gateway,
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"session_id": session_id, "candidate": candidate})
+
+        response = await SmartlyWebRTCICEView(request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["data"]["status"] == "accepted"
+        assert gateway.calls == ["get_session_by_partial_token"]
+        assert gateway.session.ice_candidates == [candidate]
+
+    @pytest.mark.asyncio
+    async def test_hangup_view_uses_setup_runtime_gateway(self, mock_hass_with_webrtc):
+        """Hangup requests execute through the setup-created WebRTC gateway."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCHangupView
+
+        gateway = FakeWebRTCGateway()
+        session_id = gateway.session.token[:16]
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": gateway,
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"session_id": session_id})
+
+        response = await SmartlyWebRTCHangupView(request).post()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["data"]["status"] == "closed"
+        assert gateway.calls == ["get_session_by_partial_token", "close_session"]
+        assert gateway.closed_tokens == [gateway.session.token]
+
+    @pytest.mark.asyncio
+    async def test_offer_view_invalid_entity_id_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope with invalid entity ID."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "light.invalid"}
+        request.app = {"hass": mock_hass_with_webrtc}
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-offer-invalid-entity-id.json")
+
+    @pytest.mark.asyncio
+    async def test_offer_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope with invalid JSON."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-offer-invalid-json.json")
+
+    @pytest.mark.asyncio
+    async def test_offer_view_missing_token_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope when token is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"sdp": "v=0\r\n", "type": "offer"})
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-offer-missing-token.json")
+
+    @pytest.mark.asyncio
+    async def test_offer_view_missing_sdp_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope when SDP is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"token": "test-token", "type": "offer"})
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-offer-missing-sdp.json")
+
+    @pytest.mark.asyncio
+    async def test_offer_view_invalid_sdp_type_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope when SDP type is invalid."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={"token": "test-token", "sdp": "v=0\r\n", "type": "answer"}
+        )
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-offer-invalid-sdp-type.json")
+
+    @pytest.mark.asyncio
+    async def test_offer_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
+        """Test offer request returns API vNext envelope when WebRTC manager is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        mock_hass_with_webrtc.data[DOMAIN].pop("webrtc_manager")
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={"token": "test-token", "sdp": "v=0\r\n", "type": "offer"}
+        )
+
+        view = SmartlyWebRTCOfferView(request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-offer-not-available.json")
+
+    @pytest.mark.asyncio
+    async def test_offer_view_logs_vnext_error_message_on_signaling_failure(
+        self,
+        mock_hass_with_webrtc,
+    ):
+        """Offer failure logging reads the API vNext error message."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCOfferView
+
+        mock_hass_with_webrtc.data[DOMAIN]["runtime_adapters"] = {
+            "webrtc_gateway": FakeWebRTCGateway(),
+        }
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={"token": "valid-token", "sdp": "v=0\r\n", "type": "offer"}
+        )
+        offer_error = BridgeResponse(
+            {
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": {"status": "rejected"},
+                "warnings": [],
+                "errors": [
+                    {
+                        "code": "SIGNALING_FAILED",
+                        "message": "go2rtc signaling failed",
+                        "target": "webrtc",
+                        "retryable": False,
+                    }
+                ],
+            },
+            status=500,
+        )
+
+        with (
+            patch(
+                "custom_components.smartly_bridge.views.webrtc._create_webrtc_offer",
+                new_callable=AsyncMock,
+            ) as create_offer,
+            patch("custom_components.smartly_bridge.views.webrtc._LOGGER") as logger,
+        ):
+            create_offer.return_value = offer_error
+
+            response = await SmartlyWebRTCOfferView(request).post()
+
+        assert response.status == 500
+        logger.error.assert_called_once_with(
+            "WebRTC offer failed for %s: %s",
+            "camera.front_door",
+            "go2rtc signaling failed",
+        )
+
+    @pytest.mark.asyncio
+    async def test_ice_view_invalid_entity_id_returns_envelope(self, mock_hass_with_webrtc):
+        """Test ICE request returns API vNext envelope with invalid entity ID."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "light.invalid"}
+        request.app = {"hass": mock_hass_with_webrtc}
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-ice-invalid-entity-id.json")
+
+    @pytest.mark.asyncio
+    async def test_ice_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
+        """Test ICE request returns API vNext envelope with invalid JSON."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-ice-invalid-json.json")
+
+    @pytest.mark.asyncio
+    async def test_ice_view_missing_session_id_returns_envelope(self, mock_hass_with_webrtc):
+        """Test ICE request returns API vNext envelope when session ID is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"candidate": {"candidate": "candidate:1"}})
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-ice-missing-session-id.json")
+
+    @pytest.mark.asyncio
+    async def test_ice_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
+        """Test ICE request returns API vNext envelope when WebRTC manager is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCICEView
+
+        mock_hass_with_webrtc.data[DOMAIN].pop("webrtc_manager")
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(
+            return_value={
+                "session_id": "test-session",
+                "candidate": {"candidate": "candidate:1"},
+            }
+        )
+
+        view = SmartlyWebRTCICEView(request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-ice-not-available.json")
+
+    @pytest.mark.asyncio
+    async def test_hangup_view_invalid_json_returns_envelope(self, mock_hass_with_webrtc):
+        """Test hangup request returns API vNext envelope with invalid JSON."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCHangupView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(side_effect=json.JSONDecodeError("test", "", 0))
+
+        view = SmartlyWebRTCHangupView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-hangup-invalid-json.json")
+
+    @pytest.mark.asyncio
+    async def test_hangup_view_missing_session_id_returns_envelope(self, mock_hass_with_webrtc):
+        """Test hangup request returns API vNext envelope when session ID is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCHangupView
+
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={})
+
+        view = SmartlyWebRTCHangupView(request)
+        response = await view.post()
+
+        assert response.status == 400
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-hangup-missing-session-id.json")
+
+    @pytest.mark.asyncio
+    async def test_hangup_view_webrtc_not_available_returns_envelope(self, mock_hass_with_webrtc):
+        """Test hangup request returns API vNext envelope when WebRTC manager is missing."""
+        from custom_components.smartly_bridge.views.webrtc import SmartlyWebRTCHangupView
+
+        mock_hass_with_webrtc.data[DOMAIN].pop("webrtc_manager")
+        request = MagicMock()
+        request.match_info = {"entity_id": "camera.front_door"}
+        request.app = {"hass": mock_hass_with_webrtc}
+        request.json = AsyncMock(return_value={"session_id": "test-session"})
+
+        view = SmartlyWebRTCHangupView(request)
+        response = await view.post()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _load_api_vnext_fixture("webrtc-hangup-not-available.json")
 
 
 # ============================================================================

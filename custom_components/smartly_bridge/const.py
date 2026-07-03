@@ -15,6 +15,7 @@ CONF_TRUST_PROXY = "trust_proxy"
 CONF_TURN_URL = "turn_url"
 CONF_TURN_USERNAME = "turn_username"
 CONF_TURN_CREDENTIAL = "turn_credential"
+CONF_USE_LOGICAL_DEVICES = "use_logical_devices"
 
 # Trust proxy modes
 TRUST_PROXY_AUTO = "auto"
@@ -45,6 +46,7 @@ MAX_CONCURRENT_HISTORY_QUERIES = 5  # 最大並發歷史查詢數
 # HMAC authentication
 TIMESTAMP_TOLERANCE = 30  # seconds
 NONCE_TTL = 300  # 5 minutes
+RAW_DIAGNOSTIC_TTL = 300  # 5 minutes
 
 # Push retry
 PUSH_RETRY_MAX = 3
@@ -61,9 +63,28 @@ ALLOWED_SERVICES: dict[str, list[str]] = {
     "switch": ["turn_on", "turn_off", "toggle"],
     "light": ["turn_on", "turn_off", "toggle"],
     "button": ["press"],
-    "cover": ["open_cover", "close_cover", "stop_cover", "set_cover_position"],
-    "climate": ["set_temperature", "set_hvac_mode", "set_fan_mode"],
-    "fan": ["turn_on", "turn_off", "set_percentage", "set_preset_mode"],
+    "cover": [
+        "open_cover",
+        "close_cover",
+        "stop_cover",
+        "set_cover_position",
+        "set_cover_tilt_position",
+    ],
+    "climate": [
+        "set_temperature",
+        "set_hvac_mode",
+        "set_fan_mode",
+        "set_preset_mode",
+        "set_swing_mode",
+    ],
+    "fan": [
+        "turn_on",
+        "turn_off",
+        "set_percentage",
+        "set_preset_mode",
+        "set_direction",
+        "oscillate",
+    ],
     "number": ["set_value"],
     "select": ["select_option"],
     "lock": ["lock", "unlock"],
@@ -83,9 +104,10 @@ HEADER_HA_INSTANCE_ID = "X-HA-Instance-Id"
 # API paths
 API_PATH_CONTROL = "/api/smartly/control"
 API_PATH_DEVICE_EVENTS = "/api/smartly/devices/{device_id}/events"
+API_PATH_LOCAL_AUTOMATION_RULES = "/api/smartly/automations/local/rules"
+API_PATH_RAW_DIAGNOSTIC = "/api/smartly/diagnostics/raw/{raw_ref}"
 API_PATH_SYNC = "/api/smartly/sync/structure"
 API_PATH_SYNC_STATES = "/api/smartly/sync/states"
-API_PATH_STATES = "/api/smartly/states"  # Alternative path for backward compatibility
 
 # Camera API paths
 API_PATH_CAMERA_SNAPSHOT = "/api/smartly/camera/{entity_id}/snapshot"

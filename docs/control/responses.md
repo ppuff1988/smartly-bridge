@@ -2,22 +2,7 @@
 
 > **返回**：[控制 API 指南](./README.md)
 
-本文檔說明 API 的成功回應格式與各種錯誤回應類型。
-
----
-
-## 目錄
-
-1. [成功回應](#成功回應)
-2. [錯誤回應](#錯誤回應)
-   - [400 Bad Request](#400-bad-request---請求格式錯誤)
-   - [401 Unauthorized](#401-unauthorized---認證失敗)
-   - [403 Forbidden](#403-forbidden---權限不足)
-   - [404 Not Found](#404-not-found---實體不存在)
-   - [422 Unprocessable Entity](#422-unprocessable-entity---服務調用失敗)
-   - [429 Too Many Requests](#429-too-many-requests---超過速率限制)
-   - [500 Internal Server Error](#500-internal-server-error---伺服器錯誤)
-   - [503 Service Unavailable](#503-service-unavailable---服務不可用)
+`/api/smartly/control` 回傳 API vNext envelope。成功與錯誤都使用相同 top-level 結構：`schema_version`、`data`、`warnings`、`errors`，必要時也會包含 request correlation 欄位。
 
 ---
 
@@ -27,18 +12,28 @@
 
 ```json
 {
-  "success": true,
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "new_state": "on",
-  "new_attributes": {
-    "brightness": 200,
-    "rgb_color": [255, 180, 100],
-    "color_mode": "rgb",
-    "supported_color_modes": ["rgb", "color_temp"],
-    "friendly_name": "臥室燈光"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "accepted",
+    "command_id": "cmd_20260627_0001",
+    "device_id": "ldev_bedroom_light",
+    "capability": "brightness",
+    "command": "set_brightness",
+    "adapter_id": "home_assistant",
+    "correlation_id": "cmd_20260627_0001",
+    "source_entity_id": "light.bedroom",
+    "source_action": "turn_on",
+    "expected_state": {
+      "capability": "brightness",
+      "value": 78
+    },
+    "new_state": "on",
+    "new_attributes": {
+      "brightness": 199
+    }
   },
-  "timestamp": "2025-12-27T10:30:45.123456+00:00"
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -46,172 +41,214 @@
 
 | 欄位 | 類型 | 說明 |
 |------|------|------|
-| `success` | boolean | 是否成功，固定為 `true` |
-| `entity_id` | string | 控制的實體 ID |
-| `action` | string | 執行的動作 |
-| `new_state` | string | 執行後的新狀態 |
-| `new_attributes` | object | 執行後的實體屬性 |
-| `timestamp` | string | 執行時間（ISO 8601 格式） |
+| `schema_version` | string | API vNext schema 版本 |
+| `data.status` | string | 命令處理狀態，例如 `accepted`、`failed` |
+| `data.command_id` | string | 呼叫端提供的命令 ID |
+| `data.device_id` | string | 邏輯設備 ID |
+| `data.capability` | string | canonical capability |
+| `data.command` | string | canonical command |
+| `data.adapter_id` | string | 實際執行的 adapter |
+| `data.correlation_id` | string | 命令追蹤 ID |
+| `data.source_entity_id` | string | 診斷用 source trace |
+| `data.source_action` | string | 診斷用 source execution trace |
+| `data.expected_state` | object | Platform 可用於 optimistic UI 的預期狀態 |
+| `warnings` | array | 非阻斷警告 |
+| `errors` | array | 結構化錯誤陣列 |
 
 ---
 
 ## 錯誤回應
 
-### 400 Bad Request - 請求格式錯誤
+錯誤回應仍使用 API vNext envelope。HTTP status 反映 shell 或 application failure 類型，錯誤碼位於 `errors[].code`。
+
+### 400 Bad Request
 
 ```json
 {
-  "error": "missing_required_fields",
-  "message": "缺少必要欄位：entity_id",
-  "details": {
-    "missing_fields": ["entity_id"]
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "missing_required_fields",
+      "message": "Missing required SmartlyCommand fields.",
+      "target": "body"
+    }
+  ]
 }
 ```
-
-#### 可能的錯誤碼
 
 | 錯誤碼 | 說明 |
 |--------|------|
 | `invalid_json` | JSON 格式錯誤 |
-| `missing_required_fields` | 缺少必要欄位（entity_id、action） |
-| `invalid_entity_id` | 實體 ID 格式不正確 |
-| `invalid_action` | 動作名稱不支援 |
-| `invalid_service_data` | 服務參數格式錯誤 |
+| `missing_required_fields` | 缺少 `command_id`、`device_id`、`capability` 或 `command` |
+| `invalid_command` | capability 不支援指定 command |
+| `invalid_params` | command params 不符合 capability schema |
 
----
-
-### 401 Unauthorized - 認證失敗
+### 401 Unauthorized
 
 ```json
 {
-  "error": "invalid_signature",
-  "message": "HMAC 簽名驗證失敗"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "invalid_signature",
+      "message": "HMAC signature verification failed.",
+      "target": "headers.X-Signature"
+    }
+  ]
 }
 ```
 
-#### 可能的錯誤碼
-
 | 錯誤碼 | 說明 |
 |--------|------|
-| `missing_headers` | 缺少必要的 HTTP 標頭 |
-| `invalid_client_id` | 客戶端 ID 不存在或無效 |
-| `invalid_timestamp` | 時間戳無效或超出容許範圍（±30 秒） |
-| `nonce_reused` | Nonce 已在 5 分鐘內使用過 |
+| `missing_headers` | 缺少必要 HTTP header |
+| `invalid_client_id` | Client ID 不存在或無效 |
+| `invalid_timestamp` | Timestamp 無效或超出容許範圍 |
+| `nonce_reused` | Nonce 已在有效窗口內使用過 |
 | `invalid_signature` | HMAC-SHA256 簽名驗證失敗 |
 | `ip_not_allowed` | IP 地址不在 CIDR 白名單中 |
 
----
-
-### 403 Forbidden - 權限不足
+### 403 Forbidden
 
 ```json
 {
-  "error": "entity_not_allowed",
-  "message": "實體未標記為 smartly 標籤",
-  "details": {
-    "entity_id": "light.bedroom",
-    "required_label": "smartly"
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected",
+    "device_id": "ldev_bedroom_light"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "entity_not_allowed",
+      "message": "Resolved source is not allowed for this client.",
+      "target": "device_id"
+    }
+  ]
 }
 ```
-
-#### 可能的錯誤碼
 
 | 錯誤碼 | 說明 |
 |--------|------|
-| `entity_not_allowed` | 實體未標記為 `smartly` 標籤 |
-| `service_not_allowed` | 服務不在允許清單中 |
+| `entity_not_allowed` | resolved source 未授權給該 client |
+| `service_not_allowed` | resolved source service 不在允許清單中 |
 | `acl_denied` | ACL 規則拒絕操作 |
 | `insufficient_permissions` | 操作者權限不足 |
 
----
-
-### 404 Not Found - 實體不存在
+### 404 Not Found
 
 ```json
 {
-  "error": "entity_not_found",
-  "message": "找不到指定的實體",
-  "details": {
-    "entity_id": "light.nonexistent"
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected",
+    "device_id": "ldev_missing"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "device_not_found",
+      "message": "Logical device was not found.",
+      "target": "device_id"
+    }
+  ]
 }
 ```
 
----
-
-### 422 Unprocessable Entity - 服務調用失敗
+### 422 Unprocessable Entity
 
 ```json
 {
-  "error": "service_call_failed",
-  "message": "設備回應錯誤",
-  "details": {
-    "entity_id": "light.bedroom",
-    "action": "turn_on",
-    "reason": "設備離線"
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "failed",
+    "device_id": "ldev_bedroom_light",
+    "capability": "brightness",
+    "command": "set_brightness"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "command_failed",
+      "message": "Source command execution failed.",
+      "target": "command"
+    }
+  ]
 }
 ```
 
----
-
-### 429 Too Many Requests - 超過速率限制
+### 429 Too Many Requests
 
 ```json
 {
-  "error": "rate_limited",
-  "message": "超過速率限制，請稍後再試",
-  "details": {
-    "limit": 60,
-    "window": "60s",
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected",
     "retry_after": 45
-  }
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "rate_limited",
+      "message": "Rate limit exceeded.",
+      "target": "client"
+    }
+  ]
 }
 ```
 
 #### 回應標頭
 
-```
+```http
 X-RateLimit-Limit: 60
 X-RateLimit-Remaining: 0
 X-RateLimit-Reset: 1735228845
 Retry-After: 45
 ```
 
-| 標頭 | 說明 |
-|------|------|
-| `X-RateLimit-Limit` | 速率限制上限 |
-| `X-RateLimit-Remaining` | 剩餘可用次數 |
-| `X-RateLimit-Reset` | 重置時間（Unix 時間戳） |
-| `Retry-After` | 建議等待秒數 |
-
----
-
-### 500 Internal Server Error - 伺服器錯誤
+### 500 Internal Server Error
 
 ```json
 {
-  "error": "internal_server_error",
-  "message": "伺服器發生內部錯誤",
-  "details": {
-    "request_id": "req_abc123def456"
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "failed"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "internal_server_error",
+      "message": "Internal server error.",
+      "target": "server"
+    }
+  ],
+  "request_id": "req_abc123def456"
 }
 ```
 
----
-
-### 503 Service Unavailable - 服務不可用
+### 503 Service Unavailable
 
 ```json
 {
-  "error": "service_unavailable",
-  "message": "Home Assistant 服務暫時無法使用",
-  "details": {
-    "retry_after": 60
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "failed"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "smartly_command_executor_unavailable",
+      "message": "Smartly command executor is unavailable.",
+      "target": "runtime_adapters.smartly_command_executor"
+    }
+  ]
 }
 ```
 
@@ -219,60 +256,11 @@ Retry-After: 45
 
 ## 錯誤處理最佳實踐
 
-### Python 範例
-
-```python
-import requests
-
-try:
-    response = client.control_device(
-        entity_id="light.bedroom",
-        action="turn_on"
-    )
-    print("成功:", response)
-    
-except requests.HTTPError as e:
-    status_code = e.response.status_code
-    error_data = e.response.json()
-    
-    if status_code == 401:
-        print("認證失敗:", error_data.get("message"))
-    elif status_code == 403:
-        print("權限不足:", error_data.get("message"))
-    elif status_code == 429:
-        retry_after = error_data.get("details", {}).get("retry_after", 60)
-        print(f"速率限制，請等待 {retry_after} 秒")
-    else:
-        print(f"錯誤 {status_code}:", error_data)
-```
-
-### JavaScript 範例
-
-```javascript
-try {
-  const result = await client.controlDevice('light.bedroom', 'turn_on');
-  console.log('成功:', result);
-  
-} catch (error) {
-  if (error.message.includes('401')) {
-    console.error('認證失敗');
-  } else if (error.message.includes('403')) {
-    console.error('權限不足');
-  } else if (error.message.includes('429')) {
-    console.error('速率限制，請稍後重試');
-  } else {
-    console.error('錯誤:', error.message);
-  }
-}
-```
-
----
-
-## 📚 相關文檔
-
-- **[API 基礎與認證](./api-basics.md)** - 端點資訊與簽名計算
-- **[故障排除](./troubleshooting.md)** - 常見問題與解決方案
-- **[安全指南](./security.md)** - 安全最佳實踐
+1. 先檢查 HTTP status，再讀取 `errors[]`。
+2. 不要依賴任何 top-level `error` 或 `success` 欄位。
+3. 對 `rate_limited` 使用 `Retry-After` 或 `data.retry_after`。
+4. 對 `missing_required_fields`、`invalid_command`、`invalid_params` 顯示使用者可修正的表單錯誤。
+5. 對 `command_failed` 顯示設備暫時無法執行，並保留 `command_id` 供追蹤。
 
 ---
 

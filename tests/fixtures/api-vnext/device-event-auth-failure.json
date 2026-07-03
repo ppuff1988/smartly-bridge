@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "device_abc123",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_SIGNATURE",
+      "message": "Device event request authentication failed",
+      "target": "request.auth",
+      "retryable": false
+    }
+  ]
+}

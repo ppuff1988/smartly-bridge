@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INTEGRATION_NOT_CONFIGURED",
+      "message": "integration not configured",
+      "target": "camera.config",
+      "retryable": false
+    }
+  ]
+}

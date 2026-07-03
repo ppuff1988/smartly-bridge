@@ -2,15 +2,234 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timezone
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
-from custom_components.smartly_bridge.adapters.home_assistant import HomeAssistantStateSyncGateway
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantStateSyncGateway,
+    HomeAssistantSyncGateway,
+    _home_assistant_sync_states_gateway,
+    _home_assistant_sync_structure_gateway,
+)
+from custom_components.smartly_bridge.application.sync import SyncStatesUseCase
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import DOMAIN
+from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView, SmartlySyncView
+
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
+
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
+
+
+class FakeSyncStructureGateway:
+    """Sync structure gateway used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def get_structure(self) -> dict:
+        """Return a fixed structure payload."""
+        self.calls += 1
+        return {
+            "entities": [{"entity_id": "light.runtime", "name": "Runtime Light"}],
+            "areas": [],
+            "devices": [],
+            "floors": [],
+        }
+
+
+class FakeSyncStructureUseCase:
+    """Sync structure use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    def execute(self):
+        """Record invocation and return a fixed response."""
+        self.calls += 1
+        return type(
+            "FakeSyncStructureResult",
+            (),
+            {
+                "status": 200,
+                "headers": {},
+                "body": {
+                    "entities": [{"entity_id": "light.factory"}],
+                    "data": {"device_count": 1},
+                },
+            },
+        )()
+
+
+class FakeSyncStatesGateway:
+    """Sync states gateway used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def list_states(self) -> list[EntityStateSnapshot]:
+        """Return a fixed state snapshot."""
+        self.calls += 1
+        return [
+            EntityStateSnapshot(
+                entity_id="light.runtime",
+                state="on",
+                attributes={"friendly_name": "Runtime Light"},
+                name="Runtime Light",
+                domain="light",
+                capabilities=["power"],
+                source_device_id="runtime-device",
+            )
+        ]
+
+
+class FakeSyncStatesUseCase:
+    """Sync states use case used to verify invocation factory wiring."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def execute(self):
+        """Record invocation and return a fixed response."""
+        self.calls += 1
+        return type(
+            "FakeSyncStatesResult",
+            (),
+            {
+                "status": 200,
+                "headers": {},
+                "body": {
+                    "schema_version": "2026.06",
+                    "data": {
+                        "states": [{"entity_id": "light.factory"}],
+                        "read_path": "logical_devices",
+                    },
+                    "warnings": [],
+                    "errors": [],
+                },
+            },
+        )()
+
+
+class FakeDiagnosticSyncStatesGateway:
+    """Sync states gateway with an unsupported diagnostic entity."""
+
+    def __init__(self) -> None:
+        self.calls = 0
+
+    async def list_states(self) -> list[EntityStateSnapshot]:
+        """Return an unsupported entity snapshot."""
+        self.calls += 1
+        return [
+            EntityStateSnapshot(
+                entity_id="camera.runtime",
+                state="idle",
+                attributes={"friendly_name": "Runtime Camera"},
+                name="Runtime Camera",
+                domain="camera",
+                device_class="unknown_device",
+                capabilities=[],
+                status="online",
+                presentation={"card_template": "unknown_card"},
+            )
+        ]
+
+
+class FakeHistoryGateway:
+    """History gateway used to verify state sync bridge chart wiring."""
+
+    def __init__(self, states: list[object]) -> None:
+        self.states = states
+        self.calls: list[tuple[str, object, object, bool]] = []
+
+    async def query_states(
+        self,
+        entity_id: str,
+        start_time: object,
+        end_time: object,
+        *,
+        significant_changes_only: bool = False,
+    ) -> list[object]:
+        """Record the history query and return configured states."""
+        self.calls.append((entity_id, start_time, end_time, significant_changes_only))
+        return self.states
+
+
+class FakeRawDiagnosticRecorder:
+    """Raw diagnostic recorder used to verify setup runtime wiring."""
+
+    def __init__(self) -> None:
+        self.payloads: dict[str, dict] = {}
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict) -> None:
+        """Record raw diagnostic payloads."""
+        self.payloads[raw_ref] = payload
+
+
+@pytest.mark.asyncio
+async def test_state_sync_bridge_chart_uses_injected_history_gateway_factory(
+    mock_hass,
+) -> None:
+    """State sync bridge charts use the injected history gateway factory."""
+    entity_id = "sensor.temperature"
+    state = MagicMock()
+    state.state = "24.567"
+    state.attributes = {
+        "device_class": "temperature",
+        "unit_of_measurement": "°C",
+    }
+    state.last_changed = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+    state.last_updated = datetime(2026, 6, 26, 6, 0, 0, tzinfo=timezone.utc)
+    history_state = MagicMock()
+    history_state.state = "24.1"
+    history_state.last_updated.isoformat.return_value = "2026-06-26T04:00:00+00:00"
+    history_gateway = FakeHistoryGateway([history_state])
+    factory_calls: list[tuple[object, object]] = []
+
+    def history_gateway_factory(
+        hass_arg: object,
+        semaphore_factory_arg: object,
+    ) -> FakeHistoryGateway:
+        factory_calls.append((hass_arg, semaphore_factory_arg))
+        return history_gateway
+
+    registry = MagicMock()
+    registry.entities = {}
+    registry.async_get.return_value = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels=set(),
+        device_id=None,
+    )
+    mock_hass.states.get.return_value = state
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=registry):
+        snapshots = await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=[entity_id]),
+            history_gateway_factory=history_gateway_factory,
+        ).list_states()
+
+    assert len(factory_calls) == 1
+    assert factory_calls[0][0] is mock_hass
+    assert callable(factory_calls[0][1])
+    assert history_gateway.calls[0][0] == entity_id
+    assert history_gateway.calls[0][3] is True
+    assert snapshots[0].bridge_chart == {
+        "metric": "temperature",
+        "unit": "°C",
+        "points": [
+            {"at": "2026-06-26T04:00:00+00:00", "value": 24.1},
+            {"at": "2026-06-26T06:00:00+00:00", "value": 24.6},
+        ],
+    }
 
 
 class TestSmartlySyncView:
@@ -55,6 +274,19 @@ class TestSmartlySyncView:
         assert response.status == 500
 
     @pytest.mark.asyncio
+    async def test_integration_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test integration-not-configured returns API vNext envelope."""
+        mock_hass.data = {}
+        view = SmartlySyncView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _api_vnext_fixture("sync-structure-integration-not-configured.json")
+
+    @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
         """Test authentication failure."""
         with patch(
@@ -67,6 +299,22 @@ class TestSmartlySyncView:
             response = await view.get()
 
             assert response.status == 401
+
+    @pytest.mark.asyncio
+    async def test_auth_failure_returns_api_vnext_envelope(self, mock_request):
+        """Test authentication failure returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlySyncView(mock_request)
+            response = await view.get()
+
+            assert response.status == 401
+            data = json.loads(response.body)
+            assert data == _api_vnext_fixture("sync-structure-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
@@ -86,39 +334,177 @@ class TestSmartlySyncView:
             assert response.status == 429
 
     @pytest.mark.asyncio
-    async def test_successful_sync(self, mock_request, mock_hass):
-        """Test successful sync request."""
+    async def test_rate_limited_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test rate limiting returns API vNext envelope."""
         with patch(
             "custom_components.smartly_bridge.views.sync.verify_request",
             new_callable=AsyncMock,
         ) as mock_verify:
             mock_verify.return_value = AuthResult(success=True, client_id="test")
 
-            with patch(
-                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
-                return_value=["light.kitchen", "switch.bedroom"],
-            ):
-                with patch(
-                    "custom_components.smartly_bridge.views.sync.get_structure",
-                    return_value={
-                        "entities": [
-                            {"entity_id": "light.kitchen", "name": "Kitchen Light"},
-                            {"entity_id": "switch.bedroom", "name": "Bedroom Switch"},
-                        ],
-                        "areas": [],
-                        "devices": [],
-                        "floors": [],
-                    },
-                ):
-                    view = SmartlySyncView(mock_request)
-                    response = await view.get()
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=False)
 
-                    assert response.status == 200
-                    import json
+            view = SmartlySyncView(mock_request)
+            response = await view.get()
 
-                    data = json.loads(response.body)
-                    assert "entities" in data
-                    assert len(data["entities"]) == 2
+            assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == _api_vnext_fixture("sync-structure-rate-limit.json")
+
+    def test_build_sync_structure_reads_gateway_payload(self):
+        """Sync structure invocation adapter reads the gateway structure."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_structure
+
+        gateway = FakeSyncStructureGateway()
+
+        result = _build_sync_structure(gateway)
+
+        assert result.status == 200
+        assert gateway.calls == 1
+        assert "entities" not in result.body
+        assert result.body["data"]["entities"] == [
+            {"entity_id": "light.runtime", "name": "Runtime Light"}
+        ]
+        assert result.body["data"]["device_count"] == 0
+
+    def test_build_sync_structure_uses_injected_use_case_factory(self):
+        """Sync structure invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_structure
+
+        gateway = FakeSyncStructureGateway()
+        use_case = FakeSyncStructureUseCase()
+        factory_calls = []
+
+        def use_case_factory(received_gateway):
+            factory_calls.append(received_gateway)
+            return use_case
+
+        result = _build_sync_structure(
+            gateway,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [gateway]
+        assert use_case.calls == 1
+        assert result.body["entities"] == [{"entity_id": "light.factory"}]
+
+    def test_home_assistant_sync_structure_gateway_factory_builds_runtime_gateway(self, mock_hass):
+        """Home Assistant sync structure factory builds the runtime adapter type."""
+        gateway = _home_assistant_sync_structure_gateway(mock_hass)
+
+        assert isinstance(gateway, HomeAssistantSyncGateway)
+
+    def test_home_assistant_sync_states_gateway_factory_builds_runtime_gateway(self, mock_hass):
+        """Home Assistant sync states factory builds the runtime adapter type."""
+        gateway = _home_assistant_sync_states_gateway(mock_hass)
+
+        assert isinstance(gateway, HomeAssistantStateSyncGateway)
+
+    def test_sync_structure_gateway_resolver_uses_runtime_gateway(self, mock_hass):
+        """Sync structure gateway resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.views.sync import _sync_structure_gateway
+
+        gateway = FakeSyncStructureGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": gateway,
+        }
+
+        result = _sync_structure_gateway(mock_hass)
+
+        assert result is gateway
+
+    @pytest.mark.asyncio
+    async def test_successful_sync(self, mock_request, mock_hass):
+        """Test successful sync request."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": FakeSyncStructureGateway(),
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            view = SmartlySyncView(mock_request)
+            response = await view.get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert "entities" not in data
+        assert data["data"]["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
+
+    @pytest.mark.asyncio
+    async def test_successful_sync_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Structure sync executes through the setup-created sync gateway."""
+        gateway = FakeSyncStructureGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert gateway.calls == 1
+        assert "entities" not in data
+        assert data["data"]["entities"] == [{"entity_id": "light.runtime", "name": "Runtime Light"}]
+
+    @pytest.mark.asyncio
+    async def test_structure_sync_requires_setup_runtime_gateway(self, mock_request, mock_hass):
+        """Structure sync rejects requests when the setup runtime gateway is missing."""
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncView(mock_request).get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _api_vnext_fixture("sync-structure-gateway-unavailable.json")
+        assert "sync_structure_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_successful_sync_echoes_request_correlation_headers(
+        self, mock_request, mock_hass
+    ):
+        """Structure sync vNext envelope exposes request/correlation IDs."""
+        gateway = FakeSyncStructureGateway()
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-sync-1",
+            "X-Correlation-Id": "corr-sync-1",
+        }
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_structure_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-sync-1"
+        assert data["correlation_id"] == "corr-sync-1"
 
 
 class TestSmartlySyncStatesView:
@@ -127,6 +513,8 @@ class TestSmartlySyncStatesView:
     @pytest.fixture
     def mock_hass(self):
         """Create mock Home Assistant instance."""
+        from custom_components.smartly_bridge.views import sync as sync_views
+
         hass = MagicMock()
         hass.data = {
             DOMAIN: {
@@ -139,6 +527,18 @@ class TestSmartlySyncStatesView:
                 ),
                 "nonce_cache": NonceCache(),
                 "rate_limiter": RateLimiter(60, 60),
+                "runtime_adapters": {
+                    "sync_states_gateway": _home_assistant_sync_states_gateway(
+                        hass,
+                        allowed_entities_fn=lambda hass_arg, entity_registry: (
+                            sync_views.get_allowed_entities(
+                                hass_arg,
+                                entity_registry,
+                            )
+                        ),
+                    ),
+                    "raw_diagnostic_store": FakeRawDiagnosticRecorder(),
+                },
             }
         }
         return hass
@@ -163,6 +563,19 @@ class TestSmartlySyncStatesView:
         assert response.status == 500
 
     @pytest.mark.asyncio
+    async def test_integration_not_configured_returns_api_vnext_envelope(
+        self, mock_request, mock_hass
+    ):
+        """Test states integration-not-configured returns API vNext envelope."""
+        mock_hass.data = {}
+        view = SmartlySyncStatesView(mock_request)
+        response = await view.get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _api_vnext_fixture("sync-states-integration-not-configured.json")
+
+    @pytest.mark.asyncio
     async def test_auth_failure(self, mock_request):
         """Test authentication failure."""
         with patch(
@@ -175,6 +588,22 @@ class TestSmartlySyncStatesView:
             response = await view.get()
 
             assert response.status == 401
+
+    @pytest.mark.asyncio
+    async def test_auth_failure_returns_api_vnext_envelope(self, mock_request):
+        """Test states authentication failure returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=False, error="invalid_signature")
+
+            view = SmartlySyncStatesView(mock_request)
+            response = await view.get()
+
+            assert response.status == 401
+            data = json.loads(response.body)
+            assert data == _api_vnext_fixture("sync-states-auth-failure.json")
 
     @pytest.mark.asyncio
     async def test_rate_limited(self, mock_request, mock_hass):
@@ -192,6 +621,85 @@ class TestSmartlySyncStatesView:
             response = await view.get()
 
             assert response.status == 429
+
+    @pytest.mark.asyncio
+    async def test_rate_limited_returns_api_vnext_envelope(self, mock_request, mock_hass):
+        """Test states rate limiting returns API vNext envelope."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            rate_limiter = mock_hass.data[DOMAIN]["rate_limiter"]
+            rate_limiter.check = AsyncMock(return_value=False)
+
+            view = SmartlySyncStatesView(mock_request)
+            response = await view.get()
+
+            assert response.status == 429
+            assert response.headers["Retry-After"] == "60"
+            assert response.headers["X-RateLimit-Remaining"] == "0"
+            data = json.loads(response.body)
+            assert data == _api_vnext_fixture("sync-states-rate-limit.json")
+
+    @pytest.mark.asyncio
+    async def test_build_sync_states_forwards_read_path_and_raw_recorder(self):
+        """Sync states invocation adapter forwards read path and raw recorder."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_states
+
+        gateway = FakeDiagnosticSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+
+        result = await _build_sync_states(
+            gateway,
+            use_logical_devices=True,
+            raw_diagnostic_recorder=recorder,
+        )
+
+        raw_ref = "raw_ldev_camera_runtime"
+        assert result.status == 200
+        assert gateway.calls == 1
+        assert result.body["data"]["read_path"] == "logical_devices"
+        assert result.body["data"]["logical_devices"][0]["raw_refs"][0]["raw_ref"] == raw_ref
+        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == ("camera.runtime")
+
+    @pytest.mark.asyncio
+    async def test_build_sync_states_uses_injected_use_case_factory(self):
+        """Sync states invocation adapter accepts an injected use-case factory."""
+        from custom_components.smartly_bridge.views.sync import _build_sync_states
+
+        gateway = FakeSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+        use_case = FakeSyncStatesUseCase()
+        factory_calls = []
+
+        def use_case_factory(
+            received_gateway,
+            *,
+            use_logical_devices,
+            raw_diagnostic_recorder,
+        ):
+            factory_calls.append(
+                (
+                    received_gateway,
+                    use_logical_devices,
+                    raw_diagnostic_recorder,
+                )
+            )
+            return use_case
+
+        result = await _build_sync_states(
+            gateway,
+            use_logical_devices=True,
+            raw_diagnostic_recorder=recorder,
+            use_case_factory=use_case_factory,
+        )
+
+        assert result.status == 200
+        assert factory_calls == [(gateway, True, recorder)]
+        assert use_case.calls == 1
+        assert result.body["data"]["states"] == [{"entity_id": "light.factory"}]
 
     @pytest.mark.asyncio
     async def test_successful_states_sync(self, mock_request, mock_hass):
@@ -259,21 +767,336 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    assert "states" in data
-                    assert data["count"] == 2
-                    assert len(data["states"]) == 2
+                    assert "states" not in data
+                    assert data["data"]["count"] == 2
+                    assert len(data["data"]["states"]) == 2
 
                     # Verify first state with custom icon
-                    state1 = next(s for s in data["states"] if s["entity_id"] == "light.kitchen")
+                    state1 = next(
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.kitchen"
+                    )
                     assert state1["state"] == "on"
                     assert state1["attributes"]["brightness"] == 255
                     assert state1["last_changed"] is not None
                     assert state1["icon"] == "mdi:lightbulb"  # Custom icon is returned
 
                     # Verify second state with fallback to original_icon
-                    state2 = next(s for s in data["states"] if s["entity_id"] == "switch.bedroom")
+                    state2 = next(
+                        s for s in data["data"]["states"] if s["entity_id"] == "switch.bedroom"
+                    )
                     assert state2["state"] == "off"
                     assert state2["icon"] == "mdi:toggle-switch"  # Fallback to original_icon
+
+    @pytest.mark.asyncio
+    async def test_successful_states_sync_uses_setup_runtime_gateway(self, mock_request, mock_hass):
+        """State sync executes through the setup-created sync states gateway."""
+        gateway = FakeSyncStatesGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+            "raw_diagnostic_store": FakeRawDiagnosticRecorder(),
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert gateway.calls == 1
+        assert data["data"]["states"][0]["entity_id"] == "light.runtime"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_requires_setup_runtime_gateway(self, mock_request, mock_hass):
+        """State sync rejects requests when the setup runtime gateway is missing."""
+        recorder = FakeRawDiagnosticRecorder()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _api_vnext_fixture("sync-states-gateway-unavailable.json")
+        assert "sync_states_gateway" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        assert mock_hass.data[DOMAIN]["runtime_adapters"]["raw_diagnostic_store"] is recorder
+
+    def test_sync_states_gateway_resolver_uses_runtime_gateway(self, mock_hass):
+        """Sync states gateway resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.views.sync import _sync_states_gateway
+
+        gateway = FakeSyncStatesGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+        }
+
+        result = _sync_states_gateway(mock_hass)
+
+        assert result is gateway
+
+    def test_raw_diagnostic_recorder_resolver_uses_runtime_store(self, mock_hass):
+        """Raw diagnostic recorder resolver returns the setup-created runtime port."""
+        from custom_components.smartly_bridge.views.sync import _raw_diagnostic_recorder
+
+        recorder = FakeRawDiagnosticRecorder()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "raw_diagnostic_store": recorder,
+        }
+
+        result = _raw_diagnostic_recorder(mock_hass)
+
+        assert result is recorder
+
+    def test_raw_diagnostic_recorder_resolver_requires_runtime_store(self, mock_hass):
+        """Raw diagnostic recorder resolver requires a setup-created runtime store."""
+        from custom_components.smartly_bridge.views.sync import _raw_diagnostic_recorder
+
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {}
+
+        result = _raw_diagnostic_recorder(mock_hass)
+
+        assert result is None
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_states_sync_requires_setup_raw_diagnostic_store(self, mock_request, mock_hass):
+        """State sync rejects requests when the setup raw diagnostic store is missing."""
+        gateway = FakeSyncStatesGateway()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 500
+        data = json.loads(response.body)
+        assert data == _api_vnext_fixture("sync-states-raw-diagnostic-store-unavailable.json")
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_successful_states_sync_echoes_request_correlation_headers(
+        self, mock_request, mock_hass
+    ):
+        """State sync vNext envelope exposes request/correlation IDs."""
+        gateway = FakeSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+        mock_request.headers = {
+            "X-Client-Id": "test_client",
+            "X-Request-Id": "req-states-1",
+            "X-Correlation-Id": "corr-states-1",
+        }
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert data["request_id"] == "req-states-1"
+        assert data["correlation_id"] == "corr-states-1"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_records_raw_diagnostics_in_runtime_store(
+        self, mock_request, mock_hass
+    ):
+        """State sync stores diagnostic raw payloads through the setup runtime store."""
+        gateway = FakeDiagnosticSyncStatesGateway()
+        recorder = FakeRawDiagnosticRecorder()
+        mock_hass.data[DOMAIN]["runtime_adapters"] = {
+            "sync_states_gateway": gateway,
+            "raw_diagnostic_store": recorder,
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        raw_ref = "raw_ldev_camera_runtime"
+        assert gateway.calls == 1
+        assert data["data"]["logical_devices"][0]["raw_refs"] == [
+            {
+                "raw_ref": raw_ref,
+                "kind": "normalization_diagnostic",
+                "source": "home_assistant",
+                "entity_ids": ["camera.runtime"],
+            }
+        ]
+        assert "raw_payload" not in data["data"]["logical_devices"][0]
+        assert recorder.payloads[raw_ref]["source_entities"][0]["entity_id"] == ("camera.runtime")
+
+    @pytest.mark.asyncio
+    async def test_states_sync_uses_logical_device_read_path_when_enabled(
+        self, mock_request, mock_hass
+    ):
+        """The sync states endpoint can advertise the logical-device read path."""
+        mock_hass.data[DOMAIN]["config_entry"].data["use_logical_devices"] = True
+
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["light.desk"],
+            ):
+                mock_entry = MagicMock(icon=None, original_icon=None, labels={"smartly"})
+                mock_state = MagicMock(
+                    state="on",
+                    attributes={"friendly_name": "Desk Light", "brightness": 128},
+                    last_changed=datetime(2026, 1, 8, 10, 0, 0, tzinfo=timezone.utc),
+                    last_updated=datetime(2026, 1, 8, 10, 5, 0, tzinfo=timezone.utc),
+                )
+                mock_hass.states.get = lambda entity_id: (
+                    mock_state if entity_id == "light.desk" else None
+                )
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = lambda entity_id: (
+                        mock_entry if entity_id == "light.desk" else None
+                    )
+                    mock_er_get.return_value = mock_registry
+
+                    response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+        assert "read_path" not in data
+        assert "device_count" not in data
+        assert "devices" not in data
+        assert "states" not in data
+        assert "logical_devices" not in data
+        assert data["data"]["read_path"] == "logical_devices"
+        assert data["data"]["device_count"] == 1
+        assert data["data"]["devices"] == data["data"]["logical_devices"]
+        assert data["data"]["states"][0]["entity_id"] == "light.desk"
+
+    @pytest.mark.asyncio
+    async def test_states_sync_groups_logical_devices_by_registry_device_id(
+        self, mock_request, mock_hass
+    ):
+        """Shadow logical devices group sibling entities by HA registry device ID."""
+        with patch(
+            "custom_components.smartly_bridge.views.sync.verify_request",
+            new_callable=AsyncMock,
+        ) as mock_verify:
+            mock_verify.return_value = AuthResult(success=True, client_id="test")
+
+            with patch(
+                "custom_components.smartly_bridge.views.sync.get_allowed_entities",
+                return_value=["light.desk", "button.desk_scene"],
+            ):
+                shared_device_id = "ha-device-1"
+                mock_light_entry = MagicMock(
+                    icon=None,
+                    original_icon=None,
+                    labels={"smartly"},
+                    device_id=shared_device_id,
+                )
+                mock_button_entry = MagicMock(
+                    icon=None,
+                    original_icon=None,
+                    labels={"smartly"},
+                    device_id=shared_device_id,
+                )
+                mock_light_state = MagicMock(
+                    state="on",
+                    attributes={
+                        "friendly_name": "Desk Light",
+                        "brightness": 128,
+                    },
+                    last_changed=datetime(2026, 1, 8, 10, 0, 0, tzinfo=timezone.utc),
+                    last_updated=datetime(2026, 1, 8, 10, 5, 0, tzinfo=timezone.utc),
+                )
+                mock_button_state = MagicMock(
+                    state="idle",
+                    attributes={"friendly_name": "Desk Scene"},
+                    last_changed=datetime(2026, 1, 8, 10, 1, 0, tzinfo=timezone.utc),
+                    last_updated=datetime(2026, 1, 8, 10, 1, 0, tzinfo=timezone.utc),
+                )
+
+                states = {
+                    "light.desk": mock_light_state,
+                    "button.desk_scene": mock_button_state,
+                }
+                entries = {
+                    "light.desk": mock_light_entry,
+                    "button.desk_scene": mock_button_entry,
+                }
+                mock_hass.states.get = lambda entity_id: states.get(entity_id)
+
+                with patch("homeassistant.helpers.entity_registry.async_get") as mock_er_get:
+                    mock_registry = MagicMock()
+                    mock_registry.async_get = lambda entity_id: entries.get(entity_id)
+                    mock_registry.entities = entries
+                    mock_er_get.return_value = mock_registry
+
+                    response = await SmartlySyncStatesView(mock_request).get()
+
+        assert response.status == 200
+        data = json.loads(response.body)
+
+        assert [device["id"] for device in data["data"]["logical_devices"]] == ["ldev_ha_device_1"]
+        logical_device = data["data"]["logical_devices"][0]
+        assert logical_device["source_entities"] == ["light.desk", "button.desk_scene"]
+        assert [capability["type"] for capability in logical_device["capabilities"]] == [
+            "power",
+            "brightness",
+            "button_event",
+            "button_press",
+        ]
+        assert logical_device["capabilities"][2]["source_refs"] == [
+            {
+                "source": "home_assistant",
+                "source_device_id": shared_device_id,
+                "source_entity_id": "button.desk_scene",
+                "domain": "button",
+                "role": "event_source",
+                "capability_types": ["button_event"],
+            }
+        ]
+        assert logical_device["capabilities"][3]["source_refs"] == [
+            {
+                "source": "home_assistant",
+                "source_device_id": shared_device_id,
+                "source_entity_id": "button.desk_scene",
+                "domain": "button",
+                "role": "primary_control",
+                "capability_types": ["button_press"],
+            }
+        ]
 
     @pytest.mark.asyncio
     async def test_states_sync_serializes_datetime_attributes(self, mock_request, mock_hass):
@@ -315,7 +1138,7 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    state = data["states"][0]
+                    state = data["data"]["states"][0]
                     assert state["attributes"]["last_triggered"] == last_triggered.isoformat()
 
     @pytest.mark.asyncio
@@ -428,7 +1251,7 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    sensor_state = data["states"][0]
+                    sensor_state = data["data"]["states"][0]
 
                     assert sensor_state["device_class"] == "environment_sensor"
                     assert "bridge_chart" not in sensor_state
@@ -491,7 +1314,7 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    chart = data["states"][0]["attributes"]["bridge_chart"]
+                    chart = data["data"]["states"][0]["attributes"]["bridge_chart"]
 
                     assert chart["points"] == [
                         {"at": "2026-06-26T00:00:00+00:00", "value": 24.1},
@@ -611,8 +1434,8 @@ class TestSmartlySyncStatesView:
 
                     data = json.loads(response.body)
                     # Should only include entities with states
-                    assert data["count"] == 2
-                    assert len(data["states"]) == 2
+                    assert data["data"]["count"] == 2
+                    assert len(data["data"]["states"]) == 2
 
     @pytest.mark.asyncio
     async def test_states_sync_empty_allowed_entities(self, mock_request, mock_hass):
@@ -634,8 +1457,8 @@ class TestSmartlySyncStatesView:
                 import json
 
                 data = json.loads(response.body)
-                assert data["count"] == 0
-                assert len(data["states"]) == 0
+                assert data["data"]["count"] == 0
+                assert len(data["data"]["states"]) == 0
 
     @pytest.mark.asyncio
     async def test_states_sync_icon_priority(self, mock_request, mock_hass):
@@ -721,24 +1544,24 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    assert data["count"] == 3
-                    assert len(data["states"]) == 3
+                    assert data["data"]["count"] == 3
+                    assert len(data["data"]["states"]) == 3
 
                     # Check priority 1: state icon
                     state_1 = next(
-                        s for s in data["states"] if s["entity_id"] == "light.state_icon"
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.state_icon"
                     )
                     assert state_1["icon"] == "mdi:lightbulb-on"
 
                     # Check priority 2: custom registry icon
                     state_2 = next(
-                        s for s in data["states"] if s["entity_id"] == "light.custom_icon"
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.custom_icon"
                     )
                     assert state_2["icon"] == "mdi:custom-icon"
 
                     # Check priority 3: original registry icon
                     state_3 = next(
-                        s for s in data["states"] if s["entity_id"] == "light.original_icon"
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.original_icon"
                     )
                     assert state_3["icon"] == "mdi:original-icon"
 
@@ -817,19 +1640,21 @@ class TestSmartlySyncStatesView:
                     import json
 
                     data = json.loads(response.body)
-                    assert data["count"] == 3
+                    assert data["data"]["count"] == 3
 
                     # Check default icons
                     switch_state = next(
-                        s for s in data["states"] if s["entity_id"] == "switch.test"
+                        s for s in data["data"]["states"] if s["entity_id"] == "switch.test"
                     )
                     assert switch_state["icon"] == "mdi:toggle-switch-outline"
 
-                    light_state = next(s for s in data["states"] if s["entity_id"] == "light.test")
+                    light_state = next(
+                        s for s in data["data"]["states"] if s["entity_id"] == "light.test"
+                    )
                     assert light_state["icon"] == "mdi:lightbulb-outline"
 
                     camera_state = next(
-                        s for s in data["states"] if s["entity_id"] == "camera.test"
+                        s for s in data["data"]["states"] if s["entity_id"] == "camera.test"
                     )
                     assert camera_state["icon"] == "mdi:camera"
 
@@ -957,33 +1782,35 @@ class TestSmartlySyncStatesView:
                 import json
 
                 data = json.loads(response.body)
-                assert data["count"] == 5
+                assert data["data"]["count"] == 5
 
                 # Check voltage: 2 decimal places (V)
                 voltage_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.voltage"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.voltage"
                 )
                 assert voltage_state["state"] == "115.7"
 
                 # Check current (mA): 1 decimal place
                 current_ma_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.current_ma"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.current_ma"
                 )
                 assert current_ma_state["state"] == "35.0"
 
                 # Check current (A): 3 decimal places
                 current_a_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.current_a"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.current_a"
                 )
                 assert current_a_state["state"] == "0.457"
 
                 # Check power: 2 decimal places (W)
-                power_state = next(s for s in data["states"] if s["entity_id"] == "sensor.power")
+                power_state = next(
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.power"
+                )
                 assert power_state["state"] == "0.8"
 
                 # Check temperature: 1 decimal place
                 temp_state = next(
-                    s for s in data["states"] if s["entity_id"] == "sensor.temperature"
+                    s for s in data["data"]["states"] if s["entity_id"] == "sensor.temperature"
                 )
                 assert temp_state["state"] == "25.6"
 
@@ -1083,9 +1910,163 @@ async def test_state_sync_includes_light_card_capability_metadata(mock_hass):
 
     assert payload["domain"] == "light"
     assert payload["device_class"] == "smart_light"
-    assert payload["capabilities"] == ["on_off", "brightness", "color_temp"]
+    assert payload["capabilities"] == ["on_off", "brightness", "color_temperature"]
     assert payload["presentation"]["card_template"] == "light_card"
     assert payload["presentation"]["primary_metric"] == "brightness"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_includes_cover_tilt_capability_metadata(mock_hass):
+    """Covers with tilt metadata expose tilt position as a control capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "cover.living_blind",
+        _state(
+            "open",
+            {
+                "friendly_name": "Living Blind",
+                "current_position": 80,
+                "current_tilt_position": 35,
+            },
+        ),
+    )
+
+    assert payload["domain"] == "cover"
+    assert payload["device_class"] == "cover_control"
+    assert payload["capabilities"] == [
+        "open_close",
+        "position",
+        "tilt_position",
+        "stop",
+    ]
+    assert payload["presentation"]["card_template"] == "cover_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_includes_climate_preset_mode_capability_metadata(mock_hass):
+    """Climate preset metadata is exposed as a canonical preset mode capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "climate.living_room",
+        _state(
+            "cool",
+            {
+                "friendly_name": "Living Room AC",
+                "temperature": 24,
+                "hvac_mode": "cool",
+                "hvac_modes": ["off", "cool", "heat"],
+                "preset_mode": "eco",
+                "preset_modes": ["eco", "comfort", "sleep"],
+            },
+        ),
+    )
+
+    assert payload["domain"] == "climate"
+    assert payload["device_class"] == "climate_control"
+    assert payload["capabilities"] == [
+        "target_temperature",
+        "hvac_mode",
+        "preset_mode",
+    ]
+    assert payload["presentation"]["card_template"] == "climate_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_includes_climate_swing_mode_capability_metadata(mock_hass):
+    """Climate swing metadata is exposed as a canonical swing mode capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "climate.living_room",
+        _state(
+            "cool",
+            {
+                "friendly_name": "Living Room AC",
+                "temperature": 24,
+                "hvac_mode": "cool",
+                "hvac_modes": ["off", "cool", "heat"],
+                "swing_mode": "vertical",
+                "swing_modes": ["off", "vertical", "horizontal"],
+            },
+        ),
+    )
+
+    assert payload["domain"] == "climate"
+    assert payload["device_class"] == "climate_control"
+    assert payload["capabilities"] == [
+        "target_temperature",
+        "hvac_mode",
+        "swing_mode",
+    ]
+    assert payload["presentation"]["card_template"] == "climate_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_includes_climate_temperature_range_capability_metadata(mock_hass):
+    """Climate heat/cool range metadata is exposed as a canonical range capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "climate.living_room",
+        _state(
+            "heat_cool",
+            {
+                "friendly_name": "Living Room AC",
+                "target_temp_low": 22,
+                "target_temp_high": 26,
+                "hvac_mode": "heat_cool",
+                "hvac_modes": ["off", "cool", "heat", "heat_cool"],
+            },
+        ),
+    )
+
+    assert payload["domain"] == "climate"
+    assert payload["device_class"] == "climate_control"
+    assert payload["capabilities"] == [
+        "target_temperature_range",
+        "hvac_mode",
+    ]
+    assert payload["presentation"]["card_template"] == "climate_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_includes_fan_direction_capability_metadata(mock_hass):
+    """Fan direction metadata is exposed as a canonical direction capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "fan.bedroom",
+        _state(
+            "on",
+            {
+                "friendly_name": "Bedroom Fan",
+                "direction": "forward",
+            },
+        ),
+    )
+
+    assert payload["domain"] == "fan"
+    assert payload["device_class"] == "fan_control"
+    assert payload["capabilities"] == ["on_off", "fan_direction"]
+    assert payload["presentation"]["card_template"] == "control_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_includes_fan_oscillation_capability_metadata(mock_hass):
+    """Fan oscillation metadata is exposed as a canonical oscillation capability."""
+    payload = await _state_payload(
+        mock_hass,
+        "fan.bedroom",
+        _state(
+            "on",
+            {
+                "friendly_name": "Bedroom Fan",
+                "oscillating": True,
+            },
+        ),
+    )
+
+    assert payload["domain"] == "fan"
+    assert payload["device_class"] == "fan_control"
+    assert payload["capabilities"] == ["on_off", "fan_oscillation"]
+    assert payload["presentation"]["card_template"] == "control_card"
 
 
 @pytest.mark.asyncio
@@ -1325,3 +2306,115 @@ async def test_state_sync_respects_safe_smartly_class_label_override(mock_hass):
     assert payload["device_class"] == "fan_control"
     assert payload["capabilities"] == ["on_off"]
     assert payload["presentation"]["card_template"] == "control_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_label_trace_reports_accepted_class_override(mock_hass):
+    """Label trace records accepted smartly.class override decisions."""
+    entry = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels={"smartly", "smartly.class.fan_control"},
+    )
+    mock_hass.states.get = MagicMock(return_value=_state("off", {"friendly_name": "Fan Switch"}))
+    mock_registry = MagicMock()
+    mock_registry.async_get.return_value = entry
+
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry),
+        patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states,
+    ):
+        mock_query_states.return_value = []
+        snapshots = await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=["switch.fan"]),
+        ).list_states()
+
+    assert snapshots[0].device_class == "fan_control"
+    assert snapshots[0].diagnostics["label_trace"]["entities"][0]["class_override"] == {
+        "label": "smartly.class.fan_control",
+        "accepted": True,
+        "resolved_device_class": "fan_control",
+        "reason": "override compatible with switch capability shape",
+    }
+
+
+@pytest.mark.asyncio
+async def test_state_sync_label_trace_rejects_unsafe_class_override(mock_hass):
+    """Label trace explains rejected class overrides without changing safe normalization."""
+    entry = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels={
+            "smartly",
+            "smartly.hidden",
+            "smartly.class.smart_light",
+            "smartly.group.lab",
+            "smartly.favorite",
+            "smartly.dashboard",
+        },
+        device_id="ha-device-lab",
+    )
+    mock_hass.states.get = MagicMock(
+        return_value=_state(
+            "off",
+            {
+                "friendly_name": "Fan Switch",
+                "access_token": "ha-token-123",
+                "endpoint": "http://192.168.1.8/api",
+                "client_secret": "secret-value",
+            },
+        )
+    )
+    mock_registry = MagicMock()
+    mock_registry.entities = {"switch.fan": entry}
+    mock_registry.async_get.return_value = entry
+
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry),
+        patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states,
+    ):
+        mock_query_states.return_value = []
+        result = await SyncStatesUseCase(
+            HomeAssistantStateSyncGateway(
+                mock_hass,
+                allowed_entities_fn=MagicMock(return_value=["switch.fan"]),
+            )
+        ).execute()
+
+    logical_device = result.body["data"]["logical_devices"][0]
+    assert logical_device["device_class"] == "switch_control"
+    assert logical_device["diagnostics"]["label_trace"] == {
+        "source": "home_assistant",
+        "entities": [
+            {
+                "source_entity_id": "switch.fan",
+                "exposed": True,
+                "exposed_by": "smartly",
+                "hidden": True,
+                "class_override": {
+                    "label": "smartly.class.smart_light",
+                    "accepted": False,
+                    "resolved_device_class": "simple_switch",
+                    "reason": "override incompatible with switch capability shape",
+                },
+                "group": {
+                    "label": "smartly.group.lab",
+                    "resolved_group_key": "lab",
+                },
+                "presentation_hints": ["smartly.dashboard", "smartly.favorite"],
+            }
+        ],
+    }
+    encoded = json.dumps(result.body)
+    assert "ha-token-123" not in encoded
+    assert "secret-value" not in encoded
+    assert "192.168.1.8" not in encoded

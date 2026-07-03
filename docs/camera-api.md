@@ -128,7 +128,19 @@ ETag: "a3f8b2c1d4e5f6..."
 
 ```json
 {
-  "error": "invalid_entity_id"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_ENTITY_ID",
+      "message": "invalid entity id",
+      "target": "camera.entity_id",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -202,7 +214,19 @@ Content-Length: 12678
 
 ```json
 {
-  "error": "invalid_entity_id"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_ENTITY_ID",
+      "message": "invalid entity id",
+      "target": "camera.entity_id",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -241,60 +265,65 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "cameras": [
-    {
-      "entity_id": "camera.front_door",
-      "name": "前門攝影機",
-      "state": "idle",
-      "is_streaming": false,
-      "brand": "Hikvision",
-      "model": "DS-2CD2085G1",
-      "supported_features": 3,
-      "capabilities": {
-        "snapshot": true,
-        "mjpeg": true,
-        "hls": true,
-        "webrtc": true
+  "schema_version": "2026.06",
+  "data": {
+    "cameras": [
+      {
+        "entity_id": "camera.front_door",
+        "name": "前門攝影機",
+        "state": "idle",
+        "is_streaming": false,
+        "brand": "Hikvision",
+        "model": "DS-2CD2085G1",
+        "supported_features": 3,
+        "capabilities": {
+          "snapshot": true,
+          "mjpeg": true,
+          "hls": true,
+          "webrtc": true
+        },
+        "endpoints": {
+          "snapshot": "/api/smartly/camera/camera.front_door/snapshot",
+          "mjpeg": "/api/smartly/camera/camera.front_door/stream",
+          "hls": "/api/smartly/camera/camera.front_door/stream/hls",
+          "webrtc": "/api/smartly/camera/camera.front_door/webrtc"
+        }
       },
-      "endpoints": {
-        "snapshot": "/api/smartly/camera/camera.front_door/snapshot",
-        "mjpeg": "/api/smartly/camera/camera.front_door/stream",
-        "hls": "/api/smartly/camera/camera.front_door/stream/hls",
-        "webrtc": "/api/smartly/camera/camera.front_door/webrtc"
+      {
+        "entity_id": "camera.backyard",
+        "name": "後院攝影機",
+        "state": "streaming",
+        "is_streaming": true,
+        "brand": "Dahua",
+        "model": "IPC-HFW5831E-Z5E",
+        "supported_features": 3,
+        "capabilities": {
+          "snapshot": true,
+          "mjpeg": true,
+          "hls": true,
+          "webrtc": true
+        },
+        "endpoints": {
+          "snapshot": "/api/smartly/camera/camera.backyard/snapshot",
+          "mjpeg": "/api/smartly/camera/camera.backyard/stream",
+          "hls": "/api/smartly/camera/camera.backyard/stream/hls",
+          "webrtc": "/api/smartly/camera/camera.backyard/webrtc"
+        }
       }
+    ],
+    "count": 2,
+    "cache_stats": {
+      "total_snapshots": 15,
+      "total_size_bytes": 3145728,
+      "hit_rate": 0.85
     },
-    {
-      "entity_id": "camera.backyard",
-      "name": "後院攝影機",
-      "state": "streaming",
-      "is_streaming": true,
-      "brand": "Dahua",
-      "model": "IPC-HFW5831E-Z5E",
-      "supported_features": 3,
-      "capabilities": {
-        "snapshot": true,
-        "mjpeg": true,
-        "hls": true,
-        "webrtc": true
-      },
-      "endpoints": {
-        "snapshot": "/api/smartly/camera/camera.backyard/snapshot",
-        "mjpeg": "/api/smartly/camera/camera.backyard/stream",
-        "hls": "/api/smartly/camera/camera.backyard/stream/hls",
-        "webrtc": "/api/smartly/camera/camera.backyard/webrtc"
-      }
+    "hls_stats": {
+      "active_streams": 1,
+      "total_sessions": 5
     }
-  ],
-  "count": 2,
-  "cache_stats": {
-    "total_snapshots": 15,
-    "total_size_bytes": 3145728,
-    "hit_rate": 0.85
   },
-  "hls_stats": {
-    "active_streams": 1,
-    "total_sessions": 5
-  }
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -333,7 +362,19 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "error": "invalid_signature"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_SIGNATURE",
+      "message": "invalid signature",
+      "target": "camera.auth",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -393,9 +434,14 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "success": true,
-  "action": "registered",
-  "entity_id": "camera.front_door"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "registered",
+    "action": "registered",
+    "entity_id": "camera.front_door"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -412,9 +458,14 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "success": true,
-  "action": "unregistered",
-  "entity_id": "camera.front_door"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "unregistered",
+    "action": "unregistered",
+    "entity_id": "camera.front_door"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -433,9 +484,14 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "success": true,
-  "action": "cache_cleared",
-  "cleared_count": 5
+  "schema_version": "2026.06",
+  "data": {
+    "status": "cache_cleared",
+    "action": "cache_cleared",
+    "cleared_count": 5
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -451,16 +507,21 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "cameras": [
-    {
-      "entity_id": "camera.front_door",
-      "name": "前門攝影機",
-      "has_snapshot_url": true,
-      "has_stream_url": true,
-      "has_credentials": true
-    }
-  ],
-  "count": 1
+  "schema_version": "2026.06",
+  "data": {
+    "cameras": [
+      {
+        "entity_id": "camera.front_door",
+        "name": "前門攝影機",
+        "has_snapshot_url": true,
+        "has_stream_url": true,
+        "has_credentials": true
+      }
+    ],
+    "count": 1
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -468,7 +529,19 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "error": "missing_action"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_ACTION",
+      "message": "missing action",
+      "target": "camera.action",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -524,20 +597,25 @@ X-Signature: a3f8b2c1d4e5f6...
 
 ```json
 {
-  "entity_id": "camera.front_door",
-  "hls_url": "/api/smartly/camera/camera.front_door/stream/hls/master.m3u8",
-  "master_playlist": "/api/smartly/camera/camera.front_door/stream/hls/master.m3u8",
-  "playlist": "/api/smartly/camera/camera.front_door/stream/hls/playlist.m3u8",
-  "init_segment": "/api/smartly/camera/camera.front_door/stream/hls/init.mp4",
-  "is_streaming": true,
-  "stream_id": "hls_1735228800_abc123",
-  "started_at": 1735228800.123,
-  "format": "fmp4",
-  "supported_features": {
-    "low_latency": true,
-    "partial_segments": true,
-    "preload_hints": false
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "entity_id": "camera.front_door",
+    "hls_url": "/api/smartly/camera/camera.front_door/stream/hls/master.m3u8",
+    "master_playlist": "/api/smartly/camera/camera.front_door/stream/hls/master.m3u8",
+    "playlist": "/api/smartly/camera/camera.front_door/stream/hls/playlist.m3u8",
+    "init_segment": "/api/smartly/camera/camera.front_door/stream/hls/init.mp4",
+    "is_streaming": true,
+    "stream_id": "hls_1735228800_abc123",
+    "started_at": 1735228800.123,
+    "format": "fmp4",
+    "supported_features": {
+      "low_latency": true,
+      "partial_segments": true,
+      "preload_hints": false
+    }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -572,18 +650,23 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=info HTTP/1.1
 
 ```json
 {
-  "entity_id": "camera.front_door",
-  "name": "前門攝影機",
-  "capabilities": {
-    "snapshot": true,
-    "mjpeg": true,
-    "hls": true,
-    "webrtc": false
+  "schema_version": "2026.06",
+  "data": {
+    "entity_id": "camera.front_door",
+    "name": "前門攝影機",
+    "capabilities": {
+      "snapshot": true,
+      "mjpeg": true,
+      "hls": true,
+      "webrtc": false
+    },
+    "hls_url": "/api/smartly/camera/camera.front_door/stream/hls/master.m3u8",
+    "mjpeg_url": "/api/smartly/camera/camera.front_door/stream",
+    "stream_source": "rtsp://192.168.1.100:554/stream",
+    "is_streaming": false
   },
-  "hls_url": "/api/smartly/camera/camera.front_door/stream/hls/master.m3u8",
-  "mjpeg_url": "/api/smartly/camera/camera.front_door/stream",
-  "stream_source": "rtsp://192.168.1.100:554/stream",
-  "is_streaming": false
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -603,8 +686,13 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stop HTTP/1.1
 
 ```json
 {
-  "success": true,
-  "action": "stopped"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "stopped",
+    "action": "stopped"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -612,8 +700,13 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stop HTTP/1.1
 
 ```json
 {
-  "success": false,
-  "action": "stopped"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "not_found",
+    "action": "stopped"
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -664,7 +757,19 @@ GET /api/smartly/camera/camera.front_door/stream/hls?action=stats HTTP/1.1
 
 ```json
 {
-  "error": "hls_not_supported"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "HLS_NOT_SUPPORTED",
+      "message": "hls not supported",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -732,8 +837,19 @@ Body: { session_id, candidate }
 
 ```json
 {
-  "error": "error_code",
-  "message": "人類可讀的錯誤訊息（可選）"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "ERROR_CODE",
+      "message": "人類可讀的錯誤訊息",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -766,7 +882,19 @@ X-RateLimit-Remaining: 0
 Content-Type: application/json
 
 {
-  "error": "rate_limited"
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RATE_LIMITED",
+      "message": "rate limited",
+      "target": "camera.rate_limit",
+      "retryable": false
+    }
+  ]
 }
 ```
 
@@ -805,11 +933,16 @@ If-None-Match: "a3f8b2c1d4e5f6..."
 
 ```json
 {
-  "cache_stats": {
-    "total_snapshots": 15,
-    "total_size_bytes": 3145728,
-    "hit_rate": 0.85
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "cache_stats": {
+      "total_snapshots": 15,
+      "total_size_bytes": 3145728,
+      "hit_rate": 0.85
+    }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -911,7 +1044,8 @@ async function playHLSStream(entityId) {
   
   // 啟動 HLS 串流
   const response = await fetch(`${baseUrl}${path}?action=start`, { headers });
-  const data = await response.json();
+  const envelope = await response.json();
+  const data = envelope.data;
   
   if (data.hls_url) {
     const video = document.getElementById('video');

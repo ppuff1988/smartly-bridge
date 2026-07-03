@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import json
 from datetime import datetime, timedelta, timezone
+from pathlib import Path
 
 import pytest
 
@@ -20,6 +22,23 @@ from custom_components.smartly_bridge.application.history import (
     encode_cursor,
     parse_datetime,
 )
+
+
+def _fixture(name: str) -> dict:
+    """Load an API vNext fixture."""
+    return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+
+
+def _assert_vnext_only_top_level(body: dict) -> None:
+    """Assert a response only exposes API vNext envelope fields at top-level."""
+    assert set(body) <= {
+        "schema_version",
+        "data",
+        "warnings",
+        "errors",
+        "request_id",
+        "correlation_id",
+    }
 
 
 def test_parse_datetime_accepts_iso8601_and_rejects_invalid_values() -> None:
@@ -41,11 +60,44 @@ def test_validate_time_range_rejects_large_and_reversed_ranges() -> None:
 
     assert too_large is not None
     assert too_large.status == 400
-    assert too_large.body == {"error": "time_range_too_large", "max_days": 30}
+    _assert_vnext_only_top_level(too_large.body)
+    assert too_large.body["schema_version"] == "2026.06"
+    assert too_large.body["data"] == {"status": "rejected"}
+    assert too_large.body["warnings"] == []
+    assert too_large.body["errors"] == [
+        {
+            "code": "TIME_RANGE_TOO_LARGE",
+            "message": "time range too large",
+            "target": "history.time_range",
+            "retryable": False,
+        }
+    ]
     assert reversed_range is not None
     assert reversed_range.status == 400
-    assert reversed_range.body == {"error": "invalid_time_range"}
+    _assert_vnext_only_top_level(reversed_range.body)
+    assert reversed_range.body["schema_version"] == "2026.06"
+    assert reversed_range.body["data"] == {"status": "rejected"}
+    assert reversed_range.body["warnings"] == []
+    assert reversed_range.body["errors"] == [
+        {
+            "code": "INVALID_TIME_RANGE",
+            "message": "invalid time range",
+            "target": "history.time_range",
+            "retryable": False,
+        }
+    ]
     assert planner.validate_time_range(start_time, start_time + timedelta(hours=1)) is None
+
+
+def test_time_range_too_large_response_matches_api_vnext_fixture() -> None:
+    """History time-range errors match the API vNext envelope contract."""
+    planner = HistoryQueryPlanner(max_duration_days=30)
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+
+    result = planner.validate_time_range(start_time, start_time + timedelta(days=31))
+
+    assert result is not None
+    assert result.body == _fixture("history-time-range-error.json")
 
 
 def test_parse_pagination_params_clamps_page_size_and_uses_page_extra_limit() -> None:
@@ -66,7 +118,7 @@ def test_parse_pagination_params_clamps_page_size_and_uses_page_extra_limit() ->
 
 
 def test_parse_pagination_params_keeps_unpaginated_short_ranges_unlimited() -> None:
-    """Legacy short-range queries keep the old effectively unlimited limit."""
+    """Short-range queries keep the current effectively unlimited limit."""
     planner = HistoryQueryPlanner(default_limit=500)
     start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
     end_time = start_time + timedelta(hours=2)
@@ -470,11 +522,37 @@ async def test_single_history_use_case_formats_gateway_states() -> None:
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.temperature"
-    assert result.body["count"] >= 2
-    assert result.body["metadata"]["device_class"] == "temperature"
-    assert result.body["metadata"]["friendly_name"] == "Room Temperature"
-    assert result.body["truncated"] is False
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["entity_id"] == "sensor.temperature"
+    assert result.body["data"]["count"] >= 2
+    assert result.body["data"]["metadata"]["device_class"] == "temperature"
+    assert result.body["data"]["metadata"]["friendly_name"] == "Room Temperature"
+    assert result.body["data"]["truncated"] is False
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_single_history_response_matches_api_vnext_fixture() -> None:
+    """Single history full response matches the API vNext envelope contract."""
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(hours=2)
+    use_case = SingleHistoryUseCase(FakeHistoryGateway())
+
+    result = await use_case.execute(
+        SingleHistoryQuery(
+            entity_id="sensor.temperature",
+            start_time=start_time,
+            end_time=end_time,
+            significant_changes_only=True,
+            limit=999999,
+            page_size=100,
+            use_pagination=False,
+        )
+    )
+
+    assert result.body == _fixture("history-single.json")
 
 
 @pytest.mark.asyncio
@@ -496,15 +574,41 @@ async def test_batch_history_use_case_formats_multiple_entities() -> None:
     )
 
     assert result.status == 200
-    assert result.body["history"]["sensor.temperature"][0]["state"] == 11.0
-    assert result.body["history"]["binary_sensor.door"][0]["state"] == "off"
-    assert result.body["count"] == {"sensor.temperature": 4, "binary_sensor.door": 2}
-    assert result.body["truncated"] == {
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["history"]["sensor.temperature"][0]["state"] == 11.0
+    assert result.body["data"]["history"]["binary_sensor.door"][0]["state"] == "off"
+    assert result.body["data"]["count"] == {"sensor.temperature": 4, "binary_sensor.door": 2}
+    assert result.body["data"]["truncated"] == {
         "sensor.temperature": False,
         "binary_sensor.door": False,
     }
-    assert result.body["denied_entities"] == ["sensor.denied"]
-    assert result.body["metadata"]["sensor.temperature"]["device_class"] == "temperature"
+    assert result.body["data"]["denied_entities"] == ["sensor.denied"]
+    assert result.body["data"]["metadata"]["sensor.temperature"]["device_class"] == "temperature"
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_batch_history_response_matches_api_vnext_fixture() -> None:
+    """Batch history full response matches the API vNext envelope contract."""
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(hours=2)
+    use_case = BatchHistoryUseCase(FakeBatchHistoryGateway())
+
+    result = await use_case.execute(
+        BatchHistoryQuery(
+            entity_ids=["sensor.temperature", "binary_sensor.door"],
+            denied_entity_ids=["sensor.denied"],
+            start_time=start_time,
+            end_time=end_time,
+            limit=999999,
+            significant_changes_only=True,
+        )
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("history-batch.json")
 
 
 @pytest.mark.asyncio
@@ -526,8 +630,9 @@ async def test_batch_history_use_case_marks_truncated_entities() -> None:
     )
 
     assert result.status == 200
-    assert result.body["count"] == {"sensor.temperature": 3}
-    assert result.body["truncated"] == {"sensor.temperature": True}
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["count"] == {"sensor.temperature": 3}
+    assert result.body["data"]["truncated"] == {"sensor.temperature": True}
 
 
 @pytest.mark.asyncio
@@ -547,10 +652,11 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.energy"
-    assert result.body["period"] == "hour"
-    assert result.body["count"] == 2
-    assert result.body["statistics"][0] == {
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["entity_id"] == "sensor.energy"
+    assert result.body["data"]["period"] == "hour"
+    assert result.body["data"]["count"] == 2
+    assert result.body["data"]["statistics"][0] == {
         "start": "2026-01-01T00:00:00+00:00",
         "end": "2026-01-01T01:00:00+00:00",
         "mean": 150.5,
@@ -558,13 +664,36 @@ async def test_statistics_use_case_formats_recorder_statistics() -> None:
         "max": 300.0,
         "sum": 3612.0,
     }
-    assert result.body["statistics"][1] == {
+    assert result.body["data"]["statistics"][1] == {
         "start": "2026-01-01T01:00:00+00:00",
         "end": None,
         "state": 180.0,
     }
-    assert result.body["start_time"] == start_time.isoformat()
-    assert result.body["end_time"] == end_time.isoformat()
+    assert result.body["data"]["start_time"] == start_time.isoformat()
+    assert result.body["data"]["end_time"] == end_time.isoformat()
+    assert result.body["schema_version"] == "2026.06"
+    assert result.body["warnings"] == []
+    assert result.body["errors"] == []
+
+
+@pytest.mark.asyncio
+async def test_statistics_response_matches_api_vnext_fixture() -> None:
+    """Statistics full response matches the API vNext envelope contract."""
+    start_time = datetime(2026, 1, 1, tzinfo=timezone.utc)
+    end_time = start_time + timedelta(hours=2)
+    use_case = StatisticsUseCase(FakeStatisticsGateway())
+
+    result = await use_case.execute(
+        StatisticsQuery(
+            entity_id="sensor.energy",
+            start_time=start_time,
+            end_time=end_time,
+            period="hour",
+        )
+    )
+
+    assert result.status == 200
+    assert result.body == _fixture("history-statistics.json")
 
 
 @pytest.mark.asyncio
@@ -587,10 +716,11 @@ async def test_single_history_use_case_counts_first_paginated_page() -> None:
     )
 
     assert result.status == 200
-    assert result.body["page_size"] == 1
-    assert result.body["has_more"] is True
-    assert result.body["total_count"] == 2
-    assert "next_cursor" in result.body
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["page_size"] == 1
+    assert result.body["data"]["has_more"] is True
+    assert result.body["data"]["total_count"] == 2
+    assert "next_cursor" in result.body["data"]
 
 
 @pytest.mark.asyncio
@@ -613,7 +743,8 @@ async def test_single_history_use_case_falls_back_when_count_fails() -> None:
     )
 
     assert result.status == 200
-    assert result.body["total_count"] == 2
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["total_count"] == 2
 
 
 @pytest.mark.asyncio
@@ -637,4 +768,5 @@ async def test_single_history_use_case_ignores_first_state_metadata_failure() ->
     )
 
     assert result.status == 200
-    assert result.body["entity_id"] == "sensor.temperature"
+    _assert_vnext_only_top_level(result.body)
+    assert result.body["data"]["entity_id"] == "sensor.temperature"

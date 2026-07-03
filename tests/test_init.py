@@ -26,11 +26,15 @@ class TestSetup:
         """Test async_setup_entry initializes correctly."""
         from custom_components.smartly_bridge import async_setup_entry
         from custom_components.smartly_bridge.auth import NonceCache
+        from custom_components.smartly_bridge.camera import CameraManager
         from custom_components.smartly_bridge.push import StatePushManager
+        from custom_components.smartly_bridge.webrtc import WebRTCTokenManager
 
         with (
             patch.object(NonceCache, "start", new_callable=AsyncMock),
             patch.object(StatePushManager, "start", new_callable=AsyncMock),
+            patch.object(CameraManager, "start", new_callable=AsyncMock),
+            patch.object(WebRTCTokenManager, "start", new_callable=AsyncMock),
             patch("custom_components.smartly_bridge.register_views"),
             patch("homeassistant.components.frontend.add_extra_js_url"),
         ):
@@ -49,11 +53,15 @@ class TestSetup:
         """Test async_setup_entry registers HTTP views."""
         from custom_components.smartly_bridge import async_setup_entry
         from custom_components.smartly_bridge.auth import NonceCache
+        from custom_components.smartly_bridge.camera import CameraManager
         from custom_components.smartly_bridge.push import StatePushManager
+        from custom_components.smartly_bridge.webrtc import WebRTCTokenManager
 
         with (
             patch.object(NonceCache, "start", new_callable=AsyncMock),
             patch.object(StatePushManager, "start", new_callable=AsyncMock),
+            patch.object(CameraManager, "start", new_callable=AsyncMock),
+            patch.object(WebRTCTokenManager, "start", new_callable=AsyncMock),
             patch("custom_components.smartly_bridge.register_views") as mock_register,
             patch("homeassistant.components.frontend.add_extra_js_url"),
         ):
@@ -61,6 +69,143 @@ class TestSetup:
             await async_setup_entry(mock_hass, mock_config_entry)
 
         mock_register.assert_called_once_with(mock_hass)
+
+    def test_build_runtime_adapters_composes_setup_ports(self, mock_hass):
+        """Runtime adapter builder exposes the setup composition root ports."""
+        from custom_components.smartly_bridge import _build_runtime_adapters
+        from custom_components.smartly_bridge.adapters.home_assistant import (
+            HomeAssistantCameraGateway,
+            HomeAssistantDeviceEventPublisher,
+            HomeAssistantHistoryGateway,
+            HomeAssistantLocalAutomationRuleStore,
+            HomeAssistantRawDiagnosticStore,
+            HomeAssistantSmartlyCommandExecutor,
+            HomeAssistantStateSyncGateway,
+            HomeAssistantSyncGateway,
+            HomeAssistantWebRTCGateway,
+            InMemoryDeviceEventDeduplicator,
+        )
+
+        camera_manager = MagicMock()
+        webrtc_manager = MagicMock()
+        logger = MagicMock()
+
+        runtime_adapters = _build_runtime_adapters(
+            mock_hass,
+            camera_manager,
+            webrtc_manager,
+            logger,
+        )
+
+        assert "control_use_case" not in runtime_adapters
+        assert isinstance(
+            runtime_adapters["device_event_publisher"],
+            HomeAssistantDeviceEventPublisher,
+        )
+        assert isinstance(
+            runtime_adapters["device_event_deduplicator"],
+            InMemoryDeviceEventDeduplicator,
+        )
+        assert isinstance(
+            runtime_adapters["local_automation_rule_store"],
+            HomeAssistantLocalAutomationRuleStore,
+        )
+        assert isinstance(
+            runtime_adapters["smartly_command_executor"],
+            HomeAssistantSmartlyCommandExecutor,
+        )
+        assert isinstance(runtime_adapters["camera_gateway"], HomeAssistantCameraGateway)
+        assert isinstance(runtime_adapters["history_gateway"], HomeAssistantHistoryGateway)
+        assert isinstance(
+            runtime_adapters["sync_structure_gateway"],
+            HomeAssistantSyncGateway,
+        )
+        assert isinstance(
+            runtime_adapters["sync_states_gateway"],
+            HomeAssistantStateSyncGateway,
+        )
+        assert isinstance(runtime_adapters["webrtc_gateway"], HomeAssistantWebRTCGateway)
+        assert isinstance(
+            runtime_adapters["raw_diagnostic_store"],
+            HomeAssistantRawDiagnosticStore,
+        )
+
+    @pytest.mark.asyncio
+    async def test_async_setup_entry_initializes_hexagonal_runtime_adapters(
+        self, mock_hass, mock_config_entry
+    ):
+        """Setup exposes Home Assistant adapters for HTTP views through runtime ports."""
+        from custom_components.smartly_bridge import async_setup_entry
+        from custom_components.smartly_bridge.adapters.home_assistant import (
+            HomeAssistantCameraGateway,
+            HomeAssistantDeviceEventPublisher,
+            HomeAssistantHistoryGateway,
+            HomeAssistantLocalAutomationRuleStore,
+            HomeAssistantRawDiagnosticStore,
+            HomeAssistantSmartlyCommandExecutor,
+            HomeAssistantStateSyncGateway,
+            HomeAssistantSyncGateway,
+            HomeAssistantWebRTCGateway,
+            InMemoryDeviceEventDeduplicator,
+        )
+        from custom_components.smartly_bridge.auth import NonceCache
+        from custom_components.smartly_bridge.camera import CameraManager
+        from custom_components.smartly_bridge.push import StatePushManager
+        from custom_components.smartly_bridge.webrtc import WebRTCTokenManager
+
+        with (
+            patch.object(NonceCache, "start", new_callable=AsyncMock),
+            patch.object(StatePushManager, "start", new_callable=AsyncMock),
+            patch.object(CameraManager, "start", new_callable=AsyncMock),
+            patch.object(WebRTCTokenManager, "start", new_callable=AsyncMock),
+            patch("custom_components.smartly_bridge.register_views"),
+            patch("homeassistant.components.frontend.add_extra_js_url"),
+        ):
+
+            await async_setup_entry(mock_hass, mock_config_entry)
+
+        runtime_adapters = mock_hass.data[DOMAIN]["runtime_adapters"]
+        assert "control_use_case" not in runtime_adapters
+        assert isinstance(
+            runtime_adapters["device_event_publisher"],
+            HomeAssistantDeviceEventPublisher,
+        )
+        assert isinstance(
+            runtime_adapters["device_event_deduplicator"],
+            InMemoryDeviceEventDeduplicator,
+        )
+        assert isinstance(
+            runtime_adapters["local_automation_rule_store"],
+            HomeAssistantLocalAutomationRuleStore,
+        )
+        assert isinstance(
+            runtime_adapters["smartly_command_executor"],
+            HomeAssistantSmartlyCommandExecutor,
+        )
+        assert isinstance(
+            runtime_adapters["camera_gateway"],
+            HomeAssistantCameraGateway,
+        )
+        assert isinstance(
+            runtime_adapters["history_gateway"],
+            HomeAssistantHistoryGateway,
+        )
+        assert isinstance(
+            runtime_adapters["sync_structure_gateway"],
+            HomeAssistantSyncGateway,
+        )
+        assert isinstance(
+            runtime_adapters["sync_states_gateway"],
+            HomeAssistantStateSyncGateway,
+        )
+        assert isinstance(
+            runtime_adapters["webrtc_gateway"],
+            HomeAssistantWebRTCGateway,
+        )
+        assert isinstance(
+            runtime_adapters["raw_diagnostic_store"],
+            HomeAssistantRawDiagnosticStore,
+        )
 
 
 class TestUnload:

@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_CURSOR",
+      "message": "invalid cursor",
+      "target": "history.cursor",
+      "retryable": false
+    }
+  ]
+}

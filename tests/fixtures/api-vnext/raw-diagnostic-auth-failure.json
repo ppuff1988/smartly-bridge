@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "AUTH_FAILED",
+      "message": "Raw diagnostic request authentication failed",
+      "target": "diagnostics.raw.auth",
+      "retryable": false
+    }
+  ]
+}

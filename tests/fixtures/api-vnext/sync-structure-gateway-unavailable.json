@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "SYNC_STRUCTURE_GATEWAY_UNAVAILABLE",
+      "message": "sync structure gateway unavailable",
+      "target": "sync.structure.gateway",
+      "retryable": false
+    }
+  ]
+}

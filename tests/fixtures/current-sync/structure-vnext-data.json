@@ -1,0 +1,11 @@
+{
+  "floors": [],
+  "areas": [],
+  "devices": [],
+  "entities": [
+    {
+      "entity_id": "light.kitchen"
+    }
+  ],
+  "device_count": 0
+}

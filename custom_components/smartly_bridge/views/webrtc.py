@@ -14,17 +14,18 @@ Authentication Flow:
 
 import json
 import logging
+from typing import Any, Callable
 
 from aiohttp import web
 from homeassistant.components.http import HomeAssistantView
 
 from ..acl import is_entity_allowed
-from ..adapters.home_assistant import HomeAssistantWebRTCGateway
 from ..application.webrtc import (
     WebRTCHangupUseCase,
     WebRTCICEUseCase,
     WebRTCOfferUseCase,
     WebRTCTokenUseCase,
+    _webrtc_error_response,
 )
 from ..audit import log_control, log_deny
 from ..auth import RateLimiter, verify_request
@@ -43,10 +44,146 @@ from ..const import (
     DOMAIN,
     RATE_WINDOW,
 )
+from ..domain.models import BridgeResponse
 from ..webrtc import WebRTCTokenManager
 from .base import BaseView
 
 _LOGGER = logging.getLogger(__name__)
+
+
+def _web_rtc_gateway(
+    hass: Any,
+    _webrtc_manager: WebRTCTokenManager,
+) -> Any | None:
+    """Return the setup-created WebRTC gateway."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    return runtime_adapters.get("webrtc_gateway")
+
+
+def _webrtc_gateway(hass: Any, webrtc_manager: WebRTCTokenManager) -> Any | None:
+    """Return the setup-created WebRTC gateway."""
+    return _web_rtc_gateway(hass, webrtc_manager)
+
+
+def _with_request_context(body: dict[str, Any], request: web.Request) -> dict[str, Any]:
+    """Attach optional vNext request correlation fields from HTTP headers."""
+    enriched = dict(body)
+    request_id = request.headers.get("X-Request-Id")
+    correlation_id = request.headers.get("X-Correlation-Id")
+    if isinstance(request_id, str) and request_id:
+        enriched["request_id"] = request_id
+    if isinstance(correlation_id, str) and correlation_id:
+        enriched["correlation_id"] = correlation_id
+    return enriched
+
+
+def _json_response(
+    result_body: dict[str, Any],
+    request: web.Request,
+    *,
+    status: int,
+    headers: dict[str, str] | None = None,
+) -> web.Response:
+    """Return a WebRTC JSON response with optional request context."""
+    return web.json_response(
+        _with_request_context(result_body, request),
+        status=status,
+        headers=headers,
+    )
+
+
+def _webrtc_error_message(result: BridgeResponse) -> str:
+    """Return the first API vNext WebRTC error message for diagnostics."""
+    errors = result.body.get("errors")
+    if isinstance(errors, list) and errors:
+        first_error = errors[0]
+        if isinstance(first_error, dict):
+            message = first_error.get("message")
+            if isinstance(message, str):
+                return message
+    return "unknown WebRTC error"
+
+
+def _webrtc_token_use_case(gateway: Any) -> WebRTCTokenUseCase:
+    """Build the WebRTC token application use case."""
+    return WebRTCTokenUseCase(gateway)
+
+
+async def _create_webrtc_token(
+    gateway: Any,
+    *,
+    entity_id: str,
+    client_id: str,
+    turn_config: dict[str, str],
+    use_case_factory: Callable[[Any], Any] = _webrtc_token_use_case,
+) -> Any:
+    """Execute the WebRTC token use case with parsed HTTP shell inputs."""
+    return await use_case_factory(gateway).execute(
+        entity_id=entity_id,
+        client_id=client_id,
+        turn_config=turn_config,
+    )
+
+
+def _webrtc_offer_use_case(gateway: Any) -> WebRTCOfferUseCase:
+    """Build the WebRTC offer application use case."""
+    return WebRTCOfferUseCase(gateway)
+
+
+async def _create_webrtc_offer(
+    gateway: Any,
+    *,
+    entity_id: str,
+    token: str,
+    sdp_offer: str,
+    use_case_factory: Callable[[Any], Any] = _webrtc_offer_use_case,
+) -> Any:
+    """Execute the WebRTC offer use case with parsed HTTP shell inputs."""
+    return await use_case_factory(gateway).execute(
+        entity_id=entity_id,
+        token=token,
+        sdp_offer=sdp_offer,
+    )
+
+
+def _webrtc_ice_use_case(gateway: Any) -> WebRTCICEUseCase:
+    """Build the WebRTC ICE application use case."""
+    return WebRTCICEUseCase(gateway)
+
+
+async def _add_webrtc_ice_candidate(
+    gateway: Any,
+    *,
+    entity_id: str,
+    session_id: str,
+    candidate: dict[str, Any] | None,
+    use_case_factory: Callable[[Any], Any] = _webrtc_ice_use_case,
+) -> Any:
+    """Execute the WebRTC ICE use case with parsed HTTP shell inputs."""
+    return await use_case_factory(gateway).execute(
+        entity_id=entity_id,
+        session_id=session_id,
+        candidate=candidate,
+    )
+
+
+def _webrtc_hangup_use_case(gateway: Any) -> WebRTCHangupUseCase:
+    """Build the WebRTC hangup application use case."""
+    return WebRTCHangupUseCase(gateway)
+
+
+async def _close_webrtc_session(
+    gateway: Any,
+    *,
+    entity_id: str,
+    session_id: str,
+    use_case_factory: Callable[[Any], Any] = _webrtc_hangup_use_case,
+) -> Any:
+    """Execute the WebRTC hangup use case with parsed HTTP shell inputs."""
+    return await use_case_factory(gateway).execute(
+        entity_id=entity_id,
+        session_id=session_id,
+    )
 
 
 class SmartlyWebRTCTokenView(BaseView):
@@ -82,17 +219,26 @@ class SmartlyWebRTCTokenView(BaseView):
 
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
-            return web.json_response(
-                {"error": "invalid_entity_id", "message": "Entity ID must start with 'camera.'"},
+            result = _webrtc_error_response(
+                "invalid_entity_id",
                 status=400,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get integration data
         data = self._get_integration_data()
         if data is None:
-            return web.json_response(
-                {"error": "integration_not_configured"},
-                status=500,
+            result = _webrtc_error_response("integration_not_configured", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         client_secret = data.get(CONF_CLIENT_SECRET)
@@ -118,9 +264,12 @@ class SmartlyWebRTCTokenView(BaseView):
                 service="webrtc_token",
                 reason=auth_result.error or "auth_failed",
             )
-            return web.json_response(
-                {"error": auth_result.error},
-                status=401,
+            result = _webrtc_error_response(auth_result.error or "auth_failed", status=401)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Check rate limit
@@ -132,10 +281,13 @@ class SmartlyWebRTCTokenView(BaseView):
                 service="webrtc_token",
                 reason="rate_limited",
             )
-            return web.json_response(
-                {"error": "rate_limited"},
-                status=429,
+            result = _webrtc_error_response("rate_limited", status=429)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
                 headers={
+                    **result.headers,
                     "Retry-After": str(RATE_WINDOW),
                     "X-RateLimit-Remaining": "0",
                 },
@@ -153,22 +305,43 @@ class SmartlyWebRTCTokenView(BaseView):
                 service="webrtc_token",
                 reason="entity_not_allowed",
             )
-            return web.json_response(
-                {"error": "entity_not_allowed"},
-                status=403,
+            result = _webrtc_error_response("entity_not_allowed", status=403)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
-            return web.json_response(
-                {"error": "webrtc_not_available", "message": "WebRTC manager not initialized"},
+            result = _webrtc_error_response(
+                "webrtc_not_available",
                 status=500,
             )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
 
-        result = await WebRTCTokenUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
-        ).execute(
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response(
+                "webrtc_not_available",
+                status=500,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        result = await _create_webrtc_token(
+            gateway,
             entity_id=entity_id,
             client_id=auth_result.client_id or "unknown",
             turn_config={
@@ -179,7 +352,7 @@ class SmartlyWebRTCTokenView(BaseView):
         )
 
         if result.status == 404:
-            return web.json_response(result.body, status=result.status)
+            return _json_response(result.body, self.request, status=result.status)
 
         log_control(
             _LOGGER,
@@ -189,7 +362,9 @@ class SmartlyWebRTCTokenView(BaseView):
             result="success",
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyWebRTCOfferView(BaseView):
@@ -224,18 +399,27 @@ class SmartlyWebRTCOfferView(BaseView):
 
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
-            return web.json_response(
-                {"error": "invalid_entity_id"},
-                status=400,
+            result = _webrtc_error_response("invalid_entity_id", status=400)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Parse request body
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "invalid_json", "message": "Request body must be valid JSON"},
+            result = _webrtc_error_response(
+                "invalid_json",
                 status=400,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         token_str = body.get("token")
@@ -243,34 +427,64 @@ class SmartlyWebRTCOfferView(BaseView):
         sdp_type = body.get("type", "offer")
 
         if not token_str:
-            return web.json_response(
-                {"error": "missing_token", "message": "Token is required"},
+            result = _webrtc_error_response(
+                "missing_token",
                 status=400,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         if not sdp_offer:
-            return web.json_response(
-                {"error": "missing_sdp", "message": "SDP offer is required"},
+            result = _webrtc_error_response(
+                "missing_sdp",
                 status=400,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         if sdp_type != "offer":
-            return web.json_response(
-                {"error": "invalid_sdp_type", "message": "SDP type must be 'offer'"},
+            result = _webrtc_error_response(
+                "invalid_sdp_type",
                 status=400,
+            )
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
-            return web.json_response(
-                {"error": "webrtc_not_available"},
-                status=500,
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
-        result = await WebRTCOfferUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
-        ).execute(
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        result = await _create_webrtc_offer(
+            gateway,
             entity_id=entity_id,
             token=token_str,
             sdp_offer=sdp_offer,
@@ -284,10 +498,12 @@ class SmartlyWebRTCOfferView(BaseView):
                 service="webrtc_offer",
                 reason="invalid_or_expired_token",
             )
-            return web.json_response(result.body, status=result.status)
+            return _json_response(result.body, self.request, status=result.status)
 
         if result.status == 500:
-            _LOGGER.error("WebRTC offer failed for %s: %s", entity_id, result.body.get("message"))
+            _LOGGER.error(
+                "WebRTC offer failed for %s: %s", entity_id, _webrtc_error_message(result)
+            )
             log_control(
                 _LOGGER,
                 client_id="unknown",
@@ -295,22 +511,19 @@ class SmartlyWebRTCOfferView(BaseView):
                 service="webrtc_offer",
                 result="go2rtc_error",
             )
-            return web.json_response(result.body, status=result.status)
+            return _json_response(result.body, self.request, status=result.status)
 
+        answer = result.body["data"]
         _LOGGER.info(
             "WebRTC answer generated - entity_id: %s, session_id: %s, sdp_length: %d",
             entity_id,
-            result.body["session_id"],
-            len(result.body["sdp"]),
+            answer["session_id"],
+            len(answer["sdp"]),
         )
         _LOGGER.debug(
             "WebRTC SDP answer content for %s:\n%s",
             entity_id,
-            (
-                result.body["sdp"][:500] + "..."
-                if len(result.body["sdp"]) > 500
-                else result.body["sdp"]
-            ),
+            (answer["sdp"][:500] + "..." if len(answer["sdp"]) > 500 else answer["sdp"]),
         )
 
         log_control(
@@ -321,7 +534,9 @@ class SmartlyWebRTCOfferView(BaseView):
             result="success",
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyWebRTCICEView(BaseView):
@@ -357,40 +572,61 @@ class SmartlyWebRTCICEView(BaseView):
 
         # Validate entity_id format
         if not entity_id or not entity_id.startswith("camera."):
-            return web.json_response(
-                {"error": "invalid_entity_id"},
-                status=400,
+            result = _webrtc_error_response("invalid_entity_id", status=400)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Parse request body
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "invalid_json"},
-                status=400,
+            result = _webrtc_error_response("invalid_json", status=400)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         session_id = body.get("session_id")
         candidate = body.get("candidate")
 
         if not session_id:
-            return web.json_response(
-                {"error": "missing_session_id"},
-                status=400,
+            result = _webrtc_error_response("missing_session_id", status=400)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
-            return web.json_response(
-                {"error": "webrtc_not_available"},
-                status=500,
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
-        result = await WebRTCICEUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
-        ).execute(
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        result = await _add_webrtc_ice_candidate(
+            gateway,
             entity_id=entity_id,
             session_id=session_id,
             candidate=candidate,
@@ -403,7 +639,9 @@ class SmartlyWebRTCICEView(BaseView):
                 candidate.get("candidate", "")[:50],
             )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 class SmartlyWebRTCHangupView(BaseView):
@@ -435,33 +673,56 @@ class SmartlyWebRTCHangupView(BaseView):
         try:
             body = await self.request.json()
         except json.JSONDecodeError:
-            return web.json_response(
-                {"error": "invalid_json"},
-                status=400,
+            result = _webrtc_error_response("invalid_json", status=400)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         session_id = body.get("session_id")
 
         if not session_id:
-            return web.json_response(
-                {"error": "missing_session_id"},
-                status=400,
+            result = _webrtc_error_response("missing_session_id", status=400)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
         # Get WebRTC token manager
         webrtc_manager: WebRTCTokenManager | None = self.hass.data[DOMAIN].get("webrtc_manager")
         if webrtc_manager is None:
-            return web.json_response(
-                {"error": "webrtc_not_available"},
-                status=500,
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
             )
 
-        result = await WebRTCHangupUseCase(
-            HomeAssistantWebRTCGateway(self.hass, webrtc_manager)
-        ).execute(entity_id=entity_id, session_id=session_id)
+        gateway = _webrtc_gateway(self.hass, webrtc_manager)
+        if gateway is None:
+            result = _webrtc_error_response("webrtc_not_available", status=500)
+            return _json_response(
+                result.body,
+                self.request,
+                status=result.status,
+                headers=result.headers,
+            )
+
+        result = await _close_webrtc_session(
+            gateway,
+            entity_id=entity_id,
+            session_id=session_id,
+        )
 
         if result.status != 200:
-            return web.json_response(result.body, status=result.status, headers=result.headers)
+            return _json_response(
+                result.body, self.request, status=result.status, headers=result.headers
+            )
 
         log_control(
             _LOGGER,
@@ -471,7 +732,9 @@ class SmartlyWebRTCHangupView(BaseView):
             result="success",
         )
 
-        return web.json_response(result.body, status=result.status, headers=result.headers)
+        return _json_response(
+            result.body, self.request, status=result.status, headers=result.headers
+        )
 
 
 # Wrapper classes for Home Assistant view registration

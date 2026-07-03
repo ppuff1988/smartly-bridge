@@ -8,6 +8,8 @@ from typing import Any
 from ..domain.models import BridgeResponse
 from .ports import CameraGatewayPort
 
+SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
 
 @dataclass(frozen=True)
 class CameraConfigCommand:
@@ -40,12 +42,18 @@ class CameraListUseCase:
 
             cameras.append(camera_info)
 
+        body = {
+            "cameras": cameras,
+            "count": len(cameras),
+            "cache_stats": self._gateway.get_cache_stats(),
+            "hls_stats": self._gateway.get_hls_stats(),
+        }
         return BridgeResponse(
             {
-                "cameras": cameras,
-                "count": len(cameras),
-                "cache_stats": self._gateway.get_cache_stats(),
-                "hls_stats": self._gateway.get_hls_stats(),
+                "schema_version": SMARTLY_API_SCHEMA_VERSION,
+                "data": body,
+                "warnings": [],
+                "errors": [],
             },
             status=200,
         )
@@ -61,7 +69,7 @@ class CameraConfigUseCase:
         """Execute a camera configuration command."""
         if command.action == "register":
             if not command.entity_id:
-                return BridgeResponse({"error": "missing_entity_id"}, status=400)
+                return _camera_vnext_error_response("missing_entity_id", status=400)
 
             config = {
                 "entity_id": command.entity_id,
@@ -74,33 +82,61 @@ class CameraConfigUseCase:
                 "extra_headers": command.data.get("extra_headers", {}),
             }
             self._gateway.register_camera(config)
-            return BridgeResponse(
-                {"success": True, "action": "registered", "entity_id": command.entity_id},
-                status=200,
+            return _camera_vnext_success_response(
+                {
+                    "status": "registered",
+                    "action": "registered",
+                    "entity_id": command.entity_id,
+                }
             )
 
         if command.action == "unregister":
             if not command.entity_id:
-                return BridgeResponse({"error": "missing_entity_id"}, status=400)
+                return _camera_vnext_error_response("missing_entity_id", status=400)
 
             self._gateway.unregister_camera(command.entity_id)
-            return BridgeResponse(
-                {"success": True, "action": "unregistered", "entity_id": command.entity_id},
-                status=200,
+            return _camera_vnext_success_response(
+                {
+                    "status": "unregistered",
+                    "action": "unregistered",
+                    "entity_id": command.entity_id,
+                }
             )
 
         if command.action == "clear_cache":
             count = await self._gateway.clear_cache(command.entity_id)
-            return BridgeResponse(
-                {"success": True, "action": "cache_cleared", "cleared_count": count},
-                status=200,
+            return _camera_vnext_success_response(
+                {
+                    "status": "cache_cleared",
+                    "action": "cache_cleared",
+                    "cleared_count": count,
+                }
             )
 
         if command.action == "list":
             cameras = self._gateway.list_registered_cameras()
-            return BridgeResponse({"cameras": cameras, "count": len(cameras)}, status=200)
+            return _camera_vnext_success_response({"cameras": cameras, "count": len(cameras)})
 
-        return BridgeResponse({"error": "unknown_action"}, status=400)
+        return _camera_vnext_error_response("unknown_action", status=400)
+
+
+def _camera_vnext_success_response(
+    body: dict[str, Any],
+    *,
+    status: int = 200,
+    headers: dict[str, str] | None = None,
+) -> BridgeResponse:
+    """Return an API vNext camera success response."""
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": body,
+            "warnings": [],
+            "errors": [],
+        },
+        status=status,
+        headers=headers,
+    )
 
 
 class CameraSnapshotUseCase:
@@ -124,14 +160,17 @@ class CameraSnapshotUseCase:
         )
 
         if not_modified:
-            return BridgeResponse({}, status=304)
+            return BridgeResponse(
+                {},
+                status=304,
+                headers={"X-Smartly-Response-Mode": "empty"},
+            )
 
         if snapshot is None:
-            return BridgeResponse({"error": "snapshot_unavailable"}, status=404)
+            return _camera_vnext_error_response("snapshot_unavailable", status=404)
 
-        return BridgeResponse(
+        return _camera_vnext_success_response(
             {"snapshot": snapshot},
-            status=200,
             headers={
                 "ETag": snapshot.etag,
                 "Cache-Control": "private, max-age=10",
@@ -154,6 +193,7 @@ class CameraStreamUseCase:
                 "Pragma": "no-cache",
                 "Expires": "0",
                 "Connection": "close",
+                "X-Smartly-Response-Mode": "stream",
             },
         )
 
@@ -169,23 +209,52 @@ class CameraHLSUseCase:
         if action == "info":
             stream_info = await self._gateway.get_stream_info(entity_id)
             if stream_info is None:
-                return BridgeResponse({"error": "camera_not_found"}, status=404)
-            return BridgeResponse(stream_info.to_dict(), status=200)
+                return _camera_vnext_error_response("camera_not_found", status=404)
+            return _camera_vnext_success_response(stream_info.to_dict())
 
         if action == "stop":
             stopped = await self._gateway.stop_hls_stream(entity_id)
-            return BridgeResponse(
-                {"success": stopped, "action": "stopped"},
-                status=200 if stopped else 404,
+            if stopped:
+                return _camera_vnext_success_response({"status": "stopped", "action": "stopped"})
+            return _camera_vnext_success_response(
+                {"status": "not_found", "action": "stopped"},
+                status=404,
             )
 
         if action in ("start", ""):
             hls_info = await self._gateway.start_hls_stream(entity_id)
             if hls_info is None:
-                return BridgeResponse({"error": "hls_not_supported"}, status=400)
-            return BridgeResponse(hls_info, status=200)
+                return _camera_vnext_error_response("hls_not_supported", status=400)
+            return _camera_vnext_success_response(hls_info)
 
         if action == "stats":
-            return BridgeResponse(self._gateway.get_hls_stats(), status=200)
+            return _camera_vnext_success_response(self._gateway.get_hls_stats())
 
-        return BridgeResponse({"error": "unknown_action"}, status=400)
+        return _camera_vnext_error_response("unknown_action", status=400)
+
+
+def _camera_vnext_error_response(
+    error: str,
+    *,
+    status: int,
+    message: str | None = None,
+    target: str = "camera",
+) -> BridgeResponse:
+    """Return an API vNext camera error response."""
+    error_message = message or error.replace("_", " ")
+    return BridgeResponse(
+        {
+            "schema_version": SMARTLY_API_SCHEMA_VERSION,
+            "data": {"status": "rejected"},
+            "warnings": [],
+            "errors": [
+                {
+                    "code": error.upper(),
+                    "message": error_message,
+                    "target": target,
+                    "retryable": False,
+                }
+            ],
+        },
+        status=status,
+    )

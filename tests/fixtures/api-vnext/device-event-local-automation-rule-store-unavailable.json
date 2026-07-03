@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "ldev_button",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "LOCAL_AUTOMATION_RULE_STORE_UNAVAILABLE",
+      "message": "Local automation rule store not initialized",
+      "target": "local_automation.rule_store",
+      "retryable": false
+    }
+  ]
+}

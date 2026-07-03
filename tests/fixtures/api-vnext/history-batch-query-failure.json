@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "HISTORY_QUERY_FAILED",
+      "message": "history query failed",
+      "target": "history.batch",
+      "retryable": false
+    }
+  ]
+}

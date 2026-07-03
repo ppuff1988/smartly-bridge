@@ -1,0 +1,14 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "rate_limited",
+      "message": "Local automation rule request was rate limited",
+      "target": "request.rate_limit"
+    }
+  ]
+}

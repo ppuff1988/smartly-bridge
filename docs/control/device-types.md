@@ -2,571 +2,312 @@
 
 > **返回**：[控制 API 指南](./README.md)
 
-本文檔說明 9 種核心設備類型的控制方式、支援的動作與參數。
+本文檔說明 `/api/smartly/control` 使用的 API vNext `SmartlyCommand` 格式。Platform 應以 `device_id`、`capability`、`command` 和 `params` 控制邏輯設備，不直接送 Home Assistant service call body。
 
 ---
 
-## 目錄
+## 通用 Body
 
-1. [Switch（開關）](#1-switch開關)
-2. [Light（燈光）](#2-light燈光)
-3. [Cover（窗簾/捲簾/車庫門）](#3-cover窗簾捲簾車庫門)
-4. [Climate（空調/恆溫器/暖氣）](#4-climate空調恆溫器暖氣)
-5. [Fan（風扇）](#5-fan風扇)
-6. [Lock（門鎖）](#6-lock門鎖)
-7. [Scene（場景）](#7-scene場景)
-8. [Script（腳本）](#8-script腳本)
-9. [Automation（自動化）](#9-automation自動化)
+```json
+{
+  "command_id": "cmd_20260627_0001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 78
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
+  }
+}
+```
 
----
-
-## 1. Switch（開關）
-
-**適用設備**：智慧插座、電源開關、繼電器模組等
-
-**領域（Domain）**：`switch`
-
-### 支援的動作
-
-| 動作 | 說明 |
+| 欄位 | 說明 |
 |------|------|
-| `turn_on` | 開啟 |
-| `turn_off` | 關閉 |
-| `toggle` | 切換狀態 |
-
-### 範例
-
-#### 開啟開關
-```json
-{
-  "entity_id": "switch.living_room_light",
-  "action": "turn_on",
-  "service_data": {}
-}
-```
-
-#### 關閉開關
-```json
-{
-  "entity_id": "switch.living_room_light",
-  "action": "turn_off",
-  "service_data": {}
-}
-```
-
-#### 切換開關
-```json
-{
-  "entity_id": "switch.living_room_light",
-  "action": "toggle",
-  "service_data": {}
-}
-```
+| `command_id` | 命令追蹤 ID，用於冪等與審計 |
+| `device_id` | Sync API 回傳的邏輯設備 ID |
+| `capability` | 要控制的 canonical capability |
+| `command` | capability 支援的 canonical command |
+| `params` | command 參數，依 capability 而定 |
+| `source` | 操作者資訊，用於審計日誌 |
 
 ---
 
-## 2. Light（燈光）
+## Power
 
-**適用設備**：智慧燈泡、LED 燈條、調光器、RGB 燈等
+適用於開關、燈、風扇、腳本、自動化等可開關設備。
 
-**領域（Domain）**：`light`
+| Command | Params | 說明 |
+|---------|--------|------|
+| `turn_on` | `{}` | 開啟 |
+| `turn_off` | `{}` | 關閉 |
+| `toggle` | `{}` | 切換狀態 |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `turn_on` | 開啟（可帶參數） |
-| `turn_off` | 關閉 |
-| `toggle` | 切換狀態 |
-
-### 參數說明
-
-| 參數 | 類型 | 範圍 | 說明 |
-|------|------|------|------|
-| `brightness` | integer | 0-255 | 亮度值，0 為最暗，255 為最亮 |
-| `rgb_color` | array | [0-255, 0-255, 0-255] | RGB 顏色，例如 [255, 0, 0] 為紅色 |
-| `color_temp` | integer | 153-500 | 色溫（mireds），153 為冷白光，500 為暖黃光 |
-| `kelvin` | integer | 2000-6500 | 色溫（Kelvin） |
-| `hs_color` | array | [0-360, 0-100] | HSV 色彩空間的色相和飽和度 |
-| `xy_color` | array | [0-1, 0-1] | CIE 1931 色彩空間座標 |
-| `transition` | integer | 0+ | 漸變時間（秒） |
-
-### 範例
-
-#### 開啟燈光（基本）
 ```json
 {
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {}
-}
-```
-
-#### 開啟燈光（設定亮度）
-```json
-{
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 255
-  }
-}
-```
-
-#### 開啟燈光（設定 RGB 顏色）
-```json
-{
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 200,
-    "rgb_color": [255, 0, 0]
-  }
-}
-```
-
-#### 開啟燈光（設定色溫）
-```json
-{
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 180,
-    "color_temp": 370
-  }
-}
-```
-
-#### 開啟燈光（漸變效果）
-```json
-{
-  "entity_id": "light.bedroom",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 255,
-    "transition": 2
-  }
-}
-```
-
-#### 關閉燈光
-```json
-{
-  "entity_id": "light.bedroom",
-  "action": "turn_off",
-  "service_data": {}
-}
-```
-
----
-
-## 3. Cover（窗簾/捲簾/車庫門）
-
-**適用設備**：電動窗簾、捲簾、百葉窗、車庫門、天窗等
-
-**領域（Domain）**：`cover`
-
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `open_cover` | 打開 |
-| `close_cover` | 關閉 |
-| `stop_cover` | 停止移動 |
-| `set_cover_position` | 設定位置 |
-
-### 參數說明
-
-| 參數 | 類型 | 範圍 | 說明 |
-|------|------|------|------|
-| `position` | integer | 0-100 | 位置百分比，0=完全關閉，100=完全打開 |
-| `tilt_position` | integer | 0-100 | 傾斜角度百分比（適用於百葉窗） |
-
-### 範例
-
-#### 打開窗簾
-```json
-{
-  "entity_id": "cover.living_room_curtain",
-  "action": "open_cover",
-  "service_data": {}
-}
-```
-
-#### 關閉窗簾
-```json
-{
-  "entity_id": "cover.living_room_curtain",
-  "action": "close_cover",
-  "service_data": {}
-}
-```
-
-#### 停止移動
-```json
-{
-  "entity_id": "cover.living_room_curtain",
-  "action": "stop_cover",
-  "service_data": {}
-}
-```
-
-#### 設定位置
-```json
-{
-  "entity_id": "cover.living_room_curtain",
-  "action": "set_cover_position",
-  "service_data": {
-    "position": 50
+  "command_id": "cmd_power_0001",
+  "device_id": "ldev_living_switch",
+  "capability": "power",
+  "command": "turn_on",
+  "params": {},
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
 }
 ```
 
 ---
 
-## 4. Climate（空調/恆溫器/暖氣）
+## Brightness
 
-**適用設備**：空調、恆溫器、暖氣系統、熱泵、地暖控制器等
+適用於燈光與支援亮度控制的設備。
 
-**領域（Domain）**：`climate`
+| Command | Params | 說明 |
+|---------|--------|------|
+| `set_brightness` | `{"value": 0-100}` | 設定亮度百分比 |
+| `increase_brightness` | `{"step": 1-100}` | 增加亮度 |
+| `decrease_brightness` | `{"step": 1-100}` | 降低亮度 |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `set_temperature` | 設定溫度 |
-| `set_hvac_mode` | 設定 HVAC 模式 |
-| `set_fan_mode` | 設定風扇模式 |
-
-### 參數說明
-
-| 參數 | 類型 | 說明 | 可能的值 |
-|------|------|------|----------|
-| `temperature` | float | 目標溫度 | 依設備而定，例如 16-30 |
-| `target_temp_high` | float | 目標最高溫度（冷暖模式） | 依設備而定 |
-| `target_temp_low` | float | 目標最低溫度（冷暖模式） | 依設備而定 |
-| `hvac_mode` | string | HVAC 模式 | `off`, `heat`, `cool`, `heat_cool`, `auto`, `dry`, `fan_only` |
-| `fan_mode` | string | 風扇模式 | `auto`, `low`, `medium`, `high`, `middle`, `focus`, `diffuse` |
-| `preset_mode` | string | 預設模式 | `eco`, `away`, `boost`, `comfort`, `home`, `sleep` |
-| `swing_mode` | string | 擺風模式 | `off`, `vertical`, `horizontal`, `both` |
-
-### 範例
-
-#### 設定溫度
 ```json
 {
-  "entity_id": "climate.living_room_ac",
-  "action": "set_temperature",
-  "service_data": {
-    "temperature": 24
-  }
-}
-```
-
-#### 設定溫度範圍（冷暖兩用）
-```json
-{
-  "entity_id": "climate.living_room_ac",
-  "action": "set_temperature",
-  "service_data": {
-    "target_temp_high": 26,
-    "target_temp_low": 22
-  }
-}
-```
-
-#### 設定 HVAC 模式
-```json
-{
-  "entity_id": "climate.living_room_ac",
-  "action": "set_hvac_mode",
-  "service_data": {
-    "hvac_mode": "cool"
-  }
-}
-```
-
-#### 設定風扇模式
-```json
-{
-  "entity_id": "climate.living_room_ac",
-  "action": "set_fan_mode",
-  "service_data": {
-    "fan_mode": "auto"
+  "command_id": "cmd_brightness_0001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 78
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
 }
 ```
 
 ---
 
-## 5. Fan（風扇）
+## Color
 
-**適用設備**：電風扇、吊扇、換氣扇、循環扇等
+適用於支援 RGB、色溫、效果或色彩模式的燈光。
 
-**領域（Domain）**：`fan`
+| Capability | Command | Params |
+|------------|---------|--------|
+| `rgb_color` | `set_rgb_color` | `{"r": 255, "g": 180, "b": 100}` |
+| `color_temperature` | `set_color_temperature` | `{"value": 3000}` |
+| `effect` | `set_effect` | `{"effect": "rainbow"}` |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `turn_on` | 開啟 |
-| `turn_off` | 關閉 |
-| `set_percentage` | 設定風速百分比 |
-| `set_preset_mode` | 設定預設模式 |
-
-### 參數說明
-
-| 參數 | 類型 | 範圍/值 | 說明 |
-|------|------|---------|------|
-| `percentage` | integer | 0-100 | 風速百分比，0 為關閉，100 為最大風速 |
-| `preset_mode` | string | 依設備 | 預設模式，例如 `sleep`, `normal`, `turbo`, `natural` |
-| `direction` | string | `forward`, `reverse` | 風扇旋轉方向 |
-| `oscillating` | boolean | true/false | 是否擺頭 |
-
-### 範例
-
-#### 開啟風扇
 ```json
 {
-  "entity_id": "fan.bedroom_fan",
-  "action": "turn_on",
-  "service_data": {}
-}
-```
-
-#### 關閉風扇
-```json
-{
-  "entity_id": "fan.bedroom_fan",
-  "action": "turn_off",
-  "service_data": {}
-}
-```
-
-#### 設定風速
-```json
-{
-  "entity_id": "fan.bedroom_fan",
-  "action": "set_percentage",
-  "service_data": {
-    "percentage": 75
-  }
-}
-```
-
-#### 設定預設模式
-```json
-{
-  "entity_id": "fan.bedroom_fan",
-  "action": "set_preset_mode",
-  "service_data": {
-    "preset_mode": "sleep"
+  "command_id": "cmd_color_0001",
+  "device_id": "ldev_bedroom_light",
+  "capability": "rgb_color",
+  "command": "set_rgb_color",
+  "params": {
+    "r": 255,
+    "g": 180,
+    "b": 100
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
 }
 ```
 
 ---
 
-## 6. Lock（門鎖）
+## Position
 
-**適用設備**：智慧門鎖、電子鎖、磁力鎖等
+適用於窗簾、捲簾、車庫門與百葉窗。
 
-**領域（Domain）**：`lock`
+| Capability | Command | Params |
+|------------|---------|--------|
+| `position` | `open` | `{}` |
+| `position` | `close` | `{}` |
+| `position` | `stop` | `{}` |
+| `position` | `set_position` | `{"value": 0-100}` |
+| `tilt_position` | `set_tilt` | `{"value": 0-100}` |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `lock` | 上鎖 |
-| `unlock` | 解鎖 |
-
-### 參數說明
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| `code` | string | 解鎖密碼（可選） |
-
-### 範例
-
-#### 上鎖
 ```json
 {
-  "entity_id": "lock.front_door",
-  "action": "lock",
-  "service_data": {}
+  "command_id": "cmd_position_0001",
+  "device_id": "ldev_living_cover",
+  "capability": "position",
+  "command": "set_position",
+  "params": {
+    "value": 50
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
+  }
 }
 ```
 
-#### 解鎖
+---
+
+## Climate
+
+適用於空調、恆溫器、暖氣與熱泵。
+
+| Capability | Command | Params |
+|------------|---------|--------|
+| `target_temperature` | `set_temperature` | `{"value": 24}` |
+| `target_temperature_range` | `set_range` | `{"low": 22, "high": 26}` |
+| `mode_select` | `set_mode` | `{"mode": "cool"}` |
+| `fan_speed` | `set_fan_speed` | `{"mode": "auto"}` |
+| `preset_mode` | `set_preset` | `{"preset": "eco"}` |
+| `swing_mode` | `set_swing` | `{"mode": "vertical"}` |
+
 ```json
 {
-  "entity_id": "lock.front_door",
-  "action": "unlock",
-  "service_data": {}
+  "command_id": "cmd_climate_0001",
+  "device_id": "ldev_living_ac",
+  "capability": "target_temperature",
+  "command": "set_temperature",
+  "params": {
+    "value": 24
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
+  }
 }
 ```
 
-#### 解鎖（使用密碼）
+---
+
+## Fan
+
+適用於電風扇、吊扇、換氣扇與循環扇。
+
+| Capability | Command | Params |
+|------------|---------|--------|
+| `fan_speed` | `set_percentage` | `{"value": 75}` |
+| `fan_speed` | `set_preset` | `{"preset": "sleep"}` |
+| `fan_direction` | `set_direction` | `{"direction": "forward"}` |
+| `fan_oscillation` | `set_oscillating` | `{"enabled": true}` |
+
 ```json
 {
-  "entity_id": "lock.front_door",
-  "action": "unlock",
-  "service_data": {
+  "command_id": "cmd_fan_0001",
+  "device_id": "ldev_bedroom_fan",
+  "capability": "fan_speed",
+  "command": "set_percentage",
+  "params": {
+    "value": 75
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
+  }
+}
+```
+
+---
+
+## Lock
+
+適用於智慧門鎖、電子鎖與磁力鎖。
+
+| Command | Params | 說明 |
+|---------|--------|------|
+| `lock` | `{}` | 上鎖 |
+| `unlock` | `{"code": "1234"}` | 解鎖，密碼依設備需求提供 |
+
+```json
+{
+  "command_id": "cmd_lock_0001",
+  "device_id": "ldev_front_door",
+  "capability": "lock",
+  "command": "unlock",
+  "params": {
     "code": "1234"
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
 }
 ```
 
 ---
 
-## 7. Scene（場景）
+## Scene And Script
 
-**適用場景**：預設的多設備聯動狀態組合（如「電影模式」、「離家模式」等）
+場景與腳本使用 `run` capability。
 
-**領域（Domain）**：`scene`
+| Command | Params | 說明 |
+|---------|--------|------|
+| `run` | `{}` | 啟動場景或執行腳本 |
+| `stop` | `{}` | 停止可停止的腳本 |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `turn_on` | 啟動場景 |
-
-### 參數說明
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| `transition` | integer | 場景切換的漸變時間（秒） |
-
-### 範例
-
-#### 啟動場景
 ```json
 {
-  "entity_id": "scene.movie_night",
-  "action": "turn_on",
-  "service_data": {}
-}
-```
-
-#### 啟動場景（設定漸變）
-```json
-{
-  "entity_id": "scene.romantic_dinner",
-  "action": "turn_on",
-  "service_data": {
-    "transition": 3
+  "command_id": "cmd_scene_0001",
+  "device_id": "ldev_movie_night",
+  "capability": "run",
+  "command": "run",
+  "params": {},
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
 }
 ```
 
 ---
 
-## 8. Script（腳本）
+## Button
 
-**適用場景**：自定義的動作序列、複雜的自動化邏輯等
+Home Assistant `button` entity 在 Platform contract 中分成 command-only `button_press` 與 event-only `button_event`。
 
-**領域（Domain）**：`script`
+| Capability | Command | Params |
+|------------|---------|--------|
+| `button_press` | `press` | `{}` |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `turn_on` | 執行腳本 |
-| `turn_off` | 停止腳本 |
-
-### 範例
-
-#### 執行腳本
 ```json
 {
-  "entity_id": "script.morning_routine",
-  "action": "turn_on",
-  "service_data": {}
-}
-```
-
-#### 執行腳本（傳遞變數）
-```json
-{
-  "entity_id": "script.notify_user",
-  "action": "turn_on",
-  "service_data": {
-    "variables": {
-      "message": "Hello from API",
-      "title": "Notification"
-    }
+  "command_id": "cmd_button_0001",
+  "device_id": "ldev_desk_scene",
+  "capability": "button_press",
+  "command": "press",
+  "params": {},
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
-}
-```
-
-#### 停止腳本
-```json
-{
-  "entity_id": "script.morning_routine",
-  "action": "turn_off",
-  "service_data": {}
 }
 ```
 
 ---
 
-## 9. Automation（自動化）
+## Setting Controls
 
-**適用場景**：事件驅動的自動化規則管理
+Presence sensor 等 sibling setting entity 會升格為 canonical setting capability。
 
-**領域（Domain）**：`automation`
+| Capability | Command | Params |
+|------------|---------|--------|
+| `numeric_setting` | `set_value` | `{"key": "detection_delay", "value": 10}` |
+| `option_setting` | `select_option` | `{"key": "sensitivity", "option": "high"}` |
 
-### 支援的動作
-
-| 動作 | 說明 |
-|------|------|
-| `trigger` | 觸發自動化 |
-| `turn_on` | 啟用自動化 |
-| `turn_off` | 停用自動化 |
-
-### 參數說明
-
-| 參數 | 類型 | 說明 |
-|------|------|------|
-| `skip_condition` | boolean | 是否跳過條件檢查，直接執行動作 |
-
-### 範例
-
-#### 觸發自動化
 ```json
 {
-  "entity_id": "automation.motion_light",
-  "action": "trigger",
-  "service_data": {}
-}
-```
-
-#### 觸發自動化（跳過條件）
-```json
-{
-  "entity_id": "automation.motion_light",
-  "action": "trigger",
-  "service_data": {
-    "skip_condition": true
+  "command_id": "cmd_setting_0001",
+  "device_id": "ldev_presence_sensor",
+  "capability": "numeric_setting",
+  "command": "set_value",
+  "params": {
+    "key": "detection_delay",
+    "value": 10
+  },
+  "source": {
+    "user_id": "u_123",
+    "role": "tenant"
   }
-}
-```
-
-#### 啟用自動化
-```json
-{
-  "entity_id": "automation.motion_light",
-  "action": "turn_on",
-  "service_data": {}
-}
-```
-
-#### 停用自動化
-```json
-{
-  "entity_id": "automation.motion_light",
-  "action": "turn_off",
-  "service_data": {}
 }
 ```
 

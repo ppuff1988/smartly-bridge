@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_PERIOD",
+      "message": "invalid period",
+      "target": "statistics.period",
+      "retryable": false
+    }
+  ]
+}

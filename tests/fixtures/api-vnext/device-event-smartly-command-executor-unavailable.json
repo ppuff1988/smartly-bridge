@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "ldev_button",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
+      "message": "Smartly command executor not initialized",
+      "target": "local_automation.command_executor",
+      "retryable": false
+    }
+  ]
+}

@@ -1,0 +1,34 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "cameras": [
+      {
+        "entity_id": "camera.front",
+        "name": "Front",
+        "state": "idle",
+        "is_streaming": false,
+        "brand": "Reolink",
+        "model": "RLC",
+        "supported_features": 3
+      },
+      {
+        "entity_id": "camera.back",
+        "name": "Back",
+        "state": "streaming",
+        "is_streaming": true,
+        "brand": null,
+        "model": null,
+        "supported_features": 1
+      }
+    ],
+    "count": 2,
+    "cache_stats": {
+      "cached_snapshots": 0
+    },
+    "hls_stats": {
+      "active_streams": 0
+    }
+  },
+  "warnings": [],
+  "errors": []
+}

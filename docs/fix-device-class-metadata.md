@@ -8,36 +8,42 @@
 
 ```json
 {
-    "entity_id": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
-    "history": [
-        {
-            "state": 113.9,
-            "last_changed": "2026-01-12T04:57:50.621554+00:00",
-            "last_updated": "2026-01-12T04:57:50.621554+00:00",
-            "attributes": {}
+    "schema_version": "2026.06",
+    "data": {
+        "entity_id": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
+        "history": [
+            {
+                "state": 113.9,
+                "last_changed": "2026-01-12T04:57:50.621554+00:00",
+                "last_updated": "2026-01-12T04:57:50.621554+00:00",
+                "attributes": {}
+            },
+            {
+                "state": 114.0,
+                "last_changed": "2026-01-12T04:57:32.545598+00:00",
+                "last_updated": "2026-01-12T04:57:32.545598+00:00"
+            }
+            // ... 其他記錄也沒有 attributes
+        ],
+        "metadata": {
+            "domain": "sensor",
+            "device_class": null,  // ❌ 應該是 "voltage"
+            "unit_of_measurement": "",  // ❌ 應該是 "V"
+            "friendly_name": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
+            "is_numeric": true,
+            "visualization": {
+                "type": "chart",
+                "chart_type": "line",
+                "color": "#607D8B",
+                "show_points": true,
+                "interpolation": "linear"
+            },
+            "decimal_places": 2
         },
-        {
-            "state": 114.0,
-            "last_changed": "2026-01-12T04:57:32.545598+00:00",
-            "last_updated": "2026-01-12T04:57:32.545598+00:00"
-        }
-        // ... 其他記錄也沒有 attributes
-    ],
-    "metadata": {
-        "domain": "sensor",
-        "device_class": null,  // ❌ 應該是 "voltage"
-        "unit_of_measurement": "",  // ❌ 應該是 "V"
-        "friendly_name": "sensor.micro_wake_word_pzem004t_pzem_004t_v3_voltage",
-        "is_numeric": true,
-        "visualization": {
-            "type": "chart",
-            "chart_type": "line",
-            "color": "#607D8B",
-            "show_points": true,
-            "interpolation": "linear"
-        },
-        "decimal_places": 2
-    }
+        "count": 2
+    },
+    "warnings": [],
+    "errors": []
 }
 ```
 
@@ -142,11 +148,11 @@ metadata = _get_entity_metadata(
 - **平均情況**：O(n) - 需要遍歷 n 個 states（通常 n ≤ 10）
 - **最差情況**：O(n) + O(1) - 遍歷歷史 + 查詢當前狀態
 
-## 向後相容性
+## 呼叫端影響
 
-✅ **完全相容**：
+✅ **不需調整呼叫端**：
 - 新增的參數都是可選的（default = None）
-- 不影響現有的調用方式
+- 現有調用方式可維持不變
 - 所有現有測試都通過
 
 ## 相關檔案

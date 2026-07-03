@@ -54,6 +54,14 @@ ENVIRONMENT_CAPABILITIES = (
     "pressure",
     "atmospheric_pressure",
 )
+ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS = {
+    "current": "current",
+    "energy": "energy_meter",
+    "power": "power_meter",
+    "voltage": "voltage",
+}
+ELECTRICAL_CAPABILITIES = tuple(ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS.values())
+SENSOR_MEASUREMENT_CAPABILITIES = (*ENVIRONMENT_CAPABILITIES, *ELECTRICAL_CAPABILITIES)
 HEALTH_CAPABILITIES = ("battery", "signal_strength")
 PRESENCE_CAPABILITIES = ("occupancy", "motion", "presence")
 CONTACT_CAPABILITIES = ("contact", "opening", "door", "window")
@@ -74,8 +82,18 @@ def build_device_card_metadata(
     capabilities = _infer_capabilities(domain, attributes)
     device_class = _classify_device(domain, capabilities, attributes, labels)
     presentation = _build_presentation(device_class, capabilities)
+    class_override = _class_override_decision(
+        labels,
+        domain,
+        capabilities,
+        resolved_device_class=device_class,
+    )
 
-    return {
+    diagnostics: dict[str, Any] = {}
+    if class_override is not None:
+        diagnostics["class_override"] = class_override
+
+    metadata = {
         "name": attributes.get("friendly_name", entity_id),
         "domain": domain,
         "device_class": device_class,
@@ -83,6 +101,9 @@ def build_device_card_metadata(
         "status": _status_from_state(state),
         "presentation": presentation,
     }
+    if diagnostics:
+        metadata["diagnostics"] = diagnostics
+    return metadata
 
 
 def _infer_capabilities(domain: str, attributes: dict[str, Any]) -> list[str]:
@@ -111,9 +132,11 @@ def _light_capabilities(attributes: dict[str, Any]) -> list[str]:
     if "brightness" in attributes or "brightness" in color_modes:
         capabilities.append("brightness")
     if _supports_color_temperature(attributes, color_modes):
-        capabilities.append("color_temp")
+        capabilities.append("color_temperature")
     if _supports_rgb_color(attributes, color_modes):
         capabilities.append("rgb_color")
+    if "effect" in attributes or "effect_list" in attributes:
+        capabilities.append("effect")
 
     return capabilities
 
@@ -129,9 +152,14 @@ def _sensor_capabilities(attributes: dict[str, Any]) -> list[str]:
     device_class = str(attributes.get("device_class", "")).lower()
     if device_class in ENVIRONMENT_CAPABILITIES:
         capabilities.append(device_class)
+    if device_class in ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS:
+        capabilities.append(ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS[device_class])
     for capability in ENVIRONMENT_CAPABILITIES:
         if capability in attributes:
             _append_unique(capabilities, capability)
+    for source, canonical in ELECTRICAL_CAPABILITY_BY_DEVICE_CLASS.items():
+        if source in attributes:
+            _append_unique(capabilities, canonical)
     return capabilities
 
 
@@ -150,6 +178,8 @@ def _cover_capabilities(attributes: dict[str, Any]) -> list[str]:
     capabilities = ["open_close"]
     if "current_position" in attributes or "position" in attributes:
         capabilities.append("position")
+    if "current_tilt_position" in attributes or "tilt_position" in attributes:
+        capabilities.append("tilt_position")
     capabilities.append("stop")
     return capabilities
 
@@ -157,12 +187,18 @@ def _cover_capabilities(attributes: dict[str, Any]) -> list[str]:
 def _climate_capabilities(attributes: dict[str, Any]) -> list[str]:
     """Infer climate capabilities."""
     capabilities: list[str] = []
+    if all(key in attributes for key in ("target_temp_low", "target_temp_high")):
+        capabilities.append("target_temperature_range")
     if any(key in attributes for key in ("temperature", "target_temp", "target_temperature")):
         capabilities.append("target_temperature")
     if "hvac_modes" in attributes or "hvac_mode" in attributes:
         capabilities.append("hvac_mode")
     if "fan_modes" in attributes or "fan_mode" in attributes:
         capabilities.append("fan_speed")
+    if "preset_modes" in attributes or "preset_mode" in attributes:
+        capabilities.append("preset_mode")
+    if "swing_modes" in attributes or "swing_mode" in attributes:
+        capabilities.append("swing_mode")
     return capabilities
 
 
@@ -171,6 +207,10 @@ def _fan_capabilities(attributes: dict[str, Any]) -> list[str]:
     capabilities = ["on_off"]
     if "percentage" in attributes or "preset_mode" in attributes or "preset_modes" in attributes:
         capabilities.append("fan_speed")
+    if "direction" in attributes:
+        capabilities.append("fan_direction")
+    if "oscillating" in attributes:
+        capabilities.append("fan_oscillation")
     return capabilities
 
 
@@ -181,7 +221,7 @@ def _scene_or_script_capabilities(attributes: dict[str, Any]) -> list[str]:
 
 def _button_capabilities(attributes: dict[str, Any]) -> list[str]:
     """Infer button capabilities."""
-    return ["event"]
+    return ["event", "button_press"]
 
 
 def _no_capabilities(attributes: dict[str, Any]) -> list[str]:
@@ -241,9 +281,18 @@ def _classify_device(
     if override and _override_allowed(override, domain, capabilities):
         return override
 
+    return _automatic_device_class(domain, capabilities, attributes)
+
+
+def _automatic_device_class(
+    domain: str,
+    capabilities: list[str],
+    attributes: dict[str, Any],
+) -> str:
+    """Classify an entity without manual label overrides."""
     capability_set = set(capabilities)
     if domain == "light":
-        if capability_set.intersection({"brightness", "color_temp", "rgb_color"}):
+        if capability_set.intersection({"brightness", "color_temperature", "rgb_color"}):
             return "smart_light"
         return "simple_light_switch"
 
@@ -254,7 +303,7 @@ def _classify_device(
         return "fan_control"
 
     if domain == "sensor":
-        if capability_set.intersection(ENVIRONMENT_CAPABILITIES):
+        if capability_set.intersection(SENSOR_MEASUREMENT_CAPABILITIES):
             return "environment_sensor"
         if "event" in capability_set:
             return "button_device"
@@ -270,11 +319,20 @@ def _classify_device(
     if domain == "button":
         return "button_device"
 
-    if domain == "cover" and capability_set.intersection({"open_close", "position", "stop"}):
+    if domain == "cover" and capability_set.intersection(
+        {"open_close", "position", "tilt_position", "stop"}
+    ):
         return "cover_control"
 
     if domain == "climate" and capability_set.intersection(
-        {"target_temperature", "hvac_mode", "fan_speed"}
+        {
+            "target_temperature",
+            "target_temperature_range",
+            "hvac_mode",
+            "fan_speed",
+            "preset_mode",
+            "swing_mode",
+        }
     ):
         return "climate_control"
 
@@ -294,12 +352,26 @@ def _build_presentation(device_class: str, capabilities: list[str]) -> dict[str,
     }
 
     if device_class == "environment_sensor":
-        primary_metric = _first_present(capabilities, ENVIRONMENT_CAPABILITIES)
+        primary_metric = _first_present(
+            capabilities,
+            SENSOR_MEASUREMENT_CAPABILITIES,
+        )
         presentation["primary_metric"] = primary_metric
         presentation["secondary_metrics"] = _secondary_metrics(
             capabilities,
             primary_metric,
-            ("humidity", "battery", "signal_strength", "co2", "pm25", "illuminance"),
+            (
+                "humidity",
+                "battery",
+                "signal_strength",
+                "co2",
+                "pm25",
+                "illuminance",
+                "power_meter",
+                "energy_meter",
+                "voltage",
+                "current",
+            ),
         )
         presentation["dashboard_priority"] = 40
     elif device_class == "smart_light":
@@ -329,12 +401,62 @@ def _status_from_state(state: str | None) -> str:
 
 def _device_class_override(labels: Iterable[str]) -> str | None:
     """Extract the first supported smartly.class label."""
-    for label in labels:
-        if not isinstance(label, str) or not label.startswith("smartly.class."):
+    for label in sorted(label for label in labels if isinstance(label, str)):
+        if not label.startswith("smartly.class."):
             continue
         device_class = label.removeprefix("smartly.class.")
         if device_class in SMARTLY_DEVICE_CLASSES:
             return device_class
+    return None
+
+
+def _class_override_decision(
+    labels: Iterable[str],
+    domain: str,
+    capabilities: list[str],
+    *,
+    resolved_device_class: str,
+) -> dict[str, Any] | None:
+    """Return support diagnostics for a smartly.class label decision."""
+    class_label = _first_class_label(labels)
+    if class_label is None:
+        return None
+
+    requested_device_class = class_label.removeprefix("smartly.class.")
+    if requested_device_class not in SMARTLY_DEVICE_CLASSES:
+        return {
+            "label": class_label,
+            "accepted": False,
+            "resolved_device_class": resolved_device_class,
+            "reason": "unsupported smartly device class",
+        }
+    if domain in HIGH_RISK_DOMAINS:
+        return {
+            "label": class_label,
+            "accepted": False,
+            "resolved_device_class": resolved_device_class,
+            "reason": "override rejected for high-risk domain",
+        }
+    if _override_allowed(requested_device_class, domain, capabilities):
+        return {
+            "label": class_label,
+            "accepted": True,
+            "resolved_device_class": resolved_device_class,
+            "reason": f"override compatible with {domain} capability shape",
+        }
+    return {
+        "label": class_label,
+        "accepted": False,
+        "resolved_device_class": resolved_device_class,
+        "reason": f"override incompatible with {domain} capability shape",
+    }
+
+
+def _first_class_label(labels: Iterable[str]) -> str | None:
+    """Return the first deterministic smartly.class label."""
+    for label in sorted(label for label in labels if isinstance(label, str)):
+        if label.startswith("smartly.class."):
+            return label
     return None
 
 
@@ -349,10 +471,12 @@ def _override_allowed(device_class: str, domain: str, capabilities: list[str]) -
         return domain == "switch" and "on_off" in capability_set
     if device_class == "smart_light":
         return domain == "light" and bool(
-            capability_set.intersection({"brightness", "color_temp", "rgb_color"})
+            capability_set.intersection({"brightness", "color_temperature", "rgb_color"})
         )
     if device_class == "environment_sensor":
-        return domain == "sensor" and bool(capability_set.intersection(ENVIRONMENT_CAPABILITIES))
+        return domain == "sensor" and bool(
+            capability_set.intersection(SENSOR_MEASUREMENT_CAPABILITIES)
+        )
     if device_class == "presence_sensor":
         return domain == "binary_sensor" and bool(
             capability_set.intersection(PRESENCE_CAPABILITIES)

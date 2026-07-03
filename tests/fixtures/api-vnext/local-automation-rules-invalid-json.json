@@ -1,0 +1,14 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "invalid_json",
+      "message": "Request body must be valid JSON",
+      "target": "request.body"
+    }
+  ]
+}

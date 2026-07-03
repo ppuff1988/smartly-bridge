@@ -245,12 +245,14 @@ X-Signature: <HMAC-SHA256 signature>
 **Request Body:**
 ```json
 {
-  "entity_id": "switch.room_101_light",
-  "action": "turn_on",
-  "service_data": {
-    "brightness": 255
+  "command_id": "cmd_20260627_0001",
+  "device_id": "ldev_room_101_light",
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 100
   },
-  "actor": {
+  "source": {
     "user_id": "u_123",
     "role": "room_admin"
   }
@@ -260,13 +262,22 @@ X-Signature: <HMAC-SHA256 signature>
 **Response (200 OK):**
 ```json
 {
-  "success": true,
-  "entity_id": "switch.room_101_light",
-  "action": "turn_on",
-  "new_state": "on",
-  "new_attributes": {
-    "brightness": 255
-  }
+  "schema_version": "2026.06",
+  "data": {
+    "status": "accepted",
+    "command_id": "cmd_20260627_0001",
+    "device_id": "ldev_room_101_light",
+    "capability": "brightness",
+    "command": "set_brightness",
+    "source_entity_id": "switch.room_101_light",
+    "source_action": "turn_on",
+    "expected_state": {
+      "capability": "brightness",
+      "value": 100
+    }
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
@@ -281,6 +292,8 @@ X-Signature: <HMAC-SHA256 signature>
 | 401 | `ip_not_allowed` | IP 不在白名單 |
 | 403 | `entity_not_allowed` | Entity 未標記 `smartly` |
 | 403 | `service_not_allowed` | Service 不在白名單 |
+| 400 | `invalid_command` | Capability 不支援指定 command |
+| 400 | `invalid_params` | Command params 不符合 schema |
 | 429 | `rate_limited` | 超過速率限制 |
 
 ---
@@ -335,19 +348,24 @@ X-Signature: <HMAC-SHA256 signature>
 **Response (200 OK):**
 ```json
 {
-  "states": [
-    {
-      "entity_id": "switch.room_101_light",
-      "state": "on",
-      "attributes": {
-        "friendly_name": "Room 101 Light",
-        "brightness": 255
-      },
-      "last_changed": "2025-12-17T10:30:00+00:00",
-      "last_updated": "2025-12-17T10:30:00+00:00"
-    }
-  ],
-  "count": 1
+  "schema_version": "2026.06",
+  "data": {
+    "states": [
+      {
+        "entity_id": "switch.room_101_light",
+        "state": "on",
+        "attributes": {
+          "friendly_name": "Room 101 Light",
+          "brightness": 255
+        },
+        "last_changed": "2025-12-17T10:30:00+00:00",
+        "last_updated": "2025-12-17T10:30:00+00:00"
+      }
+    ],
+    "count": 1
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 

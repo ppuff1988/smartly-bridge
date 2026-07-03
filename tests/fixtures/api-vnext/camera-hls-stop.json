@@ -1,0 +1,9 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "stopped",
+    "action": "stopped"
+  },
+  "warnings": [],
+  "errors": []
+}

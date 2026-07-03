@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_ENTITY_ID",
+      "message": "missing entity id",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
+}

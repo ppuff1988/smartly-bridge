@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "device_abc123",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "MISSING_REQUIRED_FIELDS",
+      "message": "Missing required event fields",
+      "target": "event.action",
+      "retryable": false
+    }
+  ]
+}

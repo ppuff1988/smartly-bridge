@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "CAMERA_NOT_FOUND",
+      "message": "camera not found",
+      "target": "camera",
+      "retryable": false
+    }
+  ]
+}

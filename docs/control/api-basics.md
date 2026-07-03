@@ -31,12 +31,14 @@ Content-Type: application/json
 
 ```json
 {
-  "entity_id": "設備實體 ID（必填）",
-  "action": "動作名稱（必填）",
-  "service_data": {
+  "command_id": "命令 ID（必填，用於冪等與追蹤）",
+  "device_id": "邏輯設備 ID（必填）",
+  "capability": "設備能力名稱（必填）",
+  "command": "命令名稱（必填）",
+  "params": {
     "參數名稱": "參數值（選填）"
   },
-  "actor": {
+  "source": {
     "user_id": "操作者 ID（選填，用於審計）",
     "role": "操作者角色（選填）"
   }
@@ -47,12 +49,14 @@ Content-Type: application/json
 
 | 欄位 | 類型 | 必填 | 說明 |
 |------|------|------|------|
-| `entity_id` | string | ✅ | Home Assistant 實體 ID，例如 `light.bedroom` |
-| `action` | string | ✅ | 要執行的動作，例如 `turn_on`、`set_temperature` |
-| `service_data` | object | ❌ | 動作參數，依設備類型而定 |
-| `actor` | object | ❌ | 操作者資訊，用於審計日誌 |
-| `actor.user_id` | string | ❌ | 操作者 ID |
-| `actor.role` | string | ❌ | 操作者角色（例如 `admin`、`tenant`） |
+| `command_id` | string | ✅ | 命令 ID，建議使用具唯一性的追蹤值，例如 `cmd_20260627_0001` |
+| `device_id` | string | ✅ | API vNext 邏輯設備 ID，例如 `ldev_bedroom_light` |
+| `capability` | string | ✅ | 要控制的能力，例如 `power`、`brightness`、`temperature` |
+| `command` | string | ✅ | 要執行的命令，例如 `turn_on`、`set_brightness`、`set_temperature` |
+| `params` | object | ❌ | 命令參數，依能力與命令而定 |
+| `source` | object | ❌ | 操作者資訊，用於審計日誌 |
+| `source.user_id` | string | ❌ | 操作者 ID |
+| `source.role` | string | ❌ | 操作者角色（例如 `admin`、`tenant`） |
 
 ---
 
@@ -82,7 +86,14 @@ import hmac
 import json
 
 # 1. 計算 Body 的 SHA256 雜湊值
-body = {"entity_id": "light.bedroom", "action": "turn_on", "service_data": {}}
+body = {
+    "command_id": "cmd_20260627_0001",
+    "device_id": "ldev_bedroom_light",
+    "capability": "brightness",
+    "command": "set_brightness",
+    "params": {"value": 78},
+    "source": {"user_id": "u_123", "role": "tenant"},
+}
 body_json = json.dumps(body, separators=(',', ':'))  # 不含空格
 body_hash = hashlib.sha256(body_json.encode()).hexdigest()
 
@@ -110,7 +121,14 @@ print(f"X-Signature: {signature}")
 import crypto from 'crypto';
 
 // 1. 計算 Body 的 SHA256
-const body = { entity_id: "light.bedroom", action: "turn_on", service_data: {} };
+const body = {
+  command_id: "cmd_20260627_0001",
+  device_id: "ldev_bedroom_light",
+  capability: "brightness",
+  command: "set_brightness",
+  params: { value: 78 },
+  source: { user_id: "u_123", role: "tenant" },
+};
 const bodyJson = JSON.stringify(body);
 const bodyHash = crypto.createHash('sha256').update(bodyJson).digest('hex');
 

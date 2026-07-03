@@ -6,15 +6,15 @@
 
 ## 1. Purpose
 
-Smartly will continue to receive new smart home devices from Home Assistant through Smartly Bridge. These devices may come from different vendors, use different model names, and expose different combinations of states, attributes, and controls.
+Smartly will continue to receive new smart home devices from Home Assistant through Smartly Bridge. These devices may come from different vendors, use different model names, and expose different combinations of states, attributes, and controls. In API vNext, Bridge normalizes those source entities into logical devices and canonical capabilities before Platform renders customer dashboards.
 
 The UI must not be designed around each model name. Instead, Smartly should use a capability-driven system:
 
 ```text
-Home Assistant entity
--> Bridge synced entity
--> domain
--> capabilities
+Home Assistant entity/entities
+-> Bridge logical device normalization
+-> canonical capabilities
+-> capability states
 -> Smartly device class
 -> card template
 -> dashboard card / detail control surface
@@ -44,9 +44,11 @@ This lets Smartly support new devices by adding or adjusting a device class mapp
 
 ## 4. Core Concepts
 
-### 4.1 Domain
+### 4.1 Source Domain
 
-`domain` is the technical category from Home Assistant or Bridge.
+`domain` is the technical source category from Home Assistant or Bridge. It is
+useful for Bridge normalization, support diagnostics, and explicit migration
+fallbacks. It is not the customer-facing vNext render or control authority.
 
 Examples:
 
@@ -63,7 +65,10 @@ Examples:
 | `script`        | Script trigger                              |
 | `button`        | Stateless button trigger                    |
 
-`domain` is useful but not enough. For example, a `light` may be only on/off, dimmable, color temperature capable, or full RGB capable.
+`domain` is useful but not enough. For example, a `light` may be only on/off,
+dimmable, color temperature capable, or full RGB capable. Customer UI should use
+the normalized logical-device `primary_type`, `device_class`, `capabilities`,
+`capability_states`, and `presentation` fields.
 
 ### 4.2 Capability
 
@@ -75,7 +80,7 @@ Examples:
 | -------------------- | ------------------------------ |
 | `on_off`             | Can turn on/off                |
 | `brightness`         | Supports brightness control    |
-| `color_temp`         | Supports color temperature     |
+| `color_temperature`  | Supports color temperature     |
 | `rgb_color`          | Supports color control         |
 | `open_close`         | Supports open/close            |
 | `stop`               | Supports stop action           |
@@ -180,21 +185,30 @@ Rules:
 - `attributes` may preserve raw useful metadata, but the dashboard should not render raw attributes directly.
 - `presentation` may guide UI layout, but should not be required for safe fallback rendering.
 
-### 5.1 Bridge Current Implementation Contract
+### 5.1 Bridge Entity-State Contract
 
-This section documents what Smartly Bridge currently implements in `/api/smartly/sync/states`.
+This section documents the source entity-state contract implemented
+by Smartly Bridge in `/api/smartly/sync/states`. It remains useful as source
+context and compatibility fallback reference. API vNext customer rendering
+should consume Platform `/api/homes/{home_id}/logical-devices` responses and
+canonical capability states instead.
 
 Implemented endpoint envelope:
 
 ```json
 {
-  "states": [],
-  "count": 0
+  "schema_version": "2026.06",
+  "data": {
+    "states": [],
+    "count": 0
+  },
+  "warnings": [],
+  "errors": []
 }
 ```
 
-- `states` is the list of allowed entity state objects.
-- `count` is the number of objects in `states`.
+- `data.states` is the list of allowed entity state objects.
+- `data.count` is the number of objects in `data.states`.
 
 Implemented response shape per state:
 
@@ -253,7 +267,7 @@ Implemented capability inference:
 
 | Domain | Current capability rules |
 | ------ | ------------------------ |
-| `light` | Always `on_off`; adds `brightness` when `attributes.brightness` exists or `supported_color_modes` contains `brightness`; adds `color_temp` when `attributes.color_temp`, `min_mireds`, `max_mireds`, or `supported_color_modes` indicates color temperature; adds `rgb_color` when RGB-like color modes or `rgb_color`, `hs_color`, `xy_color` exist. |
+| `light` | Always `on_off`; adds `brightness` when `attributes.brightness` exists or `supported_color_modes` contains `brightness`; adds `color_temperature` when `attributes.color_temperature`, `min_mireds`, `max_mireds`, or `supported_color_modes` indicates color temperature; adds `rgb_color` when RGB-like color modes or `rgb_color`, `hs_color`, `xy_color` exist. |
 | `switch` | Always `on_off`. |
 | `sensor` | Adds `attributes.device_class` when it is one of the implemented environment capabilities; also adds any implemented environment capability that appears as an attribute key. |
 | `binary_sensor` | Adds presence/contact capabilities when `attributes.device_class` matches them or when the capability appears as an attribute key. |
@@ -294,7 +308,7 @@ Implemented Smartly device class classification:
 | Condition | Current `device_class` |
 | --------- | ---------------------- |
 | Domain is `alarm_control_panel`, `camera`, or `lock` | `unknown_device` |
-| `light` with `brightness`, `color_temp`, or `rgb_color` | `smart_light` |
+| `light` with `brightness`, `color_temperature`, or `rgb_color` | `smart_light` |
 | `light` without advanced light capability | `simple_light_switch` |
 | `switch` with `on_off` | `simple_switch` |
 | `fan` | `fan_control` |
@@ -314,7 +328,7 @@ Implemented `smartly.class.<device_class>` label override:
 - `smartly.class.unknown_device` is always allowed.
 - `smartly.class.fan_control` is allowed for `fan` or `switch` entities with `on_off`.
 - `smartly.class.simple_light_switch` and `smartly.class.simple_switch` are currently allowed for `switch` entities with `on_off`.
-- `smartly.class.smart_light` is allowed for `light` entities with `brightness`, `color_temp`, or `rgb_color`.
+- `smartly.class.smart_light` is allowed for `light` entities with `brightness`, `color_temperature`, or `rgb_color`.
 - `smartly.class.environment_sensor` is allowed for `sensor` entities with an implemented environment capability.
 - `smartly.class.presence_sensor` is allowed for `binary_sensor` entities with an implemented presence capability.
 - `smartly.class.contact_sensor` is allowed for `binary_sensor` entities with an implemented contact capability.
@@ -382,7 +396,7 @@ Use for lights with at least one advanced light capability.
 Detection:
 
 - `domain = light`
-- Has one or more of: `brightness`, `color_temp`, `rgb_color`
+- Has one or more of: `brightness`, `color_temperature`, `rgb_color`
 
 Dashboard:
 
@@ -818,7 +832,7 @@ Example:
 
 ```text
 domain = light
-capabilities include brightness, color_temp
+capabilities include brightness, color_temperature
 => device_class = smart_light
 => card_template = light_card
 ```
@@ -1027,11 +1041,14 @@ Existing platform data already includes:
 - `entity_states.state`
 - `entity_states.attributes_json`
 
-Recommended additions or derivations:
+API vNext additions:
 
-- `device_class`: stored or derived from domain, capabilities, labels, and overrides.
-- `presentation_json`: optional UI hints such as favorite, primary metric, secondary metrics, grouping, and dashboard priority.
-- `logical_device_group`: optional grouping key for multi-entity physical devices.
+- `logical_devices.public_id`: Platform-owned stable customer URL/control id.
+- `logical_devices.bridge_logical_id`: Bridge-facing canonical logical id.
+- `logical_devices.primary_type`, `device_class`, `capabilities_json`, `presentation_json`.
+- `capability_states`: capability-scoped state, quality, and timestamps.
+- `logical_device_aliases`: source entity public ids, Bridge logical ids, source device ids, and other lookup aliases.
+- `dashboard_cards` / `dashboard_widgets`: dashboard customization referencing logical device + capability.
 
 The server should be the source of truth for classification when possible. The frontend may have a fallback presentation mapper, but should not contain the only copy of classification logic long term.
 
@@ -1702,8 +1719,8 @@ Only the first 2-3 relevant items should appear on dashboard. The rest goes to d
 | ----------------- | ------------------------------------------------- | --------------------- | ----------------------------------------- |
 | L1 Simple light   | `on_off`                                          | `simple_light_switch` | Toggle                                    |
 | L2 Dimmable light | `on_off`, `brightness`                            | `smart_light`         | Toggle + brightness summary               |
-| L3 Tunable white  | `on_off`, `brightness`, `color_temp`              | `smart_light`         | Toggle + brightness; color temp in detail |
-| L4 Color light    | `on_off`, `brightness`, `color_temp`, `rgb_color` | `smart_light`         | Toggle + brightness; color in detail      |
+| L3 Tunable white  | `on_off`, `brightness`, `color_temperature`              | `smart_light`         | Toggle + brightness; color temp in detail |
+| L4 Color light    | `on_off`, `brightness`, `color_temperature`, `rgb_color` | `smart_light`         | Toggle + brightness; color in detail      |
 
 ### 21.2 Dashboard Light Card
 
@@ -1783,8 +1800,8 @@ Activity
 | ----------------- | ---------------------- | ---------------------------------- |
 | Power toggle      | `on_off`               | `turn_on` / `turn_off`             |
 | Brightness slider | `brightness`           | `turn_on` with `brightness`        |
-| Color temperature | `color_temp`           | `turn_on` with `color_temp_kelvin` |
-| Color control     | `hs_color`             | `turn_on` with `hs_color`          |
+| Color temperature | `color_temperature`    | `set_color_temperature` with Kelvin value |
+| Color control     | `rgb_color`            | `set_rgb_color` with RGB channels  |
 | Preset scene      | `run` or scene binding | Run scene/script                   |
 
 Rules:
@@ -1796,35 +1813,36 @@ Rules:
 
 ### 21.6 Light Action Payloads
 
-Smartly light controls should send Home Assistant-compatible action payloads through Platform/Bridge. Brightness, color temperature, and color all use `turn_on` with additional data.
+Smartly light controls should send API vNext `SmartlyCommand` payloads through Platform/Bridge. Brightness, color temperature, and color use canonical capability commands with normalized parameters.
 
 Brightness:
 
 ```json
 {
-  "action": "turn_on",
-  "data": {
-    "brightness": 191
+  "capability": "brightness",
+  "command": "set_brightness",
+  "params": {
+    "value": 75
   }
 }
 ```
 
 Brightness rules:
 
-- Home Assistant brightness range is `0-255`.
 - UI brightness is displayed as `0-100%`.
-- Convert UI percent to HA brightness with `round(percent / 100 * 255)`.
-- Example: `75%` -> `191`.
+- Send the UI percent as the canonical `value` parameter.
+- Example: `75%` -> `{"value": 75}`.
 - Clamp values before sending: below `0` becomes `0`, above `100` becomes `100`.
-- If UI uses `0%` as an off gesture, prefer sending `turn_off` instead of `turn_on` with `brightness: 0`.
+- If UI uses `0%` as an off gesture, prefer sending `on_off` / `turn_off` instead of `set_brightness` with `value: 0`.
 
 Color temperature:
 
 ```json
 {
-  "action": "turn_on",
-  "data": {
-    "color_temp_kelvin": 3500
+  "capability": "color_temperature",
+  "command": "set_color_temperature",
+  "params": {
+    "value": 3500
   }
 }
 ```
@@ -1832,7 +1850,7 @@ Color temperature:
 Color temperature rules:
 
 - UI should display Kelvin values or user-friendly presets such as warm, neutral, cool.
-- Send Kelvin using `color_temp_kelvin`.
+- Send Kelvin using the canonical `value` parameter.
 - Clamp to the device-supported min/max Kelvin range when Bridge reports it.
 - If min/max is unknown, keep presets conservative.
 
@@ -1840,9 +1858,10 @@ Color:
 
 ```json
 {
-  "action": "turn_on",
-  "data": {
-    "hs_color": [260, 100]
+  "capability": "rgb_color",
+  "command": "set_rgb_color",
+  "params": {
+    "rgb": [85, 0, 255]
   }
 }
 ```

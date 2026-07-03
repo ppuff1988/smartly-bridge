@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import logging
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from .audit import log_integration_event
 from .const import CONF_CLIENT_ID, CONF_INSTANCE_ID, DOMAIN, RATE_LIMIT, RATE_WINDOW
@@ -24,7 +24,7 @@ _FRONTEND_REGISTERED = f"{DOMAIN}_frontend_registered"
 
 def register_views(hass: HomeAssistant) -> None:
     """Register HTTP views without importing the HTTP layer at module load."""
-    from .http import register_views as register_http_views
+    from .views import register_views as register_http_views
 
     register_http_views(hass)
 
@@ -50,6 +50,41 @@ async def async_setup(hass: HomeAssistant, config: dict) -> bool:
     This integration only supports config flow, not YAML configuration.
     """
     return True
+
+
+def _build_runtime_adapters(
+    hass: HomeAssistant,
+    camera_manager: Any,
+    webrtc_manager: Any,
+    logger: logging.Logger,
+) -> dict[str, Any]:
+    """Build setup-created runtime ports used by HTTP views."""
+    from .adapters.home_assistant import (
+        _home_assistant_camera_gateway,
+        _home_assistant_device_event_publisher,
+        _home_assistant_history_gateway,
+        _home_assistant_local_automation_rule_store,
+        _home_assistant_raw_diagnostic_store,
+        _home_assistant_smartly_command_executor,
+        _home_assistant_sync_states_gateway,
+        _home_assistant_sync_structure_gateway,
+        _home_assistant_web_rtc_gateway,
+        _in_memory_device_event_deduplicator,
+    )
+    from .views.history import _get_history_semaphore
+
+    return {
+        "device_event_publisher": _home_assistant_device_event_publisher(hass),
+        "device_event_deduplicator": _in_memory_device_event_deduplicator(),
+        "local_automation_rule_store": _home_assistant_local_automation_rule_store(hass),
+        "smartly_command_executor": _home_assistant_smartly_command_executor(hass, logger),
+        "camera_gateway": _home_assistant_camera_gateway(hass, camera_manager),
+        "history_gateway": _home_assistant_history_gateway(hass, _get_history_semaphore),
+        "sync_structure_gateway": _home_assistant_sync_structure_gateway(hass),
+        "sync_states_gateway": _home_assistant_sync_states_gateway(hass),
+        "webrtc_gateway": _home_assistant_web_rtc_gateway(hass, webrtc_manager),
+        "raw_diagnostic_store": _home_assistant_raw_diagnostic_store(hass),
+    }
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -82,6 +117,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     webrtc_manager = WebRTCTokenManager(hass)
     await webrtc_manager.start()
 
+    runtime_adapters = _build_runtime_adapters(
+        hass,
+        camera_manager,
+        webrtc_manager,
+        _LOGGER,
+    )
+
     # Store in hass.data
     domain_data.update(
         {
@@ -91,6 +133,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             "push_manager": push_manager,
             "camera_manager": camera_manager,
             "webrtc_manager": webrtc_manager,
+            "runtime_adapters": runtime_adapters,
         }
     )
 

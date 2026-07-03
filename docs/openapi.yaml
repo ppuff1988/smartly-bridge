@@ -176,142 +176,105 @@ paths:
         - Control
       summary: Control a device
       description: |
-        Execute a service call on an entity. The entity must have the `smartly` label 
-        and the service must be in the allowed services whitelist.
+        Execute a canonical SmartlyCommand against a logical device capability.
+        Bridge resolves the logical device and capability to the allowed Home Assistant
+        source entity at runtime.
         
         **Request Format:**
         - Content-Type: `application/json`
-        - Body: JSON object containing `entity_id`, `action`, optional `service_data`, and `actor` information
+        - Body: API vNext SmartlyCommand object
         
         **Required Fields:**
-        - `entity_id` (string): The entity ID to control (e.g., `switch.living_room_light`)
-        - `action` (string): The service action to execute (e.g., `turn_on`, `turn_off`)
+        - `command_id` (string): Client-generated command id for idempotency and tracing
+        - `device_id` (string): Logical device id
+        - `capability` (string): Canonical capability to control
+        - `command` (string): Canonical command for the capability
         
         **Optional Fields:**
-        - `service_data` (object): Additional parameters for the service (e.g., brightness, temperature)
-        - `actor` (object): Information about who initiated the action for audit logging
+        - `params` (object): Capability-specific command parameters
+        - `source` (object): Information about who initiated the command for audit logging
       operationId: controlDevice
       requestBody:
         description: |
-          JSON payload containing the control command. Must include entity_id and action.
-          The service_data field structure depends on the entity domain and action being performed.
+          JSON payload containing an API vNext SmartlyCommand. Bridge maps the
+          logical device capability command to a source service call after policy checks.
         required: true
         content:
           application/json:
             schema:
-              $ref: '#/components/schemas/ControlRequest'
+              $ref: '#/components/schemas/SmartlyCommandRequest'
             examples:
-              switchOn:
-                summary: Turn on a switch
+              powerOn:
+                summary: Turn on a logical switch
                 value:
-                  entity_id: switch.living_room_light
-                  action: turn_on
-                  service_data: {}
-                  actor:
+                  command_id: cmd_20260627_0001
+                  device_id: ldev_living_room_switch
+                  capability: power
+                  command: turn_on
+                  params: {}
+                  source:
                     user_id: u_123
                     role: tenant
-              
-              lightWithBrightness:
-                summary: Turn on light with brightness
+              setBrightness:
+                summary: Set logical light brightness
                 value:
-                  entity_id: light.bedroom
-                  action: turn_on
-                  service_data:
-                    brightness: 200
-                  actor:
+                  command_id: cmd_20260627_0002
+                  device_id: ldev_bedroom_light
+                  capability: brightness
+                  command: set_brightness
+                  params:
+                    value: 78
+                  source:
                     user_id: u_123
                     role: tenant
-              
-              lightWithColor:
-                summary: Turn on light with RGB color
+              setTemperature:
+                summary: Set logical climate target temperature
                 value:
-                  entity_id: light.bedroom
-                  action: turn_on
-                  service_data:
-                    brightness: 200
-                    rgb_color: [255, 0, 0]
-                  actor:
-                    user_id: u_123
-                    role: tenant
-              
-              coverSetPosition:
-                summary: Set cover position
-                value:
-                  entity_id: cover.living_room_curtain
-                  action: set_cover_position
-                  service_data:
-                    position: 50
-                  actor:
-                    user_id: u_456
-                    role: tenant
-              
-              climateSetTemperature:
-                summary: Set climate temperature
-                value:
-                  entity_id: climate.living_room_ac
-                  action: set_temperature
-                  service_data:
+                  command_id: cmd_20260627_0003
+                  device_id: ldev_living_room_climate
+                  capability: target_temperature
+                  command: set_temperature
+                  params:
                     temperature: 24
-                  actor:
+                  source:
                     user_id: u_456
                     role: tenant
-              
-              climateSetMode:
-                summary: Set HVAC mode
+              setMode:
+                summary: Select logical climate mode
                 value:
-                  entity_id: climate.living_room_ac
-                  action: set_hvac_mode
-                  service_data:
+                  command_id: cmd_20260627_0004
+                  device_id: ldev_living_room_climate
+                  capability: mode_select
+                  command: select_mode
+                  params:
                     hvac_mode: cool
-                  actor:
+                  source:
                     user_id: u_456
                     role: tenant
-              
-              fanSetPercentage:
-                summary: Set fan speed percentage
-                value:
-                  entity_id: fan.bedroom_fan
-                  action: set_percentage
-                  service_data:
-                    percentage: 75
-                  actor:
-                    user_id: u_789
-                    role: tenant
-              
-              lockDoor:
-                summary: Lock a door
-                value:
-                  entity_id: lock.front_door
-                  action: lock
-                  service_data: {}
-                  actor:
-                    user_id: u_789
-                    role: tenant
-              
-              triggerAutomation:
-                summary: Trigger an automation
-                value:
-                  entity_id: automation.motion_light
-                  action: trigger
-                  service_data:
-                    skip_condition: true
-                  actor:
-                    user_id: u_admin
-                    role: admin
       responses:
         '200':
-          description: Control action executed successfully
+          description: SmartlyCommand executed successfully
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/ControlResponse'
+                $ref: '#/components/schemas/SmartlyCommandResponse'
               example:
-                success: true
-                entity_id: switch.room_101_light
-                action: turn_on
-                new_state: "on"
-                new_attributes:
-                  brightness: 255
+                schema_version: "2026.06"
+                data:
+                  command_id: cmd_20260627_0001
+                  status: completed
+                  device_id: ldev_living_room_switch
+                  capability: power
+                  command: turn_on
+                  source_entity_id: switch.living_room_light
+                  expected_state:
+                    value: true
+                  adapter_id: home_assistant.default
+                  correlation_id: cmd_20260627_0001
+                  new_state: "on"
+                  new_attributes: {}
+                warnings: []
+                errors: []
         '400':
           description: Bad request
           content:
@@ -321,10 +284,24 @@ paths:
               examples:
                 invalidJson:
                   value:
-                    error: invalid_json
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_json
+                        message: invalid json
+                        target: request.body
+                        retryable: false
                 missingFields:
                   value:
-                    error: missing_required_fields
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: missing_required_fields
+                        message: missing required fields
+                        target: request.body
+                        retryable: false
         '401':
           description: Authentication failed
           content:
@@ -334,19 +311,54 @@ paths:
               examples:
                 missingHeaders:
                   value:
-                    error: missing_headers
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: missing_headers
+                        message: missing headers
+                        target: headers
+                        retryable: false
                 invalidTimestamp:
                   value:
-                    error: invalid_timestamp
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_timestamp
+                        message: invalid timestamp
+                        target: headers.x-timestamp
+                        retryable: false
                 nonceReused:
                   value:
-                    error: nonce_reused
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: nonce_reused
+                        message: nonce reused
+                        target: headers.x-nonce
+                        retryable: false
                 invalidSignature:
                   value:
-                    error: invalid_signature
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_signature
+                        message: invalid signature
+                        target: auth.signature
+                        retryable: false
                 ipNotAllowed:
                   value:
-                    error: ip_not_allowed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: ip_not_allowed
+                        message: ip not allowed
+                        target: request.ip
+                        retryable: false
         '403':
           description: Forbidden
           content:
@@ -356,10 +368,24 @@ paths:
               examples:
                 entityNotAllowed:
                   value:
-                    error: entity_not_allowed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: entity_not_allowed
+                        message: entity not allowed
+                        target: device_id
+                        retryable: false
                 serviceNotAllowed:
                   value:
-                    error: service_not_allowed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: service_not_allowed
+                        message: service not allowed
+                        target: command
+                        retryable: false
         '429':
           description: Rate limited
           headers:
@@ -376,7 +402,14 @@ paths:
               schema:
                 $ref: '#/components/schemas/ErrorResponse'
               example:
-                error: rate_limited
+                schema_version: "2026.06"
+                data: null
+                warnings: []
+                errors:
+                  - code: rate_limited
+                    message: rate limited
+                    target: rate_limit
+                    retryable: true
         '500':
           description: Internal server error
           content:
@@ -386,10 +419,24 @@ paths:
               examples:
                 integrationNotConfigured:
                   value:
-                    error: integration_not_configured
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: integration_not_configured
+                        message: integration not configured
+                        target: integration
+                        retryable: false
                 serviceCallFailed:
                   value:
-                    error: service_call_failed
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: service_call_failed
+                        message: service call failed
+                        target: source.service
+                        retryable: true
 
   /api/smartly/sync/structure:
     get:
@@ -408,34 +455,38 @@ paths:
               schema:
                 $ref: '#/components/schemas/StructureResponse'
               example:
-                floors:
-                  - id: floor_1
-                    name: 1F
-                    areas:
-                      - id: area_101
-                        name: Room 101
-                        devices:
-                          - id: device_abc123
-                            name: Smart Switch
-                            entities:
-                              - entity_id: switch.room_101_light
-                                domain: switch
-                                name: Light
-                                icon: mdi:lightbulb
-                areas:
-                  - id: area_101
-                    name: Room 101
-                    floor_id: floor_1
-                devices:
-                  - id: device_abc123
-                    name: Smart Switch
-                    area_id: area_101
-                entities:
-                  - entity_id: switch.room_101_light
-                    domain: switch
-                    name: Light
-                    device_id: device_abc123
-                    icon: mdi:lightbulb
+                schema_version: "2026.06"
+                data:
+                  floors:
+                    - id: floor_1
+                      name: 1F
+                      areas:
+                        - id: area_101
+                          name: Room 101
+                          devices:
+                            - id: device_abc123
+                              name: Smart Switch
+                              entities:
+                                - entity_id: switch.room_101_light
+                                  domain: switch
+                                  name: Light
+                                  icon: mdi:lightbulb
+                  areas:
+                    - id: area_101
+                      name: Room 101
+                      floor_id: floor_1
+                  devices:
+                    - id: device_abc123
+                      name: Smart Switch
+                      area_id: area_101
+                  entities:
+                    - entity_id: switch.room_101_light
+                      domain: switch
+                      name: Light
+                      device_id: device_abc123
+                      icon: mdi:lightbulb
+                warnings: []
+                errors: []
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '429':
@@ -464,28 +515,32 @@ paths:
               schema:
                 $ref: '#/components/schemas/StatesResponse'
               example:
-                states:
-                  - entity_id: sensor.temperature
-                    state: "24.6"
-                    attributes:
-                      friendly_name: Living Room Temperature
-                      device_class: temperature
-                      unit_of_measurement: "°C"
-                      bridge_chart:
-                        metric: temperature
-                        unit: "°C"
-                        points:
-                          - at: "2026-06-26T04:00:00Z"
-                            value: 24.1
-                          - at: "2026-06-26T05:00:00Z"
-                            value: 24.4
-                          - at: "2026-06-26T06:00:00Z"
-                            value: 24.6
-                    last_changed: "2026-06-26T06:00:00Z"
-                    last_updated: "2026-06-26T06:00:00Z"
-                    icon: mdi:thermometer
-                    device_class: environment_sensor
-                count: 1
+                schema_version: "2026.06"
+                data:
+                  states:
+                    - entity_id: sensor.temperature
+                      state: "24.6"
+                      attributes:
+                        friendly_name: Living Room Temperature
+                        device_class: temperature
+                        unit_of_measurement: "°C"
+                        bridge_chart:
+                          metric: temperature
+                          unit: "°C"
+                          points:
+                            - at: "2026-06-26T04:00:00Z"
+                              value: 24.1
+                            - at: "2026-06-26T05:00:00Z"
+                              value: 24.4
+                            - at: "2026-06-26T06:00:00Z"
+                              value: 24.6
+                      last_changed: "2026-06-26T06:00:00Z"
+                      last_updated: "2026-06-26T06:00:00Z"
+                      icon: mdi:thermometer
+                      device_class: environment_sensor
+                  count: 1
+                warnings: []
+                errors: []
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '429':
@@ -552,11 +607,15 @@ paths:
               schema:
                 $ref: '#/components/schemas/DeviceEventResponse'
               example:
-                success: true
-                event_id: evt_01JZABC123
-                device_id: device_abc123
-                action: single_left
-                received_at: "2026-06-27T10:20:01.000Z"
+                schema_version: "2026.06"
+                data:
+                  status: accepted
+                  event_id: evt_01JZABC123
+                  device_id: device_abc123
+                  action: single_left
+                  received_at: "2026-06-27T10:20:01.000Z"
+                warnings: []
+                errors: []
         '400':
           description: Invalid event payload or unsupported action
           content:
@@ -566,8 +625,14 @@ paths:
               examples:
                 invalidAction:
                   value:
-                    error: invalid_action
-                    message: Unsupported button action
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_action
+                        message: Unsupported button action
+                        target: action
+                        retryable: false
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -594,7 +659,7 @@ paths:
         
         **Pagination (v1.4.0):**
         - Use `cursor` parameter for efficient pagination through large datasets
-        - Without cursor: Returns up to `limit` records (legacy mode)
+        - Without cursor: Returns up to `limit` records (non-cursor mode)
         - With cursor: Returns up to `page_size` records per page (default: 100, max: 1000)
         - Response includes `has_more` and `next_cursor` for fetching next page
         - Cursor contains encoded timestamp and state change time (Base64)
@@ -671,44 +736,48 @@ paths:
               schema:
                 $ref: '#/components/schemas/HistoryResponse'
               example:
-                entity_id: sensor.temperature
-                history:
-                  - state: 22.5
-                    attributes:
-                      unit_of_measurement: "°C"
-                      device_class: "temperature"
-                    last_changed: "2026-01-10T10:00:00+00:00"
-                    last_updated: "2026-01-10T10:00:00+00:00"
-                  - state: 23.1
-                    last_changed: "2026-01-10T11:00:00+00:00"
-                    last_updated: "2026-01-10T11:00:00+00:00"
-                count: 2
-                truncated: false
-                start_time: "2026-01-09T00:00:00+00:00"
-                end_time: "2026-01-10T00:00:00+00:00"
-                metadata:
-                  domain: sensor
+                schema_version: "2026.06"
+                data:
+                  entity_id: sensor.temperature
+                  history:
+                    - state: 22.5
+                      attributes:
+                        unit_of_measurement: "°C"
+                        device_class: "temperature"
+                      last_changed: "2026-01-10T10:00:00+00:00"
+                      last_updated: "2026-01-10T10:00:00+00:00"
+                    - state: 23.1
+                      last_changed: "2026-01-10T11:00:00+00:00"
+                      last_updated: "2026-01-10T11:00:00+00:00"
+                  count: 2
+                  truncated: false
+                  start_time: "2026-01-09T00:00:00+00:00"
+                  end_time: "2026-01-10T00:00:00+00:00"
+                  metadata:
+                    domain: sensor
+                    device_class: temperature
+                    unit_of_measurement: "°C"
+                    friendly_name: "Temperature Sensor"
+                    is_numeric: true
+                    decimal_places: 1
+                    visualization:
+                      type: chart
+                      chart_type: spline
+                      color: "#EF5350"
+                      show_points: false
+                      interpolation: natural
                   device_class: temperature
                   unit_of_measurement: "°C"
-                  friendly_name: "Temperature Sensor"
-                  is_numeric: true
-                  decimal_places: 1
-                  visualization:
-                    type: chart
-                    chart_type: spline
-                    color: "#EF5350"
-                    show_points: false
-                    interpolation: natural
-                device_class: temperature
-                unit_of_measurement: "°C"
-                bridge_chart:
-                  metric: temperature
-                  unit: "°C"
-                  points:
-                    - at: "2026-01-10T10:00:00+00:00"
-                      value: 22.5
-                    - at: "2026-01-10T11:00:00+00:00"
-                      value: 23.1
+                  bridge_chart:
+                    metric: temperature
+                    unit: "°C"
+                    points:
+                      - at: "2026-01-10T10:00:00+00:00"
+                        value: 22.5
+                      - at: "2026-01-10T11:00:00+00:00"
+                        value: 23.1
+                warnings: []
+                errors: []
         '400':
           description: Bad request (invalid time range, missing entity_id, invalid cursor)
           content:
@@ -719,12 +788,25 @@ paths:
                 invalid_time_range:
                   summary: Invalid time range
                   value:
-                    error: invalid_time_range
-                    message: "Time range cannot exceed 30 days"
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_time_range
+                        message: "Time range cannot exceed 30 days"
+                        target: time_range
+                        retryable: false
                 invalid_cursor:
                   summary: Invalid cursor
                   value:
-                    error: invalid_cursor
+                    schema_version: "2026.06"
+                    data: null
+                    warnings: []
+                    errors:
+                      - code: invalid_cursor
+                        message: invalid cursor
+                        target: cursor
+                        retryable: false
         '401':
           $ref: '#/components/responses/UnauthorizedError'
         '403':
@@ -841,18 +923,22 @@ paths:
               schema:
                 $ref: '#/components/schemas/StatisticsResponse'
               example:
-                entity_id: sensor.power_consumption
-                period: hour
-                statistics:
-                  - start: "2026-01-10T09:00:00+00:00"
-                    end: "2026-01-10T10:00:00+00:00"
-                    mean: 150.5
-                    min: 50.0
-                    max: 300.0
-                    sum: 3612.0
-                count: 1
-                start_time: "2026-01-09T00:00:00+00:00"
-                end_time: "2026-01-10T00:00:00+00:00"
+                schema_version: "2026.06"
+                data:
+                  entity_id: sensor.power_consumption
+                  period: hour
+                  statistics:
+                    - start: "2026-01-10T09:00:00+00:00"
+                      end: "2026-01-10T10:00:00+00:00"
+                      mean: 150.5
+                      min: 50.0
+                      max: 300.0
+                      sum: 3612.0
+                  count: 1
+                  start_time: "2026-01-09T00:00:00+00:00"
+                  end_time: "2026-01-10T00:00:00+00:00"
+                warnings: []
+                errors: []
         '400':
           description: Bad request (invalid period, time range)
           content:
@@ -1173,10 +1259,32 @@ paths:
             application/json:
               schema:
                 type: object
+                required:
+                  - schema_version
+                  - data
+                  - warnings
+                  - errors
                 properties:
-                  status:
+                  schema_version:
                     type: string
-                    example: closed
+                    example: "2026.06"
+                  data:
+                    type: object
+                    required:
+                      - status
+                    properties:
+                      status:
+                        type: string
+                        example: closed
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiVNextError'
         '404':
           description: Session not found
 
@@ -1244,120 +1352,61 @@ components:
       description: HMAC-SHA256 signature of the request
 
   schemas:
-    ControlRequest:
+    SmartlyCommandRequest:
       type: object
       description: |
-        Request body for controlling a Home Assistant entity.
+        API vNext canonical command request.
         
         **Example JSON:**
         ```json
         {
-          "entity_id": "light.bedroom",
-          "action": "turn_on",
-          "service_data": {
-            "brightness": 200,
-            "rgb_color": [255, 0, 0]
+          "command_id": "cmd_20260627_0001",
+          "device_id": "ldev_bedroom_light",
+          "capability": "brightness",
+          "command": "set_brightness",
+          "params": {
+            "value": 78
           },
-          "actor": {
+          "source": {
             "user_id": "u_123",
             "role": "tenant"
           }
         }
         ```
       required:
-        - entity_id
-        - action
+        - command_id
+        - device_id
+        - capability
+        - command
       properties:
-        entity_id:
+        command_id:
           type: string
-          description: |
-            The entity ID to control. Must have the `smartly` label in Home Assistant.
-            Format: `domain.entity_name` (e.g., `switch.living_room_light`, `light.bedroom`)
-          example: switch.room_101_light
-          pattern: '^[a-z_]+\.[a-z0-9_]+$'
-        action:
+          description: Client-generated command id for idempotency and tracing.
+          example: cmd_20260627_0001
+        device_id:
           type: string
-          description: |
-            The service action to execute. Available actions depend on the entity domain.
-            
-            **Common actions by domain:**
-            - switch/light: turn_on, turn_off, toggle
-            - cover: open_cover, close_cover, stop_cover, set_cover_position
-            - climate: set_temperature, set_hvac_mode, set_fan_mode
-            - fan: turn_on, turn_off, set_percentage, set_preset_mode
-            - lock: lock, unlock
-            - automation: trigger, turn_on, turn_off
-          example: turn_on
-          enum:
-            - turn_on
-            - turn_off
-            - toggle
-            - open_cover
-            - close_cover
-            - stop_cover
-            - set_cover_position
-            - set_temperature
-            - set_hvac_mode
-            - set_fan_mode
-            - set_percentage
-            - set_preset_mode
-            - lock
-            - unlock
-            - trigger
-        service_data:
+          description: Logical device id from sync payloads.
+          example: ldev_bedroom_light
+        capability:
+          type: string
+          description: Canonical capability to control.
+          example: brightness
+        command:
+          type: string
+          description: Canonical command supported by the selected capability.
+          example: set_brightness
+        params:
           type: object
           description: |
-            Optional parameters for the service call. The structure varies by domain and action.
-            Can be an empty object `{}` if no additional parameters are needed.
-            
-            **Examples by domain:**
-            
-            **Light:**
-            ```json
-            {
-              "brightness": 255,
-              "rgb_color": [255, 0, 0],
-              "transition": 2
-            }
-            ```
-            
-            **Cover:**
-            ```json
-            {
-              "position": 50
-            }
-            ```
-            
-            **Climate:**
-            ```json
-            {
-              "temperature": 24,
-              "hvac_mode": "cool"
-            }
-            ```
-            
-            **Fan:**
-            ```json
-            {
-              "percentage": 75
-            }
-            ```
-            
-            **Common parameters by domain:**
-            
-            - **light**: brightness (0-255), rgb_color ([R, G, B]), color_temp (mireds), transition (seconds)
-            - **cover**: position (0-100)
-            - **climate**: temperature (float), hvac_mode (string), fan_mode (string)
-            - **fan**: percentage (0-100), preset_mode (string)
-            - **lock**: code (string)
-            - **automation**: skip_condition (boolean)
+            Optional capability-specific command parameters. Examples include
+            `{"value": 78}` for brightness, `{"position": 50}` for cover
+            position, or `{"temperature": 24}` for target temperature.
           additionalProperties: true
           examples:
-            - brightness: 255
-            - rgb_color: [255, 0, 0]
+            - value: 78
             - position: 50
             - temperature: 24
-        actor:
+        source:
           $ref: '#/components/schemas/Actor'
 
     Actor:
@@ -1373,33 +1422,93 @@ components:
           description: User's role
           example: room_admin
 
-    ControlResponse:
+    SmartlyCommandResponse:
+      type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
+      properties:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - command_id
+            - status
+            - device_id
+            - capability
+            - command
+          properties:
+            command_id:
+              type: string
+              example: cmd_20260627_0001
+            status:
+              type: string
+              example: completed
+            device_id:
+              type: string
+              example: ldev_living_room_switch
+            capability:
+              type: string
+              example: power
+            command:
+              type: string
+              example: turn_on
+            source_entity_id:
+              type: string
+              nullable: true
+              description: Resolved source entity used for diagnostic trace.
+              example: switch.living_room_light
+            expected_state:
+              type: object
+              additionalProperties: true
+              example:
+                value: true
+            adapter_id:
+              type: string
+              nullable: true
+              example: home_assistant.default
+            correlation_id:
+              type: string
+              nullable: true
+              example: cmd_20260627_0001
+            new_state:
+              type: string
+              nullable: true
+              example: "on"
+            new_attributes:
+              type: object
+              nullable: true
+              additionalProperties: true
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
+
+    ApiVNextError:
       type: object
       properties:
-        success:
+        code:
+          type: string
+          example: MISSING_REQUIRED_FIELDS
+        message:
+          type: string
+          example: Missing required fields
+        target:
+          type: string
+          nullable: true
+          example: request.body
+        retryable:
           type: boolean
-          description: Whether the action was successful
-          example: true
-        entity_id:
-          type: string
-          description: The entity ID that was controlled
-          example: switch.room_101_light
-        action:
-          type: string
-          description: The action that was executed
-          example: turn_on
-        new_state:
-          type: string
-          nullable: true
-          description: The new state of the entity after the action
-          example: "on"
-        new_attributes:
-          type: object
-          nullable: true
-          description: The new attributes of the entity after the action
-          additionalProperties: true
-          example:
-            brightness: 255
+          example: false
 
     DeviceButtonAction:
       type: string
@@ -1484,55 +1593,100 @@ components:
     DeviceEventResponse:
       type: object
       required:
-        - success
-        - event_id
-        - device_id
-        - action
-        - received_at
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        success:
-          type: boolean
-          description: Whether the event was accepted
-          example: true
-        event_id:
+        schema_version:
           type: string
-          description: Platform event ID for tracing automation execution
-          example: evt_01JZABC123
-        device_id:
-          type: string
-          description: Device ID from the request path
-          example: device_abc123
-        action:
-          $ref: '#/components/schemas/DeviceButtonAction'
-        received_at:
-          type: string
-          format: date-time
-          description: Server receive time
-          example: "2026-06-27T10:20:01.000Z"
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - status
+            - event_id
+            - device_id
+            - action
+            - received_at
+          properties:
+            status:
+              type: string
+              description: Event ingestion status
+              example: accepted
+            event_id:
+              type: string
+              description: Platform event ID for tracing automation execution
+              example: evt_01JZABC123
+            device_id:
+              type: string
+              description: Device ID from the request path
+              example: device_abc123
+            action:
+              $ref: '#/components/schemas/DeviceButtonAction'
+            received_at:
+              type: string
+              format: date-time
+              description: Server receive time
+              example: "2026-06-27T10:20:01.000Z"
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     StructureResponse:
       type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        floors:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - floors
+            - areas
+            - devices
+            - entities
+          properties:
+            floors:
+              type: array
+              description: Hierarchical list of floors with nested areas and devices
+              items:
+                $ref: '#/components/schemas/Floor'
+            areas:
+              type: array
+              description: Flat list of all areas with floor_id reference
+              items:
+                $ref: '#/components/schemas/AreaFlat'
+            devices:
+              type: array
+              description: Flat list of all devices with area_id reference
+              items:
+                $ref: '#/components/schemas/DeviceFlat'
+            entities:
+              type: array
+              description: Flat list of all entities with device_id reference and icon information
+              items:
+                $ref: '#/components/schemas/EntityFlat'
+        warnings:
           type: array
-          description: Hierarchical list of floors with nested areas and devices
           items:
-            $ref: '#/components/schemas/Floor'
-        areas:
+            type: object
+            additionalProperties: true
+        errors:
           type: array
-          description: Flat list of all areas with floor_id reference
           items:
-            $ref: '#/components/schemas/AreaFlat'
-        devices:
-          type: array
-          description: Flat list of all devices with area_id reference
-          items:
-            $ref: '#/components/schemas/DeviceFlat'
-        entities:
-          type: array
-          description: Flat list of all entities with device_id reference and icon information
-          items:
-            $ref: '#/components/schemas/EntityFlat'
+            $ref: '#/components/schemas/ApiVNextError'
 
     Floor:
       type: object
@@ -1615,7 +1769,7 @@ components:
             otherwise falls back to original default icon. Null if no icon available.
           example: mdi:lightbulb
 
-    # Flat schema variants for top-level lists in StructureResponse
+    # Flat schema variants for structure data lists in StructureResponse
     AreaFlat:
       type: object
       description: Area information in flat list format with floor reference
@@ -1682,15 +1836,38 @@ components:
 
     StatesResponse:
       type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        states:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - states
+            - count
+          properties:
+            states:
+              type: array
+              items:
+                $ref: '#/components/schemas/EntityState'
+            count:
+              type: integer
+              description: Number of entities returned
+              example: 1
+        warnings:
           type: array
           items:
-            $ref: '#/components/schemas/EntityState'
-        count:
-          type: integer
-          description: Number of entities returned
-          example: 1
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     EntityState:
       type: object
@@ -1762,80 +1939,100 @@ components:
       type: object
       description: Response for single entity history query
       required:
-        - entity_id
-        - history
-        - count
-        - start_time
-        - end_time
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        entity_id:
+        schema_version:
           type: string
-          description: The entity ID queried
-          example: sensor.temperature
-        history:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - entity_id
+            - history
+            - count
+            - start_time
+            - end_time
+          properties:
+            entity_id:
+              type: string
+              description: The entity ID queried
+              example: sensor.temperature
+            history:
+              type: array
+              description: |
+                List of historical states (ordered oldest to newest).
+                Note: attributes are only included in the first record for efficiency.
+              items:
+                $ref: '#/components/schemas/HistoryState'
+            count:
+              type: integer
+              description: Number of records returned
+              example: 24
+            truncated:
+              type: boolean
+              description: |
+                Whether more records exist beyond the limit (non-cursor mode only, not present in cursor mode).
+                When using cursor pagination, use `has_more` instead.
+              example: false
+            start_time:
+              type: string
+              format: date-time
+              description: Query start time
+              example: "2026-01-09T00:00:00+00:00"
+            end_time:
+              type: string
+              format: date-time
+              description: Query end time
+              example: "2026-01-10T00:00:00+00:00"
+            metadata:
+              $ref: '#/components/schemas/HistoryMetadata'
+              description: |
+                Entity metadata with visualization recommendations (v1.3.0+).
+                Provides intelligent suggestions for rendering the data based on device_class and domain.
+            device_class:
+              type: string
+              nullable: true
+              description: |
+                Device class promoted for Bridge chart consumers when the sensor is eligible.
+                Eligibility is based on device_class, not entity_id, friendly_name, or unit text.
+                Supported values include temperature, humidity, carbon_dioxide, co2,
+                carbon_monoxide, aqi, pm25, pm10, illuminance, pressure, and atmospheric_pressure.
+              example: carbon_dioxide
+            unit_of_measurement:
+              type: string
+              description: Measurement unit promoted for Bridge chart consumers
+              example: ppm
+            bridge_chart:
+              $ref: '#/components/schemas/BridgeChart'
+            page_size:
+              type: integer
+              description: |
+                **[v1.4.0]** Number of records per page (only present when using cursor pagination).
+              example: 100
+            has_more:
+              type: boolean
+              description: |
+                **[v1.4.0]** Whether more records are available (only present when `has_more` is true).
+                If true, use `next_cursor` to fetch the next page.
+              example: true
+            next_cursor:
+              type: string
+              description: |
+                **[v1.4.0]** Cursor for fetching the next page (only present when `has_more` is true).
+                Pass this value as the `cursor` parameter in the next request.
+              example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9"
+        warnings:
           type: array
-          description: |
-            List of historical states (ordered oldest to newest).
-            Note: attributes are only included in the first record for efficiency.
           items:
-            $ref: '#/components/schemas/HistoryState'
-        count:
-          type: integer
-          description: Number of records returned
-          example: 24
-        truncated:
-          type: boolean
-          description: |
-            Whether more records exist beyond the limit (legacy mode only, not present in cursor mode).
-            When using cursor pagination, use `has_more` instead.
-          example: false
-        start_time:
-          type: string
-          format: date-time
-          description: Query start time
-          example: "2026-01-09T00:00:00+00:00"
-        end_time:
-          type: string
-          format: date-time
-          description: Query end time
-          example: "2026-01-10T00:00:00+00:00"
-        metadata:
-          $ref: '#/components/schemas/HistoryMetadata'
-          description: |
-            Entity metadata with visualization recommendations (v1.3.0+).
-            Provides intelligent suggestions for rendering the data based on device_class and domain.
-        device_class:
-          type: string
-          nullable: true
-          description: |
-            Device class promoted for Bridge chart consumers when the sensor is eligible.
-            Eligibility is based on device_class, not entity_id, friendly_name, or unit text.
-            Supported values include temperature, humidity, carbon_dioxide, co2,
-            carbon_monoxide, aqi, pm25, pm10, illuminance, pressure, and atmospheric_pressure.
-          example: carbon_dioxide
-        unit_of_measurement:
-          type: string
-          description: Measurement unit promoted for Bridge chart consumers
-          example: ppm
-        bridge_chart:
-          $ref: '#/components/schemas/BridgeChart'
-        page_size:
-          type: integer
-          description: |
-            **[v1.4.0]** Number of records per page (only present when using cursor pagination).
-          example: 100
-        has_more:
-          type: boolean
-          description: |
-            **[v1.4.0]** Whether more records are available (only present when using cursor pagination).
-            If true, use `next_cursor` to fetch the next page.
-          example: true
-        next_cursor:
-          type: string
-          description: |
-            **[v1.4.0]** Cursor for fetching the next page (only present when `has_more` is true).
-            Pass this value as the `cursor` parameter in the next request.
-          example: "eyJ0cyI6IjIwMjYtMDEtMDNUMDU6MDA6MDBaIiwibGMiOiIyMDI2LTAxLTAzVDA1OjAwOjAwWiJ9"
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     BridgeChart:
       type: object
@@ -2037,80 +2234,120 @@ components:
       type: object
       description: Response for batch history query
       required:
-        - history
-        - count
-        - truncated
-        - start_time
-        - end_time
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        history:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
           type: object
-          description: History data keyed by entity_id
-          additionalProperties:
-            type: array
-            items:
-              $ref: '#/components/schemas/HistoryState'
-        count:
-          type: object
-          description: Record count per entity
-          additionalProperties:
-            type: integer
-        truncated:
-          type: object
-          description: Truncation status per entity
-          additionalProperties:
-            type: boolean
-        denied_entities:
+          required:
+            - history
+            - count
+            - truncated
+            - start_time
+            - end_time
+          properties:
+            history:
+              type: object
+              description: History data keyed by entity_id
+              additionalProperties:
+                type: array
+                items:
+                  $ref: '#/components/schemas/HistoryState'
+            count:
+              type: object
+              description: Record count per entity
+              additionalProperties:
+                type: integer
+            truncated:
+              type: object
+              description: Truncation status per entity
+              additionalProperties:
+                type: boolean
+            denied_entities:
+              type: array
+              description: Entity IDs that were denied access
+              items:
+                type: string
+            start_time:
+              type: string
+              format: date-time
+              description: Query start time
+            end_time:
+              type: string
+              format: date-time
+              description: Query end time
+        warnings:
           type: array
-          description: Entity IDs that were denied access
           items:
-            type: string
-        start_time:
-          type: string
-          format: date-time
-          description: Query start time
-        end_time:
-          type: string
-          format: date-time
-          description: Query end time
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     StatisticsResponse:
       type: object
       description: Response for statistics query
       required:
-        - entity_id
-        - period
-        - statistics
-        - count
-        - start_time
-        - end_time
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        entity_id:
+        schema_version:
           type: string
-          description: The entity ID queried
-          example: sensor.power_consumption
-        period:
-          type: string
-          description: Aggregation period
-          enum: [hour, day, week, month]
-          example: hour
-        statistics:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - entity_id
+            - period
+            - statistics
+            - count
+            - start_time
+            - end_time
+          properties:
+            entity_id:
+              type: string
+              description: The entity ID queried
+              example: sensor.power_consumption
+            period:
+              type: string
+              description: Aggregation period
+              enum: [hour, day, week, month]
+              example: hour
+            statistics:
+              type: array
+              description: List of statistical records
+              items:
+                $ref: '#/components/schemas/StatisticsRecord'
+            count:
+              type: integer
+              description: Number of records returned
+              example: 24
+            start_time:
+              type: string
+              format: date-time
+              description: Query start time
+            end_time:
+              type: string
+              format: date-time
+              description: Query end time
+        warnings:
           type: array
-          description: List of statistical records
           items:
-            $ref: '#/components/schemas/StatisticsRecord'
-        count:
-          type: integer
-          description: Number of records returned
-          example: 24
-        start_time:
-          type: string
-          format: date-time
-          description: Query start time
-        end_time:
-          type: string
-          format: date-time
-          description: Query end time
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     StatisticsRecord:
       type: object
@@ -2151,16 +2388,39 @@ components:
     CameraListResponse:
       type: object
       description: Response for camera list query
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        cameras:
+        schema_version:
+          type: string
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - cameras
+            - count
+          properties:
+            cameras:
+              type: array
+              description: List of available cameras with capabilities
+              items:
+                $ref: '#/components/schemas/CameraInfo'
+            count:
+              type: integer
+              description: Number of cameras
+              example: 3
+        warnings:
           type: array
-          description: List of available cameras with capabilities
           items:
-            $ref: '#/components/schemas/CameraInfo'
-        count:
-          type: integer
-          description: Number of cameras
-          example: 3
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     CameraInfo:
       type: object
@@ -2222,61 +2482,115 @@ components:
     HLSStreamResponse:
       type: object
       description: HLS stream information
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        entity_id:
+        schema_version:
           type: string
-          description: Camera entity ID
-          example: camera.front_door
-        stream_url:
-          type: string
-          description: HLS master playlist URL
-          example: /api/smartly/camera/camera.front_door/stream/hls/master.m3u8
-        token:
-          type: string
-          description: Stream authentication token
-          example: abc123def456
-        expires_at:
-          type: integer
-          description: Token expiration timestamp
-          example: 1736696400
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - entity_id
+            - stream_url
+            - token
+            - expires_at
+          properties:
+            entity_id:
+              type: string
+              description: Camera entity ID
+              example: camera.front_door
+            stream_url:
+              type: string
+              description: HLS master playlist URL
+              example: /api/smartly/camera/camera.front_door/stream/hls/master.m3u8
+            token:
+              type: string
+              description: Stream authentication token
+              example: abc123def456
+            expires_at:
+              type: integer
+              description: Token expiration timestamp
+              example: 1736696400
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     WebRTCTokenResponse:
       type: object
       description: WebRTC token response
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        token:
+        schema_version:
           type: string
-          description: Short-lived token for WebRTC signaling (5 minutes validity)
-          example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
-        expires_at:
-          type: integer
-          description: Token expiration Unix timestamp
-          example: 1736696700
-        expires_in:
-          type: integer
-          description: Seconds until token expires
-          example: 300
-        entity_id:
-          type: string
-          description: Camera entity ID
-          example: camera.front_door
-        offer_endpoint:
-          type: string
-          description: Endpoint for sending SDP offer
-          example: /api/smartly/camera/camera.front_door/webrtc/offer
-        ice_endpoint:
-          type: string
-          description: Endpoint for ICE candidate exchange
-          example: /api/smartly/camera/camera.front_door/webrtc/ice
-        hangup_endpoint:
-          type: string
-          description: Endpoint for closing session
-          example: /api/smartly/camera/camera.front_door/webrtc/hangup
-        ice_servers:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - token
+            - expires_at
+            - expires_in
+            - entity_id
+            - offer_endpoint
+            - ice_endpoint
+            - hangup_endpoint
+            - ice_servers
+          properties:
+            token:
+              type: string
+              description: Short-lived token for WebRTC signaling (5 minutes validity)
+              example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+            expires_at:
+              type: integer
+              description: Token expiration Unix timestamp
+              example: 1736696700
+            expires_in:
+              type: integer
+              description: Seconds until token expires
+              example: 300
+            entity_id:
+              type: string
+              description: Camera entity ID
+              example: camera.front_door
+            offer_endpoint:
+              type: string
+              description: Endpoint for sending SDP offer
+              example: /api/smartly/camera/camera.front_door/webrtc/offer
+            ice_endpoint:
+              type: string
+              description: Endpoint for ICE candidate exchange
+              example: /api/smartly/camera/camera.front_door/webrtc/ice
+            hangup_endpoint:
+              type: string
+              description: Endpoint for closing session
+              example: /api/smartly/camera/camera.front_door/webrtc/hangup
+            ice_servers:
+              type: array
+              description: ICE server configuration for NAT traversal
+              items:
+                $ref: '#/components/schemas/ICEServer'
+        warnings:
           type: array
-          description: ICE server configuration for NAT traversal
           items:
-            $ref: '#/components/schemas/ICEServer'
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     ICEServer:
       type: object
@@ -2322,20 +2636,44 @@ components:
     WebRTCAnswerResponse:
       type: object
       description: WebRTC SDP answer response
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        type:
+        schema_version:
           type: string
-          enum: [answer]
-          description: SDP type
-          example: answer
-        sdp:
-          type: string
-          description: SDP answer string from go2rtc
-          example: "v=0\r\no=- 654321 2 IN IP4 192.168.1.100\r\n..."
-        session_id:
-          type: string
-          description: Session identifier for subsequent requests
-          example: abc123def456
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - type
+            - sdp
+            - session_id
+          properties:
+            type:
+              type: string
+              enum: [answer]
+              description: SDP type
+              example: answer
+            sdp:
+              type: string
+              description: SDP answer string from go2rtc
+              example: "v=0\r\no=- 654321 2 IN IP4 192.168.1.100\r\n..."
+            session_id:
+              type: string
+              description: Session identifier for subsequent requests
+              example: abc123def456
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     WebRTCICERequest:
       type: object
@@ -2367,23 +2705,45 @@ components:
     WebRTCICEResponse:
       type: object
       description: ICE candidate exchange response
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        status:
+        schema_version:
           type: string
-          description: Acceptance status
-          example: accepted
-        candidates:
+          example: "2026.06"
+        data:
+          type: object
+          required:
+            - status
+          properties:
+            status:
+              type: string
+              description: Acceptance status
+              example: accepted
+            candidates:
+              type: array
+              description: Server-side ICE candidates (if available)
+              items:
+                type: object
+                properties:
+                  candidate:
+                    type: string
+                  sdpMid:
+                    type: string
+                  sdpMLineIndex:
+                    type: integer
+        warnings:
           type: array
-          description: Server-side ICE candidates (if available)
           items:
             type: object
-            properties:
-              candidate:
-                type: string
-              sdpMid:
-                type: string
-              sdpMLineIndex:
-                type: integer
+            additionalProperties: true
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
 
     WebRTCHangupRequest:
       type: object
@@ -2398,24 +2758,36 @@ components:
 
     ErrorResponse:
       type: object
+      required:
+        - schema_version
+        - data
+        - warnings
+        - errors
       properties:
-        error:
+        schema_version:
           type: string
-          description: Error code
-          example: invalid_signature
-          enum:
-            - invalid_json
-            - missing_required_fields
-            - missing_headers
-            - invalid_timestamp
-            - nonce_reused
-            - invalid_signature
-            - ip_not_allowed
-            - entity_not_allowed
-            - service_not_allowed
-            - rate_limited
-            - integration_not_configured
-            - service_call_failed
+          example: "2026.06"
+        data:
+          type: object
+          nullable: true
+          additionalProperties: true
+          example: null
+        warnings:
+          type: array
+          items:
+            type: object
+            additionalProperties: true
+          example: []
+        errors:
+          type: array
+          minItems: 1
+          items:
+            $ref: '#/components/schemas/ApiVNextError'
+          example:
+            - code: invalid_signature
+              message: invalid signature
+              target: auth.signature
+              retryable: false
 
     # Service Data Schemas for different domains
     LightServiceData:
@@ -2608,7 +2980,7 @@ components:
           format: date-time
         data:
           type: object
-          description: Legacy Home Assistant style state payload
+          description: Home Assistant style state payload
           properties:
             entity_id:
               type: string
@@ -2652,10 +3024,24 @@ components:
           examples:
             missingHeaders:
               value:
-                error: missing_headers
+                schema_version: "2026.06"
+                data: null
+                warnings: []
+                errors:
+                  - code: missing_headers
+                    message: missing headers
+                    target: headers
+                    retryable: false
             invalidSignature:
               value:
-                error: invalid_signature
+                schema_version: "2026.06"
+                data: null
+                warnings: []
+                errors:
+                  - code: invalid_signature
+                    message: invalid signature
+                    target: auth.signature
+                    retryable: false
 
     RateLimitError:
       description: Rate limited
@@ -2673,7 +3059,14 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: rate_limited
+            schema_version: "2026.06"
+            data: null
+            warnings: []
+            errors:
+              - code: rate_limited
+                message: rate limited
+                target: rate_limit
+                retryable: true
 
     InternalError:
       description: Internal server error
@@ -2682,7 +3075,14 @@ components:
           schema:
             $ref: '#/components/schemas/ErrorResponse'
           example:
-            error: integration_not_configured
+            schema_version: "2026.06"
+            data: null
+            warnings: []
+            errors:
+              - code: integration_not_configured
+                message: integration not configured
+                target: integration
+                retryable: false
 
 webhooks:
   stateChanged:
@@ -2724,10 +3124,34 @@ webhooks:
             application/json:
               schema:
                 type: object
+                required:
+                  - schema_version
+                  - data
+                  - warnings
+                  - errors
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  schema_version:
+                    type: string
+                    example: "2026.06"
+                  data:
+                    type: object
+                    required:
+                      - status
+                    properties:
+                      status:
+                        type: string
+                        example: accepted
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiVNextError'
+                    example: []
 
   heartbeat:
     post:
@@ -2750,7 +3174,31 @@ webhooks:
             application/json:
               schema:
                 type: object
+                required:
+                  - schema_version
+                  - data
+                  - warnings
+                  - errors
                 properties:
-                  success:
-                    type: boolean
-                    example: true
+                  schema_version:
+                    type: string
+                    example: "2026.06"
+                  data:
+                    type: object
+                    required:
+                      - status
+                    properties:
+                      status:
+                        type: string
+                        example: accepted
+                  warnings:
+                    type: array
+                    items:
+                      type: object
+                      additionalProperties: true
+                    example: []
+                  errors:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/ApiVNextError'
+                    example: []

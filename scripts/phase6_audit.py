@@ -1,0 +1,2903 @@
+#!/usr/bin/env python3
+"""Audit code-verifiable Phase 6 legacy cleanup gates."""
+
+from __future__ import annotations
+
+import ast
+import json
+import re
+import sys
+from pathlib import Path
+from typing import NamedTuple
+
+import yaml
+
+
+LEGACY_STATES_ALIAS = "/api/smartly/states"
+LEGACY_TOP_LEVEL_KEYS = {
+    "error",
+    "success",
+    "status",
+    "message",
+    "states",
+    "count",
+    "rules",
+    "rule_id",
+    "rule",
+    "entity_id",
+    "action",
+    "token",
+    "session_id",
+    "history",
+    "statistics",
+    "snapshot",
+    "raw_ref",
+}
+FALLBACK_CONSTRUCTORS = {
+    "HomeAssistantCameraGateway",
+    "HomeAssistantHistoryGateway",
+    "HomeAssistantLocalAutomationRuleStore",
+    "HomeAssistantRawDiagnosticStore",
+    "HomeAssistantSmartlyCommandExecutor",
+    "HomeAssistantStateSyncGateway",
+    "HomeAssistantSyncGateway",
+    "HomeAssistantWebRTCGateway",
+    "HomeAssistantDeviceEventPublisher",
+    "InMemoryDeviceEventDeduplicator",
+}
+RESPONSE_BUILDERS = {"BridgeResponse", "_json_response"}
+API_VNEXT_TOP_LEVEL_KEYS = {"schema_version", "data", "warnings", "errors"}
+GENERAL_LEGACY_WORDING_ROOTS = [
+    Path("custom_components"),
+    Path("tests"),
+    Path("docs"),
+    Path("scripts"),
+]
+GENERAL_LEGACY_WORDING_EXCLUDED_PATHS = {
+    Path("docs/specs/migration-progress.md"),
+    Path("scripts/phase6_audit.py"),
+    Path("tests/test_phase6_audit.py"),
+}
+GENERAL_LEGACY_WORDING_TERMS = (
+    "legacy",
+    "deprecated",
+    "backward compatibility",
+    "向後相容性",
+    "完全相容",
+    "LTS",
+)
+ACTIVE_CONTRACT_DOCS = [
+    Path("docs/openapi.yaml"),
+    Path("docs/specs/api-vnext-contract.md"),
+    Path("docs/specs/device-abstraction.md"),
+]
+ACTIVE_CONTRACT_LEGACY_TERMS = (
+    "legacy",
+    "deprecated",
+    "backward compatibility",
+    "backward compatible",
+)
+MIGRATION_PLAN_DOCS = [
+    Path("docs/specs/migration-plan.md"),
+]
+MIGRATION_PLAN_LEGACY_TERMS = (
+    "legacy",
+    "deprecated",
+    "backward compatibility",
+    "compatibility",
+    "LTS",
+)
+CONTROL_TEST_LEGACY_WORDING_PATHS = [
+    Path("tests/test_http.py"),
+    Path("tests/test_application_hexagonal.py"),
+    Path("tests/test_application_local_automation.py"),
+]
+APPLICATION_TEST_LEGACY_WORDING_PATHS = [
+    Path("tests/test_application_device_events.py"),
+    Path("tests/test_application_history.py"),
+]
+APPLICATION_TEST_TOP_LEVEL_ERROR_PATHS = [
+    Path("tests/test_application_hexagonal.py"),
+]
+HISTORY_VIEW_TEST_TOP_LEVEL_SUCCESS_PATHS = [
+    Path("tests/test_history_views.py"),
+]
+WEBRTC_TEST_TOP_LEVEL_SUCCESS_PATHS = [
+    Path("tests/test_webrtc.py"),
+]
+REQUEST_TIME_FALLBACK_WORDING_PATHS = [
+    Path("tests/test_http.py"),
+    Path("tests/test_sync_views.py"),
+    Path("tests/test_device_events.py"),
+    Path("tests/test_history_views.py"),
+    Path("tests/test_camera_views.py"),
+    Path("tests/test_webrtc.py"),
+    Path("tests/test_local_automation_rules.py"),
+    Path("tests/test_push.py"),
+]
+PUBLIC_CONTROL_DOCS = [
+    Path("README.md"),
+    Path("docs/README.md"),
+    Path("docs/control-examples.md"),
+    Path("docs/control/README.md"),
+    Path("docs/control/api-basics.md"),
+    Path("docs/control/code-examples.md"),
+    Path("docs/control/device-types.md"),
+    Path("docs/control/responses.md"),
+    Path("docs/control/security.md"),
+    Path("docs/control/troubleshooting.md"),
+    Path("docs/security-audit.md"),
+]
+PUBLIC_CONTROL_LEGACY_BODY_TERMS = (
+    "service_data",
+    "ControlRequest",
+    "ControlResponse",
+)
+PUBLIC_CONTROL_STALE_LIGHT_COMMAND_TERMS = (
+    "`color_rgb`",
+    '"capability": "color_rgb"',
+    "`set_rgb`",
+    '"command": "set_rgb"',
+    "`set_kelvin`",
+    '"command": "set_kelvin"',
+    "`light_effect`",
+    '"capability": "light_effect"',
+)
+HISTORY_DOCS = [
+    Path("docs/history-api.md"),
+    Path("docs/fix-device-class-metadata.md"),
+]
+HISTORY_CLIENT_DOCS = [
+    Path("docs/history-api.md"),
+    Path("docs/history-visualization-guide.md"),
+]
+CAMERA_DOCS = [
+    Path("docs/camera-api.md"),
+]
+WEBRTC_DOCS = [
+    Path("docs/webrtc.md"),
+]
+SYNC_DOCS = [
+    Path("README.md"),
+    Path("docs/sync-api.md"),
+]
+DEVICE_CARD_DOCS = [
+    Path("docs/smartly-device-card-capability-spec.md"),
+]
+DEVICE_CARD_STALE_CAPABILITY_PATTERNS = (
+    r"`color_temp`",
+    r"\bcolor_temp\b",
+)
+TRUST_PROXY_DOCS = [
+    Path("docs/development/trust-proxy.md"),
+]
+ARCHITECTURE_PLAN_DOCS = [
+    Path("docs/smartly_bridge_architecture_plan.md"),
+]
+
+
+class Finding(NamedTuple):
+    """A Phase 6 audit finding."""
+
+    code: str
+    path: str
+    line: int
+    message: str
+
+
+def audit(root: Path | str = ".") -> list[Finding]:
+    """Return Phase 6 code-verifiable legacy cleanup findings."""
+    root_path = Path(root)
+    package_root = root_path / "custom_components" / "smartly_bridge"
+
+    findings: list[Finding] = []
+    if package_root.exists():
+        python_files = sorted(package_root.rglob("*.py"))
+        findings.extend(_legacy_http_reexport_findings(root_path, package_root))
+        findings.extend(_legacy_states_alias_findings(root_path, python_files))
+        findings.extend(_legacy_top_level_response_findings(root_path, python_files))
+        findings.extend(_request_time_fallback_constructor_findings(root_path, package_root))
+        findings.extend(_production_legacy_wording_findings(root_path, python_files))
+    findings.extend(_api_vnext_fixture_findings(root_path))
+    findings.extend(_sync_raw_payload_fixture_findings(root_path))
+    findings.extend(_general_legacy_wording_findings(root_path))
+    findings.extend(_manual_legacy_control_body_findings(root_path))
+    findings.extend(_camera_legacy_wording_findings(root_path))
+    findings.extend(_device_event_legacy_wording_findings(root_path))
+    findings.extend(_logical_device_legacy_wording_findings(root_path))
+    findings.extend(_control_application_legacy_wording_findings(root_path))
+    findings.extend(_device_presentation_stale_capability_findings(root_path))
+    findings.extend(_active_contract_legacy_wording_findings(root_path))
+    findings.extend(_migration_plan_legacy_wording_findings(root_path))
+    findings.extend(_control_test_legacy_wording_findings(root_path))
+    findings.extend(_application_test_legacy_wording_findings(root_path))
+    findings.extend(_test_top_level_response_fixture_findings(root_path))
+    findings.extend(_application_test_top_level_error_findings(root_path))
+    findings.extend(_history_view_test_top_level_success_findings(root_path))
+    findings.extend(_webrtc_test_top_level_success_findings(root_path))
+    findings.extend(_request_time_fallback_wording_findings(root_path))
+    findings.extend(_openapi_legacy_control_body_findings(root_path))
+    findings.extend(_openapi_response_top_level_payload_schema_findings(root_path))
+    findings.extend(_openapi_inline_response_top_level_payload_schema_findings(root_path))
+    findings.extend(_openapi_response_top_level_payload_example_findings(root_path))
+    findings.extend(_openapi_top_level_error_response_schema_findings(root_path))
+    findings.extend(_openapi_component_response_error_example_findings(root_path))
+    findings.extend(_openapi_control_response_error_example_findings(root_path))
+    findings.extend(_openapi_device_event_success_schema_findings(root_path))
+    findings.extend(_openapi_sync_success_schema_findings(root_path))
+    findings.extend(_openapi_sync_success_example_findings(root_path))
+    findings.extend(_openapi_history_success_schema_findings(root_path))
+    findings.extend(_openapi_history_success_example_findings(root_path))
+    findings.extend(_openapi_camera_success_schema_findings(root_path))
+    findings.extend(_openapi_device_event_success_example_findings(root_path))
+    findings.extend(_openapi_device_event_error_example_findings(root_path))
+    findings.extend(_openapi_history_error_example_findings(root_path))
+    findings.extend(_openapi_webhook_success_schema_findings(root_path))
+    findings.extend(_public_control_legacy_body_doc_findings(root_path))
+    findings.extend(_public_control_stale_light_command_doc_findings(root_path))
+    findings.extend(_device_card_ha_action_payload_doc_findings(root_path))
+    findings.extend(_device_card_stale_capability_doc_findings(root_path))
+    findings.extend(_device_card_top_level_sync_success_doc_findings(root_path))
+    findings.extend(_history_doc_top_level_error_findings(root_path))
+    findings.extend(_history_doc_top_level_success_findings(root_path))
+    findings.extend(_history_doc_top_level_parser_findings(root_path))
+    findings.extend(_camera_doc_top_level_error_findings(root_path))
+    findings.extend(_camera_doc_top_level_success_findings(root_path))
+    findings.extend(_camera_doc_top_level_parser_findings(root_path))
+    findings.extend(_webrtc_doc_top_level_success_findings(root_path))
+    findings.extend(_sync_doc_top_level_error_findings(root_path))
+    findings.extend(_sync_doc_top_level_success_findings(root_path))
+    findings.extend(_trust_proxy_doc_top_level_error_findings(root_path))
+    findings.extend(_architecture_plan_doc_top_level_error_findings(root_path))
+    findings.extend(_architecture_plan_doc_top_level_success_findings(root_path))
+    findings.extend(_architecture_plan_doc_success_prose_findings(root_path))
+    return findings
+
+
+def _legacy_http_reexport_findings(root: Path, package_root: Path) -> list[Finding]:
+    path = package_root / "http.py"
+    if not path.exists():
+        return []
+    return [
+        Finding(
+            code="legacy-http-reexport-module",
+            path=_relative_path(root, path),
+            line=1,
+            message="Legacy HTTP re-export module is present; import views.register_views directly.",
+        )
+    ]
+
+
+def _legacy_states_alias_findings(root: Path, python_files: list[Path]) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in python_files:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if LEGACY_STATES_ALIAS in line:
+                findings.append(
+                    Finding(
+                        code="legacy-states-alias",
+                        path=_relative_path(root, path),
+                        line=line_number,
+                        message=f"Expired states alias is present: {LEGACY_STATES_ALIAS}",
+                    )
+                )
+    return findings
+
+
+def _legacy_top_level_response_findings(root: Path, python_files: list[Path]) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in python_files:
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError as err:
+            findings.append(
+                Finding(
+                    code="python-parse-error",
+                    path=_relative_path(root, path),
+                    line=err.lineno or 1,
+                    message=err.msg,
+                )
+            )
+            continue
+        body_assignments = _response_body_assignments(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or _call_name(node.func) not in RESPONSE_BUILDERS:
+                continue
+            if not node.args:
+                continue
+            first_arg = node.args[0]
+            body_node = first_arg
+            if isinstance(first_arg, ast.Name):
+                body_node = body_assignments.get(first_arg.id, first_arg)
+            if not isinstance(body_node, ast.Dict):
+                continue
+            keys = _legacy_keys_on_dict(body_node)
+            if keys:
+                findings.append(
+                    Finding(
+                        code="legacy-top-level-response",
+                        path=_relative_path(root, path),
+                        line=body_node.lineno,
+                        message=(
+                            "Response body rebuilds legacy top-level keys: "
+                            + ", ".join(sorted(keys))
+                        ),
+                    )
+                )
+    return findings
+
+
+def _test_top_level_response_fixture_findings(root: Path) -> list[Finding]:
+    tests_root = root / "tests"
+    if not tests_root.exists():
+        return []
+
+    findings: list[Finding] = []
+    for path in sorted(tests_root.rglob("*.py")):
+        if path.name == "test_phase6_audit.py":
+            continue
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError as err:
+            findings.append(
+                Finding(
+                    code="python-parse-error",
+                    path=_relative_path(root, path),
+                    line=err.lineno or 1,
+                    message=err.msg,
+                )
+            )
+            continue
+        body_assignments = _response_body_assignments(tree)
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call) or _call_name(node.func) not in RESPONSE_BUILDERS:
+                continue
+            if not node.args:
+                continue
+            first_arg = node.args[0]
+            body_node = first_arg
+            if isinstance(first_arg, ast.Name):
+                body_node = body_assignments.get(first_arg.id, first_arg)
+            if not isinstance(body_node, ast.Dict):
+                continue
+            keys = _legacy_keys_on_dict(body_node)
+            if not keys:
+                continue
+            findings.append(
+                Finding(
+                    code="test-top-level-response-fixture",
+                    path=_relative_path(root, path),
+                    line=body_node.lineno,
+                    message=(
+                        "Test response fixture rebuilds removed top-level keys: "
+                        + ", ".join(sorted(keys))
+                    ),
+                )
+            )
+    return findings
+
+
+def _request_time_fallback_constructor_findings(root: Path, package_root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    scan_roots = [package_root / "views", package_root / "push.py"]
+    for path in _python_files_from_paths(scan_roots):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError as err:
+            findings.append(
+                Finding(
+                    code="python-parse-error",
+                    path=_relative_path(root, path),
+                    line=err.lineno or 1,
+                    message=err.msg,
+                )
+            )
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Call):
+                continue
+            name = _call_name(node.func)
+            if name not in FALLBACK_CONSTRUCTORS:
+                continue
+            findings.append(
+                Finding(
+                    code="request-time-fallback-constructor",
+                    path=_relative_path(root, path),
+                    line=node.lineno,
+                    message=f"View/runtime path constructs fallback adapter: {name}",
+                )
+            )
+    return findings
+
+
+def _api_vnext_fixture_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    fixture_root = root / "tests" / "fixtures" / "api-vnext"
+    if not fixture_root.exists():
+        return findings
+    for path in sorted(fixture_root.rglob("*.json")):
+        parsed = _load_json_finding(path, root, findings)
+        if not isinstance(parsed, dict):
+            continue
+        extra_keys = set(parsed) - API_VNEXT_TOP_LEVEL_KEYS
+        if extra_keys:
+            findings.append(
+                Finding(
+                    code="api-vnext-fixture-top-level",
+                    path=_relative_path(root, path),
+                    line=1,
+                    message=(
+                        "API vNext fixture has legacy/unknown top-level keys: "
+                        + ", ".join(sorted(extra_keys))
+                    ),
+                )
+            )
+        data = parsed.get("data")
+        if isinstance(data, dict) and isinstance(data.get("success"), bool):
+            findings.append(
+                Finding(
+                    code="api-vnext-fixture-data-success",
+                    path=_relative_path(root, path),
+                    line=1,
+                    message="API vNext fixture data uses legacy success flag; use status.",
+                )
+            )
+    return findings
+
+
+def _sync_raw_payload_fixture_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    fixture_roots = [
+        root / "tests" / "fixtures" / "current-sync",
+        root / "tests" / "fixtures" / "api-vnext",
+    ]
+    for path in _json_files_from_paths(fixture_roots):
+        parsed = _load_json_finding(path, root, findings)
+        if parsed is None:
+            continue
+        if _contains_key(parsed, "raw_payload"):
+            findings.append(
+                Finding(
+                    code="sync-fixture-raw-payload",
+                    path=_relative_path(root, path),
+                    line=1,
+                    message="Sync/API fixture contains raw_payload; use raw_refs instead.",
+                )
+            )
+    return findings
+
+
+def _manual_legacy_control_body_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    manual_root = root / "scripts" / "manual_tests"
+    for path in _python_files_from_paths([manual_root]):
+        try:
+            tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+        except SyntaxError as err:
+            findings.append(
+                Finding(
+                    code="python-parse-error",
+                    path=_relative_path(root, path),
+                    line=err.lineno or 1,
+                    message=err.msg,
+                )
+            )
+            continue
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.Dict):
+                continue
+            keys = _string_keys_on_dict(node)
+            if {"entity_id", "action", "service_data"}.issubset(keys):
+                findings.append(
+                    Finding(
+                        code="manual-legacy-control-body",
+                        path=_relative_path(root, path),
+                        line=node.lineno,
+                        message=(
+                            "Manual control script uses legacy entity_id/action body; "
+                            "use API vNext SmartlyCommand."
+                        ),
+                    )
+                )
+    return findings
+
+
+def _camera_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    paths = [
+        root / "custom_components" / "smartly_bridge" / "views" / "camera.py",
+        root / "tests" / "test_camera_views.py",
+    ]
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="camera-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message="Camera path wording still labels retained behavior as legacy.",
+                )
+            )
+    return findings
+
+
+def _device_event_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    paths = [
+        root / "custom_components" / "smartly_bridge" / "application" / "device_events.py",
+        root / "tests" / "test_device_events.py",
+    ]
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="device-event-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Device-event path wording still labels source/runtime "
+                        "behavior as legacy."
+                    ),
+                )
+            )
+    return findings
+
+
+def _logical_device_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    paths = [
+        root / "custom_components" / "smartly_bridge" / "application" / "logical_devices.py",
+        root / "tests" / "test_application_logical_devices.py",
+    ]
+    for path in paths:
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="logical-device-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Logical-device path wording still labels source/canonical "
+                        "normalization behavior as legacy."
+                    ),
+                )
+            )
+    return findings
+
+
+def _control_application_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    path = root / "custom_components" / "smartly_bridge" / "application" / "control.py"
+    if not path.exists():
+        return findings
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return findings
+    for line_number, line in enumerate(lines, start=1):
+        if "legacy" not in line.lower():
+            continue
+        findings.append(
+            Finding(
+                code="control-application-legacy-wording",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "Control application wording still labels API vNext "
+                    "command data as legacy-related."
+                ),
+            )
+        )
+    return findings
+
+
+def _device_presentation_stale_capability_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    path = root / "custom_components" / "smartly_bridge" / "device_presentation.py"
+    if not path.exists():
+        return findings
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return findings
+    stale_patterns = (
+        'capabilities.append("color_temp")',
+        '{"brightness", "color_temp", "rgb_color"}',
+        '"brightness", "color_temp"',
+    )
+    for line_number, line in enumerate(lines, start=1):
+        if not any(pattern in line for pattern in stale_patterns):
+            continue
+        findings.append(
+            Finding(
+                code="device-presentation-stale-capability",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "Device presentation emits stale source color_temp capability; "
+                    "use canonical color_temperature."
+                ),
+            )
+        )
+    return findings
+
+
+def _production_legacy_wording_findings(
+    root: Path,
+    python_files: list[Path],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for path in python_files:
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="production-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message="Production Bridge code still contains legacy wording.",
+                )
+            )
+    return findings
+
+
+def _general_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for scan_root in GENERAL_LEGACY_WORDING_ROOTS:
+        path = root / scan_root
+        if not path.exists():
+            continue
+        files = (
+            [path]
+            if path.is_file()
+            else sorted(p for p in path.rglob("*") if p.is_file())
+        )
+        for file_path in files:
+            relative_path = _relative_path(root, file_path)
+            if Path(relative_path) in GENERAL_LEGACY_WORDING_EXCLUDED_PATHS:
+                continue
+            try:
+                lines = file_path.read_text(encoding="utf-8").splitlines()
+            except UnicodeDecodeError:
+                continue
+            for line_number, line in enumerate(lines, start=1):
+                lower_line = line.lower()
+                if not _contains_general_legacy_wording(line, lower_line):
+                    continue
+                findings.append(
+                    Finding(
+                        code="general-legacy-wording",
+                        path=relative_path,
+                        line=line_number,
+                        message=(
+                            "General repo content still uses Phase 6 legacy wording; "
+                            "describe source/current behavior directly."
+                        ),
+                    )
+                )
+    return findings
+
+
+def _contains_general_legacy_wording(line: str, lower_line: str) -> bool:
+    for term in GENERAL_LEGACY_WORDING_TERMS:
+        if term == "LTS":
+            if re.search(r"\bLTS\b", line):
+                return True
+            continue
+        if term.lower() in lower_line:
+            return True
+    return False
+
+
+def _active_contract_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ACTIVE_CONTRACT_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if not any(term in lower_line for term in ACTIVE_CONTRACT_LEGACY_TERMS):
+                continue
+            findings.append(
+                Finding(
+                    code="active-contract-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Active contract docs still use legacy/deprecated wording; "
+                        "describe source aliases or non-cursor behavior directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _migration_plan_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in MIGRATION_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if not any(term.lower() in lower_line for term in MIGRATION_PLAN_LEGACY_TERMS):
+                continue
+            findings.append(
+                Finding(
+                    code="migration-plan-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Migration plan still uses legacy/deprecated/LTS wording; "
+                        "describe API vNext release gates and source behavior directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _control_test_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in CONTROL_TEST_LEGACY_WORDING_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="control-test-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Control/command tests still use legacy wording; "
+                        "describe removed body shapes or source behavior directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _application_test_legacy_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in APPLICATION_TEST_LEGACY_WORDING_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if "legacy" not in line.lower():
+                continue
+            findings.append(
+                Finding(
+                    code="application-test-legacy-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Application tests still use legacy wording; "
+                        "describe source behavior or current API semantics directly."
+                    ),
+                )
+            )
+    return findings
+
+
+def _application_test_top_level_error_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in APPLICATION_TEST_TOP_LEVEL_ERROR_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"error":' not in line and '{"error"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="application-test-top-level-error",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Application tests still inject top-level error fields; "
+                        "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _history_view_test_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_VIEW_TEST_TOP_LEVEL_SUCCESS_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"success":' not in line and '{"success"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="history-view-test-top-level-success",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "History view tests still inject top-level success fields; "
+                        "use API vNext data.status."
+                    ),
+                )
+            )
+    return findings
+
+
+def _webrtc_test_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in WEBRTC_TEST_TOP_LEVEL_SUCCESS_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"success":' not in line and '{"success"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="webrtc-test-top-level-success",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "WebRTC tests still inject top-level success fields; "
+                        "use API vNext data.status."
+                    ),
+                )
+            )
+    return findings
+
+
+def _request_time_fallback_wording_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in REQUEST_TIME_FALLBACK_WORDING_PATHS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if "fallback" not in lower_line:
+                continue
+            if "request-time" not in lower_line and "resolver" not in lower_line:
+                continue
+            findings.append(
+                Finding(
+                    code="request-time-fallback-wording",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Runtime resolver tests still describe request-time "
+                        "adapter construction as fallback; use setup-created "
+                        "runtime adapter wording."
+                    ),
+                )
+            )
+    return findings
+
+
+def _openapi_legacy_control_body_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except UnicodeDecodeError:
+        return []
+
+    findings: list[Finding] = []
+    legacy_patterns = (
+        "ControlRequest:",
+        "ControlResponse:",
+        "#/components/schemas/ControlRequest",
+        "#/components/schemas/ControlResponse",
+        "required: [entity_id, action]",
+        "Must include entity_id and action",
+        "containing `entity_id`, `action`",
+    )
+    for line_number, line in enumerate(lines, start=1):
+        if not any(pattern in line for pattern in legacy_patterns):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-legacy-control-body",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "OpenAPI control contract still describes entity_id/action "
+                    "body; publish API vNext SmartlyCommand instead."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_top_level_error_response_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    error_response = (
+        spec.get("components", {})
+        .get("schemas", {})
+        .get("ErrorResponse", {})
+    )
+    properties = error_response.get("properties", {})
+    legacy_keys = {"error", "message"}.intersection(properties)
+    if not legacy_keys:
+        return []
+
+    line = _line_number_for_pattern(text, "    ErrorResponse:")
+    return [
+        Finding(
+            code="openapi-top-level-error-response-schema",
+            path=_relative_path(root, path),
+            line=line,
+            message=(
+                "OpenAPI ErrorResponse schema still exposes top-level "
+                f"{', '.join(sorted(legacy_keys))}; use API vNext errors[]."
+            ),
+        )
+    ]
+
+
+def _openapi_response_top_level_payload_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    for schema_name, schema in schemas.items():
+        if not schema_name.endswith("Response"):
+            continue
+        properties = schema.get("properties", {})
+        if not isinstance(properties, dict):
+            continue
+        payload_keys = set(properties) - API_VNEXT_TOP_LEVEL_KEYS
+        if not payload_keys:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-response-top-level-payload-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(payload_keys))}; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_inline_response_top_level_payload_schema_findings(
+    root: Path,
+) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    findings.extend(_openapi_path_inline_response_schema_findings(root, path, text, spec))
+    findings.extend(_openapi_webhook_inline_response_schema_findings(root, path, text, spec))
+    return findings
+
+
+def _openapi_path_inline_response_schema_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for api_path, path_item in spec.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            findings.extend(
+                _openapi_operation_inline_response_schema_findings(
+                    root,
+                    path,
+                    text,
+                    operation,
+                    marker=f"  {api_path}:",
+                )
+            )
+    return findings
+
+
+def _openapi_webhook_inline_response_schema_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for webhook_name, webhook in spec.get("webhooks", {}).items():
+        if not isinstance(webhook, dict):
+            continue
+        for operation in webhook.values():
+            if not isinstance(operation, dict):
+                continue
+            findings.extend(
+                _openapi_operation_inline_response_schema_findings(
+                    root,
+                    path,
+                    text,
+                    operation,
+                    marker=f"  {webhook_name}:",
+                )
+            )
+    return findings
+
+
+def _openapi_operation_inline_response_schema_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    operation: dict[str, object],
+    marker: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for status_code, response in operation.get("responses", {}).items():
+        if not isinstance(response, dict):
+            continue
+        schema = (
+            response.get("content", {})
+            .get("application/json", {})
+            .get("schema", {})
+        )
+        if not isinstance(schema, dict):
+            continue
+        if "$ref" in schema:
+            continue
+        properties = schema.get("properties", {})
+        if not isinstance(properties, dict):
+            continue
+        payload_keys = set(properties) - API_VNEXT_TOP_LEVEL_KEYS
+        if not payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-inline-response-top-level-payload-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    marker,
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI inline response schema still exposes top-level "
+                    f"{', '.join(sorted(payload_keys))}; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_response_top_level_payload_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    findings.extend(_openapi_path_response_example_findings(root, path, text, spec))
+    findings.extend(_openapi_webhook_response_example_findings(root, path, text, spec))
+    findings.extend(_openapi_component_response_example_findings(root, path, text, spec))
+    return findings
+
+
+def _openapi_path_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for api_path, path_item in spec.get("paths", {}).items():
+        if not isinstance(path_item, dict):
+            continue
+        for operation in path_item.values():
+            if not isinstance(operation, dict):
+                continue
+            findings.extend(
+                _openapi_operation_response_example_findings(
+                    root,
+                    path,
+                    text,
+                    operation,
+                    marker=f"  {api_path}:",
+                )
+            )
+    return findings
+
+
+def _openapi_webhook_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for webhook_name, webhook in spec.get("webhooks", {}).items():
+        if not isinstance(webhook, dict):
+            continue
+        for operation in webhook.values():
+            if not isinstance(operation, dict):
+                continue
+            findings.extend(
+                _openapi_operation_response_example_findings(
+                    root,
+                    path,
+                    text,
+                    operation,
+                    marker=f"  {webhook_name}:",
+                )
+            )
+    return findings
+
+
+def _openapi_component_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    spec: dict[str, object],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for response_name, response in spec.get("components", {}).get("responses", {}).items():
+        if not isinstance(response, dict):
+            continue
+        media = response.get("content", {}).get("application/json", {})
+        for example in _openapi_media_examples(media):
+            if not _is_top_level_payload_example(example):
+                continue
+            findings.append(
+                Finding(
+                    code="openapi-response-top-level-payload-example",
+                    path=_relative_path(root, path),
+                    line=_line_number_for_pattern(text, f"    {response_name}:"),
+                    message=(
+                        "OpenAPI reusable response example still exposes top-level "
+                        "payload fields; use API vNext data fields."
+                    ),
+                )
+            )
+    return findings
+
+
+def _openapi_operation_response_example_findings(
+    root: Path,
+    path: Path,
+    text: str,
+    operation: dict[str, object],
+    marker: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for status_code, response in operation.get("responses", {}).items():
+        if not isinstance(response, dict):
+            continue
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_payload_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-response-top-level-payload-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    marker,
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI response example still exposes top-level payload fields; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_component_response_error_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    responses = spec.get("components", {}).get("responses", {})
+    for response_name, response in responses.items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_error_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-component-response-top-level-error-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {response_name}:"),
+                message=(
+                    "OpenAPI reusable response example still exposes top-level "
+                    "error/message; use API vNext errors[]."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_control_response_error_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    control_post = spec.get("paths", {}).get("/api/smartly/control", {}).get("post", {})
+    findings: list[Finding] = []
+    for status_code, response in control_post.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_error_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-control-top-level-error-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"        '{status_code}':"),
+                message=(
+                    "OpenAPI control response example still exposes top-level "
+                    "error/message; use API vNext errors[]."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_device_event_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    response = (
+        spec.get("components", {})
+        .get("schemas", {})
+        .get("DeviceEventResponse", {})
+    )
+    properties = response.get("properties", {})
+    legacy_keys = {"success", "event_id", "device_id", "action", "received_at"}.intersection(
+        properties
+    )
+    if not legacy_keys:
+        return []
+
+    return [
+        Finding(
+            code="openapi-device-event-top-level-success-schema",
+            path=_relative_path(root, path),
+            line=_line_number_for_pattern(text, "    DeviceEventResponse:"),
+            message=(
+                "OpenAPI DeviceEventResponse schema still exposes top-level "
+                f"{', '.join(sorted(legacy_keys))}; use API vNext data fields."
+            ),
+        )
+    ]
+
+
+def _openapi_sync_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    expected_payload_keys = {
+        "StructureResponse": {"floors", "areas", "devices", "entities"},
+        "StatesResponse": {"states", "count", "normalization_warnings", "logical_devices"},
+    }
+    for schema_name, payload_keys in expected_payload_keys.items():
+        schema = schemas.get(schema_name, {})
+        properties = schema.get("properties", {})
+        top_level_payload_keys = payload_keys.intersection(properties)
+        if not top_level_payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-sync-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(top_level_payload_keys))}; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_sync_success_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    for api_path in ("/api/smartly/sync/structure", "/api/smartly/sync/states"):
+        sync_get = spec.get("paths", {}).get(api_path, {}).get("get", {})
+        for status_code, response in sync_get.get("responses", {}).items():
+            media = response.get("content", {}).get("application/json", {})
+            examples = _openapi_media_examples(media)
+            if not any(_is_top_level_sync_success_example(example) for example in examples):
+                continue
+            findings.append(
+                Finding(
+                    code="openapi-sync-top-level-success-example",
+                    path=_relative_path(root, path),
+                    line=_line_number_for_pattern_after(
+                        text,
+                        f"  {api_path}:",
+                        f"        '{status_code}':",
+                    ),
+                    message=(
+                        "OpenAPI sync response example still exposes top-level "
+                        "payload fields; use API vNext data fields."
+                    ),
+                )
+            )
+    return findings
+
+
+def _openapi_history_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    expected_payload_keys = {
+        "HistoryResponse": {
+            "entity_id",
+            "history",
+            "count",
+            "truncated",
+            "start_time",
+            "end_time",
+            "metadata",
+            "device_class",
+            "unit_of_measurement",
+            "bridge_chart",
+            "page_size",
+            "has_more",
+            "next_cursor",
+        },
+        "HistoryBatchResponse": {
+            "history",
+            "count",
+            "truncated",
+            "denied_entities",
+            "start_time",
+            "end_time",
+        },
+        "StatisticsResponse": {
+            "entity_id",
+            "period",
+            "statistics",
+            "count",
+            "start_time",
+            "end_time",
+        },
+    }
+    for schema_name, payload_keys in expected_payload_keys.items():
+        schema = schemas.get(schema_name, {})
+        properties = schema.get("properties", {})
+        top_level_payload_keys = payload_keys.intersection(properties)
+        if not top_level_payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-history-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(top_level_payload_keys))}; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_history_success_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    for api_path, method in (
+        ("/api/smartly/history/{entity_id}", "get"),
+        ("/api/smartly/history/batch", "post"),
+        ("/api/smartly/statistics/{entity_id}", "get"),
+    ):
+        operation = spec.get("paths", {}).get(api_path, {}).get(method, {})
+        for status_code, response in operation.get("responses", {}).items():
+            media = response.get("content", {}).get("application/json", {})
+            examples = _openapi_media_examples(media)
+            if not any(_is_top_level_history_success_example(example) for example in examples):
+                continue
+            findings.append(
+                Finding(
+                    code="openapi-history-top-level-success-example",
+                    path=_relative_path(root, path),
+                    line=_line_number_for_pattern_after(
+                        text,
+                        f"  {api_path}:",
+                        f"        '{status_code}':",
+                    ),
+                    message=(
+                        "OpenAPI history response example still exposes top-level "
+                        "payload fields; use API vNext data fields."
+                    ),
+                )
+            )
+    return findings
+
+
+def _openapi_camera_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    schemas = spec.get("components", {}).get("schemas", {})
+    expected_payload_keys = {
+        "CameraListResponse": {"cameras", "count"},
+        "HLSStreamResponse": {"entity_id", "stream_url", "token", "expires_at"},
+        "WebRTCTokenResponse": {
+            "token",
+            "expires_at",
+            "expires_in",
+            "entity_id",
+            "offer_endpoint",
+            "ice_endpoint",
+            "hangup_endpoint",
+            "ice_servers",
+        },
+        "WebRTCAnswerResponse": {"type", "sdp", "session_id"},
+        "WebRTCICEResponse": {"status", "candidates"},
+    }
+    for schema_name, payload_keys in expected_payload_keys.items():
+        schema = schemas.get(schema_name, {})
+        properties = schema.get("properties", {})
+        top_level_payload_keys = payload_keys.intersection(properties)
+        if not top_level_payload_keys or "data" in properties:
+            continue
+        findings.append(
+            Finding(
+                code="openapi-camera-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern(text, f"    {schema_name}:"),
+                message=(
+                    f"OpenAPI {schema_name} schema still exposes top-level "
+                    f"{', '.join(sorted(top_level_payload_keys))}; "
+                    "use API vNext data fields."
+                ),
+            )
+        )
+
+    hangup_schema = (
+        spec.get("paths", {})
+        .get("/api/smartly/camera/{entity_id}/webrtc/hangup", {})
+        .get("post", {})
+        .get("responses", {})
+        .get("200", {})
+        .get("content", {})
+        .get("application/json", {})
+        .get("schema", {})
+    )
+    if _schema_has_top_level_payload_fields(hangup_schema, {"status"}):
+        findings.append(
+            Finding(
+                code="openapi-camera-top-level-success-schema",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/camera/{entity_id}/webrtc/hangup:",
+                    "        '200':",
+                ),
+                message=(
+                    "OpenAPI WebRTC hangup response schema still exposes "
+                    "top-level status; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_device_event_success_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    device_event_post = (
+        spec.get("paths", {})
+        .get("/api/smartly/devices/{device_id}/events", {})
+        .get("post", {})
+    )
+    findings: list[Finding] = []
+    for status_code, response in device_event_post.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_success_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-device-event-top-level-success-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/devices/{device_id}/events:",
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI device-event response example still exposes top-level "
+                    "success payload fields; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_device_event_error_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    device_event_post = (
+        spec.get("paths", {})
+        .get("/api/smartly/devices/{device_id}/events", {})
+        .get("post", {})
+    )
+    findings: list[Finding] = []
+    for status_code, response in device_event_post.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_error_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-device-event-top-level-error-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/devices/{device_id}/events:",
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI device-event response example still exposes top-level "
+                    "error/message; use API vNext errors[]."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_history_error_example_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    history_get = (
+        spec.get("paths", {})
+        .get("/api/smartly/history/{entity_id}", {})
+        .get("get", {})
+    )
+    findings: list[Finding] = []
+    for status_code, response in history_get.get("responses", {}).items():
+        media = response.get("content", {}).get("application/json", {})
+        examples = _openapi_media_examples(media)
+        if not any(_is_top_level_error_example(example) for example in examples):
+            continue
+        findings.append(
+            Finding(
+                code="openapi-history-top-level-error-example",
+                path=_relative_path(root, path),
+                line=_line_number_for_pattern_after(
+                    text,
+                    "/api/smartly/history/{entity_id}:",
+                    f"        '{status_code}':",
+                ),
+                message=(
+                    "OpenAPI history response example still exposes top-level "
+                    "error/message; use API vNext errors[]."
+                ),
+            )
+        )
+    return findings
+
+
+def _openapi_webhook_success_schema_findings(root: Path) -> list[Finding]:
+    path = root / "docs" / "openapi.yaml"
+    if not path.exists():
+        return []
+    try:
+        text = path.read_text(encoding="utf-8")
+    except UnicodeDecodeError:
+        return []
+    try:
+        spec = yaml.safe_load(text) or {}
+    except yaml.YAMLError:
+        return []
+
+    findings: list[Finding] = []
+    for webhook_name, webhook in spec.get("webhooks", {}).items():
+        for method, operation in webhook.items():
+            if not isinstance(operation, dict):
+                continue
+            for status_code, response in operation.get("responses", {}).items():
+                schema = (
+                    response.get("content", {})
+                    .get("application/json", {})
+                    .get("schema", {})
+                )
+                if not _schema_has_top_level_success(schema):
+                    continue
+                findings.append(
+                    Finding(
+                        code="openapi-webhook-top-level-success-schema",
+                        path=_relative_path(root, path),
+                        line=_line_number_for_pattern_after(
+                            text,
+                            f"  {webhook_name}:",
+                            f"        '{status_code}':",
+                        ),
+                        message=(
+                            "OpenAPI webhook response schema still exposes "
+                            "top-level success; use API vNext data fields."
+                        ),
+                    )
+                )
+    return findings
+
+
+def _openapi_media_examples(media: dict[str, object]) -> list[object]:
+    examples: list[object] = []
+    if "example" in media:
+        examples.append(media["example"])
+    if isinstance(media.get("examples"), dict):
+        examples.extend(
+            example.get("value")
+            for example in media["examples"].values()
+            if isinstance(example, dict)
+        )
+    return examples
+
+
+def _is_top_level_error_example(example: object) -> bool:
+    return (
+        isinstance(example, dict)
+        and ("error" in example or "message" in example)
+        and "errors" not in example
+    )
+
+
+def _is_top_level_success_example(example: object) -> bool:
+    legacy_keys = {"success", "event_id", "device_id", "action", "received_at"}
+    return (
+        isinstance(example, dict)
+        and bool(legacy_keys.intersection(example))
+        and "data" not in example
+    )
+
+
+def _is_top_level_sync_success_example(example: object) -> bool:
+    legacy_keys = {
+        "floors",
+        "areas",
+        "devices",
+        "entities",
+        "states",
+        "count",
+        "normalization_warnings",
+        "logical_devices",
+    }
+    return (
+        isinstance(example, dict)
+        and bool(legacy_keys.intersection(example))
+        and "data" not in example
+    )
+
+
+def _is_top_level_history_success_example(example: object) -> bool:
+    legacy_keys = {
+        "entity_id",
+        "history",
+        "statistics",
+        "count",
+        "truncated",
+        "period",
+        "start_time",
+        "end_time",
+        "metadata",
+        "bridge_chart",
+    }
+    return (
+        isinstance(example, dict)
+        and bool(legacy_keys.intersection(example))
+        and "data" not in example
+    )
+
+
+def _is_top_level_payload_example(example: object) -> bool:
+    return (
+        isinstance(example, dict)
+        and bool(set(example) - API_VNEXT_TOP_LEVEL_KEYS)
+        and "data" not in example
+    )
+
+
+def _schema_has_top_level_success(schema: object) -> bool:
+    return (
+        isinstance(schema, dict)
+        and isinstance(schema.get("properties"), dict)
+        and "success" in schema["properties"]
+        and "data" not in schema["properties"]
+    )
+
+
+def _schema_has_top_level_payload_fields(schema: object, keys: set[str]) -> bool:
+    return (
+        isinstance(schema, dict)
+        and isinstance(schema.get("properties"), dict)
+        and bool(keys.intersection(schema["properties"]))
+        and "data" not in schema["properties"]
+    )
+
+
+def _public_control_legacy_body_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in PUBLIC_CONTROL_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_legacy_control_doc_line_findings(root, path, lines))
+        findings.extend(_legacy_control_doc_block_findings(root, path, lines))
+    return findings
+
+
+def _legacy_control_doc_line_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for line_number, line in enumerate(lines, start=1):
+        if not any(term in line for term in PUBLIC_CONTROL_LEGACY_BODY_TERMS):
+            continue
+        findings.append(
+            Finding(
+                code="public-control-legacy-body-doc",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "Public control docs still show legacy control body terms; "
+                    "use API vNext SmartlyCommand."
+                ),
+            )
+        )
+    return findings
+
+
+def _legacy_control_doc_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_legacy_control_body_block(block):
+                findings.append(
+                    Finding(
+                        code="public-control-legacy-body-doc",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Public control docs still show entity_id/action "
+                            "body; use API vNext SmartlyCommand."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_legacy_control_body_block(block: str) -> bool:
+    has_entity_id = '"entity_id"' in block
+    has_action = '"action"' in block or "service_data" in block
+    reads_entity_id = 'body.get("entity_id")' in block or "body.get('entity_id')" in block
+    reads_action = 'body.get("action")' in block or "body.get('action')" in block
+    return (has_entity_id and has_action) or (reads_entity_id and reads_action)
+
+
+def _public_control_stale_light_command_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in PUBLIC_CONTROL_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not any(term in line for term in PUBLIC_CONTROL_STALE_LIGHT_COMMAND_TERMS):
+                continue
+            findings.append(
+                Finding(
+                    code="public-control-stale-light-command-doc",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Public control docs still use stale light color command "
+                        "names; use rgb_color/set_rgb_color, "
+                        "color_temperature/set_color_temperature, and effect."
+                    ),
+                )
+            )
+    return findings
+
+
+def _device_card_ha_action_payload_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    patterns = (
+        "Home Assistant-compatible action payload",
+        "Home Assistant-compatible action payloads",
+    )
+    for relative_path in DEVICE_CARD_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not any(pattern in line for pattern in patterns):
+                continue
+            findings.append(
+                Finding(
+                    code="device-card-ha-action-payload-doc",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Device-card Platform docs still tell UI to send "
+                        "Home Assistant action payloads; use API vNext "
+                        "SmartlyCommand."
+                    ),
+                )
+            )
+    return findings
+
+
+def _device_card_stale_capability_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in DEVICE_CARD_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not any(
+                re.search(pattern, line)
+                for pattern in DEVICE_CARD_STALE_CAPABILITY_PATTERNS
+            ):
+                continue
+            findings.append(
+                Finding(
+                    code="device-card-stale-capability-doc",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Device-card docs still expose stale source capability "
+                        "names; use canonical color_temperature."
+                    ),
+                )
+            )
+    return findings
+
+
+def _device_card_top_level_sync_success_doc_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in DEVICE_CARD_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(
+            _top_level_sync_success_block_findings(
+                root,
+                path,
+                lines,
+                code="device-card-top-level-sync-success-doc",
+                message=(
+                    "Device-card docs still show top-level sync states/count bodies; "
+                    "use API vNext data.states/data.count."
+                ),
+            )
+        )
+    return findings
+
+
+def _history_doc_top_level_error_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"error"' not in line and '{"error"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="history-doc-top-level-error",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "History docs still show top-level error bodies; "
+                        "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _history_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_history_doc_success_block_findings(root, path, lines))
+    return findings
+
+
+def _history_doc_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_history_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="history-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "History docs still show top-level success bodies; "
+                            "use API vNext data fields."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_history_doc_top_level_success_block(block: str) -> bool:
+    payload_keys = {
+        "history",
+        "count",
+        "results",
+        "statistics",
+        "metadata",
+        "has_more",
+        "next_cursor",
+        "total_count",
+    }
+    return (
+        '"schema_version"' not in block
+        and '"data"' not in block
+        and any(f'"{key}"' in block for key in payload_keys)
+    )
+
+
+def _history_doc_top_level_parser_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in HISTORY_CLIENT_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not _is_history_doc_top_level_parser_line(line):
+                continue
+            findings.append(
+                Finding(
+                    code="history-doc-top-level-parser",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "History docs parse API vNext envelopes as top-level "
+                        "payloads; read response data from envelope.data."
+                    ),
+                )
+            )
+    return findings
+
+
+def _is_history_doc_top_level_parser_line(line: str) -> bool:
+    stale_patterns = (
+        "const data = await response.json();",
+        "renderChart(data.history",
+        "renderTimeline(data.history",
+        "renderGauge(data.history",
+        "renderBarChart(data.history",
+    )
+    return any(pattern in line for pattern in stale_patterns)
+
+
+def _camera_doc_top_level_error_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in CAMERA_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"error"' not in line and '{"error"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="camera-doc-top-level-error",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Camera docs still show top-level error bodies; "
+                        "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _camera_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in CAMERA_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_camera_doc_success_block_findings(root, path, lines))
+        for line_number, line in enumerate(lines, start=1):
+            if '"success":' not in line and '{"success"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="camera-doc-top-level-success",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Camera docs still show top-level success bodies; "
+                        "use API vNext data.status."
+                    ),
+                )
+            )
+    return findings
+
+
+def _camera_doc_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_camera_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="camera-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Camera docs still show top-level success payloads; "
+                            "use API vNext data fields."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_camera_doc_top_level_success_block(block: str) -> bool:
+    payload_keys = {
+        "cameras",
+        "count",
+        "cache_stats",
+        "hls_stats",
+        "hls_url",
+        "mjpeg_url",
+        "stream_source",
+        "is_streaming",
+    }
+    return (
+        '"schema_version"' not in block
+        and '"data"' not in block
+        and any(f'"{key}"' in block for key in payload_keys)
+    )
+
+
+def _camera_doc_top_level_parser_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in CAMERA_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if not _is_camera_doc_top_level_parser_line(line):
+                continue
+            findings.append(
+                Finding(
+                    code="camera-doc-top-level-parser",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Camera docs parse API vNext envelopes as top-level "
+                        "payloads; read response data from envelope.data."
+                    ),
+                )
+            )
+    return findings
+
+
+def _is_camera_doc_top_level_parser_line(line: str) -> bool:
+    stale_patterns = (
+        "const data = await response.json();",
+    )
+    return any(pattern in line for pattern in stale_patterns)
+
+
+def _webrtc_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in WEBRTC_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_webrtc_doc_success_response_block_findings(root, path, lines))
+        findings.extend(_webrtc_doc_shorthand_response_findings(root, path, lines))
+    return findings
+
+
+def _sync_doc_top_level_error_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in SYNC_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"error"' not in line and '{"error"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="sync-doc-top-level-error",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Sync docs still show top-level error bodies; "
+                        "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _sync_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in SYNC_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(
+            _top_level_sync_success_block_findings(
+                root,
+                path,
+                lines,
+                code="sync-doc-top-level-success",
+                message=(
+                    "Sync docs still show top-level states/count bodies; "
+                    "use API vNext data.states/data.count."
+                ),
+            )
+        )
+    return findings
+
+
+def _top_level_sync_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+    *,
+    code: str,
+    message: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_sync_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code=code,
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=message,
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_sync_doc_top_level_success_block(block: str) -> bool:
+    return (
+        '"states"' in block
+        and '"count"' in block
+        and '"data"' not in block
+    )
+
+
+def _webrtc_doc_success_response_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_response_section = False
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        stripped = line.strip()
+        if "Response" in stripped:
+            in_response_section = True
+            continue
+        if stripped.startswith("#") and "Response" not in stripped:
+            in_response_section = False
+        if not in_response_section:
+            continue
+        if stripped.startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_webrtc_doc_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="webrtc-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "WebRTC docs still show top-level signaling response "
+                            "bodies; use API vNext data fields."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_webrtc_doc_top_level_success_block(block: str) -> bool:
+    signaling_keys = {
+        "token",
+        "expires_at",
+        "expires_in",
+        "offer_endpoint",
+        "ice_endpoint",
+        "hangup_endpoint",
+        "ice_servers",
+        "type",
+        "sdp",
+        "session_id",
+        "status",
+        "candidates",
+    }
+    return (
+        '"schema_version"' not in block
+        and '"data"' not in block
+        and any(f'"{key}"' in block for key in signaling_keys)
+    )
+
+
+def _webrtc_doc_shorthand_response_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    for line_number, line in enumerate(lines, start=1):
+        if not _is_webrtc_doc_top_level_shorthand_response(line):
+            continue
+        findings.append(
+            Finding(
+                code="webrtc-doc-top-level-success",
+                path=_relative_path(root, path),
+                line=line_number,
+                message=(
+                    "WebRTC docs still show shorthand top-level signaling "
+                    "response fields; use API vNext data fields."
+                ),
+            )
+        )
+    return findings
+
+
+def _is_webrtc_doc_top_level_shorthand_response(line: str) -> bool:
+    if "Response:" not in line or "data" in line:
+        return False
+    return any(
+        key in line
+        for key in (
+            "token",
+            "expires_at",
+            "ice_servers",
+            "session_id",
+            "status",
+            "candidates",
+        )
+    )
+
+
+def _trust_proxy_doc_top_level_error_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in TRUST_PROXY_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"error"' not in line and '{"error"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="trust-proxy-doc-top-level-error",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Trust-proxy docs still show top-level error bodies; "
+                        "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _architecture_plan_doc_top_level_error_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ARCHITECTURE_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            if '"error"' not in line and '{"error"' not in line:
+                continue
+            findings.append(
+                Finding(
+                    code="architecture-plan-doc-top-level-error",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Architecture plan still shows top-level error bodies; "
+                        "use API vNext errors[]."
+                    ),
+                )
+            )
+    return findings
+
+
+def _architecture_plan_doc_top_level_success_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ARCHITECTURE_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        findings.extend(_architecture_plan_success_block_findings(root, path, lines))
+    return findings
+
+
+def _architecture_plan_doc_success_prose_findings(root: Path) -> list[Finding]:
+    findings: list[Finding] = []
+    for relative_path in ARCHITECTURE_PLAN_DOCS:
+        path = root / relative_path
+        if not path.exists():
+            continue
+        try:
+            lines = path.read_text(encoding="utf-8").splitlines()
+        except UnicodeDecodeError:
+            continue
+        for line_number, line in enumerate(lines, start=1):
+            lower_line = line.lower()
+            if (
+                "回傳 success" not in line
+                and "return success" not in lower_line
+                and "returns success" not in lower_line
+            ):
+                continue
+            findings.append(
+                Finding(
+                    code="architecture-plan-doc-success-prose",
+                    path=_relative_path(root, path),
+                    line=line_number,
+                    message=(
+                        "Architecture plan prose still describes returning success; "
+                        "describe API vNext data.status instead."
+                    ),
+                )
+            )
+    return findings
+
+
+def _architecture_plan_success_block_findings(
+    root: Path,
+    path: Path,
+    lines: list[str],
+) -> list[Finding]:
+    findings: list[Finding] = []
+    in_fence = False
+    fence_start = 1
+    block_lines: list[str] = []
+    for line_number, line in enumerate(lines, start=1):
+        if line.strip().startswith("```"):
+            if not in_fence:
+                in_fence = True
+                fence_start = line_number
+                block_lines = []
+                continue
+            block = "\n".join(block_lines)
+            if _is_architecture_plan_top_level_success_block(block):
+                findings.append(
+                    Finding(
+                        code="architecture-plan-doc-top-level-success",
+                        path=_relative_path(root, path),
+                        line=fence_start,
+                        message=(
+                            "Architecture plan still shows command success "
+                            "without API vNext envelope."
+                        ),
+                    )
+                )
+            in_fence = False
+            block_lines = []
+            continue
+        if in_fence:
+            block_lines.append(line)
+    return findings
+
+
+def _is_architecture_plan_top_level_success_block(block: str) -> bool:
+    return (
+        '"command_id"' in block
+        and '"status"' in block
+        and '"device_id"' in block
+        and '"schema_version"' not in block
+        and '"data"' not in block
+    )
+
+
+def _response_body_assignments(tree: ast.AST) -> dict[str, ast.Dict]:
+    assignments: dict[str, ast.Dict] = {}
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Assign) or not isinstance(node.value, ast.Dict):
+            continue
+        for target in node.targets:
+            if isinstance(target, ast.Name):
+                assignments[target.id] = node.value
+    return assignments
+
+
+def _legacy_keys_on_dict(node: ast.Dict) -> set[str]:
+    return _string_keys_on_dict(node) & LEGACY_TOP_LEVEL_KEYS
+
+
+def _string_keys_on_dict(node: ast.Dict) -> set[str]:
+    keys: set[str] = set()
+    for key in node.keys:
+        if isinstance(key, ast.Constant) and isinstance(key.value, str):
+            keys.add(key.value)
+    return keys
+
+
+def _load_json_finding(path: Path, root: Path, findings: list[Finding]) -> object | None:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError as err:
+        findings.append(
+            Finding(
+                code="json-parse-error",
+                path=_relative_path(root, path),
+                line=err.lineno,
+                message=err.msg,
+            )
+        )
+    return None
+
+
+def _contains_key(value: object, key_name: str) -> bool:
+    if isinstance(value, dict):
+        if key_name in value:
+            return True
+        return any(_contains_key(item, key_name) for item in value.values())
+    if isinstance(value, list):
+        return any(_contains_key(item, key_name) for item in value)
+    return False
+
+
+def _python_files_from_paths(paths: list[Path]) -> list[Path]:
+    files: list[Path] = []
+    for path in paths:
+        if path.is_file() and path.suffix == ".py":
+            files.append(path)
+        elif path.is_dir():
+            files.extend(path.rglob("*.py"))
+    return sorted(files)
+
+
+def _json_files_from_paths(paths: list[Path]) -> list[Path]:
+    files: list[Path] = []
+    for path in paths:
+        if path.is_file() and path.suffix == ".json":
+            files.append(path)
+        elif path.is_dir():
+            files.extend(path.rglob("*.json"))
+    return sorted(files)
+
+
+def _call_name(func: ast.expr) -> str:
+    if isinstance(func, ast.Name):
+        return func.id
+    if isinstance(func, ast.Attribute):
+        return func.attr
+    return ""
+
+
+def _line_number_for_pattern(text: str, pattern: str) -> int:
+    for line_number, line in enumerate(text.splitlines(), start=1):
+        if pattern in line:
+            return line_number
+    return 1
+
+
+def _line_number_for_pattern_after(text: str, anchor: str, pattern: str) -> int:
+    lines = text.splitlines()
+    start_index = 0
+    for index, line in enumerate(lines):
+        if anchor in line:
+            start_index = index
+            break
+    for offset, line in enumerate(lines[start_index:], start=start_index + 1):
+        if pattern in line:
+            return offset
+    return _line_number_for_pattern(text, pattern)
+
+
+def _relative_path(root: Path, path: Path) -> str:
+    try:
+        return str(path.relative_to(root))
+    except ValueError:
+        return str(path)
+
+
+def main(argv: list[str] | None = None) -> int:
+    """Run the Phase 6 audit from the command line."""
+    args = list(sys.argv[1:] if argv is None else argv)
+    root = Path(args[0]) if args else Path(".")
+    findings = audit(root)
+    if findings:
+        for finding in findings:
+            print(f"{finding.path}:{finding.line}: {finding.code}: {finding.message}")
+        return 1
+    print("Phase 6 code audit passed.")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

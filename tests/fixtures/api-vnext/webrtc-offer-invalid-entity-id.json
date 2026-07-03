@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "INVALID_ENTITY_ID",
+      "message": "invalid entity id",
+      "target": "webrtc",
+      "retryable": false
+    }
+  ]
+}

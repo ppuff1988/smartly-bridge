@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "TIME_RANGE_TOO_LARGE",
+      "message": "time range too large",
+      "target": "history.time_range",
+      "retryable": false
+    }
+  ]
+}

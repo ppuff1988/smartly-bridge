@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "device_abc123",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "DEVICE_EVENT_FAILED",
+      "message": "RuntimeError: event bus unavailable",
+      "target": "device_event.dispatch",
+      "retryable": false
+    }
+  ]
+}

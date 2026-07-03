@@ -5,122 +5,227 @@ from __future__ import annotations
 import json
 import time
 import uuid
+from pathlib import Path
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
+from custom_components.smartly_bridge.adapters.home_assistant import (
+    _home_assistant_smartly_command_executor,
+)
+from custom_components.smartly_bridge.application.control import SmartlyCommand
 from custom_components.smartly_bridge.const import (
     API_PATH_CONTROL,
     API_PATH_DEVICE_EVENTS,
+    API_PATH_LOCAL_AUTOMATION_RULES,
+    API_PATH_RAW_DIAGNOSTIC,
     API_PATH_SYNC,
+    API_PATH_SYNC_STATES,
     DOMAIN,
     HEADER_CLIENT_ID,
     HEADER_NONCE,
     HEADER_SIGNATURE,
     HEADER_TIMESTAMP,
 )
+from custom_components.smartly_bridge.domain.models import BridgeResponse
 from custom_components.smartly_bridge.views.control import (
-    _entity_id_from_body,
-    _normalize_control_body,
-    _service_data_from_body,
+    _smartly_command_from_body,
 )
 
+FIXTURE_DIR = Path(__file__).parent / "fixtures" / "api-vnext"
 
-def test_control_request_accepts_data_alias_for_service_data() -> None:
-    """Control requests accept frontend data payloads as service data."""
+
+def _api_vnext_fixture(name: str) -> dict:
+    return json.loads((FIXTURE_DIR / name).read_text())
+
+
+class FakeSmartlyCommandExecutor:
+    """SmartlyCommand executor used to verify setup-created runtime wiring."""
+
+    def __init__(self) -> None:
+        self.calls: list[tuple[str, SmartlyCommand]] = []
+
+    async def execute(self, client_id: str, command: SmartlyCommand) -> BridgeResponse:
+        """Record and accept a canonical command."""
+        self.calls.append((client_id, command))
+        return BridgeResponse(
+            {
+                "schema_version": "2026.06",
+                "data": {
+                    "command_id": command.command_id,
+                    "status": "completed",
+                    "device_id": command.device_id,
+                    "capability": command.capability,
+                    "command": command.command,
+                },
+                "warnings": [],
+                "errors": [],
+            }
+        )
+
+
+def _configure_control_runtime_adapters(mock_hass, *, logger: object | None = None) -> None:
+    """Install setup-created control runtime adapters for endpoint tests."""
+    runtime_adapters = mock_hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    adapter_logger = logger or MagicMock()
+    runtime_adapters.setdefault(
+        "smartly_command_executor",
+        _home_assistant_smartly_command_executor(mock_hass, adapter_logger),
+    )
+
+
+def assert_control_error_body(
+    body: dict[str, object],
+    *,
+    code: str,
+    message: str,
+    target: str = "control",
+    retryable: bool = False,
+) -> None:
+    """Assert control endpoint errors use API vNext fields only."""
+    assert "error" not in body
+    assert body == {
+        "schema_version": "2026.06",
+        "data": {"status": "rejected"},
+        "warnings": [],
+        "errors": [
+            {
+                "code": code,
+                "message": message,
+                "target": target,
+                "retryable": retryable,
+            }
+        ],
+    }
+
+
+class FakeRawDiagnosticStore:
+    """Raw diagnostic store used to verify runtime wiring."""
+
+    def __init__(self) -> None:
+        self.refs: list[str] = []
+
+    def get_raw_diagnostic(self, raw_ref: str) -> dict:
+        """Return raw diagnostic data for the requested ref."""
+        self.refs.append(raw_ref)
+        return {
+            "entity_id": "light.kitchen",
+            "access_token": "secret-token",
+            "attributes": {
+                "password": "secret-password",
+                "host": "192.168.1.25",
+                "brightness": 128,
+            },
+        }
+
+
+def test_smartly_command_executor_resolver_uses_runtime_executor(mock_hass) -> None:
+    """SmartlyCommand executor resolver returns the setup-created runtime port."""
+    from custom_components.smartly_bridge.views.control import _smartly_command_executor
+
+    executor = FakeSmartlyCommandExecutor()
+    mock_hass.data[DOMAIN] = {
+        "runtime_adapters": {
+            "smartly_command_executor": executor,
+        },
+    }
+
+    result = _smartly_command_executor(mock_hass)
+
+    assert result is executor
+
+
+def test_smartly_command_executor_resolver_requires_runtime_executor(mock_hass) -> None:
+    """SmartlyCommand executor resolver requires a setup-created runtime port."""
+    from custom_components.smartly_bridge.views.control import _smartly_command_executor
+
+    mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+    result = _smartly_command_executor(mock_hass)
+
+    assert result is None
+    assert "smartly_command_executor" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+
+def test_control_request_builds_vnext_smartly_command() -> None:
+    """API vNext command payloads remain logical-device commands."""
     body = {
-        "action": "set_brightness",
-        "data": {"brightness": 150},
+        "command_id": "cmd-1",
+        "device_id": "ldev_light_kitchen",
+        "capability": "brightness",
+        "command": "set_brightness",
+        "params": {"value": 80},
+        "source": {"user_id": "user-1"},
     }
 
-    assert _service_data_from_body(body) == {"brightness": 150}
+    command = _smartly_command_from_body(body)
+
+    assert command is not None
+    assert command.command_id == "cmd-1"
+    assert command.device_id == "ldev_light_kitchen"
+    assert command.capability == "brightness"
+    assert command.command == "set_brightness"
+    assert command.params == {"value": 80}
+    assert command.source == {"user_id": "user-1"}
 
 
-def test_control_request_prefers_service_data_over_data_alias() -> None:
-    """Explicit service_data wins when both payload keys are present."""
-    body = {
-        "service_data": {"brightness": 120},
-        "data": {"brightness": 150},
-    }
-
-    assert _service_data_from_body(body) == {"brightness": 120}
-
-
-def test_control_request_accepts_device_id_alias_for_entity_id() -> None:
-    """Control requests accept frontend device_id as the target entity identifier."""
-    body = {
-        "device_id": "select.presence_occupancy_sensitivity",
-        "action": "select_option",
-        "data": {"option": "low"},
-    }
-
-    assert _entity_id_from_body(body) == "select.presence_occupancy_sensitivity"
+def test_control_request_ignores_entity_action_body_as_vnext_command() -> None:
+    """Entity/action control requests are not parsed as SmartlyCommand bodies."""
+    assert (
+        _smartly_command_from_body(
+            {"entity_id": "light.kitchen", "action": "turn_on", "service_data": {}}
+        )
+        is None
+    )
 
 
-def test_control_request_prefers_entity_id_over_device_id_alias() -> None:
-    """Canonical entity_id wins when both target identifier keys are present."""
-    body = {
-        "entity_id": "number.presence_detection_delay",
-        "device_id": "binary_sensor.presence",
-    }
+@pytest.mark.asyncio
+async def test_execute_smartly_command_forwards_command_to_executor() -> None:
+    """SmartlyCommand invocation adapter forwards client and command."""
+    from custom_components.smartly_bridge.views.control import (
+        _execute_smartly_command,
+    )
 
-    assert _entity_id_from_body(body) == "number.presence_detection_delay"
+    executor = FakeSmartlyCommandExecutor()
+    command = SmartlyCommand(
+        command_id="cmd-1",
+        device_id="ldev_light_kitchen",
+        capability="brightness",
+        command="set_brightness",
+        params={"value": 80},
+    )
 
+    result = await _execute_smartly_command(executor, "client-1", command)
 
-def test_control_request_normalizes_platform_button_command() -> None:
-    """Platform device commands normalize to canonical Home Assistant control fields."""
-    body = {
-        "device_id": "usb-fan",
-        "capability": "button",
-        "command": "press",
-        "target": "fan_short",
-    }
-
-    normalized = _normalize_control_body(body)
-
-    assert normalized == {
-        "entity_id": "button.usb_fan_fan_short",
-        "action": "press",
-        "service_data": {},
-        "actor": {},
-    }
-
-
-def test_control_request_normalizes_platform_command_with_entity_target() -> None:
-    """Entity targets can be supplied directly in the normalized command format."""
-    body = {
-        "device_id": "usb-fan",
-        "capability": "button",
-        "command": "press",
-        "target": "button.usb_fan_short_press",
-    }
-
-    normalized = _normalize_control_body(body)
-
-    assert normalized["entity_id"] == "button.usb_fan_short_press"
-    assert normalized["action"] == "press"
-
-
-def test_control_request_does_not_forward_routing_target_as_service_data() -> None:
-    """Frontend routing targets are not forwarded to Home Assistant services."""
-    body = {
-        "entity_id": "button.6e0e87b473817f383acf3e41b5fecbd2_fan_short",
-        "action": "press",
-        "data": {"target": "fan_short"},
-    }
-
-    normalized = _normalize_control_body(body)
-
-    assert normalized == {
-        "entity_id": "button.6e0e87b473817f383acf3e41b5fecbd2_fan_short",
-        "action": "press",
-        "service_data": {},
-        "actor": {},
-    }
+    assert result.status == 200
+    assert result.body["data"]["command_id"] == "cmd-1"
+    assert result.body["data"]["status"] == "completed"
+    assert executor.calls == [("client-1", command)]
 
 
 class TestControlEndpoint:
     """Tests for /api/smartly/control endpoint."""
+
+    @pytest.mark.asyncio
+    async def test_control_not_configured_response_includes_vnext_error_envelope(self):
+        """Control setup failures expose API vNext error envelope fields."""
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        request = MagicMock()
+        request.headers = {}
+        request.method = "POST"
+        request.path = API_PATH_CONTROL
+        request.app = {"hass": MagicMock()}
+        request.app["hass"].data = {}
+
+        response = await SmartlyControlView(request).post()
+
+        assert response.status == 500
+        assert_control_error_body(
+            json.loads(response.body),
+            code="INTEGRATION_NOT_CONFIGURED",
+            message="integration not configured",
+        )
 
     @pytest.mark.asyncio
     async def test_control_missing_headers(self):
@@ -202,6 +307,54 @@ class TestControlEndpoint:
         assert response.status == 401
 
     @pytest.mark.asyncio
+    async def test_control_auth_failure_response_includes_vnext_error_envelope(self):
+        """Control auth failures expose API vNext error envelope fields."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        request = MagicMock()
+        request.headers = {
+            HEADER_CLIENT_ID: "test_client",
+            HEADER_TIMESTAMP: "0",
+            HEADER_NONCE: "nonce",
+            HEADER_SIGNATURE: "sig",
+        }
+        request.method = "POST"
+        request.path = API_PATH_CONTROL
+        request.app = {"hass": MagicMock()}
+        request.transport = MagicMock()
+        request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+
+        request.app["hass"].data = {
+            DOMAIN: {
+                "config_entry": MagicMock(
+                    data={
+                        "client_secret": "test_secret",
+                        "allowed_cidrs": "",
+                    }
+                ),
+                "nonce_cache": NonceCache(),
+                "rate_limiter": RateLimiter(60, 60),
+            }
+        }
+
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(
+                success=False,
+                client_id=None,
+                error="invalid_signature",
+            )
+
+            response = await SmartlyControlView(request).post()
+
+        assert response.status == 401
+        assert_control_error_body(
+            json.loads(response.body),
+            code="INVALID_SIGNATURE",
+            message="invalid signature",
+        )
+
+    @pytest.mark.asyncio
     async def test_control_rate_limited(self):
         """Test control endpoint enforces rate limiting."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
@@ -249,6 +402,13 @@ class TestControlEndpoint:
             response = await view.post()
 
         assert response.status == 429
+        assert response.headers["Retry-After"] == "60"
+        assert response.headers["X-RateLimit-Remaining"] == "0"
+        assert_control_error_body(
+            json.loads(response.body),
+            code="RATE_LIMITED",
+            message="rate limited",
+        )
 
 
 class TestSyncEndpoint:
@@ -287,47 +447,43 @@ class TestSyncEndpoint:
                 ),
                 "nonce_cache": nonce_cache,
                 "rate_limiter": rate_limiter,
+                "runtime_adapters": {},
             }
         }
 
-        # Mock verify_request and get_structure
-        with (
-            patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify,
-            patch("custom_components.smartly_bridge.acl.get_structure") as mock_structure,
-        ):
+        gateway = MagicMock()
+        gateway.get_structure.return_value = {
+            "floors": [
+                {
+                    "floor_id": "floor_1",
+                    "name": "First Floor",
+                    "icon": None,
+                    "level": 1,
+                }
+            ],
+            "areas": [],
+            "devices": [],
+            "entities": [],
+        }
+        hass.data[DOMAIN]["runtime_adapters"]["sync_structure_gateway"] = gateway
 
+        with patch("custom_components.smartly_bridge.views.sync.verify_request") as mock_verify:
             mock_verify.return_value = MagicMock(success=True, client_id="test_client")
-            mock_structure.return_value = {
-                "floors": [
-                    {
-                        "floor_id": "floor_1",
-                        "name": "First Floor",
-                        "icon": None,
-                        "level": 1,
-                    }
-                ],
-                "areas": [],
-                "devices": [],
-                "entities": [],
-            }
 
-            # Also mock the registry imports inside the get method
-            with (
-                patch("homeassistant.helpers.entity_registry.async_get"),
-                patch("homeassistant.helpers.device_registry.async_get"),
-                patch("homeassistant.helpers.area_registry.async_get"),
-                patch("homeassistant.helpers.floor_registry.async_get"),
-            ):
-
-                view = SmartlySyncView(request)
-                response = await view.get()
+            view = SmartlySyncView(request)
+            response = await view.get()
 
         assert response.status == 200
         body = json.loads(response.body)
-        assert "floors" in body
-        assert "areas" in body
-        assert "devices" in body
-        assert "entities" in body
+        assert "floors" not in body
+        assert "areas" not in body
+        assert "devices" not in body
+        assert "entities" not in body
+        assert "floors" in body["data"]
+        assert "areas" in body["data"]
+        assert "devices" in body["data"]
+        assert "entities" in body["data"]
+        gateway.get_structure.assert_called_once_with()
 
 
 class TestApiPaths:
@@ -341,9 +497,21 @@ class TestApiPaths:
         """Test sync API path."""
         assert API_PATH_SYNC == "/api/smartly/sync/structure"
 
+    def test_sync_states_path(self):
+        """Test canonical sync states API path."""
+        assert API_PATH_SYNC_STATES == "/api/smartly/sync/states"
+
     def test_device_events_path(self):
         """Test device events API path."""
         assert API_PATH_DEVICE_EVENTS == "/api/smartly/devices/{device_id}/events"
+
+    def test_local_automation_rules_path(self):
+        """Test local automation rules API path."""
+        assert API_PATH_LOCAL_AUTOMATION_RULES == "/api/smartly/automations/local/rules"
+
+    def test_raw_diagnostic_path(self):
+        """Test raw diagnostic API path."""
+        assert API_PATH_RAW_DIAGNOSTIC == "/api/smartly/diagnostics/raw/{raw_ref}"
 
 
 class TestViewRegistration:
@@ -351,15 +519,230 @@ class TestViewRegistration:
 
     def test_register_views(self, mock_hass):
         """Test views are registered correctly."""
-        from custom_components.smartly_bridge.http import register_views
+        from custom_components.smartly_bridge.views import register_views
 
         register_views(mock_hass)
 
-        # Control, Device Events, Sync Structure, Sync States + 5 Camera views
+        # Control, Device Events, Local Automation Rules, Raw Diagnostics,
+        # Sync Structure, Sync States
+        # + 5 Camera views
         # (Snapshot, Stream, List, Config, HLS) + 4 WebRTC views
         # (Token, Offer, ICE, Hangup) + 3 History views
         # (History, History Batch, Statistics)
-        assert mock_hass.http.register_view.call_count == 16
+        assert mock_hass.http.register_view.call_count == 18
+
+        registered_views = [call.args[0] for call in mock_hass.http.register_view.call_args_list]
+        registered_urls = {view.url for view in registered_views}
+        assert API_PATH_SYNC_STATES in registered_urls
+        assert "/api/smartly/states" not in registered_urls
+
+
+class TestRawDiagnosticEndpoint:
+    """Tests for /api/smartly/diagnostics/raw/{raw_ref} endpoint."""
+
+    def test_fetch_raw_diagnostic_reads_and_masks_store_payload(self):
+        """Raw diagnostic invocation adapter reads and masks store payload."""
+        from custom_components.smartly_bridge.views.diagnostics import _fetch_raw_diagnostic
+
+        store = FakeRawDiagnosticStore()
+
+        result = _fetch_raw_diagnostic(store, raw_ref="raw_light_001")
+
+        assert result.status == 200
+        assert store.refs == ["raw_light_001"]
+        assert result.body["data"]["payload"]["access_token"] == "<redacted>"
+        assert result.body["data"]["payload"]["attributes"]["host"] == "<redacted>"
+
+    def test_raw_diagnostic_store_resolver_uses_runtime_store(self, mock_hass):
+        """Raw diagnostic store resolver returns the setup-created storage port."""
+        from custom_components.smartly_bridge.views.diagnostics import _raw_diagnostic_store
+
+        store = FakeRawDiagnosticStore()
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {"raw_diagnostic_store": store}}
+
+        result = _raw_diagnostic_store(mock_hass)
+
+        assert result is store
+
+    def test_raw_diagnostic_store_resolver_requires_runtime_store(self, mock_hass):
+        """Raw diagnostic store resolver requires a setup-created runtime store."""
+        from custom_components.smartly_bridge.views.diagnostics import _raw_diagnostic_store
+
+        mock_hass.data[DOMAIN] = {"runtime_adapters": {}}
+
+        result = _raw_diagnostic_store(mock_hass)
+
+        assert result is None
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_raw_diagnostic_uses_runtime_store(self, mock_hass, mock_config_entry):
+        """Raw diagnostic requests read through the setup-created storage port."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        store = FakeRawDiagnosticStore()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {"raw_diagnostic_store": store},
+        }
+
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "GET"
+        mock_request.path = "/api/smartly/diagnostics/raw/raw_light_001"
+        mock_request.match_info = {"raw_ref": "raw_light_001"}
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyRawDiagnosticView(mock_request).get()
+
+        assert response.status == 200
+        assert store.refs == ["raw_light_001"]
+        assert json.loads(response.body) == _api_vnext_fixture("raw-diagnostic-success.json")
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_raw_diagnostic_echoes_request_correlation_headers(
+        self, mock_hass, mock_config_entry
+    ):
+        """Raw diagnostic vNext envelope exposes request/correlation IDs."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        store = FakeRawDiagnosticStore()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {"raw_diagnostic_store": store},
+        }
+
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "GET"
+        mock_request.path = "/api/smartly/diagnostics/raw/raw_light_001"
+        mock_request.match_info = {"raw_ref": "raw_light_001"}
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {
+            "X-Request-Id": "req-raw-1",
+            "X-Correlation-Id": "corr-raw-1",
+        }
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyRawDiagnosticView(mock_request).get()
+
+        assert response.status == 200
+        body = json.loads(response.body)
+        assert body["request_id"] == "req-raw-1"
+        assert body["correlation_id"] == "corr-raw-1"
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_raw_diagnostic_auth_failure_uses_diagnostic_error_envelope(
+        self, mock_hass, mock_config_entry
+    ):
+        """Raw diagnostic auth failures use diagnostics-specific error targets."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {"raw_diagnostic_store": FakeRawDiagnosticStore()},
+        }
+
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "GET"
+        mock_request.path = "/api/smartly/diagnostics/raw/raw_light_001"
+        mock_request.match_info = {"raw_ref": "raw_light_001"}
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=False, client_id=None, error="auth_failed")
+
+            response = await SmartlyRawDiagnosticView(mock_request).get()
+
+        assert response.status == 401
+        assert json.loads(response.body) == _api_vnext_fixture("raw-diagnostic-auth-failure.json")
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_raw_diagnostic_requires_setup_runtime_store(self, mock_hass, mock_config_entry):
+        """Raw diagnostic requests require the setup-created storage port."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.views.diagnostics import SmartlyRawDiagnosticView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+            "raw_diagnostics": {
+                "raw_light_001": {
+                    "entity_id": "light.kitchen",
+                    "access_token": "secret-token",
+                }
+            },
+            "runtime_adapters": {},
+        }
+
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "GET"
+        mock_request.path = "/api/smartly/diagnostics/raw/raw_light_001"
+        mock_request.match_info = {"raw_ref": "raw_light_001"}
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch(
+            "custom_components.smartly_bridge.views.diagnostics.verify_request"
+        ) as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyRawDiagnosticView(mock_request).get()
+
+        assert response.status == 500
+        assert "raw_diagnostic_store" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "raw-diagnostic-store-unavailable.json"
+        )
+
+        await nonce_cache.stop()
 
 
 class TestStatesEndpoint:
@@ -370,8 +753,12 @@ class TestStatesEndpoint:
         """Test states endpoint returns all entity states."""
         from unittest.mock import AsyncMock, MagicMock
 
+        from custom_components.smartly_bridge.adapters.home_assistant import (
+            _home_assistant_sync_states_gateway,
+        )
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views import sync as sync_views
         from custom_components.smartly_bridge.views.sync import SmartlySyncStatesView
 
         # Setup integration data
@@ -383,6 +770,15 @@ class TestStatesEndpoint:
             "config_entry": mock_config_entry,
             "nonce_cache": nonce_cache,
             "rate_limiter": rate_limiter,
+            "runtime_adapters": {
+                "sync_states_gateway": _home_assistant_sync_states_gateway(
+                    mock_hass,
+                    allowed_entities_fn=lambda hass_arg, entity_registry: (
+                        sync_views.get_allowed_entities(hass_arg, entity_registry)
+                    ),
+                ),
+                "raw_diagnostic_store": MagicMock(),
+            },
         }
 
         # Mock entity state
@@ -516,6 +912,8 @@ class TestControlEndpointFullFlow:
             response = await view.post()
 
             assert response.status == 400
+            body = json.loads(response.text)
+            assert_control_error_body(body, code="INVALID_JSON", message="invalid json")
 
         await nonce_cache.stop()
 
@@ -574,239 +972,251 @@ class TestControlEndpointFullFlow:
             response = await view.post()
 
             assert response.status == 400
+            body = json.loads(response.text)
+            assert_control_error_body(
+                body,
+                code="MISSING_REQUIRED_FIELDS",
+                message="missing required fields",
+            )
 
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
-    async def test_control_entity_not_allowed(self, mock_hass, mock_config_entry):
-        """Test control endpoint with entity not in allowed list."""
+    async def test_control_entity_action_body_is_rejected(self, mock_hass, mock_config_entry):
+        """Entity/action control bodies are no longer accepted by Phase 6."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views.control import SmartlyControlView
 
-        nonce_cache = NonceCache()
-        await nonce_cache.start()
-
         mock_hass.data[DOMAIN] = {
             "config_entry": mock_config_entry,
-            "nonce_cache": nonce_cache,
+            "nonce_cache": NonceCache(),
             "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {},
         }
+        body = {
+            "entity_id": "light.kitchen",
+            "action": "turn_on",
+            "service_data": {"brightness_pct": 50},
+            "actor": {"source": "removed-body-test"},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
 
-        # Create entity registry mock without smartly label
-        from homeassistant.helpers import entity_registry as er
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
 
-        with patch.object(er, "async_get") as mock_er:
-            mock_registry = MagicMock()
-            mock_entry = MagicMock()
-            mock_entry.labels = set()  # No smartly label
-            mock_registry.async_get = MagicMock(return_value=mock_entry)
-            mock_er.return_value = mock_registry
+            response = await SmartlyControlView(mock_request).post()
 
-            body = {
-                "entity_id": "light.forbidden",
-                "action": "turn_on",
-            }
-
-            mock_request = MagicMock()
-            mock_request.app = {"hass": mock_hass}
-            mock_request.method = "POST"
-            mock_request.path = API_PATH_CONTROL
-            mock_request.json = AsyncMock(return_value=body)
-            mock_request.transport = MagicMock()
-            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-
-            # Create valid auth headers
-            import hashlib
-            import hmac
-
-            timestamp = str(int(time.time()))
-            nonce = str(uuid.uuid4())
-            body_hash = hashlib.sha256(json.dumps(body).encode()).hexdigest()
-            message = f"POST\n{API_PATH_CONTROL}\n{timestamp}\n{nonce}\n{body_hash}"
-            signature = hmac.new(
-                mock_config_entry.data["client_secret"].encode(),
-                message.encode(),
-                hashlib.sha256,
-            ).hexdigest()
-
-            mock_request.headers = {
-                HEADER_CLIENT_ID: mock_config_entry.data["client_id"],
-                HEADER_TIMESTAMP: timestamp,
-                HEADER_NONCE: nonce,
-                HEADER_SIGNATURE: signature,
-            }
-
-            with patch(
-                "custom_components.smartly_bridge.views.control.verify_request"
-            ) as mock_verify:
-                mock_verify.return_value = MagicMock(
-                    success=True, client_id="test_client", error=None
-                )
-
-                view = SmartlyControlView(mock_request)
-                response = await view.post()
-
-                assert response.status == 403
-
-        await nonce_cache.stop()
+        assert response.status == 400
+        assert_control_error_body(
+            json.loads(response.body),
+            code="MISSING_REQUIRED_FIELDS",
+            message="missing required fields",
+        )
+        assert "control_use_case" not in mock_hass.data[DOMAIN]["runtime_adapters"]
 
     @pytest.mark.asyncio
-    async def test_control_service_not_allowed(self, mock_hass, mock_config_entry):
-        """Test control endpoint with service not in allowed list."""
-        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.const import DOMAIN
-        from custom_components.smartly_bridge.views.control import SmartlyControlView
-
-        nonce_cache = NonceCache()
-        await nonce_cache.start()
-
-        mock_hass.data[DOMAIN] = {
-            "config_entry": mock_config_entry,
-            "nonce_cache": nonce_cache,
-            "rate_limiter": RateLimiter(60, 60),
-        }
-
-        # Create entity registry mock with smartly label
-        from homeassistant.helpers import entity_registry as er
-
-        with patch.object(er, "async_get") as mock_er:
-            mock_registry = MagicMock()
-            mock_entry = MagicMock()
-            mock_entry.labels = {"smartly"}
-            mock_registry.async_get = MagicMock(return_value=mock_entry)
-            mock_er.return_value = mock_registry
-
-            body = {
-                "entity_id": "light.test",
-                "action": "reload",  # Not allowed
-            }
-
-            mock_request = MagicMock()
-            mock_request.app = {"hass": mock_hass}
-            mock_request.method = "POST"
-            mock_request.path = API_PATH_CONTROL
-            mock_request.json = AsyncMock(return_value=body)
-            mock_request.transport = MagicMock()
-            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-
-            # Create valid auth headers
-            import hashlib
-            import hmac
-
-            timestamp = str(int(time.time()))
-            nonce = str(uuid.uuid4())
-            body_hash = hashlib.sha256(json.dumps(body).encode()).hexdigest()
-            message = f"POST\n{API_PATH_CONTROL}\n{timestamp}\n{nonce}\n{body_hash}"
-            signature = hmac.new(
-                mock_config_entry.data["client_secret"].encode(),
-                message.encode(),
-                hashlib.sha256,
-            ).hexdigest()
-
-            mock_request.headers = {
-                HEADER_CLIENT_ID: mock_config_entry.data["client_id"],
-                HEADER_TIMESTAMP: timestamp,
-                HEADER_NONCE: nonce,
-                HEADER_SIGNATURE: signature,
-            }
-
-            with patch(
-                "custom_components.smartly_bridge.views.control.verify_request"
-            ) as mock_verify:
-                mock_verify.return_value = MagicMock(
-                    success=True, client_id="test_client", error=None
-                )
-
-                view = SmartlyControlView(mock_request)
-                response = await view.post()
-
-                assert response.status == 403
-
-        await nonce_cache.stop()
-
-    @pytest.mark.asyncio
-    async def test_control_service_call_failure(self, mock_hass, mock_config_entry):
-        """Test control endpoint when service call fails."""
-        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
-        from custom_components.smartly_bridge.const import DOMAIN
-        from custom_components.smartly_bridge.views.control import SmartlyControlView
-
-        nonce_cache = NonceCache()
-        await nonce_cache.start()
-
-        mock_hass.data[DOMAIN] = {
-            "config_entry": mock_config_entry,
-            "nonce_cache": nonce_cache,
-            "rate_limiter": RateLimiter(60, 60),
-        }
-
-        # Mock service call to raise exception
-        mock_hass.services.async_call = AsyncMock(side_effect=Exception("Service error"))
-
-        # Create entity registry mock with smartly label
-        from homeassistant.helpers import entity_registry as er
-
-        with patch.object(er, "async_get") as mock_er:
-            mock_registry = MagicMock()
-            mock_entry = MagicMock()
-            mock_entry.labels = {"smartly"}
-            mock_registry.async_get = MagicMock(return_value=mock_entry)
-            mock_er.return_value = mock_registry
-
-            body = {
-                "entity_id": "light.test",
-                "action": "turn_on",
-            }
-
-            mock_request = MagicMock()
-            mock_request.app = {"hass": mock_hass}
-            mock_request.method = "POST"
-            mock_request.path = API_PATH_CONTROL
-            mock_request.json = AsyncMock(return_value=body)
-            mock_request.transport = MagicMock()
-            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
-
-            # Create valid auth headers
-            import hashlib
-            import hmac
-
-            timestamp = str(int(time.time()))
-            nonce = str(uuid.uuid4())
-            body_hash = hashlib.sha256(json.dumps(body).encode()).hexdigest()
-            message = f"POST\n{API_PATH_CONTROL}\n{timestamp}\n{nonce}\n{body_hash}"
-            signature = hmac.new(
-                mock_config_entry.data["client_secret"].encode(),
-                message.encode(),
-                hashlib.sha256,
-            ).hexdigest()
-
-            mock_request.headers = {
-                HEADER_CLIENT_ID: mock_config_entry.data["client_id"],
-                HEADER_TIMESTAMP: timestamp,
-                HEADER_NONCE: nonce,
-                HEADER_SIGNATURE: signature,
-            }
-
-            with patch(
-                "custom_components.smartly_bridge.views.control.verify_request"
-            ) as mock_verify:
-                mock_verify.return_value = MagicMock(
-                    success=True, client_id="test_client", error=None
-                )
-
-                view = SmartlyControlView(mock_request)
-                response = await view.post()
-
-                assert response.status == 500
-
-        await nonce_cache.stop()
-
-    @pytest.mark.asyncio
-    async def test_control_platform_button_command_calls_button_press(
+    async def test_control_entity_action_body_does_not_require_use_case(
         self, mock_hass, mock_config_entry
     ):
-        """Normalized Platform button commands call Home Assistant button.press."""
+        """Entity/action bodies are rejected before runtime use-case lookup."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {},
+        }
+        body = {
+            "entity_id": "light.kitchen",
+            "action": "turn_on",
+            "service_data": {"brightness_pct": 50},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 400
+        assert_control_error_body(
+            json.loads(response.body),
+            code="MISSING_REQUIRED_FIELDS",
+            message="missing required fields",
+        )
+        assert "control_use_case" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_control_response_includes_request_context_headers(
+        self, mock_hass, mock_config_entry
+    ):
+        """Control responses echo optional request correlation headers."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        executor = FakeSmartlyCommandExecutor()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {
+                "smartly_command_executor": executor,
+            },
+        }
+        body = {
+            "command_id": "cmd-context",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "params": {"value": 50},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {
+            "X-Request-Id": "req-control-001",
+            "X-Correlation-Id": "corr-control-001",
+        }
+
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["request_id"] == "req-control-001"
+        assert payload["correlation_id"] == "corr-control-001"
+        assert payload["data"]["command_id"] == "cmd-context"
+        assert payload["data"]["status"] == "completed"
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_command_uses_setup_runtime_executor(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext command path executes through setup-created runtime adapters."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        executor = FakeSmartlyCommandExecutor()
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {
+                "smartly_command_executor": executor,
+            },
+        }
+        body = {
+            "command_id": "cmd-runtime",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "params": {"value": 35},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["data"]["command_id"] == "cmd-runtime"
+        assert executor.calls == [
+            (
+                "test_client",
+                SmartlyCommand(
+                    command_id="cmd-runtime",
+                    device_id="ldev_light_kitchen",
+                    capability="brightness",
+                    command="set_brightness",
+                    params={"value": 35},
+                ),
+            )
+        ]
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_command_requires_setup_runtime_executor(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext command path fails when setup did not create the executor."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": NonceCache(),
+            "rate_limiter": RateLimiter(60, 60),
+            "runtime_adapters": {},
+        }
+        body = {
+            "command_id": "cmd-runtime",
+            "device_id": "ldev_light_kitchen",
+            "capability": "brightness",
+            "command": "set_brightness",
+            "params": {"value": 35},
+        }
+        mock_request = MagicMock()
+        mock_request.app = {"hass": mock_hass}
+        mock_request.method = "POST"
+        mock_request.path = API_PATH_CONTROL
+        mock_request.json = AsyncMock(return_value=body)
+        mock_request.transport = MagicMock()
+        mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+        mock_request.headers = {}
+
+        with patch("custom_components.smartly_bridge.views.control.verify_request") as mock_verify:
+            mock_verify.return_value = MagicMock(success=True, client_id="test_client", error=None)
+
+            response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 500
+        assert_control_error_body(
+            json.loads(response.body),
+            code="SMARTLY_COMMAND_EXECUTOR_UNAVAILABLE",
+            message="smartly command executor unavailable",
+        )
+        assert "smartly_command_executor" not in mock_hass.data[DOMAIN]["runtime_adapters"]
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_smartly_command_dispatches_resolved_source_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext commands resolve logical devices before calling Home Assistant."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views.control import SmartlyControlView
@@ -819,22 +1229,35 @@ class TestControlEndpointFullFlow:
             "nonce_cache": nonce_cache,
             "rate_limiter": RateLimiter(60, 60),
         }
-        mock_hass.states.get.return_value = None
+        _configure_control_runtime_adapters(mock_hass)
+        updated_state = MagicMock()
+        updated_state.state = "on"
+        updated_state.attributes = {"brightness": 204}
+        mock_hass.states.get.return_value = updated_state
 
         from homeassistant.helpers import entity_registry as er
 
-        with patch.object(er, "async_get") as mock_er:
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["light.kitchen"],
+            ),
+        ):
             mock_registry = MagicMock()
             mock_entry = MagicMock()
             mock_entry.labels = {"smartly"}
+            mock_entry.device_id = "ha-device-1"
             mock_registry.async_get = MagicMock(return_value=mock_entry)
             mock_er.return_value = mock_registry
 
             body = {
-                "device_id": "usb-fan",
-                "capability": "button",
-                "command": "press",
-                "target": "fan_short",
+                "command_id": "cmd-1",
+                "device_id": "ldev_ha_device_1",
+                "capability": "brightness",
+                "command": "set_brightness",
+                "params": {"value": 80},
+                "source": {"user_id": "user-1"},
             }
 
             mock_request = MagicMock()
@@ -853,14 +1276,429 @@ class TestControlEndpointFullFlow:
                     success=True, client_id="test_client", error=None
                 )
 
-                view = SmartlyControlView(mock_request)
-                response = await view.post()
+                response = await SmartlyControlView(mock_request).post()
 
         assert response.status == 200
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "control-command-brightness-success.json"
+        )
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "light",
+            "turn_on",
+            {"entity_id": "light.kitchen", "brightness_pct": 80},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_smartly_command_dispatches_button_press(
+        self, mock_hass, mock_config_entry
+    ):
+        """Canonical button press commands resolve and call Home Assistant button.press."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+        _configure_control_runtime_adapters(mock_hass)
+
+        mock_button_state = MagicMock()
+        mock_button_state.state = "idle"
+        mock_button_state.attributes = {"friendly_name": "Desk Scene"}
+        mock_hass.states.get.return_value = mock_button_state
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["button.desk_scene"],
+            ),
+        ):
+            mock_registry = MagicMock()
+            mock_entry = MagicMock()
+            mock_entry.labels = {"smartly"}
+            mock_entry.device_id = "ha-button-1"
+            mock_registry.async_get = MagicMock(return_value=mock_entry)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-button",
+                "device_id": "ldev_ha_button_1",
+                "capability": "button_press",
+                "command": "press",
+                "params": {},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        assert json.loads(response.body) == _api_vnext_fixture(
+            "control-command-button-press-success.json"
+        )
         mock_hass.services.async_call.assert_awaited_once_with(
             "button",
             "press",
-            {"entity_id": "button.usb_fan_fan_short"},
+            {"entity_id": "button.desk_scene"},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_numeric_setting_resolves_sibling_number_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext numeric settings resolve editable sibling number entities."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+        _configure_control_runtime_adapters(mock_hass)
+
+        presence_state = MagicMock()
+        presence_state.state = "on"
+        presence_state.attributes = {
+            "friendly_name": "Presence Sensor",
+            "device_class": "occupancy",
+        }
+        number_state = MagicMock()
+        number_state.state = "20"
+        number_state.attributes = {
+            "friendly_name": "Trigger hold seconds",
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "unit_of_measurement": "s",
+        }
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "binary_sensor.presence": presence_state,
+            "number.presence_detection_delay": number_state,
+        }.get(entity_id)
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["binary_sensor.presence"],
+            ),
+        ):
+            primary_entry = MagicMock()
+            primary_entry.labels = {"smartly"}
+            primary_entry.device_id = "zigbee-presence-1"
+            setting_entry = MagicMock()
+            setting_entry.labels = set()
+            setting_entry.device_id = "zigbee-presence-1"
+            setting_entry.entity_id = "number.presence_detection_delay"
+
+            mock_registry = MagicMock()
+            mock_registry.entities = {
+                "binary_sensor.presence": primary_entry,
+                "number.presence_detection_delay": setting_entry,
+            }
+            mock_registry.async_get.side_effect = lambda entity_id: {
+                "binary_sensor.presence": primary_entry,
+                "number.presence_detection_delay": setting_entry,
+            }.get(entity_id)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-setting-delay",
+                "device_id": "ldev_zigbee_presence_1",
+                "capability": "numeric_setting",
+                "command": "set_value",
+                "params": {"value": 20},
+                "source": {"user_id": "user-1"},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["data"]["source_entity_id"] == "number.presence_detection_delay"
+        assert payload["data"]["expected_state"] == {"numeric_setting": {"value": 20}}
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "number",
+            "set_value",
+            {"entity_id": "number.presence_detection_delay", "value": 20},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_numeric_setting_uses_keyed_sibling_number_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext numeric setting keys select the matching sibling number."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+        _configure_control_runtime_adapters(mock_hass)
+
+        presence_state = MagicMock()
+        presence_state.state = "on"
+        presence_state.attributes = {
+            "friendly_name": "Presence Sensor",
+            "device_class": "occupancy",
+        }
+        trigger_state = MagicMock()
+        trigger_state.state = "20"
+        trigger_state.attributes = {
+            "friendly_name": "Trigger hold seconds",
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "unit_of_measurement": "s",
+        }
+        cooldown_state = MagicMock()
+        cooldown_state.state = "5"
+        cooldown_state.attributes = {
+            "friendly_name": "Cooldown seconds",
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "unit_of_measurement": "s",
+        }
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "binary_sensor.presence": presence_state,
+            "number.presence_detection_delay": trigger_state,
+            "number.presence_cooldown": cooldown_state,
+        }.get(entity_id)
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["binary_sensor.presence"],
+            ),
+        ):
+            primary_entry = MagicMock()
+            primary_entry.labels = {"smartly"}
+            primary_entry.device_id = "zigbee-presence-1"
+            trigger_entry = MagicMock()
+            trigger_entry.labels = set()
+            trigger_entry.device_id = "zigbee-presence-1"
+            trigger_entry.entity_id = "number.presence_detection_delay"
+            cooldown_entry = MagicMock()
+            cooldown_entry.labels = set()
+            cooldown_entry.device_id = "zigbee-presence-1"
+            cooldown_entry.entity_id = "number.presence_cooldown"
+
+            mock_registry = MagicMock()
+            mock_registry.entities = {
+                "binary_sensor.presence": primary_entry,
+                "number.presence_detection_delay": trigger_entry,
+                "number.presence_cooldown": cooldown_entry,
+            }
+            mock_registry.async_get.side_effect = lambda entity_id: {
+                "binary_sensor.presence": primary_entry,
+                "number.presence_detection_delay": trigger_entry,
+                "number.presence_cooldown": cooldown_entry,
+            }.get(entity_id)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-setting-cooldown",
+                "device_id": "ldev_zigbee_presence_1",
+                "capability": "numeric_setting",
+                "command": "set_value",
+                "params": {"key": "cooldown_seconds", "value": 5},
+                "source": {"user_id": "user-1"},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["data"]["source_entity_id"] == "number.presence_cooldown"
+        assert payload["data"]["expected_state"] == {"numeric_setting": {"value": 5}}
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "number",
+            "set_value",
+            {"entity_id": "number.presence_cooldown", "value": 5},
+            blocking=True,
+        )
+
+        await nonce_cache.stop()
+
+    @pytest.mark.asyncio
+    async def test_control_vnext_option_setting_resolves_sibling_select_entity(
+        self, mock_hass, mock_config_entry
+    ):
+        """API vNext option settings resolve editable sibling select entities."""
+        from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
+        from custom_components.smartly_bridge.const import DOMAIN
+        from custom_components.smartly_bridge.views.control import SmartlyControlView
+
+        nonce_cache = NonceCache()
+        await nonce_cache.start()
+
+        mock_hass.data[DOMAIN] = {
+            "config_entry": mock_config_entry,
+            "nonce_cache": nonce_cache,
+            "rate_limiter": RateLimiter(60, 60),
+        }
+        _configure_control_runtime_adapters(mock_hass)
+
+        presence_state = MagicMock()
+        presence_state.state = "on"
+        presence_state.attributes = {
+            "friendly_name": "Presence Sensor",
+            "device_class": "occupancy",
+        }
+        select_state = MagicMock()
+        select_state.state = "low"
+        select_state.attributes = {
+            "friendly_name": "Occupancy sensitivity",
+            "options": ["low", "medium", "high"],
+        }
+        mock_hass.states.get.side_effect = lambda entity_id: {
+            "binary_sensor.presence": presence_state,
+            "select.presence_occupancy_sensitivity": select_state,
+        }.get(entity_id)
+
+        from homeassistant.helpers import entity_registry as er
+
+        with (
+            patch.object(er, "async_get") as mock_er,
+            patch(
+                "custom_components.smartly_bridge.adapters.home_assistant.get_allowed_entities",
+                return_value=["binary_sensor.presence"],
+            ),
+        ):
+            primary_entry = MagicMock()
+            primary_entry.labels = {"smartly"}
+            primary_entry.device_id = "zigbee-presence-1"
+            setting_entry = MagicMock()
+            setting_entry.labels = set()
+            setting_entry.device_id = "zigbee-presence-1"
+            setting_entry.entity_id = "select.presence_occupancy_sensitivity"
+
+            mock_registry = MagicMock()
+            mock_registry.entities = {
+                "binary_sensor.presence": primary_entry,
+                "select.presence_occupancy_sensitivity": setting_entry,
+            }
+            mock_registry.async_get.side_effect = lambda entity_id: {
+                "binary_sensor.presence": primary_entry,
+                "select.presence_occupancy_sensitivity": setting_entry,
+            }.get(entity_id)
+            mock_er.return_value = mock_registry
+
+            body = {
+                "command_id": "cmd-setting-sensitivity",
+                "device_id": "ldev_zigbee_presence_1",
+                "capability": "option_setting",
+                "command": "select_option",
+                "params": {"option": "medium"},
+                "source": {"user_id": "user-1"},
+            }
+
+            mock_request = MagicMock()
+            mock_request.app = {"hass": mock_hass}
+            mock_request.method = "POST"
+            mock_request.path = API_PATH_CONTROL
+            mock_request.json = AsyncMock(return_value=body)
+            mock_request.transport = MagicMock()
+            mock_request.transport.get_extra_info.return_value = ("192.168.1.1", 12345)
+            mock_request.headers = {}
+
+            with patch(
+                "custom_components.smartly_bridge.views.control.verify_request"
+            ) as mock_verify:
+                mock_verify.return_value = MagicMock(
+                    success=True, client_id="test_client", error=None
+                )
+
+                response = await SmartlyControlView(mock_request).post()
+
+        assert response.status == 200
+        payload = json.loads(response.body)
+        assert payload["data"]["source_entity_id"] == ("select.presence_occupancy_sensitivity")
+        assert payload["data"]["expected_state"] == {"option_setting": {"value": "medium"}}
+        mock_hass.services.async_call.assert_awaited_once_with(
+            "select",
+            "select_option",
+            {"entity_id": "select.presence_occupancy_sensitivity", "option": "medium"},
             blocking=True,
         )
 

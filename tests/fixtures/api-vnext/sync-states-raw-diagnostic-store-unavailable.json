@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "RAW_DIAGNOSTIC_STORE_UNAVAILABLE",
+      "message": "raw diagnostic store unavailable",
+      "target": "sync.states.raw_diagnostic_store",
+      "retryable": false
+    }
+  ]
+}

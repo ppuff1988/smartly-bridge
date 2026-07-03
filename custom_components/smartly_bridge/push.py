@@ -11,7 +11,6 @@ from typing import TYPE_CHECKING, Any, Callable
 import aiohttp
 
 from .acl import get_allowed_entities
-from .adapters.home_assistant import HomeAssistantHistoryGateway
 from .audit import log_push_fail, log_push_success
 from .auth import sign_outgoing_request
 from .const import (
@@ -22,6 +21,7 @@ from .const import (
     CONF_PUSH_BATCH_INTERVAL,
     CONF_WEBHOOK_URL,
     DEFAULT_PUSH_BATCH_INTERVAL,
+    DOMAIN,
     HEADER_SIGNATURE,
     HEARTBEAT_INTERVAL,
     MAX_CONCURRENT_HISTORY_QUERIES,
@@ -51,6 +51,15 @@ def _history_end_time(value: Any) -> datetime:
             return value.replace(tzinfo=timezone.utc)
         return value
     return datetime.now(timezone.utc)
+
+
+def _push_history_gateway(hass: HomeAssistant, semaphore_factory: Callable[[], Any]) -> Any | None:
+    """Return the setup-created history gateway for push."""
+    integration_data = hass.data.get(DOMAIN)
+    if isinstance(integration_data, dict):
+        runtime_adapters = integration_data.setdefault("runtime_adapters", {})
+        return runtime_adapters.get("history_gateway")
+    return None
 
 
 class StatePushManager:
@@ -181,6 +190,10 @@ class StatePushManager:
         """Return the recorder query semaphore for bridge chart preloading."""
         return self._history_semaphore
 
+    def _history_gateway(self) -> Any | None:
+        """Return the setup-created history gateway."""
+        return _push_history_gateway(self.hass, self._get_history_semaphore)
+
     async def _bridge_chart_for_state(self, entity_id: str, state: State) -> dict[str, Any] | None:
         """Return recent bridge chart history for an eligible sensor."""
         attributes = format_numeric_attributes(dict(state.attributes))
@@ -199,7 +212,9 @@ class StatePushManager:
 
         end_time = _history_end_time(getattr(state, "last_updated", None))
         start_time = end_time - timedelta(hours=BRIDGE_CHART_LOOKBACK_HOURS)
-        history_gateway = HomeAssistantHistoryGateway(self.hass, self._get_history_semaphore)
+        history_gateway = self._history_gateway()
+        if history_gateway is None:
+            return fallback_chart
         history_states = await history_gateway.query_states(
             entity_id,
             start_time,

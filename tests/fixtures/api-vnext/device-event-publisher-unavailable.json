@@ -1,0 +1,16 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "device_id": "device_abc123",
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "DEVICE_EVENT_PUBLISHER_UNAVAILABLE",
+      "message": "Device event publisher not initialized",
+      "target": "device_event.publisher",
+      "retryable": false
+    }
+  ]
+}

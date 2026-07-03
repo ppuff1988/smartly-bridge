@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "STATISTICS_QUERY_FAILED",
+      "message": "statistics query failed",
+      "target": "statistics",
+      "retryable": false
+    }
+  ]
+}

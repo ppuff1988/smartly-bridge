@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
 
@@ -13,11 +14,24 @@ from ..acl import (
     is_entity_allowed,
     is_service_allowed,
 )
+from ..application.control import SmartlyCommand, SmartlyCommandUseCase
+from ..application.local_automation import (
+    AutomationAction,
+    AutomationTrigger,
+    LocalAutomationRule,
+)
+from ..application.logical_devices import (
+    canonical_capability_name,
+    logical_device_id_for_source_id,
+)
 from ..audit import log_control, log_deny
 from ..const import (
     BRIDGE_CHART_LOOKBACK_HOURS,
     DEFAULT_DOMAIN_ICONS,
+    DOMAIN,
     MAX_CONCURRENT_HISTORY_QUERIES,
+    PLATFORM_CONTROL_LABEL,
+    RAW_DIAGNOSTIC_TTL,
 )
 from ..device_presentation import build_device_card_metadata
 from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
@@ -29,6 +43,8 @@ from ..utils import (
     signal_attribute_key_for_entity,
 )
 
+DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
+
 
 def _entry_labels(entry: Any) -> set[str]:
     """Return string labels from a Home Assistant entity registry entry."""
@@ -38,6 +54,46 @@ def _entry_labels(entry: Any) -> set[str]:
     if isinstance(labels, (set, list, tuple)):
         return {label for label in labels if isinstance(label, str)}
     return set()
+
+
+def _first_prefixed_label(labels: set[str], prefix: str) -> str | None:
+    """Return the first deterministic label with a prefix."""
+    for label in sorted(labels):
+        if label.startswith(prefix):
+            return label
+    return None
+
+
+def _label_trace_for_entity(
+    entity_id: str,
+    labels: set[str],
+    class_override: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return support-only label decision diagnostics for an entity."""
+    exposed = PLATFORM_CONTROL_LABEL in labels
+    trace: dict[str, Any] = {
+        "source_entity_id": entity_id,
+        "exposed": exposed,
+        "hidden": "smartly.hidden" in labels,
+    }
+    if exposed:
+        trace["exposed_by"] = PLATFORM_CONTROL_LABEL
+    if class_override is not None:
+        trace["class_override"] = class_override
+
+    group_label = _first_prefixed_label(labels, "smartly.group.")
+    if group_label is not None:
+        trace["group"] = {
+            "label": group_label,
+            "resolved_group_key": group_label.removeprefix("smartly.group."),
+        }
+
+    presentation_hints = [
+        label for label in ("smartly.dashboard", "smartly.favorite") if label in labels
+    ]
+    if presentation_hints:
+        trace["presentation_hints"] = presentation_hints
+    return trace
 
 
 def _history_end_time(value: Any) -> datetime:
@@ -52,6 +108,10 @@ def _history_end_time(value: Any) -> datetime:
 def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | None:
     """Return the Smartly setting key for supported sibling setting entities."""
     haystack = f"{entity_id} {name}".lower()
+    if domain == "number" and any(
+        token in haystack for token in ("cooldown", "cooldown_seconds", "冷卻")
+    ):
+        return "cooldown_seconds"
     if domain == "number" and any(
         token in haystack
         for token in (
@@ -163,6 +223,300 @@ class LoggingAuditAdapter:
         )
 
 
+class HomeAssistantDeviceEventPublisher:
+    """Device event publisher backed by the Home Assistant event bus."""
+
+    def __init__(self, hass: Any) -> None:
+        self._hass = hass
+
+    def publish_device_event(self, event_data: dict[str, Any]) -> None:
+        """Publish a normalized Smartly device event."""
+        self._hass.bus.async_fire(DEVICE_EVENT_TYPE, event_data)
+
+
+class InMemoryDeviceEventDeduplicator:
+    """In-memory event dedupe store scoped to a Home Assistant runtime."""
+
+    def __init__(self) -> None:
+        self._event_ids_by_key: dict[str, str] = {}
+
+    def event_id_for_key(self, key: str) -> str | None:
+        """Return an existing event ID for the idempotency key."""
+        return self._event_ids_by_key.get(key)
+
+    def remember_event(self, key: str, event_id: str) -> None:
+        """Remember the event ID for the idempotency key."""
+        self._event_ids_by_key.setdefault(key, event_id)
+
+
+def _home_assistant_device_event_publisher(hass: Any) -> HomeAssistantDeviceEventPublisher:
+    """Build the Home Assistant-backed device event publisher runtime adapter."""
+    return HomeAssistantDeviceEventPublisher(hass)
+
+
+def _in_memory_device_event_deduplicator() -> InMemoryDeviceEventDeduplicator:
+    """Build the in-memory device event deduplicator runtime adapter."""
+    return InMemoryDeviceEventDeduplicator()
+
+
+class HomeAssistantLocalAutomationRuleStore:
+    """Local automation rule store backed by Home Assistant runtime data."""
+
+    def __init__(self, hass: Any) -> None:
+        self._hass = hass
+
+    def list_rules(self) -> list[LocalAutomationRule]:
+        """Return local automation rules registered in the integration runtime."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        rules = integration_data.get("local_automation_rules")
+        if rules is None:
+            config_entry = integration_data.get("config_entry")
+            data = getattr(config_entry, "data", {}) if config_entry else {}
+            rules = data.get("local_automation_rules", [])
+        return [
+            parsed
+            for rule in rules
+            if (parsed := _local_automation_rule_from_config(rule)) is not None
+        ]
+
+    def create_rule(self, rule: LocalAutomationRule) -> bool:
+        """Persist a local automation rule to the Home Assistant config entry."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        config_entry = integration_data.get("config_entry")
+        if config_entry is None:
+            return False
+        data = dict(getattr(config_entry, "data", {}))
+        stored_rules = self._serialized_rules_for_persistence(integration_data, data)
+        stored_rules.append(_local_automation_rule_to_config(rule))
+        data["local_automation_rules"] = stored_rules
+        try:
+            self._hass.config_entries.async_update_entry(config_entry, data=data)
+        except Exception:
+            return False
+        self._refresh_runtime_rules(integration_data, stored_rules)
+        return True
+
+    def update_rule(self, rule: LocalAutomationRule) -> bool:
+        """Replace a local automation rule in the Home Assistant config entry."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        config_entry = integration_data.get("config_entry")
+        if config_entry is None:
+            return False
+        data = dict(getattr(config_entry, "data", {}))
+        stored_rules = self._serialized_rules_for_persistence(integration_data, data)
+        updated = False
+        serialized_rule = _local_automation_rule_to_config(rule)
+        for index, stored_rule in enumerate(stored_rules):
+            if isinstance(stored_rule, dict) and stored_rule.get("rule_id") == rule.rule_id:
+                stored_rules[index] = serialized_rule
+                updated = True
+                break
+        if not updated:
+            return False
+        data["local_automation_rules"] = stored_rules
+        try:
+            self._hass.config_entries.async_update_entry(config_entry, data=data)
+        except Exception:
+            return False
+        self._refresh_runtime_rules(integration_data, stored_rules)
+        return True
+
+    def delete_rule(self, rule_id: str) -> bool:
+        """Remove a local automation rule from the Home Assistant config entry."""
+        integration_data = self._hass.data.get(DOMAIN, {})
+        config_entry = integration_data.get("config_entry")
+        if config_entry is None:
+            return False
+        data = dict(getattr(config_entry, "data", {}))
+        stored_rules = self._serialized_rules_for_persistence(integration_data, data)
+        remaining_rules = [
+            stored_rule
+            for stored_rule in stored_rules
+            if not (isinstance(stored_rule, dict) and stored_rule.get("rule_id") == rule_id)
+        ]
+        if len(remaining_rules) == len(stored_rules):
+            return False
+        data["local_automation_rules"] = remaining_rules
+        try:
+            self._hass.config_entries.async_update_entry(config_entry, data=data)
+        except Exception:
+            return False
+        self._refresh_runtime_rules(integration_data, remaining_rules)
+        return True
+
+    def _serialized_rules_for_persistence(
+        self,
+        integration_data: dict[str, Any],
+        config_data: dict[str, Any],
+    ) -> list[dict[str, Any]]:
+        """Return the current rule set as serialized config data."""
+        if "local_automation_rules" in integration_data:
+            return [_local_automation_rule_to_config(rule) for rule in self.list_rules()]
+        stored_rules = config_data.get("local_automation_rules", [])
+        if not isinstance(stored_rules, list):
+            return []
+        return [rule for rule in stored_rules if isinstance(rule, dict)]
+
+    def _refresh_runtime_rules(
+        self,
+        integration_data: dict[str, Any],
+        serialized_rules: list[dict[str, Any]],
+    ) -> None:
+        """Make persisted rule changes visible to runtime readers immediately."""
+        integration_data["local_automation_rules"] = list(serialized_rules)
+
+
+def _local_automation_rule_from_config(value: Any) -> LocalAutomationRule | None:
+    """Return a local automation rule from runtime or serialized config data."""
+    if isinstance(value, LocalAutomationRule):
+        return value
+    if not isinstance(value, dict):
+        return None
+    trigger = _automation_trigger_from_config(value.get("trigger"))
+    if trigger is None:
+        return None
+    actions = [
+        action
+        for item in value.get("actions", [])
+        if (action := _automation_action_from_config(item)) is not None
+    ]
+    if not actions:
+        return None
+    rule_id = value.get("rule_id")
+    if not isinstance(rule_id, str) or not rule_id:
+        return None
+    return LocalAutomationRule(
+        rule_id=rule_id,
+        trigger=trigger,
+        actions=actions,
+        enabled=value.get("enabled", True) is not False,
+    )
+
+
+def _automation_trigger_from_config(value: Any) -> AutomationTrigger | None:
+    """Return an automation trigger from serialized config data."""
+    if not isinstance(value, dict):
+        return None
+    device_id = value.get("device_id")
+    capability = value.get("capability")
+    event = value.get("event")
+    if not all(isinstance(item, str) and item for item in (device_id, capability, event)):
+        return None
+    payload = value.get("payload", {})
+    return AutomationTrigger(
+        device_id=device_id,
+        capability=capability,
+        event=event,
+        payload=payload if isinstance(payload, dict) else {},
+    )
+
+
+def _automation_action_from_config(value: Any) -> AutomationAction | None:
+    """Return an automation action from serialized config data."""
+    if not isinstance(value, dict):
+        return None
+    action_type = value.get("type")
+    device_id = value.get("device_id")
+    capability = value.get("capability")
+    command = value.get("command")
+    if not all(
+        isinstance(item, str) and item for item in (action_type, device_id, capability, command)
+    ):
+        return None
+    params = value.get("params", {})
+    return AutomationAction(
+        type=action_type,
+        device_id=device_id,
+        capability=capability,
+        command=command,
+        params=params if isinstance(params, dict) else {},
+    )
+
+
+def _local_automation_rule_to_config(rule: LocalAutomationRule) -> dict[str, Any]:
+    """Return serialized config entry data for a local automation rule."""
+    return {
+        "rule_id": rule.rule_id,
+        "enabled": rule.enabled,
+        "trigger": {
+            "device_id": rule.trigger.device_id,
+            "capability": rule.trigger.capability,
+            "event": rule.trigger.event,
+            "payload": dict(rule.trigger.payload),
+        },
+        "actions": [
+            {
+                "type": action.type,
+                "device_id": action.device_id,
+                "capability": action.capability,
+                "command": action.command,
+                "params": dict(action.params),
+            }
+            for action in rule.actions
+        ],
+    }
+
+
+def _home_assistant_local_automation_rule_store(hass: Any) -> HomeAssistantLocalAutomationRuleStore:
+    """Build the Home Assistant-backed local automation rule store runtime adapter."""
+    return HomeAssistantLocalAutomationRuleStore(hass)
+
+
+def _smartly_command_use_case(hass: Any, logger: Any) -> SmartlyCommandUseCase:
+    """Build the Home Assistant-backed canonical command use case."""
+    return SmartlyCommandUseCase(
+        HomeAssistantEntityPolicy(hass),
+        HomeAssistantControlGateway(hass),
+        LoggingAuditAdapter(logger),
+        HomeAssistantCommandTargetResolver(hass),
+    )
+
+
+def _home_assistant_history_gateway(
+    hass: Any,
+    history_semaphore_factory: Callable[[], Any],
+) -> Any:
+    """Build the Home Assistant-backed history gateway runtime adapter."""
+    return HomeAssistantHistoryGateway(hass, history_semaphore_factory)
+
+
+def _state_sync_history_gateway(
+    hass: Any,
+    history_semaphore_factory: Callable[[], Any],
+) -> Any:
+    """Build the Home Assistant-backed history gateway for state sync charts."""
+    return _home_assistant_history_gateway(hass, history_semaphore_factory)
+
+
+class HomeAssistantSmartlyCommandExecutor:
+    """SmartlyCommand executor backed by Home Assistant control adapters."""
+
+    def __init__(
+        self,
+        hass: Any,
+        logger: Any,
+        *,
+        use_case_factory: Callable[[Any, Any], Any] = _smartly_command_use_case,
+    ) -> None:
+        self._hass = hass
+        self._logger = logger
+        self._use_case_factory = use_case_factory
+
+    async def execute(self, client_id: str, command: SmartlyCommand) -> Any:
+        """Execute a canonical Smartly command through Home Assistant."""
+        return await self._use_case_factory(self._hass, self._logger).execute(
+            client_id,
+            command,
+        )
+
+
+def _home_assistant_smartly_command_executor(
+    hass: Any, logger: Any
+) -> HomeAssistantSmartlyCommandExecutor:
+    """Build the Home Assistant-backed SmartlyCommand executor runtime adapter."""
+    return HomeAssistantSmartlyCommandExecutor(hass, logger)
+
+
 class HomeAssistantEntityPolicy:
     """Entity and service policy backed by Home Assistant registries."""
 
@@ -181,11 +535,41 @@ class HomeAssistantEntityPolicy:
         """Return whether an entity can be accessed by Platform."""
         from homeassistant.helpers import entity_registry as er
 
-        return self._entity_allowed_fn(self._hass, entity_id, er.async_get(self._hass))
+        entity_registry = er.async_get(self._hass)
+        if self._entity_allowed_fn(self._hass, entity_id, entity_registry):
+            return True
+        return self._is_allowed_setting_sibling(entity_id, entity_registry)
 
     def is_service_allowed(self, entity_id: str, action: str) -> bool:
         """Return whether an action is allowed for the entity domain."""
         return self._service_allowed_fn(get_entity_domain(entity_id), action)
+
+    def _is_allowed_setting_sibling(
+        self,
+        entity_id: str,
+        entity_registry: Any,
+    ) -> bool:
+        """Return whether an editable setting belongs to an allowed primary entity."""
+        domain = get_entity_domain(entity_id)
+        if domain not in {"number", "select"}:
+            return False
+        entry = entity_registry.async_get(entity_id)
+        device_id = getattr(entry, "device_id", None) if entry else None
+        if not device_id:
+            return False
+        state = self._hass.states.get(entity_id)
+        if state is None:
+            return False
+        attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
+        name = str(attributes.get("friendly_name", entity_id))
+        if _setting_key_for_entity(entity_id, name, domain) is None:
+            return False
+        for sibling_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            if getattr(sibling, "device_id", None) != device_id:
+                continue
+            if self._entity_allowed_fn(self._hass, sibling_entity_id, entity_registry):
+                return True
+        return False
 
 
 class HomeAssistantControlGateway:
@@ -194,6 +578,17 @@ class HomeAssistantControlGateway:
     def __init__(self, hass: Any, *, sleep_seconds: float = 0.1) -> None:
         self._hass = hass
         self._sleep_seconds = sleep_seconds
+
+    def get_state(self, entity_id: str) -> EntityStateSnapshot | None:
+        """Return the current entity state snapshot."""
+        state = self._hass.states.get(entity_id)
+        if state is None:
+            return None
+        return EntityStateSnapshot(
+            entity_id=entity_id,
+            state=state.state,
+            attributes=format_numeric_attributes(dict(state.attributes)),
+        )
 
     async def call_service(
         self, entity_id: str, action: str, service_data: dict[str, Any]
@@ -208,14 +603,96 @@ class HomeAssistantControlGateway:
         )
         await asyncio.sleep(self._sleep_seconds)
 
-        state = self._hass.states.get(entity_id)
-        if state is None:
+        return self.get_state(entity_id)
+
+
+class HomeAssistantCommandTargetResolver:
+    """Resolve Smartly logical-device commands to Home Assistant entities."""
+
+    def __init__(
+        self,
+        hass: Any,
+        *,
+        allowed_entities_fn: Callable[[Any, Any], list[str]] | None = None,
+    ) -> None:
+        self._hass = hass
+        self._allowed_entities_fn = allowed_entities_fn or get_allowed_entities
+
+    def resolve_command_target(
+        self,
+        device_id: str,
+        capability: str,
+        params: dict[str, Any] | None = None,
+    ) -> str | None:
+        """Return the HA entity that owns the requested logical capability."""
+        from homeassistant.helpers import entity_registry as er
+
+        entity_registry = er.async_get(self._hass)
+        allowed_entities = self._allowed_entities_fn(self._hass, entity_registry)
+        matched_device_ids: set[str] = set()
+        for entity_id in allowed_entities:
+            entry = entity_registry.async_get(entity_id)
+            source_device_id = getattr(entry, "device_id", None) if entry else None
+            if not isinstance(source_device_id, str):
+                source_device_id = entity_id
+            if logical_device_id_for_source_id(source_device_id) != device_id:
+                continue
+            matched_device_ids.add(source_device_id)
+
+            state = self._hass.states.get(entity_id)
+            attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
+            metadata = build_device_card_metadata(
+                entity_id,
+                getattr(state, "state", None) if state else None,
+                attributes,
+                _entry_labels(entry),
+            )
+            canonical_capabilities = {
+                canonical_capability_name(item) for item in metadata["capabilities"]
+            }
+            if capability in canonical_capabilities:
+                return entity_id
+        if capability in {"numeric_setting", "option_setting"}:
+            setting_key = params.get("key") if isinstance(params, dict) else None
+            return self._resolve_setting_target(
+                entity_registry,
+                matched_device_ids,
+                domain="number" if capability == "numeric_setting" else "select",
+                setting_key=setting_key if isinstance(setting_key, str) else None,
+            )
+        return None
+
+    def _resolve_setting_target(
+        self,
+        entity_registry: Any,
+        matched_device_ids: set[str],
+        *,
+        domain: str,
+        setting_key: str | None = None,
+    ) -> str | None:
+        """Return a sibling setting entity from an allowed logical-device group."""
+        if not matched_device_ids:
             return None
-        return EntityStateSnapshot(
-            entity_id=entity_id,
-            state=state.state,
-            attributes=format_numeric_attributes(dict(state.attributes)),
-        )
+        for registry_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
+            entity_id = getattr(sibling, "entity_id", None) or registry_entity_id
+            if not isinstance(entity_id, str):
+                entity_id = registry_entity_id if isinstance(registry_entity_id, str) else None
+            if not entity_id or get_entity_domain(entity_id) != domain:
+                continue
+            source_device_id = getattr(sibling, "device_id", None)
+            if source_device_id not in matched_device_ids:
+                continue
+            state = self._hass.states.get(entity_id)
+            if state is None:
+                continue
+            attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
+            name = str(attributes.get("friendly_name", entity_id))
+            resolved_key = _setting_key_for_entity(entity_id, name, domain)
+            if setting_key is not None and resolved_key != setting_key:
+                continue
+            if resolved_key is not None:
+                return entity_id
+        return None
 
 
 class HomeAssistantSyncGateway:
@@ -253,6 +730,79 @@ class HomeAssistantSyncGateway:
         )
 
 
+def _home_assistant_sync_structure_gateway(
+    hass: Any,
+    *,
+    allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+    structure_fn: Callable[[Any, list[str], Any, Any, Any, Any], dict[str, Any]] = get_structure,
+) -> HomeAssistantSyncGateway:
+    """Build the Home Assistant-backed sync structure gateway runtime adapter."""
+    return HomeAssistantSyncGateway(
+        hass,
+        allowed_entities_fn=allowed_entities_fn,
+        structure_fn=structure_fn,
+    )
+
+
+class HomeAssistantRawDiagnosticStore:
+    """Raw diagnostic store backed by Home Assistant runtime data."""
+
+    def __init__(
+        self,
+        hass: Any,
+        *,
+        ttl_seconds: int = RAW_DIAGNOSTIC_TTL,
+        now_fn: Callable[[], float] = time.time,
+    ) -> None:
+        self._hass = hass
+        self._ttl_seconds = ttl_seconds
+        self._now_fn = now_fn
+
+    def get_raw_diagnostic(self, raw_ref: str) -> dict[str, Any] | None:
+        """Return a raw diagnostic payload registered for a raw reference."""
+        raw_diagnostics = self._raw_diagnostics()
+        if not isinstance(raw_diagnostics, dict):
+            return None
+        entry = raw_diagnostics.get(raw_ref)
+        if not isinstance(entry, dict):
+            return None
+        if self._is_wrapped_entry(entry):
+            expires_at = entry["expires_at"]
+            if isinstance(expires_at, (int, float)) and expires_at < self._now_fn():
+                raw_diagnostics.pop(raw_ref, None)
+                return None
+            payload = entry["payload"]
+            return payload if isinstance(payload, dict) else None
+        payload = entry
+        return payload
+
+    def record_raw_diagnostic(self, raw_ref: str, payload: dict[str, Any]) -> None:
+        """Record a raw diagnostic payload for a reference."""
+        self._raw_diagnostics()[raw_ref] = {
+            "payload": payload,
+            "expires_at": self._now_fn() + self._ttl_seconds,
+        }
+
+    @staticmethod
+    def _is_wrapped_entry(entry: dict[str, Any]) -> bool:
+        """Return whether a raw diagnostic entry has store metadata."""
+        return "payload" in entry and "expires_at" in entry
+
+    def _raw_diagnostics(self) -> dict[str, Any]:
+        """Return the runtime raw diagnostic mapping."""
+        integration_data = self._hass.data.setdefault(DOMAIN, {})
+        raw_diagnostics = integration_data.setdefault("raw_diagnostics", {})
+        if not isinstance(raw_diagnostics, dict):
+            raw_diagnostics = {}
+            integration_data["raw_diagnostics"] = raw_diagnostics
+        return raw_diagnostics
+
+
+def _home_assistant_raw_diagnostic_store(hass: Any) -> HomeAssistantRawDiagnosticStore:
+    """Build the Home Assistant-backed raw diagnostic store runtime adapter."""
+    return HomeAssistantRawDiagnosticStore(hass)
+
+
 class HomeAssistantStateSyncGateway:
     """State sync gateway backed by Home Assistant state and entity registries."""
 
@@ -262,11 +812,15 @@ class HomeAssistantStateSyncGateway:
         *,
         allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
         history_semaphore_factory: Callable[[], Any] | None = None,
+        history_gateway_factory: Callable[
+            [Any, Callable[[], Any]], Any
+        ] = _state_sync_history_gateway,
     ) -> None:
         self._hass = hass
         self._allowed_entities_fn = allowed_entities_fn
         self._history_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
         self._history_semaphore_factory = history_semaphore_factory or self._get_history_semaphore
+        self._history_gateway_factory = history_gateway_factory
 
     async def list_states(self) -> list[EntityStateSnapshot]:
         """Return allowed entity state snapshots."""
@@ -295,6 +849,8 @@ class HomeAssistantStateSyncGateway:
 
             raw_attributes = dict(state.attributes)
             device_id = getattr(entry, "device_id", None) if entry else None
+            if not isinstance(device_id, str):
+                device_id = None
             if device_id and device_id in signal_by_device:
                 for key, value in signal_by_device[device_id].items():
                     raw_attributes.setdefault(key, value)
@@ -306,6 +862,19 @@ class HomeAssistantStateSyncGateway:
                 attributes,
                 labels,
             )
+            metadata_diagnostics = card_metadata.pop("diagnostics", {})
+            diagnostics = {
+                "label_trace": {
+                    "source": "home_assistant",
+                    "entities": [
+                        _label_trace_for_entity(
+                            entity_id,
+                            labels,
+                            metadata_diagnostics.get("class_override"),
+                        )
+                    ],
+                }
+            }
             if (
                 device_id
                 and card_metadata["device_class"] == "presence_sensor"
@@ -325,6 +894,8 @@ class HomeAssistantStateSyncGateway:
                     last_updated=state.last_updated.isoformat() if state.last_updated else None,
                     icon=icon,
                     bridge_chart=bridge_chart,
+                    source_device_id=device_id,
+                    diagnostics=diagnostics,
                     **card_metadata,
                 )
             )
@@ -414,7 +985,11 @@ class HomeAssistantStateSyncGateway:
 
             controls_by_device.setdefault(device_id, []).append(control)
 
-        order = {"trigger_hold_seconds": 0, "occupancy_sensitivity": 1}
+        order = {
+            "trigger_hold_seconds": 0,
+            "cooldown_seconds": 1,
+            "occupancy_sensitivity": 2,
+        }
         for controls in controls_by_device.values():
             controls.sort(key=lambda control: order.get(str(control.get("key")), 99))
         return controls_by_device
@@ -445,7 +1020,10 @@ class HomeAssistantStateSyncGateway:
 
         end_time = _history_end_time(getattr(state, "last_updated", None))
         start_time = end_time - timedelta(hours=BRIDGE_CHART_LOOKBACK_HOURS)
-        history_gateway = HomeAssistantHistoryGateway(self._hass, self._history_semaphore_factory)
+        history_gateway = self._history_gateway_factory(
+            self._hass,
+            self._history_semaphore_factory,
+        )
         history_states = await history_gateway.query_states(
             entity_id,
             start_time,
@@ -462,6 +1040,22 @@ class HomeAssistantStateSyncGateway:
             )
             or fallback_chart
         )
+
+
+def _home_assistant_sync_states_gateway(
+    hass: Any,
+    *,
+    allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+    history_semaphore_factory: Callable[[], Any] | None = None,
+    history_gateway_factory: Callable[[Any, Callable[[], Any]], Any] = _state_sync_history_gateway,
+) -> HomeAssistantStateSyncGateway:
+    """Build the Home Assistant-backed sync states gateway runtime adapter."""
+    return HomeAssistantStateSyncGateway(
+        hass,
+        allowed_entities_fn=allowed_entities_fn,
+        history_semaphore_factory=history_semaphore_factory,
+        history_gateway_factory=history_gateway_factory,
+    )
 
 
 class HomeAssistantCameraGateway:
@@ -586,6 +1180,24 @@ class HomeAssistantCameraGateway:
     async def stop_hls_stream(self, entity_id: str) -> bool:
         """Stop an HLS stream."""
         return await self._camera_manager.stop_hls_stream(entity_id)
+
+    async def stream_proxy(self, entity_id: str, request: Any, response: Any) -> None:
+        """Proxy an MJPEG stream through the existing camera manager."""
+        await self._camera_manager.stream_proxy(entity_id, request, response)
+
+
+def _home_assistant_camera_gateway(
+    hass: Any,
+    camera_manager: Any,
+    *,
+    allowed_entities_fn: Callable[[Any, Any], list[str]] = get_allowed_entities,
+) -> HomeAssistantCameraGateway:
+    """Build the Home Assistant-backed camera gateway runtime adapter."""
+    return HomeAssistantCameraGateway(
+        hass,
+        camera_manager,
+        allowed_entities_fn=allowed_entities_fn,
+    )
 
 
 class HomeAssistantWebRTCGateway:
@@ -748,6 +1360,14 @@ class HomeAssistantWebRTCGateway:
     async def close_session(self, token: str) -> bool:
         """Close a WebRTC session."""
         return await self._webrtc_manager.close_session(token)
+
+
+def _home_assistant_web_rtc_gateway(
+    hass: Any,
+    webrtc_manager: Any,
+) -> HomeAssistantWebRTCGateway:
+    """Build the Home Assistant-backed WebRTC gateway runtime adapter."""
+    return HomeAssistantWebRTCGateway(hass, webrtc_manager)
 
 
 class HomeAssistantHistoryGateway:

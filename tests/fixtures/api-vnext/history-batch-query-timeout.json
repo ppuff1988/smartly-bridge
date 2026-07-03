@@ -1,0 +1,15 @@
+{
+  "schema_version": "2026.06",
+  "data": {
+    "status": "rejected"
+  },
+  "warnings": [],
+  "errors": [
+    {
+      "code": "QUERY_TIMEOUT",
+      "message": "query timeout",
+      "target": "history.batch",
+      "retryable": false
+    }
+  ]
+}
