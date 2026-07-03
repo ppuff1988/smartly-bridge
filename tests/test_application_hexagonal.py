@@ -3044,6 +3044,68 @@ async def test_sync_states_use_case_includes_vnext_state_updates() -> None:
 
 
 @pytest.mark.asyncio
+async def test_sync_states_use_case_passes_label_trace_as_logical_device_diagnostics() -> None:
+    """Label trace is API vNext logical-device metadata, separate from states/raw refs."""
+    gateway = FakeSyncGateway()
+    gateway.states = [
+        EntityStateSnapshot(
+            entity_id="light.kitchen",
+            state="on",
+            attributes={"brightness": 128},
+            last_changed="2026-06-24T00:00:00+00:00",
+            last_updated="2026-06-24T00:00:00+00:00",
+            icon="mdi:lightbulb",
+            name="Kitchen Light",
+            domain="light",
+            device_class="smart_light",
+            capabilities=["on_off", "brightness"],
+            status="online",
+            presentation={"card_template": "light_card"},
+            diagnostics={
+                "label_trace": {
+                    "source": "home_assistant",
+                    "entities": [
+                        {
+                            "source_entity_id": "light.kitchen",
+                            "exposed": True,
+                            "exposed_by": "smartly",
+                            "hidden": False,
+                        }
+                    ],
+                }
+            },
+        )
+    ]
+
+    result = await SyncStatesUseCase(gateway).execute()
+
+    logical_device = result.body["data"]["logical_devices"][0]
+    assert "diagnostics" not in result.body["data"]["states"][0]
+    assert logical_device["raw_refs"] == []
+    assert result.body["data"]["normalization_warnings"] == []
+    assert logical_device["diagnostics"]["label_trace"] == {
+        "source": "home_assistant",
+        "entities": [
+            {
+                "source_entity_id": "light.kitchen",
+                "exposed": True,
+                "exposed_by": "smartly",
+                "hidden": False,
+            }
+        ],
+    }
+    expected_body = json.loads(
+        (
+            Path(__file__).parent
+            / "fixtures"
+            / "api-vnext"
+            / "sync-states-label-trace-diagnostics.json"
+        ).read_text()
+    )
+    assert result.body == expected_body
+
+
+@pytest.mark.asyncio
 async def test_sync_states_use_case_matches_current_sync_vnext_data_fixture() -> None:
     """State sync vNext data matches the current-sync contract snapshot."""
     fixture_path = (

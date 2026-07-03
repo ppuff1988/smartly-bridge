@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import ipaddress
+import re
 from datetime import date, datetime, timezone
 from typing import Any
 
@@ -20,6 +21,16 @@ SIGNAL_ENTITY_SUFFIXES = {
     "_lqi": "lqi",
     "_rssi": "rssi",
 }
+REDACTED = "<redacted>"
+SENSITIVE_ATTRIBUTE_KEY_PARTS = (
+    "password",
+    "secret",
+    "token",
+    "credential",
+    "api_key",
+    "apikey",
+)
+IPV4_PATTERN = re.compile(r"\b(?:\d{1,3}\.){3}\d{1,3}\b")
 
 
 def parse_allowed_networks(
@@ -123,7 +134,51 @@ def format_numeric_attributes(attributes: dict[str, Any]) -> dict[str, Any]:
             except (ValueError, TypeError):
                 pass  # Keep original value if conversion fails
 
-    return {key: _json_safe_attribute_value(value) for key, value in formatted.items()}
+    return {
+        key: _json_safe_attribute_value(_redacted_attribute_value(key, value))
+        for key, value in formatted.items()
+    }
+
+
+def _redacted_attribute_value(key: object, value: Any) -> Any:
+    """Return an attribute value with obvious secrets and IP addresses redacted."""
+    if _is_sensitive_attribute_key(key):
+        return REDACTED
+    if isinstance(value, dict):
+        return {
+            nested_key: _redacted_attribute_value(nested_key, nested_value)
+            for nested_key, nested_value in value.items()
+        }
+    if isinstance(value, list):
+        return [_redacted_attribute_value(key, item) for item in value]
+    if isinstance(value, tuple):
+        return [_redacted_attribute_value(key, item) for item in value]
+    if isinstance(value, str) and _contains_ip_address(value):
+        return REDACTED
+    return value
+
+
+def _is_sensitive_attribute_key(key: object) -> bool:
+    """Return whether a Home Assistant attribute key should be redacted."""
+    normalized = str(key).lower()
+    return any(part in normalized for part in SENSITIVE_ATTRIBUTE_KEY_PARTS)
+
+
+def _contains_ip_address(value: str) -> bool:
+    """Return whether a string contains an IPv4 or IPv6 address."""
+    for match in IPV4_PATTERN.findall(value):
+        try:
+            ipaddress.ip_address(match)
+        except ValueError:
+            continue
+        return True
+    if ":" not in value:
+        return False
+    try:
+        ipaddress.ip_address(value)
+    except ValueError:
+        return False
+    return True
 
 
 def _normalize_signal_attributes(attributes: dict[str, Any]) -> None:

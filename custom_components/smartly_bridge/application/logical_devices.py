@@ -60,9 +60,27 @@ def logical_devices_from_states(
     snapshots: list[EntityStateSnapshot],
 ) -> list[SmartlyLogicalDevice]:
     """Build grouped logical devices from normalized entity state snapshots."""
+    parents: dict[str, str] = {}
+
+    def find(key: str) -> str:
+        parents.setdefault(key, key)
+        if parents[key] != key:
+            parents[key] = find(parents[key])
+        return parents[key]
+
+    def union(left: str, right: str) -> None:
+        parents[find(right)] = find(left)
+
+    for snapshot in snapshots:
+        keys = _group_membership_keys(snapshot)
+        for key in keys:
+            parents.setdefault(key, key)
+        for key in keys[1:]:
+            union(keys[0], key)
+
     grouped: OrderedDict[str, list[EntityStateSnapshot]] = OrderedDict()
     for snapshot in snapshots:
-        grouped.setdefault(_group_key(snapshot), []).append(snapshot)
+        grouped.setdefault(find(_group_membership_keys(snapshot)[0]), []).append(snapshot)
 
     return [_logical_device_from_group(group) for group in grouped.values()]
 
@@ -82,7 +100,7 @@ def _logical_device_from_group(snapshots: list[EntityStateSnapshot]) -> SmartlyL
     primary = _primary_snapshot(snapshots)
     canonical_capabilities = _capabilities_from_group(snapshots)
     return SmartlyLogicalDevice(
-        id=_logical_device_id(primary.source_device_id or primary.entity_id),
+        id=_logical_device_id(_logical_device_source_id(primary)),
         name=primary.name or primary.entity_id,
         primary_type=_primary_type_for_snapshot(primary),
         device_class=_logical_device_class(primary),
@@ -94,12 +112,63 @@ def _logical_device_from_group(snapshots: list[EntityStateSnapshot]) -> SmartlyL
             primary.presentation,
             canonical_capabilities,
         ),
+        diagnostics=_diagnostics_for_group(snapshots),
     )
 
 
-def _group_key(snapshot: EntityStateSnapshot) -> str:
-    """Return the logical-device grouping key for a snapshot."""
+def _group_membership_keys(snapshot: EntityStateSnapshot) -> list[str]:
+    """Return grouping memberships for source-device and label-derived grouping."""
+    keys = [snapshot.source_device_id or snapshot.entity_id]
+    label_group_key = _label_trace_group_key(snapshot)
+    if label_group_key is not None:
+        keys.append(f"smartly.group.{label_group_key}")
+    return keys
+
+
+def _logical_device_source_id(snapshot: EntityStateSnapshot) -> str:
+    """Return the logical-device source identifier used for stable IDs."""
+    label_group_key = _label_trace_group_key(snapshot)
+    if label_group_key is not None:
+        return f"smartly_group_{label_group_key}"
     return snapshot.source_device_id or snapshot.entity_id
+
+
+def _label_trace_group_key(snapshot: EntityStateSnapshot) -> str | None:
+    """Return the resolved smartly.group key from snapshot diagnostics."""
+    for entity_trace in _label_trace_entities(snapshot):
+        group = entity_trace.get("group")
+        if not isinstance(group, dict):
+            continue
+        resolved_group_key = group.get("resolved_group_key")
+        if isinstance(resolved_group_key, str) and resolved_group_key:
+            return resolved_group_key
+    return None
+
+
+def _diagnostics_for_group(snapshots: list[EntityStateSnapshot]) -> dict[str, Any]:
+    """Aggregate support-only diagnostics for a logical device group."""
+    label_trace_entities: list[dict[str, Any]] = []
+    for snapshot in snapshots:
+        label_trace_entities.extend(_label_trace_entities(snapshot))
+    if not label_trace_entities:
+        return {}
+    return {
+        "label_trace": {
+            "source": "home_assistant",
+            "entities": label_trace_entities,
+        }
+    }
+
+
+def _label_trace_entities(snapshot: EntityStateSnapshot) -> list[dict[str, Any]]:
+    """Return per-entity label trace entries from a snapshot."""
+    label_trace = snapshot.diagnostics.get("label_trace")
+    if not isinstance(label_trace, dict):
+        return []
+    entities = label_trace.get("entities")
+    if not isinstance(entities, list):
+        return []
+    return [entity for entity in entities if isinstance(entity, dict)]
 
 
 def _primary_snapshot(snapshots: list[EntityStateSnapshot]) -> EntityStateSnapshot:

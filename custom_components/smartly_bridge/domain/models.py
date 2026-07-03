@@ -64,11 +64,12 @@ class SmartlyLogicalDevice:
     aliases: list[dict[str, Any]] = field(default_factory=list)
     raw_refs: list[dict[str, Any]] = field(default_factory=list)
     presentation: dict[str, Any] = field(default_factory=dict)
+    diagnostics: dict[str, Any] = field(default_factory=dict)
     schema_version: str = "2026.06"
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize as the logical-device contract."""
-        return {
+        payload = {
             "id": self.id,
             "name": self.name,
             "primary_type": self.primary_type,
@@ -81,6 +82,9 @@ class SmartlyLogicalDevice:
             "presentation": self.presentation,
             "schema_version": self.schema_version,
         }
+        if self.diagnostics:
+            payload["diagnostics"] = self.diagnostics
+        return payload
 
 
 @dataclass(frozen=True)
@@ -101,6 +105,7 @@ class EntityStateSnapshot:
     presentation: dict[str, Any] = field(default_factory=dict)
     bridge_chart: dict[str, Any] | None = None
     source_device_id: str | None = None
+    diagnostics: dict[str, Any] = field(default_factory=dict)
 
     def to_sync_dict(self) -> dict[str, Any]:
         """Serialize for the sync states API."""

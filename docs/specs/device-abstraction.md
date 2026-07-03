@@ -95,6 +95,12 @@ Unknown device 必須以安全的 read-only diagnostic device 形式保持可見
   "source_entities": [],
   "presentation": {},
   "raw_refs": [],
+  "diagnostics": {
+    "label_trace": {
+      "source": "home_assistant",
+      "entities": []
+    }
+  },
   "schema_version": "2026.06"
 }
 ```
@@ -107,6 +113,9 @@ Unknown device 必須以安全的 read-only diagnostic device 形式保持可見
 - `capabilities` 是支援行為的唯一依據。
 - `source_entities` 記錄上游 entity 如何映射到 logical device。
 - `raw_refs` 指向已儲存的診斷 raw payload；正常 sync response 不應包含完整 raw payload。
+- `diagnostics` 是 owner/support-only metadata；customer-facing render/control 不得依賴它。
+- `diagnostics.label_trace` 可解釋 Home Assistant label-derived exposure、hidden、class override、grouping 與 presentation hint decisions，但不得包含 HA token、password、client secret、IP address、完整 registry payload、完整 state attributes 或 raw diagnostic payload body。
+- `diagnostics.label_trace.entities[]` 必須以 source entity 為粒度，讓 grouped logical device 可以解釋每個 member 的 label decision。
 
 ### 5.2 SmartlyCapability
 

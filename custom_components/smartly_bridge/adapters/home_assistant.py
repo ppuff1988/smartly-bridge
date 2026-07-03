@@ -30,6 +30,7 @@ from ..const import (
     DEFAULT_DOMAIN_ICONS,
     DOMAIN,
     MAX_CONCURRENT_HISTORY_QUERIES,
+    PLATFORM_CONTROL_LABEL,
     RAW_DIAGNOSTIC_TTL,
 )
 from ..device_presentation import build_device_card_metadata
@@ -53,6 +54,48 @@ def _entry_labels(entry: Any) -> set[str]:
     if isinstance(labels, (set, list, tuple)):
         return {label for label in labels if isinstance(label, str)}
     return set()
+
+
+def _first_prefixed_label(labels: set[str], prefix: str) -> str | None:
+    """Return the first deterministic label with a prefix."""
+    for label in sorted(labels):
+        if label.startswith(prefix):
+            return label
+    return None
+
+
+def _label_trace_for_entity(
+    entity_id: str,
+    labels: set[str],
+    class_override: dict[str, Any] | None,
+) -> dict[str, Any]:
+    """Return support-only label decision diagnostics for an entity."""
+    exposed = PLATFORM_CONTROL_LABEL in labels
+    trace: dict[str, Any] = {
+        "source_entity_id": entity_id,
+        "exposed": exposed,
+        "hidden": "smartly.hidden" in labels,
+    }
+    if exposed:
+        trace["exposed_by"] = PLATFORM_CONTROL_LABEL
+    if class_override is not None:
+        trace["class_override"] = class_override
+
+    group_label = _first_prefixed_label(labels, "smartly.group.")
+    if group_label is not None:
+        trace["group"] = {
+            "label": group_label,
+            "resolved_group_key": group_label.removeprefix("smartly.group."),
+        }
+
+    presentation_hints = [
+        label
+        for label in ("smartly.dashboard", "smartly.favorite")
+        if label in labels
+    ]
+    if presentation_hints:
+        trace["presentation_hints"] = presentation_hints
+    return trace
 
 
 def _history_end_time(value: Any) -> datetime:
@@ -825,6 +868,19 @@ class HomeAssistantStateSyncGateway:
                 attributes,
                 labels,
             )
+            metadata_diagnostics = card_metadata.pop("diagnostics", {})
+            diagnostics = {
+                "label_trace": {
+                    "source": "home_assistant",
+                    "entities": [
+                        _label_trace_for_entity(
+                            entity_id,
+                            labels,
+                            metadata_diagnostics.get("class_override"),
+                        )
+                    ],
+                }
+            }
             if (
                 device_id
                 and card_metadata["device_class"] == "presence_sensor"
@@ -845,6 +901,7 @@ class HomeAssistantStateSyncGateway:
                     icon=icon,
                     bridge_chart=bridge_chart,
                     source_device_id=device_id,
+                    diagnostics=diagnostics,
                     **card_metadata,
                 )
             )

@@ -82,8 +82,18 @@ def build_device_card_metadata(
     capabilities = _infer_capabilities(domain, attributes)
     device_class = _classify_device(domain, capabilities, attributes, labels)
     presentation = _build_presentation(device_class, capabilities)
+    class_override = _class_override_decision(
+        labels,
+        domain,
+        capabilities,
+        resolved_device_class=device_class,
+    )
 
-    return {
+    diagnostics: dict[str, Any] = {}
+    if class_override is not None:
+        diagnostics["class_override"] = class_override
+
+    metadata = {
         "name": attributes.get("friendly_name", entity_id),
         "domain": domain,
         "device_class": device_class,
@@ -91,6 +101,9 @@ def build_device_card_metadata(
         "status": _status_from_state(state),
         "presentation": presentation,
     }
+    if diagnostics:
+        metadata["diagnostics"] = diagnostics
+    return metadata
 
 
 def _infer_capabilities(domain: str, attributes: dict[str, Any]) -> list[str]:
@@ -268,6 +281,15 @@ def _classify_device(
     if override and _override_allowed(override, domain, capabilities):
         return override
 
+    return _automatic_device_class(domain, capabilities, attributes)
+
+
+def _automatic_device_class(
+    domain: str,
+    capabilities: list[str],
+    attributes: dict[str, Any],
+) -> str:
+    """Classify an entity without manual label overrides."""
     capability_set = set(capabilities)
     if domain == "light":
         if capability_set.intersection({"brightness", "color_temperature", "rgb_color"}):
@@ -379,12 +401,62 @@ def _status_from_state(state: str | None) -> str:
 
 def _device_class_override(labels: Iterable[str]) -> str | None:
     """Extract the first supported smartly.class label."""
-    for label in labels:
-        if not isinstance(label, str) or not label.startswith("smartly.class."):
+    for label in sorted(label for label in labels if isinstance(label, str)):
+        if not label.startswith("smartly.class."):
             continue
         device_class = label.removeprefix("smartly.class.")
         if device_class in SMARTLY_DEVICE_CLASSES:
             return device_class
+    return None
+
+
+def _class_override_decision(
+    labels: Iterable[str],
+    domain: str,
+    capabilities: list[str],
+    *,
+    resolved_device_class: str,
+) -> dict[str, Any] | None:
+    """Return support diagnostics for a smartly.class label decision."""
+    class_label = _first_class_label(labels)
+    if class_label is None:
+        return None
+
+    requested_device_class = class_label.removeprefix("smartly.class.")
+    if requested_device_class not in SMARTLY_DEVICE_CLASSES:
+        return {
+            "label": class_label,
+            "accepted": False,
+            "resolved_device_class": resolved_device_class,
+            "reason": "unsupported smartly device class",
+        }
+    if domain in HIGH_RISK_DOMAINS:
+        return {
+            "label": class_label,
+            "accepted": False,
+            "resolved_device_class": resolved_device_class,
+            "reason": "override rejected for high-risk domain",
+        }
+    if _override_allowed(requested_device_class, domain, capabilities):
+        return {
+            "label": class_label,
+            "accepted": True,
+            "resolved_device_class": resolved_device_class,
+            "reason": f"override compatible with {domain} capability shape",
+        }
+    return {
+        "label": class_label,
+        "accepted": False,
+        "resolved_device_class": resolved_device_class,
+        "reason": f"override incompatible with {domain} capability shape",
+    }
+
+
+def _first_class_label(labels: Iterable[str]) -> str | None:
+    """Return the first deterministic smartly.class label."""
+    for label in sorted(label for label in labels if isinstance(label, str)):
+        if label.startswith("smartly.class."):
+            return label
     return None
 
 

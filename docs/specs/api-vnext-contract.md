@@ -86,6 +86,9 @@ Response：
 - Logical device ID 必須穩定。
 - Source entity ID 應放在 alias，不應成為主 ID。
 - Raw payload 不應放在 sync body；只傳 `raw_refs`。
+- Logical device 可以包含 additive `diagnostics` metadata；`diagnostics.label_trace` 僅供 owner/support diagnostics 使用。
+- Platform customer UI、widget selection、capability existence 與 command authorization 必須只依賴 normalized `primary_type`、`device_class`、`capabilities`、`presentation`、command schema 與 ACL，不得依賴 `diagnostics.label_trace` 或 raw Home Assistant labels。
+- `diagnostics.label_trace` 不得包含 token、password、client secret、IP address、完整 registry payload、完整 state attributes 或 raw diagnostic payload body；需要完整 raw context 時必須使用 `raw_refs` 與 raw diagnostic fetch endpoint。
 
 ## 4. State Sync
 

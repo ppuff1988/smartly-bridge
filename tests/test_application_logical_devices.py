@@ -1204,3 +1204,104 @@ def test_sibling_entities_with_same_source_device_group_into_one_logical_device(
             "schema_version": "2026.06",
         }
     ]
+
+
+def test_logical_device_aggregates_label_trace_diagnostics() -> None:
+    """Grouped logical devices retain per-source label decisions for support diagnostics."""
+    devices = [
+        device.to_dict()
+        for device in logical_devices_from_states(
+            [
+                EntityStateSnapshot(
+                    entity_id="light.kitchen_main",
+                    state="on",
+                    attributes={"brightness": 128},
+                    name="Kitchen Main",
+                    domain="light",
+                    device_class="smart_light",
+                    capabilities=["on_off", "brightness"],
+                    status="online",
+                    presentation={"card_template": "light_card"},
+                    source_device_id="kitchen-group",
+                    diagnostics={
+                        "label_trace": {
+                            "source": "home_assistant",
+                            "entities": [
+                                {
+                                    "source_entity_id": "light.kitchen_main",
+                                    "exposed": True,
+                                    "exposed_by": "smartly",
+                                    "hidden": False,
+                                    "class_override": {
+                                        "label": "smartly.class.smart_light",
+                                        "accepted": True,
+                                        "resolved_device_class": "smart_light",
+                                        "reason": "override compatible with light capability shape",
+                                    },
+                                    "group": {
+                                        "label": "smartly.group.kitchen",
+                                        "resolved_group_key": "kitchen",
+                                    },
+                                    "presentation_hints": ["smartly.dashboard"],
+                                }
+                            ],
+                        }
+                    },
+                ),
+                EntityStateSnapshot(
+                    entity_id="sensor.kitchen_battery",
+                    state="88",
+                    attributes={"unit_of_measurement": "%"},
+                    name="Kitchen Battery",
+                    domain="sensor",
+                    device_class="environment_sensor",
+                    capabilities=["battery"],
+                    status="online",
+                    presentation={"card_template": "metric_card"},
+                    source_device_id="kitchen-group",
+                    diagnostics={
+                        "label_trace": {
+                            "source": "home_assistant",
+                            "entities": [
+                                {
+                                    "source_entity_id": "sensor.kitchen_battery",
+                                    "exposed": True,
+                                    "exposed_by": "smartly",
+                                    "hidden": False,
+                                }
+                            ],
+                        }
+                    },
+                ),
+            ]
+        )
+    ]
+
+    assert devices[0]["diagnostics"]["label_trace"] == {
+        "source": "home_assistant",
+        "entities": [
+            {
+                "source_entity_id": "light.kitchen_main",
+                "exposed": True,
+                "exposed_by": "smartly",
+                "hidden": False,
+                "class_override": {
+                    "label": "smartly.class.smart_light",
+                    "accepted": True,
+                    "resolved_device_class": "smart_light",
+                    "reason": "override compatible with light capability shape",
+                },
+                "group": {
+                    "label": "smartly.group.kitchen",
+                    "resolved_group_key": "kitchen",
+                },
+                "presentation_hints": ["smartly.dashboard"],
+            },
+            {
+                "source_entity_id": "sensor.kitchen_battery",
+                "exposed": True,
+                "exposed_by": "smartly",
+                "hidden": False,
+            },
+        ],
+    }

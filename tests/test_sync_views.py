@@ -15,6 +15,7 @@ from custom_components.smartly_bridge.adapters.home_assistant import (
     _home_assistant_sync_states_gateway,
     _home_assistant_sync_structure_gateway,
 )
+from custom_components.smartly_bridge.application.sync import SyncStatesUseCase
 from custom_components.smartly_bridge.auth import AuthResult, NonceCache, RateLimiter
 from custom_components.smartly_bridge.const import DOMAIN
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
@@ -2335,3 +2336,117 @@ async def test_state_sync_respects_safe_smartly_class_label_override(mock_hass):
     assert payload["device_class"] == "fan_control"
     assert payload["capabilities"] == ["on_off"]
     assert payload["presentation"]["card_template"] == "control_card"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_label_trace_reports_accepted_class_override(mock_hass):
+    """Label trace records accepted smartly.class override decisions."""
+    entry = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels={"smartly", "smartly.class.fan_control"},
+    )
+    mock_hass.states.get = MagicMock(
+        return_value=_state("off", {"friendly_name": "Fan Switch"})
+    )
+    mock_registry = MagicMock()
+    mock_registry.async_get.return_value = entry
+
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry),
+        patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states,
+    ):
+        mock_query_states.return_value = []
+        snapshots = await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=["switch.fan"]),
+        ).list_states()
+
+    assert snapshots[0].device_class == "fan_control"
+    assert snapshots[0].diagnostics["label_trace"]["entities"][0]["class_override"] == {
+        "label": "smartly.class.fan_control",
+        "accepted": True,
+        "resolved_device_class": "fan_control",
+        "reason": "override compatible with switch capability shape",
+    }
+
+
+@pytest.mark.asyncio
+async def test_state_sync_label_trace_rejects_unsafe_class_override(mock_hass):
+    """Label trace explains rejected class overrides without changing safe normalization."""
+    entry = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels={
+            "smartly",
+            "smartly.hidden",
+            "smartly.class.smart_light",
+            "smartly.group.lab",
+            "smartly.favorite",
+            "smartly.dashboard",
+        },
+        device_id="ha-device-lab",
+    )
+    mock_hass.states.get = MagicMock(
+        return_value=_state(
+            "off",
+            {
+                "friendly_name": "Fan Switch",
+                "access_token": "ha-token-123",
+                "endpoint": "http://192.168.1.8/api",
+                "client_secret": "secret-value",
+            },
+        )
+    )
+    mock_registry = MagicMock()
+    mock_registry.entities = {"switch.fan": entry}
+    mock_registry.async_get.return_value = entry
+
+    with (
+        patch("homeassistant.helpers.entity_registry.async_get", return_value=mock_registry),
+        patch(
+            "custom_components.smartly_bridge.adapters.home_assistant."
+            "HomeAssistantHistoryGateway.query_states",
+            new_callable=AsyncMock,
+        ) as mock_query_states,
+    ):
+        mock_query_states.return_value = []
+        result = await SyncStatesUseCase(
+            HomeAssistantStateSyncGateway(
+                mock_hass,
+                allowed_entities_fn=MagicMock(return_value=["switch.fan"]),
+            )
+        ).execute()
+
+    logical_device = result.body["data"]["logical_devices"][0]
+    assert logical_device["device_class"] == "switch_control"
+    assert logical_device["diagnostics"]["label_trace"] == {
+        "source": "home_assistant",
+        "entities": [
+            {
+                "source_entity_id": "switch.fan",
+                "exposed": True,
+                "exposed_by": "smartly",
+                "hidden": True,
+                "class_override": {
+                    "label": "smartly.class.smart_light",
+                    "accepted": False,
+                    "resolved_device_class": "simple_switch",
+                    "reason": "override incompatible with switch capability shape",
+                },
+                "group": {
+                    "label": "smartly.group.lab",
+                    "resolved_group_key": "lab",
+                },
+                "presentation_hints": ["smartly.dashboard", "smartly.favorite"],
+            }
+        ],
+    }
+    encoded = json.dumps(result.body)
+    assert "ha-token-123" not in encoded
+    assert "secret-value" not in encoded
+    assert "192.168.1.8" not in encoded
