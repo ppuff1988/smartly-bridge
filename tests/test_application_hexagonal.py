@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import ast
 import json
+from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
@@ -2925,6 +2926,7 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                 "state": {
                     "value": True,
                     "updated_at": "2026-06-24T00:00:00+00:00",
+                    "quality": "good",
                 },
             },
             {
@@ -2934,6 +2936,7 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
                     "value": 50,
                     "unit": "percent",
                     "updated_at": "2026-06-24T00:00:00+00:00",
+                    "quality": "good",
                 },
             },
         ],
@@ -2966,6 +2969,7 @@ async def test_sync_states_use_case_includes_vnext_envelope() -> None:
                 "state": {
                     "value": True,
                     "updated_at": "2026-06-24T00:00:00+00:00",
+                    "quality": "good",
                 },
             },
             {
@@ -2975,6 +2979,7 @@ async def test_sync_states_use_case_includes_vnext_envelope() -> None:
                     "value": 50,
                     "unit": "percent",
                     "updated_at": "2026-06-24T00:00:00+00:00",
+                    "quality": "good",
                 },
             },
         ],
@@ -2993,6 +2998,7 @@ async def test_sync_states_use_case_includes_vnext_state_updates() -> None:
             "state": {
                 "value": True,
                 "updated_at": "2026-06-24T00:00:00+00:00",
+                "quality": "good",
             },
         },
         {
@@ -3002,9 +3008,161 @@ async def test_sync_states_use_case_includes_vnext_state_updates() -> None:
                 "value": 50,
                 "unit": "percent",
                 "updated_at": "2026-06-24T00:00:00+00:00",
+                "quality": "good",
             },
         },
     ]
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_marks_online_capability_updates_good() -> None:
+    """Online readable capability updates carry canonical quality metadata."""
+    result = await SyncStatesUseCase(FakeSyncGateway()).execute()
+
+    assert [update["state"]["quality"] for update in result.body["data"]["updates"]] == [
+        "good",
+        "good",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_marks_offline_capability_updates_stale() -> None:
+    """Offline readable capability updates carry stale quality metadata."""
+    gateway = FakeSyncGateway()
+    gateway.states = [replace(gateway.states[0], status="offline")]
+
+    result = await SyncStatesUseCase(gateway).execute()
+
+    assert [update["state"]["quality"] for update in result.body["data"]["updates"]] == [
+        "stale",
+        "stale",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_preserves_error_capability_quality() -> None:
+    """Errored readable capability updates carry error quality metadata."""
+    gateway = FakeSyncGateway()
+    gateway.states = [replace(gateway.states[0], status="error")]
+
+    result = await SyncStatesUseCase(gateway).execute()
+
+    assert [update["state"]["quality"] for update in result.body["data"]["updates"]] == [
+        "error",
+        "error",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_sync_states_use_case_groups_aqara_environment_capability_updates() -> None:
+    """Aqara environment siblings retain canonical values, freshness, and health."""
+    gateway = FakeSyncGateway()
+    gateway.states = [
+        EntityStateSnapshot(
+            entity_id="sensor.aqara_environment_temperature",
+            state="24.6",
+            attributes={"unit_of_measurement": "°C"},
+            last_updated="2026-07-13T00:00:00+00:00",
+            name="Aqara Environment",
+            domain="sensor",
+            device_class="environment_sensor",
+            capabilities=["temperature"],
+            status="online",
+            presentation={"card_template": "metric_card"},
+            source_device_id="aqara-environment-1",
+        ),
+        EntityStateSnapshot(
+            entity_id="sensor.aqara_environment_humidity",
+            state="61.2",
+            attributes={"unit_of_measurement": "%"},
+            last_updated="2026-07-13T00:01:00+00:00",
+            name="Aqara Environment Humidity",
+            domain="sensor",
+            device_class="environment_sensor",
+            capabilities=["humidity"],
+            status="online",
+            presentation={"card_template": "metric_card"},
+            source_device_id="aqara-environment-1",
+        ),
+        EntityStateSnapshot(
+            entity_id="sensor.aqara_environment_pressure",
+            state="1013.2",
+            attributes={"unit_of_measurement": "hPa"},
+            last_updated="2026-07-13T00:02:00+00:00",
+            name="Aqara Environment Pressure",
+            domain="sensor",
+            device_class="environment_sensor",
+            capabilities=["pressure"],
+            status="online",
+            presentation={"card_template": "metric_card"},
+            source_device_id="aqara-environment-1",
+        ),
+        EntityStateSnapshot(
+            entity_id="sensor.aqara_environment_battery",
+            state="84",
+            attributes={"unit_of_measurement": "%"},
+            last_updated="2026-07-13T00:03:00+00:00",
+            name="Aqara Environment Battery",
+            domain="sensor",
+            device_class="environment_sensor",
+            capabilities=["battery"],
+            status="online",
+            presentation={"card_template": "metric_card"},
+            source_device_id="aqara-environment-1",
+        ),
+        EntityStateSnapshot(
+            entity_id="sensor.aqara_environment_signal",
+            state="210",
+            attributes={"linkquality": 210, "signal_unit": "lqi"},
+            last_updated="2026-07-13T00:04:00+00:00",
+            name="Aqara Environment Signal",
+            domain="sensor",
+            device_class="environment_sensor",
+            capabilities=["signal_strength"],
+            status="online",
+            presentation={"card_template": "metric_card"},
+            source_device_id="aqara-environment-1",
+        ),
+    ]
+
+    result = await SyncStatesUseCase(gateway).execute()
+    updates = {update["capability"]: update["state"] for update in result.body["data"]["updates"]}
+
+    assert result.body["data"]["device_count"] == 1
+    assert result.body["data"]["logical_devices"][0]["id"] == "ldev_aqara_environment_1"
+    assert updates == {
+        "temperature": {
+            "value": "24.6",
+            "unit": "°C",
+            "updated_at": "2026-07-13T00:00:00+00:00",
+            "quality": "good",
+        },
+        "humidity": {
+            "value": "61.2",
+            "unit": "%",
+            "updated_at": "2026-07-13T00:01:00+00:00",
+            "quality": "good",
+        },
+        "pressure": {
+            "value": "1013.2",
+            "unit": "hPa",
+            "updated_at": "2026-07-13T00:02:00+00:00",
+            "quality": "good",
+        },
+        "battery": {
+            "value": 84,
+            "unit": "percent",
+            "updated_at": "2026-07-13T00:03:00+00:00",
+            "quality": "good",
+        },
+        "signal_quality": {
+            "value": 82,
+            "unit": "percent",
+            "raw_metric": {"kind": "lqi", "value": 210},
+            "updated_at": "2026-07-13T00:04:00+00:00",
+            "quality": "good",
+        },
+    }
 
 
 @pytest.mark.asyncio
