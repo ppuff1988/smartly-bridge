@@ -102,6 +102,17 @@ Capability name 應使用穩定、抽象、跨品牌的語意。
 
 數值單位必須在 adapter normalize 階段統一。Platform 不應再進行品牌或協定層級的單位轉換。
 
+Bridge state sync 依來源 snapshot status 產生 `quality`：
+
+| Snapshot status | State quality |
+|---|---|
+| `online` | `good` |
+| `offline` | `stale` |
+| `error` | `error` |
+| missing or other | `unknown` |
+
+State sync 的 `updated_at` 必須使用該 capability source snapshot 的 `last_updated`，缺少時才 fallback 到 `last_changed`。來源 identity 由 capability `source_refs` 與授權診斷路徑保存，不應為了 Dashboard 再複製到 customer state payload。
+
 ## 5. 核心 Capability
 
 ### 5.1 `power`
