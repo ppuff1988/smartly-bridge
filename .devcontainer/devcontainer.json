@@ -25,8 +25,7 @@
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
     "source=${localEnv:HOME}/.codex-devcontainers/smartly-bridge,target=/home/vscode/.codex,type=bind",
     "source=${localEnv:HOME}/.codex/skills,target=/home/vscode/.codex/skills,type=bind,readonly",
-    "source=gh-config,target=/home/vscode/.config/gh,type=volume",
-    "source=${localWorkspaceFolder}/../smartly-platform/docs/smartly-device-card-capability-spec.md,target=/workspace/docs/smartly-device-card-capability-spec.md,type=bind,readonly"
+    "source=gh-config,target=/home/vscode/.config/gh,type=volume"
   ],
 
   "customizations": {
