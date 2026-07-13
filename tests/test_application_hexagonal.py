@@ -20,6 +20,7 @@ from custom_components.smartly_bridge.application.control import (
 from custom_components.smartly_bridge.application.sync import (
     SyncStatesUseCase,
     SyncStructureUseCase,
+    _capability_quality,
 )
 from custom_components.smartly_bridge.domain.models import BridgeResponse, EntityStateSnapshot
 
@@ -3051,6 +3052,24 @@ async def test_sync_states_use_case_preserves_error_capability_quality() -> None
         "error",
         "error",
     ]
+
+
+def test_capability_quality_skips_invalid_source_refs() -> None:
+    """Malformed source refs do not hide quality from a later valid source."""
+    capability = {
+        "source_refs": [
+            {"source_entity_id": None},
+            {"source_entity_id": "sensor.environment_temperature"},
+        ]
+    }
+
+    assert (
+        _capability_quality(
+            capability,
+            {"sensor.environment_temperature": "online"},
+        )
+        == "good"
+    )
 
 
 @pytest.mark.asyncio
