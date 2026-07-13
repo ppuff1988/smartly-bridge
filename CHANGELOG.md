@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.2](https://github.com/ppuff1988/smartly-bridge/compare/v2.1.1...v2.1.2) (2026-07-13)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **devcontainer:** provide writable Codex state ([#117](https://github.com/ppuff1988/smartly-bridge/issues/117)) ([81072f2](https://github.com/ppuff1988/smartly-bridge/commit/81072f2827415f6f7cae95e2430f84017e7007d2))
+
 ## [2.1.1](https://github.com/ppuff1988/smartly-bridge/compare/v2.1.0...v2.1.1) (2026-07-13)
 
 ### 🐛 錯誤修正 (Bug Fixes)
