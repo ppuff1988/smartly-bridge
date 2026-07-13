@@ -6,6 +6,12 @@
   "remoteUser": "vscode",
   "updateRemoteUserUID": true,
 
+  "initializeCommand": [
+    "mkdir",
+    "-p",
+    "${localEnv:HOME}/.codex-devcontainers/smartly-bridge/skills"
+  ],
+
   "features": {
     "ghcr.io/devcontainers/features/docker-outside-of-docker:1": {
       "moby": false
@@ -17,6 +23,7 @@
     "source=${localWorkspaceFolder},target=/workspace,type=bind",
     "source=${localWorkspaceFolder}/integration/config,target=/config,type=bind",
     "source=/var/run/docker.sock,target=/var/run/docker-host.sock,type=bind",
+    "source=${localEnv:HOME}/.codex-devcontainers/smartly-bridge,target=/home/vscode/.codex,type=bind",
     "source=${localEnv:HOME}/.codex/skills,target=/home/vscode/.codex/skills,type=bind,readonly",
     "source=gh-config,target=/home/vscode/.config/gh,type=volume"
   ],
