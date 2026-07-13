@@ -71,11 +71,15 @@ def _build_runtime_adapters(
         _home_assistant_web_rtc_gateway,
         _in_memory_device_event_deduplicator,
     )
+    from .application.device_events import DeviceEventCapabilityRegistry
     from .views.history import _get_history_semaphore
+
+    device_event_capabilities = DeviceEventCapabilityRegistry()
 
     return {
         "device_event_publisher": _home_assistant_device_event_publisher(hass),
         "device_event_deduplicator": _in_memory_device_event_deduplicator(),
+        "device_event_capabilities": device_event_capabilities,
         "local_automation_rule_store": _home_assistant_local_automation_rule_store(hass),
         "smartly_command_executor": _home_assistant_smartly_command_executor(hass, logger),
         "camera_gateway": _home_assistant_camera_gateway(hass, camera_manager),

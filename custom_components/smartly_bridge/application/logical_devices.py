@@ -308,7 +308,9 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
         event_only=canonical == "button_event",
         state=state,
         commands=_commands_for_capability(canonical),
+        events=_events_for_capability(snapshot, canonical),
         constraints=_constraints_for_capability(snapshot, canonical),
+        presentation=_capability_presentation(snapshot, canonical),
         source_refs=[_source_ref(snapshot, canonical)],
     )
 
@@ -858,6 +860,15 @@ def _constraints_for_capability(
     capability: str,
 ) -> dict[str, Any]:
     """Return default constraints for canonical capabilities."""
+    if capability == "button_event":
+        event_source = snapshot.presentation.get("button_event", {})
+        channels = event_source.get("channels")
+        schema_version = event_source.get("event_schema_version")
+        if isinstance(channels, list) and isinstance(schema_version, int):
+            return {
+                "event_schema_version": schema_version,
+                "channels": channels,
+            }
     if capability == "brightness":
         return {"min": 0, "max": 100, "step": 1}
     if capability == "color_temperature":
@@ -905,6 +916,34 @@ def _constraints_for_capability(
         if isinstance(options, list) and all(isinstance(option, str) for option in options):
             return {"values": options}
     return {}
+
+
+def _events_for_capability(snapshot: EntityStateSnapshot, capability: str) -> list[str]:
+    """Return declared canonical events for an event-only capability."""
+    if capability != "button_event":
+        return []
+    events = snapshot.presentation.get("button_event", {}).get("events")
+    if not isinstance(events, list):
+        return []
+    return [event for event in events if isinstance(event, str)]
+
+
+def _capability_presentation(
+    snapshot: EntityStateSnapshot,
+    capability: str,
+) -> dict[str, Any]:
+    """Return display-only metadata for a canonical capability."""
+    if capability != "button_event":
+        return {}
+    event_source = snapshot.presentation.get("button_event", {})
+    channel_order = event_source.get("channel_order")
+    channel_labels = event_source.get("channel_labels")
+    if not isinstance(channel_order, list) or not isinstance(channel_labels, dict):
+        return {}
+    return {
+        "channel_order": channel_order,
+        "channel_labels": channel_labels,
+    }
 
 
 def _color_temperature_constraints(attributes: dict[str, Any]) -> dict[str, Any]:

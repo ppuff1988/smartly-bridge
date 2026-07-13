@@ -497,6 +497,11 @@ rotate_right
 gesture
 ```
 
+這份 vocabulary 只定義可用詞彙，不代表每台裝置都支援全部事件。Adapter 必須在
+`button_event.constraints.channels` 逐 channel 宣告事件集合；`triple_press` 與 rotary
+事件只有在 declared schema 中存在時才可接受。沒有 schema 的 legacy 裝置不得推論
+`triple_press` 支援。
+
 Multi-button device 可以把 button identity 放在 payload 中，不需要為每顆按鍵建立新的 event name：
 
 ```json

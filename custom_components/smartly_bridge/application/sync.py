@@ -64,10 +64,12 @@ class SyncStatesUseCase:
         *,
         use_logical_devices: bool = False,
         raw_diagnostic_recorder: RawDiagnosticRecorderPort | None = None,
+        device_event_capabilities: Any | None = None,
     ) -> None:
         self._gateway = gateway
         self._use_logical_devices = use_logical_devices
         self._raw_diagnostic_recorder = raw_diagnostic_recorder
+        self._device_event_capabilities = device_event_capabilities
 
     async def execute(self) -> BridgeResponse:
         """Return states and count."""
@@ -75,6 +77,8 @@ class SyncStatesUseCase:
         states = [state.to_sync_dict() for state in snapshots]
         logical_device_models = logical_devices_from_states(snapshots)
         logical_devices = [device.to_dict() for device in logical_device_models]
+        if self._device_event_capabilities is not None:
+            self._device_event_capabilities.replace(logical_devices)
         self._attach_raw_diagnostic_refs(logical_devices, snapshots)
         warnings = _normalization_warnings(logical_devices)
         updates = _state_updates(logical_devices, snapshots)

@@ -17,11 +17,62 @@ from .ports import (
 _BUTTON_EVENT_BY_ACTION = {
     "single": "single_press",
     "double": "double_press",
+    "triple": "triple_press",
     "hold": "long_press",
     "release": "long_release",
 }
 
 SMARTLY_API_SCHEMA_VERSION = "2026.06"
+
+
+class DeviceEventCapabilityRegistry:
+    """In-memory declared channel/event capabilities refreshed by state sync."""
+
+    def __init__(self) -> None:
+        self._events_by_device: dict[str, set[tuple[str, str]]] = {}
+
+    def replace(self, logical_devices: list[dict[str, Any]]) -> None:
+        """Replace all declared event schemas with one sync snapshot."""
+        events_by_device: dict[str, set[tuple[str, str]]] = {}
+        for device in logical_devices:
+            device_id = device.get("id")
+            if not isinstance(device_id, str):
+                continue
+            declared = _declared_device_events(device)
+            if declared is not None:
+                events_by_device[device_id] = declared
+        self._events_by_device = events_by_device
+
+    def supports_event(self, device_id: str, channel: str, event: str) -> bool | None:
+        """Return support, or None when the device has no declared event schema."""
+        declared = self._events_by_device.get(device_id)
+        if declared is None:
+            return None
+        return (channel, event) in declared
+
+
+def _declared_device_events(device: dict[str, Any]) -> set[tuple[str, str]] | None:
+    """Extract declared channel/event pairs from a logical-device payload."""
+    capabilities = device.get("capabilities")
+    if not isinstance(capabilities, list):
+        return None
+    for capability in capabilities:
+        if not isinstance(capability, dict) or capability.get("type") != "button_event":
+            continue
+        constraints = capability.get("constraints")
+        channels = constraints.get("channels") if isinstance(constraints, dict) else None
+        if not isinstance(channels, list):
+            return None
+        declared: set[tuple[str, str]] = set()
+        for channel in channels:
+            if not isinstance(channel, dict) or not isinstance(channel.get("key"), str):
+                continue
+            events = channel.get("events")
+            if not isinstance(events, list):
+                continue
+            declared.update((channel["key"], event) for event in events if isinstance(event, str))
+        return declared
+    return None
 
 
 @dataclass(frozen=True)
@@ -46,12 +97,14 @@ class DeviceEventUseCase:
         received_at_factory: Callable[[], str] | None = None,
         deduplicator: DeviceEventDeduplicatorPort | None = None,
         automation: LocalAutomationPort | None = None,
+        capabilities: Any | None = None,
     ) -> None:
         self._publisher = publisher
         self._event_id_factory = event_id_factory or _new_event_id
         self._received_at_factory = received_at_factory or _utc_now
         self._deduplicator = deduplicator or _NoEventDeduplicator()
         self._automation = automation
+        self._capabilities = capabilities
 
     async def execute(self, client_id: str, command: DeviceEventCommand) -> BridgeResponse:
         """Publish a normalized event or return a validation error."""
@@ -64,6 +117,16 @@ class DeviceEventUseCase:
             )
         canonical = _canonical_button_event(command.action)
         if canonical is None:
+            return device_event_error_response(
+                command=command,
+                error="invalid_action",
+                message="Unsupported button action",
+                target="event.action",
+            )
+        channel = canonical["payload"].get("button") or canonical["payload"].get("direction")
+        if not isinstance(channel, str) or not self._event_is_supported(
+            command.device_id, channel, canonical["event"]
+        ):
             return device_event_error_response(
                 command=command,
                 error="invalid_action",
@@ -134,6 +197,14 @@ class DeviceEventUseCase:
         if self._automation is not None:
             body["data"]["automations"] = automation_results
         return BridgeResponse(body, status=202)
+
+    def _event_is_supported(self, device_id: str, channel: str, event: str) -> bool:
+        """Return whether declared metadata permits the canonical event."""
+        if self._capabilities is not None:
+            supported = self._capabilities.supports_event(device_id, channel, event)
+            if supported is not None:
+                return supported
+        return event != "triple_press"
 
 
 class _NoEventDeduplicator:
