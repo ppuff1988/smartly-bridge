@@ -21,6 +21,7 @@ SMARTLY_DEVICE_CLASSES = {
     "cover_control",
     "climate_control",
     "scene_trigger",
+    "setting_device",
     "unknown_device",
 }
 
@@ -37,6 +38,7 @@ CARD_TEMPLATE_BY_CLASS = {
     "cover_control": "cover_card",
     "climate_control": "climate_card",
     "scene_trigger": "scene_card",
+    "setting_device": "setting_card",
     "unknown_device": "unknown_card",
 }
 
@@ -121,6 +123,8 @@ def _infer_capabilities(domain: str, attributes: dict[str, Any]) -> list[str]:
         "button": _button_capabilities,
         "input_button": _button_capabilities,
         "input_boolean": _switch_capabilities,
+        "input_number": _numeric_setting_capabilities,
+        "input_select": _option_setting_capabilities,
     }
     capabilities = by_domain.get(domain, _no_capabilities)(attributes)
     return _with_health_capabilities(capabilities, attributes)
@@ -226,6 +230,16 @@ def _button_capabilities(attributes: dict[str, Any]) -> list[str]:
     return ["event", "button_press"]
 
 
+def _numeric_setting_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer numeric helper capabilities."""
+    return ["numeric_setting"]
+
+
+def _option_setting_capabilities(attributes: dict[str, Any]) -> list[str]:
+    """Infer option helper capabilities."""
+    return ["option_setting"]
+
+
 def _no_capabilities(attributes: dict[str, Any]) -> list[str]:
     """Return no capabilities for unsupported domains."""
     return []
@@ -320,6 +334,11 @@ def _automatic_device_class(
 
     if domain in {"button", "input_button"}:
         return "button_device"
+
+    if domain in {"input_number", "input_select"} and capability_set.intersection(
+        {"numeric_setting", "option_setting"}
+    ):
+        return "setting_device"
 
     if domain == "cover" and capability_set.intersection(
         {"open_close", "position", "tilt_position", "stop"}

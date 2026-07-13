@@ -271,6 +271,8 @@ def _primary_type_for_snapshot(snapshot: EntityStateSnapshot) -> str:
         return "switch"
     if domain == "input_button":
         return "button"
+    if domain in {"input_number", "input_select"}:
+        return "setting"
     return domain or "unknown"
 
 
@@ -289,6 +291,7 @@ def _logical_device_class(snapshot: EntityStateSnapshot) -> str:
         "cover_control": "cover_control",
         "climate_control": "climate_control",
         "scene_trigger": "scene_trigger",
+        "setting_device": "setting_control",
     }
     return mapping.get(snapshot.device_class or "", "diagnostic_device")
 
@@ -404,6 +407,10 @@ def _capability_state(  # noqa: C901
         return _preset_mode_state(snapshot)
     if capability == "swing_mode":
         return _swing_mode_state(snapshot)
+    if capability == "numeric_setting":
+        return _numeric_state(snapshot)
+    if capability == "option_setting":
+        return {"value": snapshot.state}
     if capability in attributes:
         state: dict[str, Any] = {"value": attributes[capability]}
         unit = attributes.get("unit_of_measurement")
@@ -425,7 +432,10 @@ def _setting_capabilities_from_presentation(
     """Return canonical capabilities for editable sibling setting controls."""
     capabilities: list[SmartlyCapability] = []
     for control in snapshot.presentation.get("setting_controls", []):
-        if control.get("domain") == "number" and control.get("action") == "set_value":
+        if (
+            control.get("domain") in {"number", "input_number"}
+            and control.get("action") == "set_value"
+        ):
             state: dict[str, Any] = {"value": control.get("value")}
             if control.get("unit"):
                 state["unit"] = control["unit"]
@@ -440,7 +450,10 @@ def _setting_capabilities_from_presentation(
                     constraints=constraints,
                 )
             )
-        if control.get("domain") == "select" and control.get("action") == "select_option":
+        if (
+            control.get("domain") in {"select", "input_select"}
+            and control.get("action") == "select_option"
+        ):
             options = control.get("options")
             constraints = {"values": options} if isinstance(options, list) else {}
             capabilities.append(
@@ -880,6 +893,17 @@ def _constraints_for_capability(
         modes = (snapshot.attributes or {}).get("swing_modes")
         if isinstance(modes, list) and all(isinstance(mode, str) for mode in modes):
             return {"values": modes}
+    if capability == "numeric_setting":
+        constraints: dict[str, Any] = {}
+        for key in ("min", "max", "step"):
+            value = _numeric_value((snapshot.attributes or {}).get(key))
+            if value is not None:
+                constraints[key] = value
+        return constraints
+    if capability == "option_setting":
+        options = (snapshot.attributes or {}).get("options")
+        if isinstance(options, list) and all(isinstance(option, str) for option in options):
+            return {"values": options}
     return {}
 
 
@@ -922,6 +946,7 @@ def _logical_device_presentation(
         "binary_state_card": "sensor_summary",
         "event_card": "button_automation",
         "multi_control_card": "button_automation",
+        "setting_card": "setting_control",
         "unknown_card": "diagnostic_device",
     }
     template = template_by_source_card.get(

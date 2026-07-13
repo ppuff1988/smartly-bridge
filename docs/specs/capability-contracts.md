@@ -284,7 +284,7 @@ State：
 
 ### 5.8 `numeric_setting`
 
-用途：表示可編輯的數值型裝置設定，例如 presence sensor 的觸發維持秒數。來源可為 Home Assistant `number` sibling entity 或其他 adapter 的數值設定欄位。
+用途：表示可編輯的數值型裝置設定，例如 presence sensor 的觸發維持秒數。來源可為 Home Assistant `number` sibling entity、獨立或 sibling `input_number` helper，或其他 adapter 的數值設定欄位。
 
 State：
 
@@ -313,13 +313,13 @@ Commands：
 
 規則：
 
-- `source_refs` 必須指向實際 setting source，例如 `number.presence_detection_delay`。
+- `source_refs` 必須指向實際 setting source，例如 `number.presence_detection_delay` 或 `input_number.trigger_hold_seconds`。
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `trigger_hold_seconds`。
 
 ### 5.9 `option_setting`
 
-用途：表示可編輯的選項型裝置設定，例如 presence sensor 的感應強度。來源可為 Home Assistant `select` sibling entity 或其他 adapter 的 enum 設定欄位。
+用途：表示可編輯的選項型裝置設定，例如 presence sensor 的感應強度。來源可為 Home Assistant `select` sibling entity、獨立或 sibling `input_select` helper，或其他 adapter 的 enum 設定欄位。
 
 State：
 
@@ -345,7 +345,7 @@ Commands：
 
 規則：
 
-- `source_refs` 必須指向實際 setting source，例如 `select.presence_occupancy_sensitivity`。
+- `source_refs` 必須指向實際 setting source，例如 `select.presence_occupancy_sensitivity` 或 `input_select.occupancy_sensitivity`。
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `occupancy_sensitivity`。
 

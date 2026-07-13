@@ -1371,10 +1371,11 @@ class TestControlEndpointFullFlow:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("source_domain", ["number", "input_number"])
     async def test_control_vnext_numeric_setting_resolves_sibling_number_entity(
-        self, mock_hass, mock_config_entry
+        self, mock_hass, mock_config_entry, source_domain
     ):
-        """API vNext numeric settings resolve editable sibling number entities."""
+        """API vNext numeric settings resolve regular and helper number siblings."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views.control import SmartlyControlView
@@ -1404,9 +1405,10 @@ class TestControlEndpointFullFlow:
             "step": 1,
             "unit_of_measurement": "s",
         }
+        setting_entity_id = f"{source_domain}.presence_detection_delay"
         mock_hass.states.get.side_effect = lambda entity_id: {
             "binary_sensor.presence": presence_state,
-            "number.presence_detection_delay": number_state,
+            setting_entity_id: number_state,
         }.get(entity_id)
 
         from homeassistant.helpers import entity_registry as er
@@ -1424,16 +1426,16 @@ class TestControlEndpointFullFlow:
             setting_entry = MagicMock()
             setting_entry.labels = set()
             setting_entry.device_id = "zigbee-presence-1"
-            setting_entry.entity_id = "number.presence_detection_delay"
+            setting_entry.entity_id = setting_entity_id
 
             mock_registry = MagicMock()
             mock_registry.entities = {
                 "binary_sensor.presence": primary_entry,
-                "number.presence_detection_delay": setting_entry,
+                setting_entity_id: setting_entry,
             }
             mock_registry.async_get.side_effect = lambda entity_id: {
                 "binary_sensor.presence": primary_entry,
-                "number.presence_detection_delay": setting_entry,
+                setting_entity_id: setting_entry,
             }.get(entity_id)
             mock_er.return_value = mock_registry
 
@@ -1466,12 +1468,12 @@ class TestControlEndpointFullFlow:
 
         assert response.status == 200
         payload = json.loads(response.body)
-        assert payload["data"]["source_entity_id"] == "number.presence_detection_delay"
+        assert payload["data"]["source_entity_id"] == setting_entity_id
         assert payload["data"]["expected_state"] == {"numeric_setting": {"value": 20}}
         mock_hass.services.async_call.assert_awaited_once_with(
-            "number",
+            source_domain,
             "set_value",
-            {"entity_id": "number.presence_detection_delay", "value": 20},
+            {"entity_id": setting_entity_id, "value": 20},
             blocking=True,
         )
 
@@ -1601,10 +1603,11 @@ class TestControlEndpointFullFlow:
         await nonce_cache.stop()
 
     @pytest.mark.asyncio
+    @pytest.mark.parametrize("source_domain", ["select", "input_select"])
     async def test_control_vnext_option_setting_resolves_sibling_select_entity(
-        self, mock_hass, mock_config_entry
+        self, mock_hass, mock_config_entry, source_domain
     ):
-        """API vNext option settings resolve editable sibling select entities."""
+        """API vNext option settings resolve regular and helper select siblings."""
         from custom_components.smartly_bridge.auth import NonceCache, RateLimiter
         from custom_components.smartly_bridge.const import DOMAIN
         from custom_components.smartly_bridge.views.control import SmartlyControlView
@@ -1631,9 +1634,10 @@ class TestControlEndpointFullFlow:
             "friendly_name": "Occupancy sensitivity",
             "options": ["low", "medium", "high"],
         }
+        setting_entity_id = f"{source_domain}.presence_occupancy_sensitivity"
         mock_hass.states.get.side_effect = lambda entity_id: {
             "binary_sensor.presence": presence_state,
-            "select.presence_occupancy_sensitivity": select_state,
+            setting_entity_id: select_state,
         }.get(entity_id)
 
         from homeassistant.helpers import entity_registry as er
@@ -1651,16 +1655,16 @@ class TestControlEndpointFullFlow:
             setting_entry = MagicMock()
             setting_entry.labels = set()
             setting_entry.device_id = "zigbee-presence-1"
-            setting_entry.entity_id = "select.presence_occupancy_sensitivity"
+            setting_entry.entity_id = setting_entity_id
 
             mock_registry = MagicMock()
             mock_registry.entities = {
                 "binary_sensor.presence": primary_entry,
-                "select.presence_occupancy_sensitivity": setting_entry,
+                setting_entity_id: setting_entry,
             }
             mock_registry.async_get.side_effect = lambda entity_id: {
                 "binary_sensor.presence": primary_entry,
-                "select.presence_occupancy_sensitivity": setting_entry,
+                setting_entity_id: setting_entry,
             }.get(entity_id)
             mock_er.return_value = mock_registry
 
@@ -1693,12 +1697,12 @@ class TestControlEndpointFullFlow:
 
         assert response.status == 200
         payload = json.loads(response.body)
-        assert payload["data"]["source_entity_id"] == ("select.presence_occupancy_sensitivity")
+        assert payload["data"]["source_entity_id"] == setting_entity_id
         assert payload["data"]["expected_state"] == {"option_setting": {"value": "medium"}}
         mock_hass.services.async_call.assert_awaited_once_with(
-            "select",
+            source_domain,
             "select_option",
-            {"entity_id": "select.presence_occupancy_sensitivity", "option": "medium"},
+            {"entity_id": setting_entity_id, "option": "medium"},
             blocking=True,
         )
 

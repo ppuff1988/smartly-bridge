@@ -75,6 +75,7 @@
 - climate target、range、mode、fan、preset、swing。
 - scene／script `run`、button `press`。
 - numeric／option setting constraints。
+- `input_number`／`input_select` helper 可作為獨立 setting device，或作為同 device group 的 sibling setting control。
 
 證據：
 
