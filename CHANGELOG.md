@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.1](https://github.com/ppuff1988/smartly-bridge/compare/v2.1.0...v2.1.1) (2026-07-13)
+
+### 🐛 錯誤修正 (Bug Fixes)
+
+* **devcontainer:** remove stale docs bind mount ([#116](https://github.com/ppuff1988/smartly-bridge/issues/116)) ([7a6207d](https://github.com/ppuff1988/smartly-bridge/commit/7a6207dd7aea39818d9ce49ff75d66eaddb393f7))
+
 ## [2.1.0](https://github.com/ppuff1988/smartly-bridge/compare/v2.0.0...v2.1.0) (2026-07-13)
 
 ### ✨ 新增功能 (Features)
