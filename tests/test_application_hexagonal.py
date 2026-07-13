@@ -17,6 +17,9 @@ from custom_components.smartly_bridge.application.control import (
     SmartlyCommand,
     SmartlyCommandUseCase,
 )
+from custom_components.smartly_bridge.application.device_events import (
+    DeviceEventCapabilityRegistry,
+)
 from custom_components.smartly_bridge.application.sync import (
     SyncStatesUseCase,
     SyncStructureUseCase,
@@ -2942,6 +2945,50 @@ async def test_sync_states_use_case_returns_states_with_count() -> None:
             },
         ],
     }
+
+
+@pytest.mark.asyncio
+async def test_sync_states_refreshes_declared_device_event_capabilities() -> None:
+    """A successful sync atomically refreshes the event capability registry."""
+    gateway = FakeSyncGateway()
+    gateway.states = [
+        EntityStateSnapshot(
+            entity_id="sensor.hall_remote_action",
+            state="single_left",
+            attributes={"model": "WXKG15LM"},
+            name="Hall remote",
+            domain="sensor",
+            device_class="multi_button_device",
+            capabilities=["event"],
+            status="online",
+            presentation={
+                "card_template": "multi_control_card",
+                "button_event": {
+                    "event_schema_version": 1,
+                    "events": ["single_press", "triple_press"],
+                    "channels": [
+                        {
+                            "key": "left",
+                            "events": ["single_press", "triple_press"],
+                        }
+                    ],
+                    "channel_order": ["left"],
+                    "channel_labels": {"left": "Left"},
+                },
+            },
+            source_device_id="hall-remote",
+        )
+    ]
+    registry = DeviceEventCapabilityRegistry()
+
+    result = await SyncStatesUseCase(
+        gateway,
+        device_event_capabilities=registry,
+    ).execute()
+
+    device_id = result.body["data"]["logical_devices"][0]["id"]
+    assert registry.supports_event(device_id, "left", "triple_press") is True
+    assert registry.supports_event(device_id, "left", "double_press") is False
 
 
 @pytest.mark.asyncio

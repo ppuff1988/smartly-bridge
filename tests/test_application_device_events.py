@@ -9,6 +9,7 @@ from typing import Any
 import pytest
 
 from custom_components.smartly_bridge.application.device_events import (
+    DeviceEventCapabilityRegistry,
     DeviceEventCommand,
     DeviceEventUseCase,
 )
@@ -61,9 +62,102 @@ class FakeLocalAutomation:
         ]
 
 
+class FakeDeviceEventCapabilities:
+    """Fake declared device event capability registry."""
+
+    def __init__(self, supported: set[tuple[str, str, str]]) -> None:
+        self.supported = supported
+        self.lookups: list[tuple[str, str, str]] = []
+
+    def supports_event(self, device_id: str, channel: str, event: str) -> bool | None:
+        lookup = (device_id, channel, event)
+        self.lookups.append(lookup)
+        return lookup in self.supported
+
+
 def _fixture(name: str) -> dict[str, Any]:
     """Load an API vNext fixture."""
     return json.loads((Path(__file__).parent / "fixtures" / "api-vnext" / name).read_text())
+
+
+@pytest.mark.asyncio
+async def test_declared_triple_press_is_accepted() -> None:
+    """Triple press is accepted only when the device schema declares it."""
+    publisher = FakeDeviceEventPublisher()
+    capabilities = FakeDeviceEventCapabilities({("device_h1", "left", "triple_press")})
+    use_case = DeviceEventUseCase(
+        publisher,
+        capabilities=capabilities,
+        event_id_factory=lambda: "evt_triple",
+        received_at_factory=lambda: "2026-07-13T14:00:00Z",
+    )
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_h1",
+            type="button_action",
+            action="triple_left",
+            timestamp="2026-07-13T14:00:00Z",
+        ),
+    )
+
+    assert result.status == 202
+    assert result.body["data"]["event"] == "triple_press"
+    assert result.body["data"]["payload"] == {"button": "left"}
+    assert capabilities.lookups == [("device_h1", "left", "triple_press")]
+
+
+@pytest.mark.asyncio
+async def test_undeclared_gesture_is_rejected_for_known_device_schema() -> None:
+    """A known device schema rejects vocabulary that its channel does not support."""
+    publisher = FakeDeviceEventPublisher()
+    capabilities = FakeDeviceEventCapabilities({("device_fast_mode", "left", "single_press")})
+    use_case = DeviceEventUseCase(publisher, capabilities=capabilities)
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_fast_mode",
+            type="button_action",
+            action="double_left",
+            timestamp="2026-07-13T14:00:00Z",
+        ),
+    )
+
+    assert result.status == 400
+    assert result.body["errors"][0]["code"] == "INVALID_ACTION"
+    assert publisher.events == []
+
+
+def test_event_capability_registry_distinguishes_unknown_and_undeclared_events() -> None:
+    """The registry keeps unknown devices compatible and known schemas strict."""
+    registry = DeviceEventCapabilityRegistry()
+    registry.replace(
+        [
+            {
+                "id": "device_h1",
+                "capabilities": [
+                    {
+                        "type": "button_event",
+                        "constraints": {
+                            "event_schema_version": 1,
+                            "channels": [
+                                {
+                                    "key": "left",
+                                    "events": ["single_press", "triple_press"],
+                                }
+                            ],
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+
+    assert registry.supports_event("device_h1", "left", "triple_press") is True
+    assert registry.supports_event("device_h1", "left", "double_press") is False
+    assert registry.supports_event("unknown_device", "left", "single_press") is None
 
 
 @pytest.mark.asyncio

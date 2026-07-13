@@ -85,6 +85,9 @@ class TestSetup:
             HomeAssistantWebRTCGateway,
             InMemoryDeviceEventDeduplicator,
         )
+        from custom_components.smartly_bridge.application.device_events import (
+            DeviceEventCapabilityRegistry,
+        )
 
         camera_manager = MagicMock()
         webrtc_manager = MagicMock()
@@ -105,6 +108,10 @@ class TestSetup:
         assert isinstance(
             runtime_adapters["device_event_deduplicator"],
             InMemoryDeviceEventDeduplicator,
+        )
+        assert isinstance(
+            runtime_adapters["device_event_capabilities"],
+            DeviceEventCapabilityRegistry,
         )
         assert isinstance(
             runtime_adapters["local_automation_rule_store"],

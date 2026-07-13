@@ -650,11 +650,13 @@ class TestSmartlySyncStatesView:
 
         gateway = FakeDiagnosticSyncStatesGateway()
         recorder = FakeRawDiagnosticRecorder()
+        capabilities = MagicMock()
 
         result = await _build_sync_states(
             gateway,
             use_logical_devices=True,
             raw_diagnostic_recorder=recorder,
+            device_event_capabilities=capabilities,
         )
 
         raw_ref = "raw_ldev_camera_runtime"
@@ -671,6 +673,7 @@ class TestSmartlySyncStatesView:
 
         gateway = FakeSyncStatesGateway()
         recorder = FakeRawDiagnosticRecorder()
+        capabilities = object()
         use_case = FakeSyncStatesUseCase()
         factory_calls = []
 
@@ -679,12 +682,14 @@ class TestSmartlySyncStatesView:
             *,
             use_logical_devices,
             raw_diagnostic_recorder,
+            device_event_capabilities,
         ):
             factory_calls.append(
                 (
                     received_gateway,
                     use_logical_devices,
                     raw_diagnostic_recorder,
+                    device_event_capabilities,
                 )
             )
             return use_case
@@ -693,11 +698,12 @@ class TestSmartlySyncStatesView:
             gateway,
             use_logical_devices=True,
             raw_diagnostic_recorder=recorder,
+            device_event_capabilities=capabilities,
             use_case_factory=use_case_factory,
         )
 
         assert result.status == 200
-        assert factory_calls == [(gateway, True, recorder)]
+        assert factory_calls == [(gateway, True, recorder, capabilities)]
         assert use_case.calls == 1
         assert result.body["data"]["states"] == [{"entity_id": "light.factory"}]
 
