@@ -10,6 +10,170 @@ from custom_components.smartly_bridge.device_presentation import build_device_ca
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
 
 
+def _button_event_capability(
+    entity_id: str,
+    attributes: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Return metadata and the normalized button event capability."""
+    metadata = build_device_card_metadata(entity_id, "unknown", attributes)
+    snapshot = EntityStateSnapshot(
+        entity_id=entity_id,
+        state="unknown",
+        attributes=attributes,
+        name=str(attributes.get("friendly_name", entity_id)),
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+    device = logical_device_from_state(snapshot).to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+    return metadata, capability
+
+
+def test_aqara_h1_profile_exposes_declared_channel_gestures() -> None:
+    """Aqara H1 metadata declares each physical and combined rocker channel."""
+    metadata, capability = _button_event_capability(
+        "sensor.hall_remote_action",
+        {
+            "friendly_name": "Hall remote",
+            "model": "WXKG15LM",
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert capability["events"] == [
+        "single_press",
+        "double_press",
+        "triple_press",
+        "long_press",
+    ]
+    assert capability["constraints"] == {
+        "event_schema_version": 1,
+        "channels": [
+            {
+                "key": "left",
+                "events": [
+                    "single_press",
+                    "double_press",
+                    "triple_press",
+                    "long_press",
+                ],
+            },
+            {
+                "key": "right",
+                "events": [
+                    "single_press",
+                    "double_press",
+                    "triple_press",
+                    "long_press",
+                ],
+            },
+            {
+                "key": "both",
+                "events": [
+                    "single_press",
+                    "double_press",
+                    "triple_press",
+                    "long_press",
+                ],
+            },
+        ],
+    }
+    assert capability["presentation"] == {
+        "channel_order": ["left", "right", "both"],
+        "channel_labels": {
+            "left": "Left",
+            "right": "Right",
+            "both": "Both",
+        },
+    }
+
+
+def test_somrig_profile_preserves_release_gestures_per_button() -> None:
+    """IKEA SOMRIG metadata exposes two independent button channels."""
+    metadata, capability = _button_event_capability(
+        "sensor.shortcut_remote_action",
+        {
+            "friendly_name": "Shortcut remote",
+            "model": "E2213",
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert capability["constraints"]["channels"] == [
+        {
+            "key": "button_1",
+            "events": [
+                "single_press",
+                "double_press",
+                "long_press",
+                "long_release",
+            ],
+        },
+        {
+            "key": "button_2",
+            "events": [
+                "single_press",
+                "double_press",
+                "long_press",
+                "long_release",
+            ],
+        },
+    ]
+
+
+def test_hue_dimmer_profile_keeps_functional_channel_names() -> None:
+    """Hue dimmer metadata uses physical function names instead of numeric guesses."""
+    metadata, capability = _button_event_capability(
+        "sensor.living_room_dimmer_action",
+        {
+            "friendly_name": "Living room dimmer",
+            "model": "929002398602",
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert [channel["key"] for channel in capability["constraints"]["channels"]] == [
+        "power",
+        "brightness_up",
+        "brightness_down",
+        "scene",
+    ]
+
+
+def test_unknown_button_action_values_derive_declared_channels() -> None:
+    """Unknown adapters can provide source action values without a model hard-code."""
+    metadata, capability = _button_event_capability(
+        "sensor.generic_remote_action",
+        {
+            "friendly_name": "Generic remote",
+            "action_values": [
+                "single_1",
+                "double_1",
+                "hold_1",
+                "release_1",
+                "single_2",
+            ],
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert capability["constraints"]["channels"] == [
+        {
+            "key": "button_1",
+            "events": [
+                "single_press",
+                "double_press",
+                "long_press",
+                "long_release",
+            ],
+        },
+        {"key": "button_2", "events": ["single_press"]},
+    ]
+
+
 def test_light_color_temperature_state_uses_kelvin_contract() -> None:
     """Home Assistant mired color temperature is normalized to canonical kelvin."""
     snapshot = EntityStateSnapshot(
