@@ -174,6 +174,19 @@ def test_unknown_button_action_values_derive_declared_channels() -> None:
     ]
 
 
+def test_unknown_button_action_values_ignore_malformed_and_unknown_tokens() -> None:
+    """Runtime action evidence keeps valid suffix forms and drops unsafe guesses."""
+    _, capability = _button_event_capability(
+        "sensor.generic_remote_action",
+        {
+            "friendly_name": "Generic remote",
+            "action_values": [None, "", "unsupported", "single_", "left_single"],
+        },
+    )
+
+    assert capability["constraints"]["channels"] == [{"key": "left", "events": ["single_press"]}]
+
+
 def test_light_color_temperature_state_uses_kelvin_contract() -> None:
     """Home Assistant mired color temperature is normalized to canonical kelvin."""
     snapshot = EntityStateSnapshot(

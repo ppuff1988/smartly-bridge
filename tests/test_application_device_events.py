@@ -160,6 +160,47 @@ def test_event_capability_registry_distinguishes_unknown_and_undeclared_events()
     assert registry.supports_event("unknown_device", "left", "single_press") is None
 
 
+def test_event_capability_registry_ignores_malformed_declared_schemas() -> None:
+    """Malformed sync metadata never becomes an inferred event capability."""
+    registry = DeviceEventCapabilityRegistry()
+    registry.replace(
+        [
+            {},
+            {"id": "missing_capabilities"},
+            {
+                "id": "other_capability",
+                "capabilities": [None, {"type": "battery"}],
+            },
+            {
+                "id": "missing_channels",
+                "capabilities": [{"type": "button_event", "constraints": {}}],
+            },
+            {
+                "id": "invalid_channels",
+                "capabilities": [
+                    {
+                        "type": "button_event",
+                        "constraints": {
+                            "channels": [
+                                None,
+                                {"key": None, "events": ["single_press"]},
+                                {"key": "left", "events": None},
+                                {"key": "right", "events": ["single_press", 1]},
+                            ]
+                        },
+                    }
+                ],
+            },
+        ]
+    )
+
+    assert registry.supports_event("missing_capabilities", "left", "single_press") is None
+    assert registry.supports_event("other_capability", "left", "single_press") is None
+    assert registry.supports_event("missing_channels", "left", "single_press") is None
+    assert registry.supports_event("invalid_channels", "left", "single_press") is False
+    assert registry.supports_event("invalid_channels", "right", "single_press") is True
+
+
 @pytest.mark.asyncio
 async def test_button_action_is_published_with_canonical_event_payload() -> None:
     """Source button action events are normalized to canonical button_event payloads."""
