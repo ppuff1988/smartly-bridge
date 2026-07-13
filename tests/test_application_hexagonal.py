@@ -24,6 +24,7 @@ from custom_components.smartly_bridge.application.sync import (
     SyncStatesUseCase,
     SyncStructureUseCase,
     _capability_quality,
+    _capability_updated_at,
 )
 from custom_components.smartly_bridge.domain.models import BridgeResponse, EntityStateSnapshot
 
@@ -3116,6 +3117,24 @@ def test_capability_quality_skips_invalid_source_refs() -> None:
             {"sensor.environment_temperature": "online"},
         )
         == "good"
+    )
+
+
+def test_capability_updated_at_skips_invalid_source_refs() -> None:
+    """Capability timestamps use the first valid source entity reference."""
+    capability = {
+        "source_refs": [
+            {"source_entity_id": None},
+            {"source_entity_id": "sensor.environment_temperature"},
+        ]
+    }
+
+    assert (
+        _capability_updated_at(
+            capability,
+            {"sensor.environment_temperature": "2026-07-13T00:00:00+00:00"},
+        )
+        == "2026-07-13T00:00:00+00:00"
     )
 
 
