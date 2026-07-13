@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.1.0](https://github.com/ppuff1988/smartly-bridge/compare/v2.0.0...v2.1.0) (2026-07-13)
+
+### ✨ 新增功能 (Features)
+
+* **bridge:** expose dashboard capability metadata ([#115](https://github.com/ppuff1988/smartly-bridge/issues/115)) ([9b3f9eb](https://github.com/ppuff1988/smartly-bridge/commit/9b3f9eb6229029a7a03e663e38d57023917a9ae7))
+
 ## [2.0.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.17.1...v2.0.0) (2026-07-03)
 
 ### ⚠ BREAKING CHANGES

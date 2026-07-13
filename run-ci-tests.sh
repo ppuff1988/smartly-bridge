@@ -126,7 +126,7 @@ run_lint() {
     
     # Flake8 - Code linting
     echo -e "\n${YELLOW}3. Flake8 (Code Linting)${NC}"
-    python -m flake8 custom_components/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+    python -m flake8 custom_components/ tests/
     if [ $? -ne 0 ]; then
         FAILED_STEPS+=("Flake8")
     else

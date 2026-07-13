@@ -75,6 +75,8 @@ SUPPORTED_SMARTLY_COMMANDS = {
 }
 
 SMARTLY_API_SCHEMA_VERSION = "2026.06"
+NUMERIC_SETTING_DOMAINS = {"number", "input_number"}
+OPTION_SETTING_DOMAINS = {"select", "input_select"}
 
 SMARTLY_COMMAND_ERROR_DETAILS = {
     "command_target_not_found": (
@@ -459,9 +461,9 @@ def _has_valid_smartly_params(command: SmartlyCommand) -> bool:
 def _has_valid_setting_source_domain(command: SmartlyCommand, entity_id: str) -> bool:
     """Return whether a canonical setting command targets the expected source domain."""
     if command.capability == "numeric_setting" and command.command == "set_value":
-        return get_entity_domain(entity_id) == "number"
+        return get_entity_domain(entity_id) in NUMERIC_SETTING_DOMAINS
     if command.capability == "option_setting" and command.command == "select_option":
-        return get_entity_domain(entity_id) == "select"
+        return get_entity_domain(entity_id) in OPTION_SETTING_DOMAINS
     return True
 
 

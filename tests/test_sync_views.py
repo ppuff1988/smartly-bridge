@@ -2190,9 +2190,19 @@ async def test_state_sync_merges_sibling_linkquality_signal_metadata(mock_hass):
 
 
 @pytest.mark.asyncio
-async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
-    """Presence cards expose sibling number/select entities as editable settings."""
+@pytest.mark.parametrize(
+    ("number_domain", "select_domain"),
+    [("number", "select"), ("input_number", "input_select")],
+)
+async def test_state_sync_exposes_presence_sibling_setting_controls(
+    mock_hass,
+    number_domain,
+    select_domain,
+):
+    """Presence cards expose regular and helper sibling settings."""
     device_id = "zigbee-presence-1"
+    number_entity_id = f"{number_domain}.presence_detection_delay"
+    select_entity_id = f"{select_domain}.presence_occupancy_sensitivity"
     payloads = await _state_payloads(
         mock_hass,
         {
@@ -2204,7 +2214,7 @@ async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
                     "illuminance": "bright",
                 },
             ),
-            "number.presence_detection_delay": _state(
+            number_entity_id: _state(
                 "15",
                 {
                     "friendly_name": "觸發維持秒數",
@@ -2214,7 +2224,7 @@ async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
                     "unit_of_measurement": "s",
                 },
             ),
-            "select.presence_occupancy_sensitivity": _state(
+            select_entity_id: _state(
                 "low",
                 {
                     "friendly_name": "感應強度",
@@ -2229,13 +2239,13 @@ async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
                 labels={"smartly"},
                 device_id=device_id,
             ),
-            "number.presence_detection_delay": MagicMock(
+            number_entity_id: MagicMock(
                 icon=None,
                 original_icon=None,
                 labels=set(),
                 device_id=device_id,
             ),
-            "select.presence_occupancy_sensitivity": MagicMock(
+            select_entity_id: MagicMock(
                 icon=None,
                 original_icon=None,
                 labels=set(),
@@ -2251,8 +2261,8 @@ async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
     assert payload["presentation"]["setting_controls"] == [
         {
             "key": "trigger_hold_seconds",
-            "entity_id": "number.presence_detection_delay",
-            "domain": "number",
+            "entity_id": number_entity_id,
+            "domain": number_domain,
             "name": "觸發維持秒數",
             "action": "set_value",
             "value": 15,
@@ -2263,8 +2273,8 @@ async def test_state_sync_exposes_presence_sibling_setting_controls(mock_hass):
         },
         {
             "key": "occupancy_sensitivity",
-            "entity_id": "select.presence_occupancy_sensitivity",
-            "domain": "select",
+            "entity_id": select_entity_id,
+            "domain": select_domain,
             "name": "感應強度",
             "action": "select_option",
             "value": "low",

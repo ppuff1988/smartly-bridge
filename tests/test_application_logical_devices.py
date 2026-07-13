@@ -1040,6 +1040,147 @@ def test_button_entity_exposes_press_command_capability() -> None:
     assert device["presentation"]["primary_controls"] == ["button_press"]
 
 
+def test_input_button_helper_exposes_press_command_capability() -> None:
+    """Home Assistant input_button helpers behave as Smartly button devices."""
+    metadata = build_device_card_metadata(
+        "input_button.an_niu",
+        "2026-07-03T13:00:00+00:00",
+        {"friendly_name": "按鈕"},
+        {"smartly"},
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="input_button.an_niu",
+        state="2026-07-03T13:00:00+00:00",
+        attributes={"friendly_name": "按鈕"},
+        name="按鈕",
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["primary_type"] == "button"
+    assert device["device_class"] == "button_automation"
+    assert [capability["type"] for capability in device["capabilities"]] == [
+        "button_event",
+        "button_press",
+    ]
+    assert device["presentation"]["template"] == "button_automation"
+    assert device["presentation"]["primary_controls"] == ["button_press"]
+
+
+def test_input_boolean_helper_exposes_power_capability() -> None:
+    """Home Assistant input_boolean helpers behave as Smartly switch devices."""
+    metadata = build_device_card_metadata(
+        "input_boolean.kai_guan",
+        "off",
+        {"friendly_name": "開關"},
+        {"smartly"},
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="input_boolean.kai_guan",
+        state="off",
+        attributes={"friendly_name": "開關"},
+        name="開關",
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+
+    assert device["primary_type"] == "switch"
+    assert device["device_class"] == "switch_control"
+    assert [capability["type"] for capability in device["capabilities"]] == ["power"]
+    assert device["capabilities"][0]["commands"] == ["turn_on", "turn_off", "toggle"]
+    assert device["presentation"]["template"] == "switch_control"
+    assert device["presentation"]["primary_controls"] == ["power"]
+
+
+def test_input_number_helper_exposes_numeric_setting_capability() -> None:
+    """Home Assistant input_number helpers expose bounded numeric controls."""
+    attributes = {
+        "friendly_name": "觸發維持秒數",
+        "min": 1,
+        "max": 120,
+        "step": 1,
+        "unit_of_measurement": "s",
+    }
+    metadata = build_device_card_metadata(
+        "input_number.trigger_hold_seconds",
+        "15",
+        attributes,
+        {"smartly"},
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="input_number.trigger_hold_seconds",
+        state="15",
+        attributes=attributes,
+        name="觸發維持秒數",
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    capability = device["capabilities"][0]
+
+    assert device["primary_type"] == "setting"
+    assert device["device_class"] == "setting_control"
+    assert capability["type"] == "numeric_setting"
+    assert capability["state"] == {"value": 15, "unit": "s"}
+    assert capability["constraints"] == {"min": 1, "max": 120, "step": 1}
+    assert capability["commands"] == ["set_value"]
+    assert capability["source_refs"][0]["domain"] == "input_number"
+    assert device["presentation"]["template"] == "setting_control"
+    assert device["presentation"]["primary_controls"] == ["numeric_setting"]
+
+
+def test_input_select_helper_exposes_option_setting_capability() -> None:
+    """Home Assistant input_select helpers expose constrained option controls."""
+    attributes = {
+        "friendly_name": "感應強度",
+        "options": ["low", "medium", "high"],
+    }
+    metadata = build_device_card_metadata(
+        "input_select.occupancy_sensitivity",
+        "medium",
+        attributes,
+        {"smartly"},
+    )
+    snapshot = EntityStateSnapshot(
+        entity_id="input_select.occupancy_sensitivity",
+        state="medium",
+        attributes=attributes,
+        name="感應強度",
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    capability = device["capabilities"][0]
+
+    assert device["primary_type"] == "setting"
+    assert device["device_class"] == "setting_control"
+    assert capability["type"] == "option_setting"
+    assert capability["state"] == {"value": "medium"}
+    assert capability["constraints"] == {"values": ["low", "medium", "high"]}
+    assert capability["commands"] == ["select_option"]
+    assert capability["source_refs"][0]["domain"] == "input_select"
+    assert device["presentation"]["template"] == "setting_control"
+    assert device["presentation"]["primary_controls"] == ["option_setting"]
+
+
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
     """Source device ID is the primary grouping evidence for logical devices."""
     devices = [

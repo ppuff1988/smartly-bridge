@@ -72,6 +72,15 @@ class TestIsServiceAllowed:
         assert is_service_allowed("number", "set_value") is True
         assert is_service_allowed("select", "select_option") is True
 
+    def test_allowed_helper_services(self):
+        """Test allowed Home Assistant helper services."""
+        assert is_service_allowed("input_button", "press") is True
+        assert is_service_allowed("input_boolean", "turn_on") is True
+        assert is_service_allowed("input_boolean", "turn_off") is True
+        assert is_service_allowed("input_boolean", "toggle") is True
+        assert is_service_allowed("input_number", "set_value") is True
+        assert is_service_allowed("input_select", "select_option") is True
+
     def test_disallowed_service(self):
         """Test disallowed service."""
         assert is_service_allowed("switch", "reload") is False
