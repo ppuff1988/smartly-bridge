@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.0.0](https://github.com/ppuff1988/smartly-bridge/compare/v1.17.1...v2.0.0) (2026-07-03)
+
+### ⚠ BREAKING CHANGES
+
+* **api:** release API vNext (#111)
+
+### ✨ 新增功能 (Features)
+
+* **api:** release API vNext ([#111](https://github.com/ppuff1988/smartly-bridge/issues/111)) ([162f863](https://github.com/ppuff1988/smartly-bridge/commit/162f863c43e705825b4aae018a5477fb1d417601))
+
 ## [1.17.1](https://github.com/ppuff1988/smartly-bridge/compare/v1.17.0...v1.17.1) (2026-06-27)
 
 ### 🐛 錯誤修正 (Bug Fixes)
