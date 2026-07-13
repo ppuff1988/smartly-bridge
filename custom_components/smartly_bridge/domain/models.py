@@ -31,11 +31,12 @@ class SmartlyCapability:
     events: list[str] = field(default_factory=list)
     constraints: dict[str, Any] = field(default_factory=dict)
     presentation: dict[str, Any] = field(default_factory=dict)
+    instances: list[dict[str, Any]] = field(default_factory=list)
     source_refs: list[dict[str, Any]] = field(default_factory=list)
 
     def to_dict(self) -> dict[str, Any]:
         """Serialize as the API vNext capability contract."""
-        return {
+        capability = {
             "type": self.type,
             "role": self.role,
             "readable": self.readable,
@@ -48,6 +49,9 @@ class SmartlyCapability:
             "presentation": self.presentation,
             "source_refs": self.source_refs,
         }
+        if self.instances:
+            capability["instances"] = self.instances
+        return capability
 
 
 @dataclass(frozen=True)

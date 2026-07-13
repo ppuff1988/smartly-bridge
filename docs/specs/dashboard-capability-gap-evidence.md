@@ -76,6 +76,7 @@
 - scene／script `run`、button `press`。
 - numeric／option setting constraints。
 - `input_number`／`input_select` helper 可作為獨立 setting device，或作為同 device group 的 sibling setting control。
+- 同型 sibling settings 以 customer-safe `instances[]` 保留各自 key、名稱、state 與 constraints；多 instance command 未帶 key 時會拒絕，不任選第一個來源。
 
 證據：
 
