@@ -50,6 +50,7 @@ Platform 可以有自己的視覺設計，但不可用品牌、協定或 source 
 | 有 `power` 但無亮度 / 顏色 | `switch_control` |
 | 只有 sensor capabilities | `sensor_summary` |
 | 有 `button_event` 且 event_only | `button_automation` |
+| 只有 `numeric_setting` / `option_setting` | `setting_control` |
 | `primary_type=camera` | `camera_view` |
 | 無法辨識 | `diagnostic_device` |
 
@@ -126,4 +127,3 @@ Automation UI 應依 capability 產生 trigger/action。
 | `lock` | locked / unlocked | lock / unlock |
 
 Automation 不應使用 source event name，例如 `single_left`。必須使用 canonical event，例如 `single_press` + `button=left`。
-

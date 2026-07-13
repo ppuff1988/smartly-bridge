@@ -333,7 +333,7 @@ class CameraManager:
 
             image = await async_get_image(self.hass, entity_id)
             if image and image.content:
-                etag = hashlib.md5(image.content).hexdigest()  # noqa: S324
+                etag = hashlib.md5(image.content, usedforsecurity=False).hexdigest()
                 return CameraSnapshot(
                     entity_id=entity_id,
                     image_data=image.content,
@@ -381,7 +381,7 @@ class CameraManager:
 
                 image_data = await response.read()
                 content_type = response.content_type or "image/jpeg"
-                etag = hashlib.md5(image_data).hexdigest()  # noqa: S324
+                etag = hashlib.md5(image_data, usedforsecurity=False).hexdigest()
 
                 return CameraSnapshot(
                     entity_id=entity_id,
