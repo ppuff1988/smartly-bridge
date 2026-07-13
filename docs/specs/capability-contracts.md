@@ -102,6 +102,17 @@ Capability name 應使用穩定、抽象、跨品牌的語意。
 
 數值單位必須在 adapter normalize 階段統一。Platform 不應再進行品牌或協定層級的單位轉換。
 
+Bridge state sync 依來源 snapshot status 產生 `quality`：
+
+| Snapshot status | State quality |
+|---|---|
+| `online` | `good` |
+| `offline` | `stale` |
+| `error` | `error` |
+| missing or other | `unknown` |
+
+State sync 的 `updated_at` 必須使用該 capability source snapshot 的 `last_updated`，缺少時才 fallback 到 `last_changed`。來源 identity 由 capability `source_refs` 與授權診斷路徑保存，不應為了 Dashboard 再複製到 customer state payload。
+
 ## 5. 核心 Capability
 
 ### 5.1 `power`
@@ -273,7 +284,7 @@ State：
 
 ### 5.8 `numeric_setting`
 
-用途：表示可編輯的數值型裝置設定，例如 presence sensor 的觸發維持秒數。來源可為 Home Assistant `number` sibling entity 或其他 adapter 的數值設定欄位。
+用途：表示可編輯的數值型裝置設定，例如 presence sensor 的觸發維持秒數。來源可為 Home Assistant `number` sibling entity、獨立或 sibling `input_number` helper，或其他 adapter 的數值設定欄位。
 
 State：
 
@@ -302,13 +313,13 @@ Commands：
 
 規則：
 
-- `source_refs` 必須指向實際 setting source，例如 `number.presence_detection_delay`。
+- `source_refs` 必須指向實際 setting source，例如 `number.presence_detection_delay` 或 `input_number.trigger_hold_seconds`。
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `trigger_hold_seconds`。
 
 ### 5.9 `option_setting`
 
-用途：表示可編輯的選項型裝置設定，例如 presence sensor 的感應強度。來源可為 Home Assistant `select` sibling entity 或其他 adapter 的 enum 設定欄位。
+用途：表示可編輯的選項型裝置設定，例如 presence sensor 的感應強度。來源可為 Home Assistant `select` sibling entity、獨立或 sibling `input_select` helper，或其他 adapter 的 enum 設定欄位。
 
 State：
 
@@ -334,7 +345,7 @@ Commands：
 
 規則：
 
-- `source_refs` 必須指向實際 setting source，例如 `select.presence_occupancy_sensitivity`。
+- `source_refs` 必須指向實際 setting source，例如 `select.presence_occupancy_sensitivity` 或 `input_select.occupancy_sensitivity`。
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `occupancy_sensitivity`。
 

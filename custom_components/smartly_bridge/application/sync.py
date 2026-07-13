@@ -168,6 +168,7 @@ def _state_updates(
     updated_at_by_entity = {
         snapshot.entity_id: snapshot.last_updated or snapshot.last_changed for snapshot in snapshots
     }
+    status_by_entity = {snapshot.entity_id: snapshot.status for snapshot in snapshots}
     updates: list[dict[str, Any]] = []
     for device in logical_devices:
         for capability in device.get("capabilities", []):
@@ -178,6 +179,7 @@ def _state_updates(
             updated_at = _capability_updated_at(capability, updated_at_by_entity)
             if updated_at:
                 update_state["updated_at"] = updated_at
+            update_state["quality"] = _capability_quality(capability, status_by_entity)
             updates.append(
                 {
                     "device_id": device["id"],
@@ -201,3 +203,22 @@ def _capability_updated_at(
         if updated_at:
             return updated_at
     return None
+
+
+def _capability_quality(
+    capability: dict[str, Any],
+    status_by_entity: dict[str, str | None],
+) -> str:
+    """Return canonical quality from the first capability source status."""
+    for source_ref in capability.get("source_refs", []):
+        entity_id = source_ref.get("source_entity_id")
+        if not isinstance(entity_id, str):
+            continue
+        status = status_by_entity.get(entity_id)
+        if status == "online":
+            return "good"
+        if status == "offline":
+            return "stale"
+        if status == "error":
+            return "error"
+    return "unknown"

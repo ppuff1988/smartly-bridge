@@ -128,7 +128,8 @@
       "capability": "power",
       "state": {
         "value": true,
-        "updated_at": "2026-06-24T00:00:00+00:00"
+        "updated_at": "2026-06-24T00:00:00+00:00",
+        "quality": "good"
       }
     },
     {
@@ -137,7 +138,8 @@
       "state": {
         "value": 50,
         "unit": "percent",
-        "updated_at": "2026-06-24T00:00:00+00:00"
+        "updated_at": "2026-06-24T00:00:00+00:00",
+        "quality": "good"
       }
     }
   ]

@@ -44,6 +44,9 @@ from ..utils import (
 )
 
 DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
+NUMERIC_SETTING_DOMAINS = {"number", "input_number"}
+OPTION_SETTING_DOMAINS = {"select", "input_select"}
+SETTING_DOMAINS = NUMERIC_SETTING_DOMAINS | OPTION_SETTING_DOMAINS
 
 
 def _entry_labels(entry: Any) -> set[str]:
@@ -108,11 +111,11 @@ def _history_end_time(value: Any) -> datetime:
 def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | None:
     """Return the Smartly setting key for supported sibling setting entities."""
     haystack = f"{entity_id} {name}".lower()
-    if domain == "number" and any(
+    if domain in NUMERIC_SETTING_DOMAINS and any(
         token in haystack for token in ("cooldown", "cooldown_seconds", "冷卻")
     ):
         return "cooldown_seconds"
-    if domain == "number" and any(
+    if domain in NUMERIC_SETTING_DOMAINS and any(
         token in haystack
         for token in (
             "delay",
@@ -127,7 +130,7 @@ def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | Non
         )
     ):
         return "trigger_hold_seconds"
-    if domain == "select" and any(
+    if domain in OPTION_SETTING_DOMAINS and any(
         token in haystack for token in ("sensitivity", "occupancy_sensitivity", "感應強度")
     ):
         return "occupancy_sensitivity"
@@ -144,7 +147,7 @@ def _number_setting_control(
     control: dict[str, Any] = {
         "key": key,
         "entity_id": entity_id,
-        "domain": "number",
+        "domain": get_entity_domain(entity_id),
         "name": attributes.get("friendly_name", entity_id),
         "action": "set_value",
         "value": numeric_state_value(getattr(state, "state", None)),
@@ -169,7 +172,7 @@ def _select_setting_control(
     control: dict[str, Any] = {
         "key": key,
         "entity_id": entity_id,
-        "domain": "select",
+        "domain": get_entity_domain(entity_id),
         "name": attributes.get("friendly_name", entity_id),
         "action": "select_option",
         "value": getattr(state, "state", None),
@@ -551,7 +554,7 @@ class HomeAssistantEntityPolicy:
     ) -> bool:
         """Return whether an editable setting belongs to an allowed primary entity."""
         domain = get_entity_domain(entity_id)
-        if domain not in {"number", "select"}:
+        if domain not in SETTING_DOMAINS:
             return False
         entry = entity_registry.async_get(entity_id)
         device_id = getattr(entry, "device_id", None) if entry else None
@@ -657,7 +660,11 @@ class HomeAssistantCommandTargetResolver:
             return self._resolve_setting_target(
                 entity_registry,
                 matched_device_ids,
-                domain="number" if capability == "numeric_setting" else "select",
+                domains=(
+                    NUMERIC_SETTING_DOMAINS
+                    if capability == "numeric_setting"
+                    else OPTION_SETTING_DOMAINS
+                ),
                 setting_key=setting_key if isinstance(setting_key, str) else None,
             )
         return None
@@ -667,7 +674,7 @@ class HomeAssistantCommandTargetResolver:
         entity_registry: Any,
         matched_device_ids: set[str],
         *,
-        domain: str,
+        domains: set[str],
         setting_key: str | None = None,
     ) -> str | None:
         """Return a sibling setting entity from an allowed logical-device group."""
@@ -677,7 +684,8 @@ class HomeAssistantCommandTargetResolver:
             entity_id = getattr(sibling, "entity_id", None) or registry_entity_id
             if not isinstance(entity_id, str):
                 entity_id = registry_entity_id if isinstance(registry_entity_id, str) else None
-            if not entity_id or get_entity_domain(entity_id) != domain:
+            domain = get_entity_domain(entity_id or "")
+            if not entity_id or domain not in domains:
                 continue
             source_device_id = getattr(sibling, "device_id", None)
             if source_device_id not in matched_device_ids:
@@ -964,7 +972,7 @@ class HomeAssistantStateSyncGateway:
             if (
                 not entity_id
                 or device_id not in allowed_device_ids
-                or domain not in {"number", "select"}
+                or domain not in SETTING_DOMAINS
             ):
                 continue
 
@@ -978,7 +986,7 @@ class HomeAssistantStateSyncGateway:
             if key is None:
                 continue
 
-            if domain == "number":
+            if domain in NUMERIC_SETTING_DOMAINS:
                 control = _number_setting_control(entity_id, key, state, attributes)
             else:
                 control = _select_setting_control(entity_id, key, state, attributes)

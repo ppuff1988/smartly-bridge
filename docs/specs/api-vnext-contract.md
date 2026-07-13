@@ -115,6 +115,7 @@ Response：
 
 - State update 可以 partial。
 - 每筆 update 必須包含 capability。
+- 每筆 readable state update 必須包含 `quality`；status mapping 依 capability contract。
 - Platform 應以 `updated_at` 和 monotonic sequence 防止舊狀態覆蓋新狀態。
 - Bridge 可以 batch，但應保留每筆狀態的來源時間。
 
