@@ -236,12 +236,44 @@ Canonical event：
 |---|---|
 | `single_press` | 單擊 |
 | `double_press` | 雙擊 |
+| `triple_press` | 三擊；只有裝置 schema 明確宣告時可用 |
 | `long_press` | 長按 |
 | `long_release` | 長按放開 |
 | `rotate_left` | 旋鈕左轉 |
 | `rotate_right` | 旋鈕右轉 |
 
 品牌值如 `single_left`、`left_single`、`1_single` 必須在 adapter 中映射。
+
+裝置支援的事件必須在 capability 宣告，不能由 Platform 依曾觀察到的事件推論：
+
+```json
+{
+  "type": "button_event",
+  "event_only": true,
+  "events": ["single_press", "double_press", "triple_press", "long_press"],
+  "constraints": {
+    "event_schema_version": 1,
+    "channels": [
+      {
+        "key": "left",
+        "events": ["single_press", "double_press", "triple_press", "long_press"]
+      }
+    ]
+  },
+  "presentation": {
+    "channel_order": ["left"],
+    "channel_labels": {"left": "Left"}
+  }
+}
+```
+
+規則：
+
+- `events` 是所有 channel events 的去重聯集。
+- channel `key` 是持久化 identity；label 只負責顯示。
+- 未同步到 schema 的舊裝置維持 single/double/hold/release compatibility，但不接受 `triple_press`。
+- 已同步 schema 的裝置只能接受 schema 宣告的 channel + event。
+- `payload.button` 是目前 API vNext 的 canonical channel identity；raw action 只留在受保護 diagnostics。
 
 ### 5.6 `button_press`
 

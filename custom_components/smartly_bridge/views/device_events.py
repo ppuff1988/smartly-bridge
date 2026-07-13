@@ -104,6 +104,12 @@ def _device_event_deduplicator(
     return adapters.get("device_event_deduplicator")
 
 
+def _device_event_capabilities(integration_data: dict[str, Any]) -> Any | None:
+    """Return the setup-created declared event capability registry."""
+    adapters = _runtime_adapters(integration_data)
+    return adapters.get("device_event_capabilities")
+
+
 def _local_automation_use_case(
     rule_store: Any,
     command_executor: Any,
@@ -166,12 +172,14 @@ def _device_event_use_case(
     publisher: Any,
     deduplicator: Any,
     automation: Any,
+    capabilities: Any,
 ) -> DeviceEventUseCase:
     """Build the device event ingestion application use case."""
     return DeviceEventUseCase(
         publisher,
         deduplicator=deduplicator,
         automation=automation,
+        capabilities=capabilities,
     )
 
 
@@ -209,13 +217,15 @@ async def _ingest_device_event(
     client_id: str,
     command: DeviceEventCommand,
     *,
-    use_case_factory: Callable[[Any, Any, Any], Any] = _device_event_use_case,
+    capabilities: Any = None,
+    use_case_factory: Callable[[Any, Any, Any, Any], Any] = _device_event_use_case,
 ) -> Any:
     """Execute device event ingestion through the application use case."""
     return await use_case_factory(
         publisher,
         deduplicator,
         automation,
+        capabilities,
     ).execute(client_id, command)
 
 
@@ -525,6 +535,7 @@ class SmartlyDeviceEventsView(web.View):
             automation,
             auth_result.client_id or "unknown",
             command,
+            capabilities=_device_event_capabilities(integration_data),
         )
 
         return _json_response(

@@ -68,6 +68,53 @@ HEALTH_CAPABILITIES = ("battery", "signal_strength")
 PRESENCE_CAPABILITIES = ("occupancy", "motion", "presence")
 CONTACT_CAPABILITIES = ("contact", "opening", "door", "window")
 RGB_COLOR_MODES = {"hs", "rgb", "rgbw", "rgbww", "xy"}
+BUTTON_EVENT_BY_SOURCE_GESTURE = {
+    "single": "single_press",
+    "short_release": "single_press",
+    "double": "double_press",
+    "double_press": "double_press",
+    "triple": "triple_press",
+    "hold": "long_press",
+    "long_press": "long_press",
+    "release": "long_release",
+    "long_release": "long_release",
+}
+BUTTON_MODEL_PROFILES: dict[str, list[dict[str, Any]]] = {
+    "wxkg15lm": [
+        {
+            "key": channel,
+            "label": label,
+            "events": ["single_press", "double_press", "triple_press", "long_press"],
+        }
+        for channel, label in (("left", "Left"), ("right", "Right"), ("both", "Both"))
+    ],
+    "e2213": [
+        {
+            "key": channel,
+            "label": label,
+            "events": ["single_press", "double_press", "long_press", "long_release"],
+        }
+        for channel, label in (("button_1", "Button 1"), ("button_2", "Button 2"))
+    ],
+    "929002398602": [
+        {
+            "key": "power",
+            "label": "Power",
+            "events": ["single_press", "long_press", "long_release"],
+        },
+        {
+            "key": "brightness_up",
+            "label": "Brightness up",
+            "events": ["single_press", "long_press", "long_release"],
+        },
+        {
+            "key": "brightness_down",
+            "label": "Brightness down",
+            "events": ["single_press", "long_press", "long_release"],
+        },
+        {"key": "scene", "label": "Scene", "events": ["single_press"]},
+    ],
+}
 
 
 def build_device_card_metadata(
@@ -83,7 +130,7 @@ def build_device_card_metadata(
 
     capabilities = _infer_capabilities(domain, attributes)
     device_class = _classify_device(domain, capabilities, attributes, labels)
-    presentation = _build_presentation(device_class, capabilities)
+    presentation = _build_presentation(device_class, capabilities, attributes)
     class_override = _class_override_decision(
         labels,
         domain,
@@ -127,6 +174,8 @@ def _infer_capabilities(domain: str, attributes: dict[str, Any]) -> list[str]:
         "input_select": _option_setting_capabilities,
     }
     capabilities = by_domain.get(domain, _no_capabilities)(attributes)
+    if _button_event_schema(attributes) is not None:
+        _append_unique(capabilities, "event")
     return _with_health_capabilities(capabilities, attributes)
 
 
@@ -322,6 +371,9 @@ def _automatic_device_class(
         if capability_set.intersection(SENSOR_MEASUREMENT_CAPABILITIES):
             return "environment_sensor"
         if "event" in capability_set:
+            schema = _button_event_schema(attributes)
+            if schema is not None and len(schema["channels"]) > 1:
+                return "multi_button_device"
             return "button_device"
         return "unknown_device"
 
@@ -363,7 +415,11 @@ def _automatic_device_class(
     return str(attributes.get("smartly_device_class") or "unknown_device")
 
 
-def _build_presentation(device_class: str, capabilities: list[str]) -> dict[str, Any]:
+def _build_presentation(
+    device_class: str,
+    capabilities: list[str],
+    attributes: dict[str, Any],
+) -> dict[str, Any]:
     """Build card presentation hints from the normalized device class."""
     card_template = CARD_TEMPLATE_BY_CLASS.get(device_class, "unknown_card")
     presentation: dict[str, Any] = {
@@ -410,7 +466,91 @@ def _build_presentation(device_class: str, capabilities: list[str]) -> dict[str,
             HEALTH_CAPABILITIES,
         )
 
+    button_event = _button_event_schema(attributes)
+    if "event" in capabilities and button_event is not None:
+        presentation["button_event"] = button_event
+
     return presentation
+
+
+def _button_event_schema(attributes: dict[str, Any]) -> dict[str, Any] | None:
+    """Return canonical channel/event metadata from model or adapter evidence."""
+    model = str(attributes.get("model") or attributes.get("model_id") or "").lower()
+    channels = BUTTON_MODEL_PROFILES.get(model)
+    if channels is None:
+        channels = _channels_from_action_values(attributes)
+    if not channels:
+        return None
+
+    normalized_channels = [
+        {"key": channel["key"], "events": list(channel["events"])} for channel in channels
+    ]
+    channel_order = [channel["key"] for channel in channels]
+    channel_labels = {
+        channel["key"]: channel.get("label", _default_channel_label(channel["key"]))
+        for channel in channels
+    }
+    events: list[str] = []
+    for channel in channels:
+        for event in channel["events"]:
+            _append_unique(events, event)
+    return {
+        "event_schema_version": 1,
+        "events": events,
+        "channels": normalized_channels,
+        "channel_order": channel_order,
+        "channel_labels": channel_labels,
+    }
+
+
+def _channels_from_action_values(attributes: dict[str, Any]) -> list[dict[str, Any]]:
+    """Derive canonical channels from an adapter-provided action enum."""
+    action_values = attributes.get("action_values")
+    if not isinstance(action_values, list):
+        return []
+
+    events_by_channel: dict[str, list[str]] = {}
+    for action in action_values:
+        parsed = _canonical_action_value(action)
+        if parsed is None:
+            continue
+        channel, event = parsed
+        events = events_by_channel.setdefault(channel, [])
+        _append_unique(events, event)
+    return [
+        {
+            "key": channel,
+            "label": _default_channel_label(channel),
+            "events": events,
+        }
+        for channel, events in events_by_channel.items()
+    ]
+
+
+def _canonical_action_value(action: Any) -> tuple[str, str] | None:
+    """Map common adapter action enum values to channel and canonical event."""
+    if not isinstance(action, str) or not action:
+        return None
+    for source_gesture in sorted(BUTTON_EVENT_BY_SOURCE_GESTURE, key=len, reverse=True):
+        prefix = f"{source_gesture}_"
+        suffix = f"_{source_gesture}"
+        if action.startswith(prefix):
+            channel = action.removeprefix(prefix)
+        elif action.endswith(suffix):
+            channel = action.removesuffix(suffix)
+        else:
+            continue
+        if not channel:
+            return None
+        if channel.isdigit():
+            channel = f"button_{channel}"
+        return channel, BUTTON_EVENT_BY_SOURCE_GESTURE[source_gesture]
+    return None
+
+
+def _default_channel_label(channel: str) -> str:
+    """Return a stable English fallback label for a canonical channel key."""
+    return channel.replace("_", " ").title()
 
 
 def _status_from_state(state: str | None) -> str:
