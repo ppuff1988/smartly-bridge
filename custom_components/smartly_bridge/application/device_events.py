@@ -7,20 +7,13 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import Any, Callable
 
+from ..domain.button_events import canonical_button_action
 from ..domain.models import BridgeResponse
 from .ports import (
     DeviceEventDeduplicatorPort,
     DeviceEventPublisherPort,
     LocalAutomationPort,
 )
-
-_BUTTON_EVENT_BY_ACTION = {
-    "single": "single_press",
-    "double": "double_press",
-    "triple": "triple_press",
-    "hold": "long_press",
-    "release": "long_release",
-}
 
 SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
@@ -297,23 +290,23 @@ def device_event_error_response(
 
 def _canonical_button_event(action: str) -> dict[str, Any] | None:
     """Map source button action to canonical Smartly event fields."""
-    source_event, _, button = action.partition("_")
-    if source_event == "rotate":
-        if button not in {"left", "right"}:
+    if action.startswith("rotate_"):
+        direction = action.removeprefix("rotate_")
+        if direction not in {"left", "right"}:
             return None
         return {
             "capability": "button_event",
             "event": action,
-            "payload": {"direction": button},
+            "payload": {"direction": direction},
         }
-    if source_event not in _BUTTON_EVENT_BY_ACTION:
-        button, _, source_event = action.partition("_")
-    if source_event not in _BUTTON_EVENT_BY_ACTION or not button:
+    parsed = canonical_button_action(action)
+    if parsed is None:
         return None
+    channel, event = parsed
     return {
         "capability": "button_event",
-        "event": _BUTTON_EVENT_BY_ACTION[source_event],
-        "payload": {"button": button},
+        "event": event,
+        "payload": {"button": channel},
     }
 
 

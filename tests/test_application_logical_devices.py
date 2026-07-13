@@ -15,6 +15,19 @@ def _button_event_capability(
     attributes: dict[str, object],
 ) -> tuple[dict[str, object], dict[str, object]]:
     """Return metadata and the normalized button event capability."""
+    metadata, snapshot = _button_event_snapshot(entity_id, attributes)
+    device = logical_device_from_state(snapshot).to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+    return metadata, capability
+
+
+def _button_event_snapshot(
+    entity_id: str,
+    attributes: dict[str, object],
+    *,
+    source_device_id: str | None = None,
+) -> tuple[dict[str, object], EntityStateSnapshot]:
+    """Return metadata and a button event state snapshot."""
     metadata = build_device_card_metadata(entity_id, "unknown", attributes)
     snapshot = EntityStateSnapshot(
         entity_id=entity_id,
@@ -26,10 +39,9 @@ def _button_event_capability(
         capabilities=metadata["capabilities"],
         status=metadata["status"],
         presentation=metadata["presentation"],
+        source_device_id=source_device_id,
     )
-    device = logical_device_from_state(snapshot).to_dict()
-    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
-    return metadata, capability
+    return metadata, snapshot
 
 
 def test_aqara_h1_profile_exposes_declared_channel_gestures() -> None:
@@ -185,6 +197,39 @@ def test_unknown_button_action_values_ignore_malformed_and_unknown_tokens() -> N
     )
 
     assert capability["constraints"]["channels"] == [{"key": "left", "events": ["single_press"]}]
+
+
+def test_grouped_button_event_entities_merge_declared_channels() -> None:
+    """Every grouped event entity contributes its declared channel metadata."""
+    _, left = _button_event_snapshot(
+        "sensor.remote_left_action",
+        {"friendly_name": "Remote left", "action_values": ["left_single"]},
+        source_device_id="remote-device-1",
+    )
+    _, right = _button_event_snapshot(
+        "sensor.remote_right_action",
+        {
+            "friendly_name": "Remote right",
+            "action_values": ["right_double", "right_hold"],
+        },
+        source_device_id="remote-device-1",
+    )
+
+    device = logical_devices_from_states([left, right])[0].to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+
+    assert capability["events"] == ["single_press", "double_press", "long_press"]
+    assert capability["constraints"] == {
+        "event_schema_version": 1,
+        "channels": [
+            {"key": "left", "events": ["single_press"]},
+            {"key": "right", "events": ["double_press", "long_press"]},
+        ],
+    }
+    assert capability["presentation"] == {
+        "channel_order": ["left", "right"],
+        "channel_labels": {"left": "Left", "right": "Right"},
+    }
 
 
 def test_light_color_temperature_state_uses_kelvin_contract() -> None:

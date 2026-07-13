@@ -222,6 +222,8 @@ def _merge_capability_source_refs(
     incoming: SmartlyCapability,
 ) -> SmartlyCapability:
     """Return an existing capability with the incoming source refs appended."""
+    if existing.type == "button_event":
+        return _merge_button_event_capability(existing, incoming)
     return SmartlyCapability(
         type=existing.type,
         role=existing.role,
@@ -236,6 +238,59 @@ def _merge_capability_source_refs(
         instances=[*existing.instances, *incoming.instances],
         source_refs=[*existing.source_refs, *incoming.source_refs],
     )
+
+
+def _merge_button_event_capability(
+    existing: SmartlyCapability,
+    incoming: SmartlyCapability,
+) -> SmartlyCapability:
+    """Merge declared channels from grouped button event source entities."""
+    events = _ordered_unique([*existing.events, *incoming.events])
+    channels: OrderedDict[str, list[str]] = OrderedDict()
+    for constraints in (existing.constraints, incoming.constraints):
+        for channel in constraints.get("channels", []):
+            key = channel["key"]
+            channels[key] = _ordered_unique([*channels.get(key, []), *channel["events"]])
+    channel_order = _ordered_unique(
+        [
+            *existing.presentation.get("channel_order", []),
+            *incoming.presentation.get("channel_order", []),
+        ]
+    )
+    channel_labels = {
+        **existing.presentation.get("channel_labels", {}),
+        **incoming.presentation.get("channel_labels", {}),
+    }
+    return SmartlyCapability(
+        type=existing.type,
+        role=existing.role,
+        readable=existing.readable,
+        writable=existing.writable,
+        event_only=existing.event_only,
+        state=existing.state,
+        commands=existing.commands,
+        events=events,
+        constraints={
+            "event_schema_version": existing.constraints.get(
+                "event_schema_version",
+                incoming.constraints.get("event_schema_version"),
+            ),
+            "channels": [
+                {"key": key, "events": channel_events} for key, channel_events in channels.items()
+            ],
+        },
+        presentation={
+            "channel_order": channel_order,
+            "channel_labels": channel_labels,
+        },
+        instances=[*existing.instances, *incoming.instances],
+        source_refs=[*existing.source_refs, *incoming.source_refs],
+    )
+
+
+def _ordered_unique(values: list[str]) -> list[str]:
+    """Return string values once while preserving first-seen order."""
+    return list(dict.fromkeys(values))
 
 
 def _aliases_for_group(snapshots: list[EntityStateSnapshot]) -> list[dict[str, Any]]:

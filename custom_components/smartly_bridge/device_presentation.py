@@ -5,6 +5,7 @@ from __future__ import annotations
 from typing import Any, Iterable
 
 from .acl import get_entity_domain
+from .domain.button_events import canonical_button_action
 
 HIGH_RISK_DOMAINS = {"alarm_control_panel", "camera", "lock"}
 
@@ -68,17 +69,6 @@ HEALTH_CAPABILITIES = ("battery", "signal_strength")
 PRESENCE_CAPABILITIES = ("occupancy", "motion", "presence")
 CONTACT_CAPABILITIES = ("contact", "opening", "door", "window")
 RGB_COLOR_MODES = {"hs", "rgb", "rgbw", "rgbww", "xy"}
-BUTTON_EVENT_BY_SOURCE_GESTURE = {
-    "single": "single_press",
-    "short_release": "single_press",
-    "double": "double_press",
-    "double_press": "double_press",
-    "triple": "triple_press",
-    "hold": "long_press",
-    "long_press": "long_press",
-    "release": "long_release",
-    "long_release": "long_release",
-}
 BUTTON_MODEL_PROFILES: dict[str, list[dict[str, Any]]] = {
     "wxkg15lm": [
         {
@@ -511,7 +501,7 @@ def _channels_from_action_values(attributes: dict[str, Any]) -> list[dict[str, A
 
     events_by_channel: dict[str, list[str]] = {}
     for action in action_values:
-        parsed = _canonical_action_value(action)
+        parsed = canonical_button_action(action)
         if parsed is None:
             continue
         channel, event = parsed
@@ -525,27 +515,6 @@ def _channels_from_action_values(attributes: dict[str, Any]) -> list[dict[str, A
         }
         for channel, events in events_by_channel.items()
     ]
-
-
-def _canonical_action_value(action: Any) -> tuple[str, str] | None:
-    """Map common adapter action enum values to channel and canonical event."""
-    if not isinstance(action, str) or not action:
-        return None
-    for source_gesture in sorted(BUTTON_EVENT_BY_SOURCE_GESTURE, key=len, reverse=True):
-        prefix = f"{source_gesture}_"
-        suffix = f"_{source_gesture}"
-        if action.startswith(prefix):
-            channel = action.removeprefix(prefix)
-        elif action.endswith(suffix):
-            channel = action.removesuffix(suffix)
-        else:
-            continue
-        if not channel:
-            return None
-        if channel.isdigit():
-            channel = f"button_{channel}"
-        return channel, BUTTON_EVENT_BY_SOURCE_GESTURE[source_gesture]
-    return None
 
 
 def _default_channel_label(channel: str) -> str:

@@ -160,6 +160,54 @@ def test_event_capability_registry_distinguishes_unknown_and_undeclared_events()
     assert registry.supports_event("unknown_device", "left", "single_press") is None
 
 
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("action", "channel", "event"),
+    [
+        ("single_1", "button_1", "single_press"),
+        ("double_press_left", "left", "double_press"),
+    ],
+)
+async def test_runtime_declared_actions_use_canonical_channels(
+    action: str,
+    channel: str,
+    event: str,
+) -> None:
+    """Runtime action enums and ingestion resolve the same channel identity."""
+    publisher = FakeDeviceEventPublisher()
+    registry = DeviceEventCapabilityRegistry()
+    registry.replace(
+        [
+            {
+                "id": "device_runtime_remote",
+                "capabilities": [
+                    {
+                        "type": "button_event",
+                        "constraints": {
+                            "channels": [{"key": channel, "events": [event]}],
+                        },
+                    }
+                ],
+            }
+        ]
+    )
+    use_case = DeviceEventUseCase(publisher, capabilities=registry)
+
+    result = await use_case.execute(
+        "client-1",
+        DeviceEventCommand(
+            device_id="device_runtime_remote",
+            type="button_action",
+            action=action,
+            timestamp="2026-07-13T14:00:00Z",
+        ),
+    )
+
+    assert result.status == 202
+    assert result.body["data"]["event"] == event
+    assert result.body["data"]["payload"] == {"button": channel}
+
+
 def test_event_capability_registry_ignores_malformed_declared_schemas() -> None:
     """Malformed sync metadata never becomes an inferred event capability."""
     registry = DeviceEventCapabilityRegistry()
@@ -594,7 +642,7 @@ async def test_rotate_button_action_is_published_with_canonical_event_payload() 
     ("action", "expected_button"),
     [
         ("left_single", "left"),
-        ("1_single", "1"),
+        ("1_single", "button_1"),
     ],
 )
 @pytest.mark.asyncio

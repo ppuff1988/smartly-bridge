@@ -134,6 +134,9 @@ def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | Non
         token in haystack for token in ("sensitivity", "occupancy_sensitivity", "感應強度")
     ):
         return "occupancy_sensitivity"
+    if domain in SETTING_DOMAINS:
+        _, _, object_id = entity_id.partition(".")
+        return object_id or entity_id
     return None
 
 
@@ -653,6 +656,8 @@ class HomeAssistantCommandTargetResolver:
             canonical_capabilities = {
                 canonical_capability_name(item) for item in metadata["capabilities"]
             }
+            if capability in {"numeric_setting", "option_setting"}:
+                continue
             if capability in canonical_capabilities:
                 return entity_id
         if capability in {"numeric_setting", "option_setting"}:
@@ -689,6 +694,8 @@ class HomeAssistantCommandTargetResolver:
             if not entity_id or domain not in domains:
                 continue
             source_device_id = getattr(sibling, "device_id", None)
+            if not isinstance(source_device_id, str):
+                source_device_id = entity_id
             if source_device_id not in matched_device_ids:
                 continue
             state = self._hass.states.get(entity_id)
