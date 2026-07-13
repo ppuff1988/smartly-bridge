@@ -7,6 +7,7 @@ from unittest.mock import MagicMock
 import pytest
 
 from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantCommandTargetResolver,
     HomeAssistantSmartlyCommandExecutor,
     _home_assistant_smartly_command_executor,
 )
@@ -75,3 +76,50 @@ async def test_smartly_command_executor_uses_injected_use_case_factory() -> None
     assert result.body["data"]["status"] == "completed"
     assert factory_calls == [(hass, logger)]
     assert use_case.calls == [("client-1", command)]
+
+
+def test_setting_target_resolver_rejects_ambiguous_unkeyed_settings() -> None:
+    """Multiple sibling settings require the stable instance key."""
+    hass = MagicMock()
+    trigger_state = MagicMock()
+    trigger_state.state = "15"
+    trigger_state.attributes = {"friendly_name": "Trigger hold seconds"}
+    cooldown_state = MagicMock()
+    cooldown_state.state = "5"
+    cooldown_state.attributes = {"friendly_name": "Cooldown seconds"}
+    hass.states.get.side_effect = lambda entity_id: {
+        "number.presence_detection_delay": trigger_state,
+        "number.presence_cooldown": cooldown_state,
+    }.get(entity_id)
+    registry = MagicMock()
+    trigger = MagicMock(
+        entity_id="number.presence_detection_delay",
+        device_id="zigbee-presence-1",
+    )
+    cooldown = MagicMock(
+        entity_id="number.presence_cooldown",
+        device_id="zigbee-presence-1",
+    )
+    registry.entities = {
+        trigger.entity_id: trigger,
+        cooldown.entity_id: cooldown,
+    }
+    resolver = HomeAssistantCommandTargetResolver(hass)
+
+    assert (
+        resolver._resolve_setting_target(
+            registry,
+            {"zigbee-presence-1"},
+            domains={"number", "input_number"},
+        )
+        is None
+    )
+    assert (
+        resolver._resolve_setting_target(
+            registry,
+            {"zigbee-presence-1"},
+            domains={"number", "input_number"},
+            setting_key="cooldown_seconds",
+        )
+        == "number.presence_cooldown"
+    )

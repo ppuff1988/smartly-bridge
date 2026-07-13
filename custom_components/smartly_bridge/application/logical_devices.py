@@ -233,6 +233,7 @@ def _merge_capability_source_refs(
         events=existing.events,
         constraints=existing.constraints,
         presentation=existing.presentation,
+        instances=[*existing.instances, *incoming.instances],
         source_refs=[*existing.source_refs, *incoming.source_refs],
     )
 
@@ -300,6 +301,9 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
     """Map source presentation capabilities to canonical capability contracts."""
     canonical = _canonical_capability(capability)
     state = _capability_state(snapshot, canonical)
+    commands = _commands_for_capability(canonical)
+    constraints = _constraints_for_capability(snapshot, canonical)
+    presentation = _capability_presentation(snapshot, canonical)
     return SmartlyCapability(
         type=canonical,
         role=_capability_role(canonical),
@@ -307,10 +311,15 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
         writable=canonical in _WRITABLE_CAPABILITIES,
         event_only=canonical == "button_event",
         state=state,
-        commands=_commands_for_capability(canonical),
+        commands=commands,
         events=_events_for_capability(snapshot, canonical),
-        constraints=_constraints_for_capability(snapshot, canonical),
-        presentation=_capability_presentation(snapshot, canonical),
+        constraints=constraints,
+        presentation=presentation,
+        instances=(
+            [_setting_instance(presentation, state, commands, constraints)]
+            if canonical in {"numeric_setting", "option_setting"}
+            else []
+        ),
         source_refs=[_source_ref(snapshot, canonical)],
     )
 
@@ -482,18 +491,21 @@ def _setting_capability_from_control(
 ) -> SmartlyCapability:
     """Return a canonical setting capability from a presentation control."""
     domain = str(control.get("domain"))
+    commands = [command]
+    presentation = {
+        "key": control.get("key"),
+        "name": control.get("name"),
+    }
     return SmartlyCapability(
         type=capability_type,
         role="setting",
         readable=True,
         writable=True,
         state=state,
-        commands=[command],
+        commands=commands,
         constraints=constraints,
-        presentation={
-            "key": control.get("key"),
-            "name": control.get("name"),
-        },
+        presentation=presentation,
+        instances=[_setting_instance(presentation, state, commands, constraints)],
         source_refs=[
             {
                 "source": "home_assistant",
@@ -505,6 +517,22 @@ def _setting_capability_from_control(
             }
         ],
     )
+
+
+def _setting_instance(
+    presentation: dict[str, Any],
+    state: dict[str, Any],
+    commands: list[str],
+    constraints: dict[str, Any],
+) -> dict[str, Any]:
+    """Return customer-safe metadata for one writable setting target."""
+    return {
+        "key": presentation.get("key"),
+        "name": presentation.get("name"),
+        "state": state,
+        "commands": commands,
+        "constraints": constraints,
+    }
 
 
 def _numeric_state(
@@ -933,6 +961,12 @@ def _capability_presentation(
     capability: str,
 ) -> dict[str, Any]:
     """Return display-only metadata for a canonical capability."""
+    if capability in {"numeric_setting", "option_setting"}:
+        _, _, object_id = snapshot.entity_id.partition(".")
+        return {
+            "key": object_id or snapshot.entity_id,
+            "name": snapshot.name,
+        }
     if capability != "button_event":
         return {}
     event_source = snapshot.presentation.get("button_event", {})

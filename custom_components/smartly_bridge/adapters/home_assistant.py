@@ -680,6 +680,7 @@ class HomeAssistantCommandTargetResolver:
         """Return a sibling setting entity from an allowed logical-device group."""
         if not matched_device_ids:
             return None
+        candidates: list[str] = []
         for registry_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
             entity_id = getattr(sibling, "entity_id", None) or registry_entity_id
             if not isinstance(entity_id, str):
@@ -699,8 +700,8 @@ class HomeAssistantCommandTargetResolver:
             if setting_key is not None and resolved_key != setting_key:
                 continue
             if resolved_key is not None:
-                return entity_id
-        return None
+                candidates.append(entity_id)
+        return candidates[0] if len(candidates) == 1 else None
 
 
 class HomeAssistantSyncGateway:

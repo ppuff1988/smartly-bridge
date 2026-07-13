@@ -40,6 +40,7 @@ Platform 不應直接讀取 Home Assistant attribute、Zigbee2MQTT expose、Matt
   "event_schemas": {},
   "constraints": {},
   "presentation": {},
+  "instances": [],
   "source_refs": []
 }
 ```
@@ -53,6 +54,7 @@ Platform 不應直接讀取 Home Assistant attribute、Zigbee2MQTT expose、Matt
 - `event_schemas` 是 event-only 或 mixed capability 可以發出的事件。
 - `constraints` 只能縮小合法範圍，不得改變 capability 本身語意。
 - `presentation` 是 UI hint，不是業務邏輯。
+- `instances` 只供同一 capability type 的多個具名 setting target 使用；每項必須有 stable `key` 與自己的 state／constraints。
 - `source_refs` 只用於診斷與追蹤，不得成為 Platform 決策依據。
 
 ## 3. 命名與版本規則
@@ -341,13 +343,29 @@ Commands：
 
 | Command | Params | 說明 |
 |---|---|---|
-| `set_value` | `{ "value": number }` | 設定數值 |
+| `set_value` | `{ "key"?: string, "value": number }` | 設定數值；多 instance 時 `key` 必填 |
+
+Instances：
+
+```json
+[
+  {
+    "key": "trigger_hold_seconds",
+    "name": "Trigger hold seconds",
+    "state": {"value": 15, "unit": "s"},
+    "commands": ["set_value"],
+    "constraints": {"min": 1, "max": 120, "step": 1}
+  }
+]
+```
 
 規則：
 
 - `source_refs` 必須指向實際 setting source，例如 `number.presence_detection_delay` 或 `input_number.trigger_hold_seconds`。
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `trigger_hold_seconds`。
+- 單一 instance 可省略 command `key` 以相容舊 client；同型 capability 有多個 instance 時，Bridge 必須拒絕未帶 `key` 的模糊命令。
+- `instances` 是 Platform 可投影的 customer-safe metadata，不得包含 `source_entity_id`。
 
 ### 5.9 `option_setting`
 
@@ -373,13 +391,29 @@ Commands：
 
 | Command | Params | 說明 |
 |---|---|---|
-| `select_option` | `{ "option": "medium" }` | 選擇設定選項 |
+| `select_option` | `{ "key"?: string, "option": "medium" }` | 選擇設定選項；多 instance 時 `key` 必填 |
+
+Instances：
+
+```json
+[
+  {
+    "key": "occupancy_sensitivity",
+    "name": "Occupancy sensitivity",
+    "state": {"value": "medium"},
+    "commands": ["select_option"],
+    "constraints": {"values": ["low", "medium", "high"]}
+  }
+]
+```
 
 規則：
 
 - `source_refs` 必須指向實際 setting source，例如 `select.presence_occupancy_sensitivity` 或 `input_select.occupancy_sensitivity`。
 - Platform 應透過 logical device + capability 下指令，不應直接依賴 sibling entity ID。
 - `presentation.key` 可保留穩定 setting key，例如 `occupancy_sensitivity`。
+- 單一 instance 可省略 command `key` 以相容舊 client；同型 capability 有多個 instance 時，Bridge 必須拒絕未帶 `key` 的模糊命令。
+- `instances` 是 Platform 可投影的 customer-safe metadata，不得包含 `source_entity_id`。
 
 ## 6. Capability Extension Policy
 

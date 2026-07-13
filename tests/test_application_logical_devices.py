@@ -916,6 +916,15 @@ def test_presence_sibling_number_setting_uses_numeric_setting_contract() -> None
             "key": "trigger_hold_seconds",
             "name": "Trigger hold seconds",
         },
+        "instances": [
+            {
+                "key": "trigger_hold_seconds",
+                "name": "Trigger hold seconds",
+                "state": {"value": 15, "unit": "s"},
+                "commands": ["set_value"],
+                "constraints": {"min": 1, "max": 120, "step": 1},
+            }
+        ],
         "source_refs": [
             {
                 "source": "home_assistant",
@@ -984,6 +993,22 @@ def test_multiple_number_settings_keep_all_numeric_setting_source_refs() -> None
         "number.presence_detection_delay",
         "number.presence_cooldown",
     ]
+    assert numeric_setting["instances"] == [
+        {
+            "key": "trigger_hold_seconds",
+            "name": "Trigger hold seconds",
+            "state": {"value": 15, "unit": "s"},
+            "commands": ["set_value"],
+            "constraints": {"min": 1, "max": 120, "step": 1},
+        },
+        {
+            "key": "cooldown_seconds",
+            "name": "Cooldown seconds",
+            "state": {"value": 5, "unit": "s"},
+            "commands": ["set_value"],
+            "constraints": {"min": 1, "max": 60, "step": 1},
+        },
+    ]
 
 
 def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
@@ -1035,6 +1060,15 @@ def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
             "key": "occupancy_sensitivity",
             "name": "Occupancy sensitivity",
         },
+        "instances": [
+            {
+                "key": "occupancy_sensitivity",
+                "name": "Occupancy sensitivity",
+                "state": {"value": "low"},
+                "commands": ["select_option"],
+                "constraints": {"values": ["low", "medium", "high"]},
+            }
+        ],
         "source_refs": [
             {
                 "source": "home_assistant",
@@ -1047,6 +1081,68 @@ def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
         ],
     }
     assert "option_setting" in device["presentation"]["primary_controls"]
+
+
+def test_multiple_select_settings_keep_each_option_contract() -> None:
+    """Repeated option settings retain per-control values and choices."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.presence",
+        state="on",
+        attributes={"device_class": "occupancy"},
+        name="Presence Sensor",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["presence"],
+        status="online",
+        presentation={
+            "card_template": "binary_state_card",
+            "setting_controls": [
+                {
+                    "key": "occupancy_sensitivity",
+                    "entity_id": "select.presence_occupancy_sensitivity",
+                    "domain": "select",
+                    "name": "Occupancy sensitivity",
+                    "action": "select_option",
+                    "value": "low",
+                    "options": ["low", "medium", "high"],
+                },
+                {
+                    "key": "detection_mode",
+                    "entity_id": "select.presence_detection_mode",
+                    "domain": "select",
+                    "name": "Detection mode",
+                    "action": "select_option",
+                    "value": "normal",
+                    "options": ["normal", "fast"],
+                },
+            ],
+        },
+        source_device_id="zigbee-presence-1",
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    option_setting = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "option_setting"
+    )
+
+    assert option_setting["instances"] == [
+        {
+            "key": "occupancy_sensitivity",
+            "name": "Occupancy sensitivity",
+            "state": {"value": "low"},
+            "commands": ["select_option"],
+            "constraints": {"values": ["low", "medium", "high"]},
+        },
+        {
+            "key": "detection_mode",
+            "name": "Detection mode",
+            "state": {"value": "normal"},
+            "commands": ["select_option"],
+            "constraints": {"values": ["normal", "fast"]},
+        },
+    ]
 
 
 def test_climate_target_temperature_uses_target_temperature_contract() -> None:
@@ -1302,6 +1398,15 @@ def test_input_number_helper_exposes_numeric_setting_capability() -> None:
     assert capability["state"] == {"value": 15, "unit": "s"}
     assert capability["constraints"] == {"min": 1, "max": 120, "step": 1}
     assert capability["commands"] == ["set_value"]
+    assert capability["instances"] == [
+        {
+            "key": "trigger_hold_seconds",
+            "name": "觸發維持秒數",
+            "state": {"value": 15, "unit": "s"},
+            "commands": ["set_value"],
+            "constraints": {"min": 1, "max": 120, "step": 1},
+        }
+    ]
     assert capability["source_refs"][0]["domain"] == "input_number"
     assert device["presentation"]["template"] == "setting_control"
     assert device["presentation"]["primary_controls"] == ["numeric_setting"]
@@ -1340,6 +1445,15 @@ def test_input_select_helper_exposes_option_setting_capability() -> None:
     assert capability["state"] == {"value": "medium"}
     assert capability["constraints"] == {"values": ["low", "medium", "high"]}
     assert capability["commands"] == ["select_option"]
+    assert capability["instances"] == [
+        {
+            "key": "occupancy_sensitivity",
+            "name": "感應強度",
+            "state": {"value": "medium"},
+            "commands": ["select_option"],
+            "constraints": {"values": ["low", "medium", "high"]},
+        }
+    ]
     assert capability["source_refs"][0]["domain"] == "input_select"
     assert device["presentation"]["template"] == "setting_control"
     assert device["presentation"]["primary_controls"] == ["option_setting"]
