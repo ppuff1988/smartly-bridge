@@ -664,6 +664,7 @@ def _signal_quality_state(snapshot: EntityStateSnapshot) -> dict[str, Any]:
 
     signal_unit = attributes.get("signal_unit")
     raw_kind = _signal_raw_kind(signal_unit)
+    value: int | float
     if raw_kind == "lqi":
         value = round(max(0, min(255, raw_value)) / 255 * 100)
     elif raw_kind == "rssi":

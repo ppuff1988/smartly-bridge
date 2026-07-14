@@ -449,7 +449,7 @@ class HistoryResponseFormatter:
         if not lc_timestamp:
             lc_timestamp = lu_timestamp
 
-        result = {
+        result: dict[str, Any] = {
             "state": self.format_state_value(state.get("s", "unknown"), decimal_places),
             "last_changed": (
                 datetime.fromtimestamp(lc_timestamp, tz=timezone.utc).isoformat()
