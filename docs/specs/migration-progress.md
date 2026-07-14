@@ -46,6 +46,7 @@
 - current-sync application fixture 現在同時鎖定 `/api/smartly/sync/structure` 與 `/api/smartly/sync/states` vNext-only full response。
 - Phase 6 已移除 `/api/smartly/sync/states` integration-not-configured / authentication failure / rate-limit / gateway-unavailable / raw-diagnostic-store-unavailable response 的 legacy top-level `error` 欄位；sync states error code 現在只透過 API vNext top-level `errors[]` 暴露，rate-limit headers 維持不變。
 - `/api/smartly/sync/states` API vNext `data` 現在同步輸出 capability state `updates`，讓 Platform read path 可直接讀 `device_id` / `capability` / `state.updated_at`。
+- `/api/smartly/sync/states` 建立快照前會以最多 4 個並行更新主動刷新可外部變動的控制型實體，整批刷新總預算為 5 秒；任一實體刷新失敗或逾時時會回傳可重試的 `503 STATE_REFRESH_FAILED`，避免 Platform 將舊快取記錄為成功同步。
 - `/api/smartly/sync/structure` 與 `/api/smartly/sync/states` 在 request 帶 `X-Request-Id` / `X-Correlation-Id` 時，會於 API vNext top-level envelope 回傳 `request_id` / `correlation_id`，開始補齊通用 envelope correlation contract；未帶 header 的 legacy response body 維持既有 fixture。
 - `/api/smartly/sync/structure` 現在共用 `_sync_structure_gateway` resolver，只取得 setup-created `sync_structure_gateway` runtime adapter；缺少 adapter 時回傳 `sync_structure_gateway_unavailable` API vNext error，不再 request-time 建立 legacy `HomeAssistantSyncGateway` fallback，讓 structure view 只負責 HMAC shell、rate-limit、runtime availability、use case invocation 與 JSON response adaptation。
 - `/api/smartly/sync/structure` 現在共用 `_sync_structure_use_case` factory 與 `_build_sync_structure` application invocation adapter，集中 `SyncStructureUseCase` 建立/呼叫與 setup-created sync gateway port 傳遞，讓 structure view 只負責 HMAC shell、rate-limit 與 JSON response adaptation；`_build_sync_structure` 可注入替代 use-case factory 以支援測試與後續 runtime composition 替換。
@@ -757,6 +758,9 @@
 
 ## Latest Verification
 
+- State sync refresh hardening: externally mutable control entities refresh independently with a shared maximum concurrency of 4 and a 5-second total timeout; partial failure or timeout returns retryable `503 STATE_REFRESH_FAILED` instead of persisting cached state as fresh.
+- State sync refresh verification: RED covered stale-light refresh ordering, partial failure continuation/rejection, timeout, and concurrency; focused sync/application scope `159 passed`; full suite `1033 passed`; Phase 6 audit and OpenAPI validation passed.
+- Static type verification: existing response/value annotations and WebRTC timeout typing now satisfy full-project mypy; `37 source files` passed.
 - Camera legacy error helper cleanup: `_camera_error_response` removed; camera guard and entity-id validation default factories now use `_camera_vnext_error_response`.
 - Camera legacy error helper verification: focused default entity validation test `1 passed`; camera/http scope `262 passed`; full suite `913 passed`
 - Control/SmartlyCommand error fallback cleanup: source-control error wrapping no longer reads resolved response top-level `error`; vNext `errors[]` is authoritative.

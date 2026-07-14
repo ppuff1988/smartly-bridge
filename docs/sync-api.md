@@ -174,6 +174,8 @@ GET /api/smartly/sync/states
 
 取得所有被授權實體的即時狀態資訊，包括狀態值、屬性、時間戳記和圖示資訊。
 
+建立快照前，Bridge 會先要求 Home Assistant 更新燈光、開關等可由外部改變狀態的控制型實體。刷新最多同時執行 4 個實體，整批總預算為 5 秒。若任一實體刷新失敗或逾時，本次同步會回傳可重試的 `503 STATE_REFRESH_FAILED`，不會以舊快取完成成功同步；感測器等事件驅動實體則直接使用 Home Assistant state machine 的最新狀態。
+
 #### 認證
 
 需要 HMAC-SHA256 簽章驗證，詳見[安全性](#安全性)章節。
@@ -386,6 +388,7 @@ curl -X GET "https://your-ha-instance.com/api/smartly/sync/states" \
 | 401 | `timestamp_expired` | 時間戳記過期（超過 5 分鐘） |
 | 401 | `nonce_already_used` | Nonce 已被使用過 |
 | 429 | `rate_limited` | 超過速率限制 |
+| 503 | `STATE_REFRESH_FAILED` | 控制型實體刷新失敗或超過 5 秒總預算，可重試 |
 | 500 | `integration_not_configured` | 整合未正確設定 |
 
 ---

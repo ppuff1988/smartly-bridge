@@ -173,7 +173,7 @@ class DeviceEventUseCase:
                 canonical_event,
             )
 
-        body = {
+        body: dict[str, Any] = {
             "schema_version": SMARTLY_API_SCHEMA_VERSION,
             "data": {
                 "event_id": event_id,
