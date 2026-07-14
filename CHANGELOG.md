@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.2.0](https://github.com/ppuff1988/smartly-bridge/compare/v2.1.2...v2.2.0) (2026-07-14)
+
+### ✨ 新增功能 (Features)
+
+* **events:** expose button capabilities and typed settings ([#121](https://github.com/ppuff1988/smartly-bridge/issues/121)) ([7bab096](https://github.com/ppuff1988/smartly-bridge/commit/7bab09682993b69536f88fb6e242f4245beef9b6))
+
 ## [2.1.2](https://github.com/ppuff1988/smartly-bridge/compare/v2.1.1...v2.1.2) (2026-07-13)
 
 ### 🐛 錯誤修正 (Bug Fixes)
