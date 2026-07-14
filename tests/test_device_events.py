@@ -219,11 +219,24 @@ async def test_ingest_device_event_uses_injected_use_case_factory() -> None:
     publisher = FakeDeviceEventPublisher()
     deduplicator = InMemoryDeviceEventDeduplicator()
     automation = object()
+    capabilities = object()
     use_case = FakeDeviceEventUseCase()
-    factory_calls: list[tuple[object, object, object]] = []
+    factory_calls: list[tuple[object, object, object, object]] = []
 
-    def use_case_factory(received_publisher, received_deduplicator, received_automation):
-        factory_calls.append((received_publisher, received_deduplicator, received_automation))
+    def use_case_factory(
+        received_publisher,
+        received_deduplicator,
+        received_automation,
+        received_capabilities,
+    ):
+        factory_calls.append(
+            (
+                received_publisher,
+                received_deduplicator,
+                received_automation,
+                received_capabilities,
+            )
+        )
         return use_case
 
     command = DeviceEventCommand(
@@ -240,11 +253,12 @@ async def test_ingest_device_event_uses_injected_use_case_factory() -> None:
         automation,
         "client-1",
         command,
+        capabilities=capabilities,
         use_case_factory=use_case_factory,
     )
 
     assert result.status == 202
-    assert factory_calls == [(publisher, deduplicator, automation)]
+    assert factory_calls == [(publisher, deduplicator, automation, capabilities)]
     assert use_case.calls == [("client-1", command)]
     assert result.body["data"]["device_id"] == "device_abc123"
 

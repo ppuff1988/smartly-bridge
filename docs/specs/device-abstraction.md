@@ -132,6 +132,7 @@ Unknown device 必須以安全的 read-only diagnostic device 形式保持可見
   "events": [],
   "constraints": {},
   "presentation": {},
+  "instances": [],
   "source_refs": []
 }
 ```
@@ -139,10 +140,12 @@ Unknown device 必須以安全的 read-only diagnostic device 形式保持可見
 規則：
 
 - `type` 必須使用 canonical capability name。
-- `role` 必須是 `primary`、`secondary`、`health`、`diagnostic` 或 `event_source` 其中之一。
+- `role` 必須是 `primary`、`secondary`、`health`、`diagnostic`、`event_source` 或 `setting` 其中之一。
 - `readable`、`writable` 與 `event_only` 必須明確宣告。
 - State schema 與 command schema 必須由 capability contract 定義。
 - 一個 logical device 可以有多個來自不同 source entity 的 capabilities。
+- 同一 logical device 有多個同型 setting 時，`instances` 必須逐項保留 stable `key`、顯示名稱、state、commands 與 constraints；不得只保留第一項 metadata。
+- `instances` 不得包含 source entity ID。來源路由只留在 Bridge 內部 `source_refs`，Platform customer response 必須排除 `source_refs`。
 
 ### 5.3 SourceEntityRef
 
@@ -496,6 +499,11 @@ rotate_left
 rotate_right
 gesture
 ```
+
+這份 vocabulary 只定義可用詞彙，不代表每台裝置都支援全部事件。Adapter 必須在
+`button_event.constraints.channels` 逐 channel 宣告事件集合；`triple_press` 與 rotary
+事件只有在 declared schema 中存在時才可接受。沒有 schema 的裝置不得推論
+`triple_press` 支援。
 
 Multi-button device 可以把 button identity 放在 payload 中，不需要為每顆按鍵建立新的 event name：
 

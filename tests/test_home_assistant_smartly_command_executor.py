@@ -2,11 +2,12 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
 from custom_components.smartly_bridge.adapters.home_assistant import (
+    HomeAssistantCommandTargetResolver,
     HomeAssistantSmartlyCommandExecutor,
     _home_assistant_smartly_command_executor,
 )
@@ -75,3 +76,163 @@ async def test_smartly_command_executor_uses_injected_use_case_factory() -> None
     assert result.body["data"]["status"] == "completed"
     assert factory_calls == [(hass, logger)]
     assert use_case.calls == [("client-1", command)]
+
+
+def test_setting_target_resolver_rejects_ambiguous_unkeyed_settings() -> None:
+    """Multiple sibling settings require the stable instance key."""
+    hass = MagicMock()
+    trigger_state = MagicMock()
+    trigger_state.state = "15"
+    trigger_state.attributes = {"friendly_name": "Trigger hold seconds"}
+    cooldown_state = MagicMock()
+    cooldown_state.state = "5"
+    cooldown_state.attributes = {"friendly_name": "Cooldown seconds"}
+    hass.states.get.side_effect = lambda entity_id: {
+        "number.presence_detection_delay": trigger_state,
+        "number.presence_cooldown": cooldown_state,
+    }.get(entity_id)
+    registry = MagicMock()
+    trigger = MagicMock(
+        entity_id="number.presence_detection_delay",
+        device_id="zigbee-presence-1",
+    )
+    cooldown = MagicMock(
+        entity_id="number.presence_cooldown",
+        device_id="zigbee-presence-1",
+    )
+    registry.entities = {
+        trigger.entity_id: trigger,
+        cooldown.entity_id: cooldown,
+    }
+    resolver = HomeAssistantCommandTargetResolver(hass)
+
+    assert (
+        resolver._resolve_setting_target(
+            registry,
+            {"zigbee-presence-1"},
+            domains={"number", "input_number"},
+        )
+        is None
+    )
+    assert (
+        resolver._resolve_setting_target(
+            registry,
+            {"zigbee-presence-1"},
+            domains={"number", "input_number"},
+            setting_key="cooldown_seconds",
+        )
+        == "number.presence_cooldown"
+    )
+
+
+def test_setting_target_resolver_supports_standalone_helper() -> None:
+    """A setting helper without an HA device ID can still resolve itself."""
+    hass = MagicMock()
+    state = MagicMock(
+        state="15",
+        attributes={"friendly_name": "Hall delay"},
+    )
+    hass.states.get.return_value = state
+    helper = MagicMock(
+        entity_id="input_number.hall_delay",
+        device_id=None,
+    )
+    registry = MagicMock()
+    registry.entities = {helper.entity_id: helper}
+    resolver = HomeAssistantCommandTargetResolver(hass)
+
+    target = resolver._resolve_setting_target(
+        registry,
+        {"input_number.hall_delay"},
+        domains={"number", "input_number"},
+    )
+
+    assert target == "input_number.hall_delay"
+
+
+@pytest.mark.parametrize(
+    ("domain", "capability", "keyed"),
+    [
+        ("input_number", "numeric_setting", True),
+        ("input_number", "numeric_setting", False),
+        ("input_select", "option_setting", True),
+        ("input_select", "option_setting", False),
+    ],
+)
+def test_labeled_setting_helpers_use_keyed_resolver(
+    domain: str,
+    capability: str,
+    keyed: bool,
+) -> None:
+    """Directly labeled settings still enforce key selection and ambiguity."""
+    hass = MagicMock()
+    if domain == "input_number":
+        trigger_object_id = "presence_detection_delay"
+        cooldown_object_id = "presence_cooldown"
+        trigger_name = "Trigger hold seconds"
+        cooldown_name = "Cooldown seconds"
+        setting_key = "cooldown_seconds"
+    else:
+        trigger_object_id = "presence_sensitivity"
+        cooldown_object_id = "presence_mode"
+        trigger_name = "Presence sensitivity"
+        cooldown_name = "Presence mode"
+        setting_key = "presence_mode"
+    trigger_state = MagicMock(
+        state="15",
+        attributes={
+            "friendly_name": trigger_name,
+            "min": 1,
+            "max": 120,
+            "step": 1,
+            "options": ["15", "5"],
+        },
+    )
+    cooldown_state = MagicMock(
+        state="5",
+        attributes={
+            "friendly_name": cooldown_name,
+            "min": 1,
+            "max": 60,
+            "step": 1,
+            "options": ["15", "5"],
+        },
+    )
+    trigger_entity_id = f"{domain}.{trigger_object_id}"
+    cooldown_entity_id = f"{domain}.{cooldown_object_id}"
+    hass.states.get.side_effect = lambda entity_id: {
+        trigger_entity_id: trigger_state,
+        cooldown_entity_id: cooldown_state,
+    }.get(entity_id)
+    trigger = MagicMock(
+        entity_id=trigger_entity_id,
+        device_id="zigbee-presence-1",
+        labels={"smartly"},
+    )
+    cooldown = MagicMock(
+        entity_id=cooldown_entity_id,
+        device_id="zigbee-presence-1",
+        labels={"smartly"},
+    )
+    registry = MagicMock()
+    registry.entities = {
+        trigger.entity_id: trigger,
+        cooldown.entity_id: cooldown,
+    }
+    registry.async_get.side_effect = lambda entity_id: registry.entities.get(entity_id)
+    resolver = HomeAssistantCommandTargetResolver(
+        hass,
+        allowed_entities_fn=lambda _hass, _registry: list(registry.entities),
+    )
+
+    from homeassistant.helpers import entity_registry as er
+
+    with patch.object(er, "async_get", return_value=registry):
+        target = resolver.resolve_command_target(
+            "ldev_zigbee_presence_1",
+            capability,
+            {"key": setting_key} if keyed else {},
+        )
+
+    expected = cooldown_entity_id if keyed else None
+    assert target == expected

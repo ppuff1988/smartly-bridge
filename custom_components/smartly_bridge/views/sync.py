@@ -72,12 +72,14 @@ def _sync_states_use_case(
     *,
     use_logical_devices: bool,
     raw_diagnostic_recorder: Any,
+    device_event_capabilities: Any,
 ) -> SyncStatesUseCase:
     """Build the sync states application use case."""
     return SyncStatesUseCase(
         gateway,
         use_logical_devices=use_logical_devices,
         raw_diagnostic_recorder=raw_diagnostic_recorder,
+        device_event_capabilities=device_event_capabilities,
     )
 
 
@@ -86,6 +88,7 @@ async def _build_sync_states(
     *,
     use_logical_devices: bool,
     raw_diagnostic_recorder: Any,
+    device_event_capabilities: Any = None,
     use_case_factory: Callable[..., Any] = _sync_states_use_case,
 ) -> Any:
     """Execute the sync states use case with resolved gateway ports."""
@@ -93,6 +96,7 @@ async def _build_sync_states(
         gateway,
         use_logical_devices=use_logical_devices,
         raw_diagnostic_recorder=raw_diagnostic_recorder,
+        device_event_capabilities=device_event_capabilities,
     ).execute()
 
 
@@ -112,6 +116,12 @@ def _raw_diagnostic_recorder(hass: HomeAssistant) -> Any | None:
     """Return the setup-created raw diagnostic recorder."""
     runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
     return runtime_adapters.get("raw_diagnostic_store")
+
+
+def _device_event_capabilities(hass: HomeAssistant) -> Any | None:
+    """Return the setup-created declared device event registry."""
+    runtime_adapters = hass.data[DOMAIN].setdefault("runtime_adapters", {})
+    return runtime_adapters.get("device_event_capabilities")
 
 
 class SmartlySyncView(web.View):
@@ -365,6 +375,7 @@ class SmartlySyncStatesView(web.View):
             gateway,
             use_logical_devices=bool(data.get(CONF_USE_LOGICAL_DEVICES, False)),
             raw_diagnostic_recorder=raw_diagnostic_recorder,
+            device_event_capabilities=_device_event_capabilities(self.hass),
         )
         return _json_response(
             result.body,

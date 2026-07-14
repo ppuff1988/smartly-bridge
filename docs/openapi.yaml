@@ -1513,21 +1513,13 @@ components:
     DeviceButtonAction:
       type: string
       description: |
-        Supported stateless button actions for Aqara D1 double rocker style devices.
-        `release_left` and `release_right` should be sent only when the source integration
-        reports a separate release event after a hold.
-      enum:
-        - single_left
-        - single_right
-        - double_left
-        - double_right
-        - hold_left
-        - hold_right
-        - release_left
-        - release_right
-        - single_both
-        - double_both
-        - hold_both
+        Source stateless button action normalized by Bridge. The action vocabulary may
+        contain single, double, triple, hold, release, or left/right rotation, but a
+        vocabulary match is not sufficient: when a synchronized device declares a
+        channel event schema, the channel and canonical event must also be declared.
+        Release actions should be sent only when the source integration reports a
+        distinct release event.
+      pattern: '^(?:(?:single|double|triple|hold|release)_[a-z0-9][a-z0-9_-]{0,63}|[a-z0-9][a-z0-9_-]{0,63}_(?:single|double|triple|hold|release)|rotate_(?:left|right))$'
       example: single_left
 
     DeviceButtonEventRequest:

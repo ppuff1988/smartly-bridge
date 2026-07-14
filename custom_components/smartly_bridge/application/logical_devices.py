@@ -8,6 +8,7 @@ from collections import OrderedDict
 from typing import Any
 
 from ..domain.models import EntityStateSnapshot, SmartlyCapability, SmartlyLogicalDevice
+from ..domain.setting_keys import setting_key_for_entity
 
 _WRITABLE_CAPABILITIES = {
     "power",
@@ -222,6 +223,8 @@ def _merge_capability_source_refs(
     incoming: SmartlyCapability,
 ) -> SmartlyCapability:
     """Return an existing capability with the incoming source refs appended."""
+    if existing.type == "button_event":
+        return _merge_button_event_capability(existing, incoming)
     return SmartlyCapability(
         type=existing.type,
         role=existing.role,
@@ -233,8 +236,67 @@ def _merge_capability_source_refs(
         events=existing.events,
         constraints=existing.constraints,
         presentation=existing.presentation,
+        instances=[*existing.instances, *incoming.instances],
         source_refs=[*existing.source_refs, *incoming.source_refs],
     )
+
+
+def _merge_button_event_capability(
+    existing: SmartlyCapability,
+    incoming: SmartlyCapability,
+) -> SmartlyCapability:
+    """Merge declared channels from grouped button event source entities."""
+    events = _ordered_unique([*existing.events, *incoming.events])
+    channels: OrderedDict[str, list[str]] = OrderedDict()
+    for source_constraints in (existing.constraints, incoming.constraints):
+        for channel in source_constraints.get("channels", []):
+            key = channel["key"]
+            channels[key] = _ordered_unique([*channels.get(key, []), *channel["events"]])
+    channel_order = _ordered_unique(
+        [
+            *existing.presentation.get("channel_order", []),
+            *incoming.presentation.get("channel_order", []),
+        ]
+    )
+    channel_labels = {
+        **existing.presentation.get("channel_labels", {}),
+        **incoming.presentation.get("channel_labels", {}),
+    }
+    merged_constraints: dict[str, Any] = {}
+    presentation: dict[str, Any] = {}
+    if channels:
+        merged_constraints = {
+            "event_schema_version": existing.constraints.get(
+                "event_schema_version",
+                incoming.constraints.get("event_schema_version"),
+            ),
+            "channels": [
+                {"key": key, "events": channel_events} for key, channel_events in channels.items()
+            ],
+        }
+        presentation = {
+            "channel_order": channel_order,
+            "channel_labels": channel_labels,
+        }
+    return SmartlyCapability(
+        type=existing.type,
+        role=existing.role,
+        readable=existing.readable,
+        writable=existing.writable,
+        event_only=existing.event_only,
+        state=existing.state,
+        commands=existing.commands,
+        events=events,
+        constraints=merged_constraints,
+        presentation=presentation,
+        instances=[*existing.instances, *incoming.instances],
+        source_refs=[*existing.source_refs, *incoming.source_refs],
+    )
+
+
+def _ordered_unique(values: list[str]) -> list[str]:
+    """Return string values once while preserving first-seen order."""
+    return list(dict.fromkeys(values))
 
 
 def _aliases_for_group(snapshots: list[EntityStateSnapshot]) -> list[dict[str, Any]]:
@@ -300,6 +362,9 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
     """Map source presentation capabilities to canonical capability contracts."""
     canonical = _canonical_capability(capability)
     state = _capability_state(snapshot, canonical)
+    commands = _commands_for_capability(canonical)
+    constraints = _constraints_for_capability(snapshot, canonical)
+    presentation = _capability_presentation(snapshot, canonical)
     return SmartlyCapability(
         type=canonical,
         role=_capability_role(canonical),
@@ -307,8 +372,15 @@ def _capability_from_snapshot(snapshot: EntityStateSnapshot, capability: str) ->
         writable=canonical in _WRITABLE_CAPABILITIES,
         event_only=canonical == "button_event",
         state=state,
-        commands=_commands_for_capability(canonical),
-        constraints=_constraints_for_capability(snapshot, canonical),
+        commands=commands,
+        events=_events_for_capability(snapshot, canonical),
+        constraints=constraints,
+        presentation=presentation,
+        instances=(
+            [_setting_instance(presentation, state, commands, constraints)]
+            if canonical in {"numeric_setting", "option_setting"}
+            else []
+        ),
         source_refs=[_source_ref(snapshot, canonical)],
     )
 
@@ -480,18 +552,21 @@ def _setting_capability_from_control(
 ) -> SmartlyCapability:
     """Return a canonical setting capability from a presentation control."""
     domain = str(control.get("domain"))
+    commands = [command]
+    presentation = {
+        "key": control.get("key"),
+        "name": control.get("name"),
+    }
     return SmartlyCapability(
         type=capability_type,
         role="setting",
         readable=True,
         writable=True,
         state=state,
-        commands=[command],
+        commands=commands,
         constraints=constraints,
-        presentation={
-            "key": control.get("key"),
-            "name": control.get("name"),
-        },
+        presentation=presentation,
+        instances=[_setting_instance(presentation, state, commands, constraints)],
         source_refs=[
             {
                 "source": "home_assistant",
@@ -503,6 +578,22 @@ def _setting_capability_from_control(
             }
         ],
     )
+
+
+def _setting_instance(
+    presentation: dict[str, Any],
+    state: dict[str, Any],
+    commands: list[str],
+    constraints: dict[str, Any],
+) -> dict[str, Any]:
+    """Return customer-safe metadata for one writable setting target."""
+    return {
+        "key": presentation.get("key"),
+        "name": presentation.get("name"),
+        "state": state,
+        "commands": commands,
+        "constraints": constraints,
+    }
 
 
 def _numeric_state(
@@ -858,6 +949,15 @@ def _constraints_for_capability(
     capability: str,
 ) -> dict[str, Any]:
     """Return default constraints for canonical capabilities."""
+    if capability == "button_event":
+        event_source = snapshot.presentation.get("button_event", {})
+        channels = event_source.get("channels")
+        schema_version = event_source.get("event_schema_version")
+        if isinstance(channels, list) and isinstance(schema_version, int):
+            return {
+                "event_schema_version": schema_version,
+                "channels": channels,
+            }
     if capability == "brightness":
         return {"min": 0, "max": 100, "step": 1}
     if capability == "color_temperature":
@@ -905,6 +1005,41 @@ def _constraints_for_capability(
         if isinstance(options, list) and all(isinstance(option, str) for option in options):
             return {"values": options}
     return {}
+
+
+def _events_for_capability(snapshot: EntityStateSnapshot, capability: str) -> list[str]:
+    """Return declared canonical events for an event-only capability."""
+    if capability != "button_event":
+        return []
+    events = snapshot.presentation.get("button_event", {}).get("events")
+    if not isinstance(events, list):
+        return []
+    return [event for event in events if isinstance(event, str)]
+
+
+def _capability_presentation(
+    snapshot: EntityStateSnapshot,
+    capability: str,
+) -> dict[str, Any]:
+    """Return display-only metadata for a canonical capability."""
+    if capability in {"numeric_setting", "option_setting"}:
+        domain = snapshot.domain or snapshot.entity_id.partition(".")[0]
+        key = setting_key_for_entity(snapshot.entity_id, snapshot.name, domain)
+        return {
+            "key": key,
+            "name": snapshot.name,
+        }
+    if capability != "button_event":
+        return {}
+    event_source = snapshot.presentation.get("button_event", {})
+    channel_order = event_source.get("channel_order")
+    channel_labels = event_source.get("channel_labels")
+    if not isinstance(channel_order, list) or not isinstance(channel_labels, dict):
+        return {}
+    return {
+        "channel_order": channel_order,
+        "channel_labels": channel_labels,
+    }
 
 
 def _color_temperature_constraints(attributes: dict[str, Any]) -> dict[str, Any]:

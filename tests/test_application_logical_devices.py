@@ -2,12 +2,262 @@
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.smartly_bridge.application.logical_devices import (
     logical_device_from_state,
     logical_devices_from_states,
 )
 from custom_components.smartly_bridge.device_presentation import build_device_card_metadata
 from custom_components.smartly_bridge.domain.models import EntityStateSnapshot
+
+
+def _button_event_capability(
+    entity_id: str,
+    attributes: dict[str, object],
+) -> tuple[dict[str, object], dict[str, object]]:
+    """Return metadata and the normalized button event capability."""
+    metadata, snapshot = _button_event_snapshot(entity_id, attributes)
+    device = logical_device_from_state(snapshot).to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+    return metadata, capability
+
+
+def _button_event_snapshot(
+    entity_id: str,
+    attributes: dict[str, object],
+    *,
+    source_device_id: str | None = None,
+) -> tuple[dict[str, object], EntityStateSnapshot]:
+    """Return metadata and a button event state snapshot."""
+    metadata = build_device_card_metadata(entity_id, "unknown", attributes)
+    snapshot = EntityStateSnapshot(
+        entity_id=entity_id,
+        state="unknown",
+        attributes=attributes,
+        name=str(attributes.get("friendly_name", entity_id)),
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+        source_device_id=source_device_id,
+    )
+    return metadata, snapshot
+
+
+def test_aqara_h1_profile_exposes_declared_channel_gestures() -> None:
+    """Aqara H1 metadata declares each physical and combined rocker channel."""
+    metadata, capability = _button_event_capability(
+        "sensor.hall_remote_action",
+        {
+            "friendly_name": "Hall remote",
+            "model": "WXKG15LM",
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert capability["events"] == [
+        "single_press",
+        "double_press",
+        "triple_press",
+        "long_press",
+    ]
+    assert capability["constraints"] == {
+        "event_schema_version": 1,
+        "channels": [
+            {
+                "key": "left",
+                "events": [
+                    "single_press",
+                    "double_press",
+                    "triple_press",
+                    "long_press",
+                ],
+            },
+            {
+                "key": "right",
+                "events": [
+                    "single_press",
+                    "double_press",
+                    "triple_press",
+                    "long_press",
+                ],
+            },
+            {
+                "key": "both",
+                "events": [
+                    "single_press",
+                    "double_press",
+                    "triple_press",
+                    "long_press",
+                ],
+            },
+        ],
+    }
+    assert capability["presentation"] == {
+        "channel_order": ["left", "right", "both"],
+        "channel_labels": {
+            "left": "Left",
+            "right": "Right",
+            "both": "Both",
+        },
+    }
+
+
+def test_somrig_profile_preserves_release_gestures_per_button() -> None:
+    """IKEA SOMRIG metadata exposes two independent button channels."""
+    metadata, capability = _button_event_capability(
+        "sensor.shortcut_remote_action",
+        {
+            "friendly_name": "Shortcut remote",
+            "model": "E2213",
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert capability["constraints"]["channels"] == [
+        {
+            "key": "button_1",
+            "events": [
+                "single_press",
+                "double_press",
+                "long_press",
+                "long_release",
+            ],
+        },
+        {
+            "key": "button_2",
+            "events": [
+                "single_press",
+                "double_press",
+                "long_press",
+                "long_release",
+            ],
+        },
+    ]
+
+
+def test_hue_dimmer_profile_keeps_functional_channel_names() -> None:
+    """Hue dimmer metadata uses physical function names instead of numeric guesses."""
+    metadata, capability = _button_event_capability(
+        "sensor.living_room_dimmer_action",
+        {
+            "friendly_name": "Living room dimmer",
+            "model": "929002398602",
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert [channel["key"] for channel in capability["constraints"]["channels"]] == [
+        "power",
+        "brightness_up",
+        "brightness_down",
+        "scene",
+    ]
+
+
+def test_unknown_button_action_values_derive_declared_channels() -> None:
+    """Unknown adapters can provide source action values without a model hard-code."""
+    metadata, capability = _button_event_capability(
+        "sensor.generic_remote_action",
+        {
+            "friendly_name": "Generic remote",
+            "action_values": [
+                "single_1",
+                "double_1",
+                "hold_1",
+                "release_1",
+                "single_2",
+            ],
+        },
+    )
+
+    assert metadata["device_class"] == "multi_button_device"
+    assert capability["constraints"]["channels"] == [
+        {
+            "key": "button_1",
+            "events": [
+                "single_press",
+                "double_press",
+                "long_press",
+                "long_release",
+            ],
+        },
+        {"key": "button_2", "events": ["single_press"]},
+    ]
+
+
+def test_unknown_button_action_values_ignore_malformed_and_unknown_tokens() -> None:
+    """Runtime action evidence keeps valid suffix forms and drops unsafe guesses."""
+    _, capability = _button_event_capability(
+        "sensor.generic_remote_action",
+        {
+            "friendly_name": "Generic remote",
+            "action_values": [None, "", "unsupported", "single_", "left_single"],
+        },
+    )
+
+    assert capability["constraints"]["channels"] == [{"key": "left", "events": ["single_press"]}]
+
+
+def test_grouped_button_event_entities_merge_declared_channels() -> None:
+    """Every grouped event entity contributes its declared channel metadata."""
+    _, left = _button_event_snapshot(
+        "sensor.remote_left_action",
+        {"friendly_name": "Remote left", "action_values": ["left_single"]},
+        source_device_id="remote-device-1",
+    )
+    _, right = _button_event_snapshot(
+        "sensor.remote_right_action",
+        {
+            "friendly_name": "Remote right",
+            "action_values": ["right_double", "right_hold"],
+        },
+        source_device_id="remote-device-1",
+    )
+
+    device = logical_devices_from_states([left, right])[0].to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+
+    assert capability["events"] == ["single_press", "double_press", "long_press"]
+    assert capability["constraints"] == {
+        "event_schema_version": 1,
+        "channels": [
+            {"key": "left", "events": ["single_press"]},
+            {"key": "right", "events": ["double_press", "long_press"]},
+        ],
+    }
+    assert capability["presentation"] == {
+        "channel_order": ["left", "right"],
+        "channel_labels": {"left": "Left", "right": "Right"},
+    }
+
+
+def test_grouped_button_events_without_channels_keep_schema_undeclared() -> None:
+    """Grouping unknown button sources does not create a declared empty schema."""
+    snapshots = [
+        EntityStateSnapshot(
+            entity_id=entity_id,
+            state="unknown",
+            attributes={},
+            name=entity_id,
+            domain="button",
+            device_class="button_device",
+            capabilities=["event"],
+            status="online",
+            presentation={"card_template": "event_card"},
+            source_device_id="unknown-button-device",
+        )
+        for entity_id in ("button.remote_left", "button.remote_right")
+    ]
+
+    device = logical_devices_from_states(snapshots)[0].to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+
+    assert capability["events"] == []
+    assert capability["constraints"] == {}
+    assert capability["presentation"] == {}
 
 
 def test_light_color_temperature_state_uses_kelvin_contract() -> None:
@@ -752,6 +1002,15 @@ def test_presence_sibling_number_setting_uses_numeric_setting_contract() -> None
             "key": "trigger_hold_seconds",
             "name": "Trigger hold seconds",
         },
+        "instances": [
+            {
+                "key": "trigger_hold_seconds",
+                "name": "Trigger hold seconds",
+                "state": {"value": 15, "unit": "s"},
+                "commands": ["set_value"],
+                "constraints": {"min": 1, "max": 120, "step": 1},
+            }
+        ],
         "source_refs": [
             {
                 "source": "home_assistant",
@@ -820,6 +1079,22 @@ def test_multiple_number_settings_keep_all_numeric_setting_source_refs() -> None
         "number.presence_detection_delay",
         "number.presence_cooldown",
     ]
+    assert numeric_setting["instances"] == [
+        {
+            "key": "trigger_hold_seconds",
+            "name": "Trigger hold seconds",
+            "state": {"value": 15, "unit": "s"},
+            "commands": ["set_value"],
+            "constraints": {"min": 1, "max": 120, "step": 1},
+        },
+        {
+            "key": "cooldown_seconds",
+            "name": "Cooldown seconds",
+            "state": {"value": 5, "unit": "s"},
+            "commands": ["set_value"],
+            "constraints": {"min": 1, "max": 60, "step": 1},
+        },
+    ]
 
 
 def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
@@ -871,6 +1146,15 @@ def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
             "key": "occupancy_sensitivity",
             "name": "Occupancy sensitivity",
         },
+        "instances": [
+            {
+                "key": "occupancy_sensitivity",
+                "name": "Occupancy sensitivity",
+                "state": {"value": "low"},
+                "commands": ["select_option"],
+                "constraints": {"values": ["low", "medium", "high"]},
+            }
+        ],
         "source_refs": [
             {
                 "source": "home_assistant",
@@ -883,6 +1167,68 @@ def test_presence_sibling_select_setting_uses_option_setting_contract() -> None:
         ],
     }
     assert "option_setting" in device["presentation"]["primary_controls"]
+
+
+def test_multiple_select_settings_keep_each_option_contract() -> None:
+    """Repeated option settings retain per-control values and choices."""
+    snapshot = EntityStateSnapshot(
+        entity_id="binary_sensor.presence",
+        state="on",
+        attributes={"device_class": "occupancy"},
+        name="Presence Sensor",
+        domain="binary_sensor",
+        device_class="presence_sensor",
+        capabilities=["presence"],
+        status="online",
+        presentation={
+            "card_template": "binary_state_card",
+            "setting_controls": [
+                {
+                    "key": "occupancy_sensitivity",
+                    "entity_id": "select.presence_occupancy_sensitivity",
+                    "domain": "select",
+                    "name": "Occupancy sensitivity",
+                    "action": "select_option",
+                    "value": "low",
+                    "options": ["low", "medium", "high"],
+                },
+                {
+                    "key": "detection_mode",
+                    "entity_id": "select.presence_detection_mode",
+                    "domain": "select",
+                    "name": "Detection mode",
+                    "action": "select_option",
+                    "value": "normal",
+                    "options": ["normal", "fast"],
+                },
+            ],
+        },
+        source_device_id="zigbee-presence-1",
+    )
+
+    device = logical_device_from_state(snapshot).to_dict()
+    option_setting = next(
+        capability
+        for capability in device["capabilities"]
+        if capability["type"] == "option_setting"
+    )
+
+    assert option_setting["instances"] == [
+        {
+            "key": "occupancy_sensitivity",
+            "name": "Occupancy sensitivity",
+            "state": {"value": "low"},
+            "commands": ["select_option"],
+            "constraints": {"values": ["low", "medium", "high"]},
+        },
+        {
+            "key": "detection_mode",
+            "name": "Detection mode",
+            "state": {"value": "normal"},
+            "commands": ["select_option"],
+            "constraints": {"values": ["normal", "fast"]},
+        },
+    ]
 
 
 def test_climate_target_temperature_uses_target_temperature_contract() -> None:
@@ -1138,6 +1484,15 @@ def test_input_number_helper_exposes_numeric_setting_capability() -> None:
     assert capability["state"] == {"value": 15, "unit": "s"}
     assert capability["constraints"] == {"min": 1, "max": 120, "step": 1}
     assert capability["commands"] == ["set_value"]
+    assert capability["instances"] == [
+        {
+            "key": "trigger_hold_seconds",
+            "name": "觸發維持秒數",
+            "state": {"value": 15, "unit": "s"},
+            "commands": ["set_value"],
+            "constraints": {"min": 1, "max": 120, "step": 1},
+        }
+    ]
     assert capability["source_refs"][0]["domain"] == "input_number"
     assert device["presentation"]["template"] == "setting_control"
     assert device["presentation"]["primary_controls"] == ["numeric_setting"]
@@ -1176,9 +1531,72 @@ def test_input_select_helper_exposes_option_setting_capability() -> None:
     assert capability["state"] == {"value": "medium"}
     assert capability["constraints"] == {"values": ["low", "medium", "high"]}
     assert capability["commands"] == ["select_option"]
+    assert capability["instances"] == [
+        {
+            "key": "occupancy_sensitivity",
+            "name": "感應強度",
+            "state": {"value": "medium"},
+            "commands": ["select_option"],
+            "constraints": {"values": ["low", "medium", "high"]},
+        }
+    ]
     assert capability["source_refs"][0]["domain"] == "input_select"
     assert device["presentation"]["template"] == "setting_control"
     assert device["presentation"]["primary_controls"] == ["option_setting"]
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "name", "state", "attributes", "expected_key"),
+    [
+        (
+            "input_number.presence_cooldown",
+            "Cooldown seconds",
+            "5",
+            {"min": 1, "max": 60, "step": 1},
+            "cooldown_seconds",
+        ),
+        (
+            "input_number.presence_delay",
+            "Trigger hold seconds",
+            "15",
+            {"min": 1, "max": 120, "step": 1},
+            "trigger_hold_seconds",
+        ),
+        (
+            "input_select.presence_sensitivity",
+            "Presence sensitivity",
+            "medium",
+            {"options": ["low", "medium", "high"]},
+            "occupancy_sensitivity",
+        ),
+    ],
+)
+def test_direct_setting_helper_advertises_resolver_key(
+    entity_id: str,
+    name: str,
+    state: str,
+    attributes: dict[str, object],
+    expected_key: str,
+) -> None:
+    """Direct setting instances advertise the key accepted by command routing."""
+    attributes = {"friendly_name": name, **attributes}
+    metadata = build_device_card_metadata(entity_id, state, attributes, {"smartly"})
+    snapshot = EntityStateSnapshot(
+        entity_id=entity_id,
+        state=state,
+        attributes=attributes,
+        name=name,
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    capability = logical_device_from_state(snapshot).to_dict()["capabilities"][0]
+
+    assert capability["presentation"]["key"] == expected_key
+    assert capability["instances"][0]["key"] == expected_key
 
 
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:
