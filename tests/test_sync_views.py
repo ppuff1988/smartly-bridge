@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import asyncio
 import json
 from datetime import datetime, timezone
 from pathlib import Path
@@ -516,6 +517,7 @@ class TestSmartlySyncStatesView:
         from custom_components.smartly_bridge.views import sync as sync_views
 
         hass = MagicMock()
+        hass.services.async_call = AsyncMock()
         hass.data = {
             DOMAIN: {
                 "config_entry": MagicMock(
@@ -1896,6 +1898,177 @@ async def _state_payloads(
         ).list_states()
 
     return [snapshot.to_sync_dict() for snapshot in snapshots]
+
+
+@pytest.mark.asyncio
+async def test_state_sync_refreshes_light_before_reading_snapshot(mock_hass):
+    """State sync reads a light only after Home Assistant refreshes the entity."""
+    stale_state = _state("off", {"friendly_name": "Living Light"})
+    refreshed_state = _state("on", {"friendly_name": "Living Light"})
+    refresh_completed = False
+
+    async def refresh_entity(*_args, **_kwargs):
+        nonlocal refresh_completed
+        refresh_completed = True
+
+    mock_hass.services.async_call.side_effect = refresh_entity
+    mock_hass.states.get.side_effect = lambda _entity_id: (
+        refreshed_state if refresh_completed else stale_state
+    )
+    entry = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels={"smartly"},
+        device_id=None,
+    )
+    registry = MagicMock()
+    registry.entities = {"light.living_room": entry}
+    registry.async_get.return_value = entry
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=registry):
+        snapshots = await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=["light.living_room"]),
+        ).list_states()
+
+    mock_hass.services.async_call.assert_awaited_once_with(
+        "homeassistant",
+        "update_entity",
+        {"entity_id": ["light.living_room"]},
+        blocking=True,
+    )
+    assert snapshots[0].state == "on"
+
+
+@pytest.mark.asyncio
+async def test_state_sync_refreshes_entities_independently_and_rejects_partial_failure(
+    mock_hass,
+):
+    """A failed entity refresh does not hide stale state or skip other entities."""
+    refreshed_entities: set[str] = set()
+
+    async def refresh_entity(_domain, _service, service_data, **_kwargs):
+        entity_id = service_data["entity_id"][0]
+        if entity_id == "light.unavailable":
+            raise RuntimeError("device unavailable")
+        refreshed_entities.add(entity_id)
+
+    states = {
+        "light.unavailable": _state("off", {"friendly_name": "Unavailable Light"}),
+        "light.living_room": _state("on", {"friendly_name": "Living Light"}),
+    }
+    mock_hass.services.async_call.side_effect = refresh_entity
+    mock_hass.states.get.side_effect = states.get
+    entries = {
+        entity_id: MagicMock(
+            icon=None,
+            original_icon=None,
+            labels={"smartly"},
+            device_id=None,
+        )
+        for entity_id in states
+    }
+    registry = MagicMock()
+    registry.entities = entries
+    registry.async_get.side_effect = entries.get
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=registry):
+        result = await SyncStatesUseCase(
+            HomeAssistantStateSyncGateway(
+                mock_hass,
+                allowed_entities_fn=MagicMock(return_value=list(states)),
+            )
+        ).execute()
+
+    attempted_entities = {
+        call.args[2]["entity_id"][0] for call in mock_hass.services.async_call.await_args_list
+    }
+    assert attempted_entities == set(states)
+    assert refreshed_entities == {"light.living_room"}
+    assert result.status == 503
+    assert result.body["data"]["status"] == "rejected"
+    assert result.body["errors"] == [
+        {
+            "code": "STATE_REFRESH_FAILED",
+            "message": "state refresh failed",
+            "target": "sync.states.refresh",
+            "retryable": True,
+        }
+    ]
+
+
+@pytest.mark.asyncio
+async def test_state_sync_times_out_stalled_entity_refresh(mock_hass):
+    """A stalled Home Assistant entity update becomes a retryable sync failure."""
+
+    async def stalled_refresh(*_args, **_kwargs):
+        await asyncio.Event().wait()
+
+    mock_hass.services.async_call.side_effect = stalled_refresh
+    entry = MagicMock(
+        icon=None,
+        original_icon=None,
+        labels={"smartly"},
+        device_id=None,
+    )
+    registry = MagicMock()
+    registry.entities = {"light.stalled": entry}
+    registry.async_get.return_value = entry
+    gateway = HomeAssistantStateSyncGateway(
+        mock_hass,
+        allowed_entities_fn=MagicMock(return_value=["light.stalled"]),
+    )
+    gateway._refresh_timeout_seconds = 0.01
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=registry):
+        try:
+            result = await asyncio.wait_for(
+                SyncStatesUseCase(gateway).execute(),
+                timeout=0.2,
+            )
+        except TimeoutError:
+            pytest.fail("state refresh did not honor its timeout")
+
+    assert result.status == 503
+    assert result.body["errors"][0]["code"] == "STATE_REFRESH_FAILED"
+    assert result.body["errors"][0]["retryable"] is True
+
+
+@pytest.mark.asyncio
+async def test_state_sync_limits_concurrent_entity_refreshes(mock_hass):
+    """State sync does not fan out an unbounded number of device requests."""
+    active_refreshes = 0
+    max_active_refreshes = 0
+
+    async def refresh_entity(*_args, **_kwargs):
+        nonlocal active_refreshes, max_active_refreshes
+        active_refreshes += 1
+        max_active_refreshes = max(max_active_refreshes, active_refreshes)
+        await asyncio.sleep(0.01)
+        active_refreshes -= 1
+
+    entity_ids = [f"light.test_{index}" for index in range(8)]
+    mock_hass.services.async_call.side_effect = refresh_entity
+    entries = {
+        entity_id: MagicMock(
+            icon=None,
+            original_icon=None,
+            labels={"smartly"},
+            device_id=None,
+        )
+        for entity_id in entity_ids
+    }
+    registry = MagicMock()
+    registry.entities = entries
+    registry.async_get.side_effect = entries.get
+
+    with patch("homeassistant.helpers.entity_registry.async_get", return_value=registry):
+        await HomeAssistantStateSyncGateway(
+            mock_hass,
+            allowed_entities_fn=MagicMock(return_value=entity_ids),
+        ).list_states()
+
+    assert max_active_refreshes == 4
 
 
 @pytest.mark.asyncio

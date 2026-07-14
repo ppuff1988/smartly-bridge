@@ -11,7 +11,21 @@ from .ports import RawDiagnosticRecorderPort, SyncStatesPort, SyncStructurePort
 SMARTLY_API_SCHEMA_VERSION = "2026.06"
 
 
-def sync_error_response(error: str, *, status: int, target: str) -> BridgeResponse:
+class SyncStateRefreshError(RuntimeError):
+    """Raised when Home Assistant cannot refresh every requested entity state."""
+
+    def __init__(self, entity_ids: list[str]) -> None:
+        self.entity_ids = tuple(entity_ids)
+        super().__init__(f"failed to refresh {len(entity_ids)} entity states")
+
+
+def sync_error_response(
+    error: str,
+    *,
+    status: int,
+    target: str,
+    retryable: bool = False,
+) -> BridgeResponse:
     """Return an API vNext sync error response."""
     return BridgeResponse(
         {
@@ -23,7 +37,7 @@ def sync_error_response(error: str, *, status: int, target: str) -> BridgeRespon
                     "code": error.upper(),
                     "message": error.replace("_", " "),
                     "target": target,
-                    "retryable": False,
+                    "retryable": retryable,
                 }
             ],
         },
@@ -73,7 +87,15 @@ class SyncStatesUseCase:
 
     async def execute(self) -> BridgeResponse:
         """Return states and count."""
-        snapshots = await self._gateway.list_states()
+        try:
+            snapshots = await self._gateway.list_states()
+        except SyncStateRefreshError:
+            return sync_error_response(
+                "state_refresh_failed",
+                status=503,
+                target="sync.states.refresh",
+                retryable=True,
+            )
         states = [state.to_sync_dict() for state in snapshots]
         logical_device_models = logical_devices_from_states(snapshots)
         logical_devices = [device.to_dict() for device in logical_device_models]

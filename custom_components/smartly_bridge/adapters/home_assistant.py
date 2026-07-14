@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import logging
 import time
 from datetime import datetime, timedelta, timezone
 from typing import Any, Callable
@@ -24,6 +25,7 @@ from ..application.logical_devices import (
     canonical_capability_name,
     logical_device_id_for_source_id,
 )
+from ..application.sync import SyncStateRefreshError
 from ..audit import log_control, log_deny
 from ..const import (
     BRIDGE_CHART_LOOKBACK_HOURS,
@@ -50,6 +52,24 @@ from ..utils import (
 )
 
 DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
+SYNC_REFRESH_MAX_CONCURRENCY = 4
+SYNC_REFRESH_TIMEOUT_SECONDS = 5.0
+SYNC_REFRESH_DOMAINS = {
+    "climate",
+    "cover",
+    "fan",
+    "humidifier",
+    "lawn_mower",
+    "light",
+    "lock",
+    "media_player",
+    "switch",
+    "vacuum",
+    "valve",
+    "water_heater",
+}
+
+_LOGGER = logging.getLogger(__name__)
 
 
 def _entry_labels(entry: Any) -> set[str]:
@@ -808,6 +828,8 @@ class HomeAssistantStateSyncGateway:
         self._history_semaphore = asyncio.Semaphore(MAX_CONCURRENT_HISTORY_QUERIES)
         self._history_semaphore_factory = history_semaphore_factory or self._get_history_semaphore
         self._history_gateway_factory = history_gateway_factory
+        self._refresh_semaphore = asyncio.Semaphore(SYNC_REFRESH_MAX_CONCURRENCY)
+        self._refresh_timeout_seconds = SYNC_REFRESH_TIMEOUT_SECONDS
 
     async def list_states(self) -> list[EntityStateSnapshot]:
         """Return allowed entity state snapshots."""
@@ -815,6 +837,7 @@ class HomeAssistantStateSyncGateway:
 
         entity_registry = er.async_get(self._hass)
         allowed_entities = self._allowed_entities_fn(self._hass, entity_registry)
+        await self._refresh_stateful_entities(allowed_entities)
         signal_by_device = self._signal_attributes_by_device(allowed_entities, entity_registry)
         setting_controls_by_device = self._setting_controls_by_device(
             allowed_entities,
@@ -887,6 +910,53 @@ class HomeAssistantStateSyncGateway:
                 )
             )
         return snapshots
+
+    async def _refresh_stateful_entities(self, entity_ids: list[str]) -> None:
+        """Refresh externally mutable entities before reading the state cache."""
+        refresh_entity_ids = [
+            entity_id
+            for entity_id in entity_ids
+            if get_entity_domain(entity_id) in SYNC_REFRESH_DOMAINS
+        ]
+        if not refresh_entity_ids:
+            return
+
+        async def refresh_entity(entity_id: str) -> str | None:
+            try:
+                async with self._refresh_semaphore:
+                    await self._hass.services.async_call(
+                        "homeassistant",
+                        "update_entity",
+                        {"entity_id": [entity_id]},
+                        blocking=True,
+                    )
+            except Exception as error:
+                _LOGGER.warning(
+                    "Failed to refresh entity %s before state sync (%s)",
+                    entity_id,
+                    type(error).__name__,
+                )
+                return entity_id
+            return None
+
+        try:
+            async with asyncio.timeout(self._refresh_timeout_seconds):
+                results = await asyncio.gather(
+                    *(refresh_entity(entity_id) for entity_id in refresh_entity_ids)
+                )
+        except TimeoutError:
+            _LOGGER.warning(
+                "Rejecting state sync because entity refresh exceeded %.1f seconds",
+                self._refresh_timeout_seconds,
+            )
+            raise SyncStateRefreshError(refresh_entity_ids) from None
+        failed_entity_ids = [entity_id for entity_id in results if entity_id is not None]
+        if failed_entity_ids:
+            _LOGGER.warning(
+                "Rejecting state sync because %d entity refreshes failed",
+                len(failed_entity_ids),
+            )
+            raise SyncStateRefreshError(failed_entity_ids)
 
     def _signal_attributes_by_device(
         self,
@@ -1296,7 +1366,7 @@ class HomeAssistantWebRTCGateway:
         url: str,
         params: dict[str, str],
         payload: dict[str, str],
-        timeout_seconds: int,
+        timeout_seconds: float,
         *,
         retry: bool = False,
     ) -> str:

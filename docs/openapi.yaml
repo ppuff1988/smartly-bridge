@@ -502,6 +502,9 @@ paths:
       description: |
         Returns the current state of all entities that have the `smartly` label.
         Useful for initial sync or state reconciliation.
+        Before building the snapshot, Bridge refreshes externally mutable control
+        entities with at most 4 concurrent updates and a 5-second total budget.
+        Any refresh failure rejects the sync instead of returning cached state as fresh.
         Eligible numeric sensors include `attributes.bridge_chart.points` with
         recorder significant states from the previous 2 hours, capped at 24
         evenly sampled points. If recorder
@@ -545,6 +548,22 @@ paths:
           $ref: '#/components/responses/UnauthorizedError'
         '429':
           $ref: '#/components/responses/RateLimitError'
+        '503':
+          description: One or more entity states could not be refreshed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                schema_version: "2026.06"
+                data:
+                  status: rejected
+                warnings: []
+                errors:
+                  - code: STATE_REFRESH_FAILED
+                    message: state refresh failed
+                    target: sync.states.refresh
+                    retryable: true
         '500':
           $ref: '#/components/responses/InternalError'
 
