@@ -8,6 +8,7 @@ from collections import OrderedDict
 from typing import Any
 
 from ..domain.models import EntityStateSnapshot, SmartlyCapability, SmartlyLogicalDevice
+from ..domain.setting_keys import setting_key_for_entity
 
 _WRITABLE_CAPABILITIES = {
     "power",
@@ -247,8 +248,8 @@ def _merge_button_event_capability(
     """Merge declared channels from grouped button event source entities."""
     events = _ordered_unique([*existing.events, *incoming.events])
     channels: OrderedDict[str, list[str]] = OrderedDict()
-    for constraints in (existing.constraints, incoming.constraints):
-        for channel in constraints.get("channels", []):
+    for source_constraints in (existing.constraints, incoming.constraints):
+        for channel in source_constraints.get("channels", []):
             key = channel["key"]
             channels[key] = _ordered_unique([*channels.get(key, []), *channel["events"]])
     channel_order = _ordered_unique(
@@ -261,6 +262,22 @@ def _merge_button_event_capability(
         **existing.presentation.get("channel_labels", {}),
         **incoming.presentation.get("channel_labels", {}),
     }
+    merged_constraints: dict[str, Any] = {}
+    presentation: dict[str, Any] = {}
+    if channels:
+        merged_constraints = {
+            "event_schema_version": existing.constraints.get(
+                "event_schema_version",
+                incoming.constraints.get("event_schema_version"),
+            ),
+            "channels": [
+                {"key": key, "events": channel_events} for key, channel_events in channels.items()
+            ],
+        }
+        presentation = {
+            "channel_order": channel_order,
+            "channel_labels": channel_labels,
+        }
     return SmartlyCapability(
         type=existing.type,
         role=existing.role,
@@ -270,19 +287,8 @@ def _merge_button_event_capability(
         state=existing.state,
         commands=existing.commands,
         events=events,
-        constraints={
-            "event_schema_version": existing.constraints.get(
-                "event_schema_version",
-                incoming.constraints.get("event_schema_version"),
-            ),
-            "channels": [
-                {"key": key, "events": channel_events} for key, channel_events in channels.items()
-            ],
-        },
-        presentation={
-            "channel_order": channel_order,
-            "channel_labels": channel_labels,
-        },
+        constraints=merged_constraints,
+        presentation=presentation,
         instances=[*existing.instances, *incoming.instances],
         source_refs=[*existing.source_refs, *incoming.source_refs],
     )
@@ -1017,9 +1023,10 @@ def _capability_presentation(
 ) -> dict[str, Any]:
     """Return display-only metadata for a canonical capability."""
     if capability in {"numeric_setting", "option_setting"}:
-        _, _, object_id = snapshot.entity_id.partition(".")
+        domain = snapshot.domain or snapshot.entity_id.partition(".")[0]
+        key = setting_key_for_entity(snapshot.entity_id, snapshot.name, domain)
         return {
-            "key": object_id or snapshot.entity_id,
+            "key": key,
             "name": snapshot.name,
         }
     if capability != "button_event":

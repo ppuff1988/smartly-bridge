@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 from custom_components.smartly_bridge.application.logical_devices import (
     logical_device_from_state,
     logical_devices_from_states,
@@ -230,6 +232,32 @@ def test_grouped_button_event_entities_merge_declared_channels() -> None:
         "channel_order": ["left", "right"],
         "channel_labels": {"left": "Left", "right": "Right"},
     }
+
+
+def test_grouped_button_events_without_channels_keep_schema_undeclared() -> None:
+    """Grouping unknown button sources does not create a declared empty schema."""
+    snapshots = [
+        EntityStateSnapshot(
+            entity_id=entity_id,
+            state="unknown",
+            attributes={},
+            name=entity_id,
+            domain="button",
+            device_class="button_device",
+            capabilities=["event"],
+            status="online",
+            presentation={"card_template": "event_card"},
+            source_device_id="unknown-button-device",
+        )
+        for entity_id in ("button.remote_left", "button.remote_right")
+    ]
+
+    device = logical_devices_from_states(snapshots)[0].to_dict()
+    capability = next(item for item in device["capabilities"] if item["type"] == "button_event")
+
+    assert capability["events"] == []
+    assert capability["constraints"] == {}
+    assert capability["presentation"] == {}
 
 
 def test_light_color_temperature_state_uses_kelvin_contract() -> None:
@@ -1515,6 +1543,60 @@ def test_input_select_helper_exposes_option_setting_capability() -> None:
     assert capability["source_refs"][0]["domain"] == "input_select"
     assert device["presentation"]["template"] == "setting_control"
     assert device["presentation"]["primary_controls"] == ["option_setting"]
+
+
+@pytest.mark.parametrize(
+    ("entity_id", "name", "state", "attributes", "expected_key"),
+    [
+        (
+            "input_number.presence_cooldown",
+            "Cooldown seconds",
+            "5",
+            {"min": 1, "max": 60, "step": 1},
+            "cooldown_seconds",
+        ),
+        (
+            "input_number.presence_delay",
+            "Trigger hold seconds",
+            "15",
+            {"min": 1, "max": 120, "step": 1},
+            "trigger_hold_seconds",
+        ),
+        (
+            "input_select.presence_sensitivity",
+            "Presence sensitivity",
+            "medium",
+            {"options": ["low", "medium", "high"]},
+            "occupancy_sensitivity",
+        ),
+    ],
+)
+def test_direct_setting_helper_advertises_resolver_key(
+    entity_id: str,
+    name: str,
+    state: str,
+    attributes: dict[str, object],
+    expected_key: str,
+) -> None:
+    """Direct setting instances advertise the key accepted by command routing."""
+    attributes = {"friendly_name": name, **attributes}
+    metadata = build_device_card_metadata(entity_id, state, attributes, {"smartly"})
+    snapshot = EntityStateSnapshot(
+        entity_id=entity_id,
+        state=state,
+        attributes=attributes,
+        name=name,
+        domain=metadata["domain"],
+        device_class=metadata["device_class"],
+        capabilities=metadata["capabilities"],
+        status=metadata["status"],
+        presentation=metadata["presentation"],
+    )
+
+    capability = logical_device_from_state(snapshot).to_dict()["capabilities"][0]
+
+    assert capability["presentation"]["key"] == expected_key
+    assert capability["instances"][0]["key"] == expected_key
 
 
 def test_sibling_entities_with_same_source_device_group_into_one_logical_device() -> None:

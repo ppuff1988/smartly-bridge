@@ -35,6 +35,12 @@ from ..const import (
 )
 from ..device_presentation import build_device_card_metadata
 from ..domain.models import CameraSnapshot, CameraStreamInfo, EntityStateSnapshot
+from ..domain.setting_keys import (
+    NUMERIC_SETTING_DOMAINS,
+    OPTION_SETTING_DOMAINS,
+    SETTING_DOMAINS,
+    setting_key_for_entity,
+)
 from ..utils import (
     build_bridge_chart_from_states,
     format_numeric_attributes,
@@ -44,9 +50,6 @@ from ..utils import (
 )
 
 DEVICE_EVENT_TYPE = "smartly_bridge_device_event"
-NUMERIC_SETTING_DOMAINS = {"number", "input_number"}
-OPTION_SETTING_DOMAINS = {"select", "input_select"}
-SETTING_DOMAINS = NUMERIC_SETTING_DOMAINS | OPTION_SETTING_DOMAINS
 
 
 def _entry_labels(entry: Any) -> set[str]:
@@ -106,38 +109,6 @@ def _history_end_time(value: Any) -> datetime:
             return value.replace(tzinfo=timezone.utc)
         return value
     return datetime.now(timezone.utc)
-
-
-def _setting_key_for_entity(entity_id: str, name: str, domain: str) -> str | None:
-    """Return the Smartly setting key for supported sibling setting entities."""
-    haystack = f"{entity_id} {name}".lower()
-    if domain in NUMERIC_SETTING_DOMAINS and any(
-        token in haystack for token in ("cooldown", "cooldown_seconds", "冷卻")
-    ):
-        return "cooldown_seconds"
-    if domain in NUMERIC_SETTING_DOMAINS and any(
-        token in haystack
-        for token in (
-            "delay",
-            "duration",
-            "hold",
-            "timeout",
-            "occupancy_timeout",
-            "trigger",
-            "second",
-            "秒",
-            "維持",
-        )
-    ):
-        return "trigger_hold_seconds"
-    if domain in OPTION_SETTING_DOMAINS and any(
-        token in haystack for token in ("sensitivity", "occupancy_sensitivity", "感應強度")
-    ):
-        return "occupancy_sensitivity"
-    if domain in SETTING_DOMAINS:
-        _, _, object_id = entity_id.partition(".")
-        return object_id or entity_id
-    return None
 
 
 def _number_setting_control(
@@ -568,7 +539,7 @@ class HomeAssistantEntityPolicy:
             return False
         attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
         name = str(attributes.get("friendly_name", entity_id))
-        if _setting_key_for_entity(entity_id, name, domain) is None:
+        if setting_key_for_entity(entity_id, name, domain) is None:
             return False
         for sibling_entity_id, sibling in getattr(entity_registry, "entities", {}).items():
             if getattr(sibling, "device_id", None) != device_id:
@@ -703,7 +674,7 @@ class HomeAssistantCommandTargetResolver:
                 continue
             attributes = format_numeric_attributes(dict(getattr(state, "attributes", {}) or {}))
             name = str(attributes.get("friendly_name", entity_id))
-            resolved_key = _setting_key_for_entity(entity_id, name, domain)
+            resolved_key = setting_key_for_entity(entity_id, name, domain)
             if setting_key is not None and resolved_key != setting_key:
                 continue
             if resolved_key is not None:
@@ -990,7 +961,7 @@ class HomeAssistantStateSyncGateway:
 
             attributes = format_numeric_attributes(dict(state.attributes))
             name = str(attributes.get("friendly_name", entity_id))
-            key = _setting_key_for_entity(entity_id, name, domain)
+            key = setting_key_for_entity(entity_id, name, domain)
             if key is None:
                 continue
 
