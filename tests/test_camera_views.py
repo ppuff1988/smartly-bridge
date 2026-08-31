@@ -23,9 +23,7 @@ from custom_components.smartly_bridge.domain.models import (
     BridgeResponse,
 )
 from custom_components.smartly_bridge.domain.models import CameraSnapshot as DomainCameraSnapshot
-from custom_components.smartly_bridge.domain.models import (
-    CameraStreamInfo,
-)
+from custom_components.smartly_bridge.domain.models import CameraStreamInfo
 from custom_components.smartly_bridge.views.camera import (
     SmartlyCameraConfigView,
     SmartlyCameraHLSInfoView,
